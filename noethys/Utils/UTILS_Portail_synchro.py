@@ -1728,7 +1728,7 @@ class Synchro():
             req = """SELECT max(IDaction) FROM portail_actions;"""
             DB.ExecuterReq(req)
             listeTemp = DB.ResultatReq()
-            if listeTemp[0][0] == None:
+            if not listeTemp or listeTemp[0][0] is None:
                 prochainIDaction = 1
             else:
                 prochainIDaction = listeTemp[0][0] + 1
@@ -2043,7 +2043,8 @@ class Synchro():
                     print("Erreur dans telechargement du fichier '%s' : %s" % (nomFichier, str(err)))
                 return False
         else:
-            raise()
+            self.log.EcritLog(_(u"[ERREUR] Type d'hébergement inconnu : %s") % self.dict_parametres.get("hebergement_type"))
+            return False
         return repDestination, nomFichier
 
 
