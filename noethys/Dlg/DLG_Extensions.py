@@ -18,9 +18,10 @@ from Ctrl import CTRL_Bandeau
 from Utils import UTILS_Fichiers
 import os
 import sys
-import importlib
+import importlib.util
 import shutil
 import codecs
+import re
 
 
 
@@ -107,9 +108,37 @@ class CTRL_Extensions(wx.ListBox):
 
         # Exécution de l'extension
         nom_fichier = self.GetStringSelection()
-        sys.path.append(UTILS_Fichiers.GetRepExtensions())
-        module = importlib.import_module(nom_fichier)
-        module.Extension()
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", nom_fichier):
+            dlg = wx.MessageDialog(self, _(u"Nom d'extension invalide."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        chemin_extensions = os.path.realpath(UTILS_Fichiers.GetRepExtensions())
+        chemin_module = os.path.realpath(os.path.join(chemin_extensions, nom_fichier + ".py"))
+        if os.path.commonpath([chemin_extensions, chemin_module]) != chemin_extensions or not os.path.isfile(chemin_module):
+            dlg = wx.MessageDialog(self, _(u"Extension introuvable ou chemin invalide."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        nom_module = "noethys_extension_%s" % nom_fichier
+        spec = importlib.util.spec_from_file_location(nom_module, chemin_module)
+        if spec is None or spec.loader is None:
+            dlg = wx.MessageDialog(self, _(u"Impossible de charger cette extension."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fonction_extension = getattr(module, "Extension", None)
+        if not callable(fonction_extension):
+            dlg = wx.MessageDialog(self, _(u"Cette extension ne contient pas de fonction Extension() exploitable."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+        fonction_extension()
 
 
 # -------------------------------------------------------------------------------------------------------------------------------
