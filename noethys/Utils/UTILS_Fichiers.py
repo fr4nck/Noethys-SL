@@ -34,7 +34,9 @@ def GetRepData(fichier=""):
     if chemin != "" and os.path.isdir(chemin):
         return os.path.join(chemin, fichier)
 
-    # Recherche le chemin du répertoire des données
+    # Recherche le chemin du répertoire des données. appdirs peut retourner une
+    # arborescence dont les parents n'existent pas encore (notamment ~/.local/share
+    # sur une session Linux neuve), donc il faut créer la chaîne complète.
     if sys.platform == "win32" and platform.release() != "Vista" :
 
         chemin = appdirs.site_data_dir(appname=None, appauthor=False)
@@ -42,20 +44,13 @@ def GetRepData(fichier=""):
 
         chemin = os.path.join(chemin, "noethys")
         if not os.path.isdir(chemin):
-            os.mkdir(chemin)
-
+            os.makedirs(chemin)
     else :
 
         chemin = appdirs.user_data_dir(appname=None, appauthor=False)
-        #chemin = chemin.decode("utf8")
-
-        chemin = os.path.join(chemin, "noethys")
+        chemin = os.path.join(chemin, "noethys", "Data")
         if not os.path.isdir(chemin):
-            os.mkdir(chemin)
-
-        chemin = os.path.join(chemin, "Data")
-        if not os.path.isdir(chemin):
-            os.mkdir(chemin)
+            os.makedirs(chemin)
 
     # Ajoute le dirname si besoin
     return os.path.join(chemin, fichier)
