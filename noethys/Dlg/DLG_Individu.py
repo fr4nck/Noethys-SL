@@ -399,10 +399,13 @@ class Dialog(wx.Dialog):
         db.ExecuterReq(req)
         listeRattachements = db.ResultatReq()
         dictFamilles = {}
+        dictNomsCategories = {
+            1 : _(u"représentant"),
+            2 : _(u"enfant"),
+            3 : _(u"contact"),
+        }
         for IDrattachement, IDfamille, IDcategorie, titulaire, IDcompte_payeur in listeRattachements :
-            if IDcategorie == 1 : nomCategorie = _(u"représentant")
-            if IDcategorie == 2 : nomCategorie = _(u"enfant")
-            if IDcategorie == 3 : nomCategorie = _(u"contact")
+            nomCategorie = dictNomsCategories.get(IDcategorie, _(u"catégorie inconnue"))
             dictFamilles[IDfamille] = {"nomsTitulaires" : u"", "listeNomsTitulaires" : [], "IDcategorie" : IDcategorie, "nomCategorie" : nomCategorie, "IDcompte_payeur" : IDcompte_payeur }
         # Recherche des noms des titulaires
         if len(dictFamilles) == 0 : condition = "()"
@@ -424,10 +427,8 @@ class Dialog(wx.Dialog):
             if nbreTitulaires == 2 : 
                 dictFamilles[IDfamille]["nomsTitulaires"] = _(u"%s et %s") % (dictFamilles[IDfamille]["listeNomsTitulaires"][0], dictFamilles[IDfamille]["listeNomsTitulaires"][1])
             if nbreTitulaires > 2 :
-                texteNoms = ""
-                for nomTitulaire in dictFamilles[IDfamille]["listeNomsTitulaires"][:-1] :
-                    texteNoms += u"%s, " % nomTitulaire
-                texteNoms = _(u"%s et %s") % (dictFamilles[IDfamille]["listeNomsTitulaires"][-2], dictFamilles[IDfamille]["listeNomsTitulaires"][-1])
+                texteNoms = u", ".join(dictFamilles[IDfamille]["listeNomsTitulaires"][:-1])
+                texteNoms = _(u"%s et %s") % (texteNoms, dictFamilles[IDfamille]["listeNomsTitulaires"][-1])
                 dictFamilles[IDfamille]["nomsTitulaires"] = texteNoms
         return dictFamilles
     
@@ -447,12 +448,13 @@ class Dialog(wx.Dialog):
         self.Set_Header("liens", texte)
     
         # MAJ du header ID
-        if len(self.dictFamillesRattachees) == 0 :
+        nbreFamilles = len(self.dictFamillesRattachees)
+        if nbreFamilles == 0 :
             texteID = _(u"Rattaché à aucune famille | ID : %d") % self.IDindividu
-        if len(self.dictFamillesRattachees) == 1 :
+        elif nbreFamilles == 1 :
             texteID = _(u"Rattaché à 1 famille | ID : %d") % self.IDindividu
-        if len(self.dictFamillesRattachees) > 1 :
-            texteID = _(u"Rattaché à %d familles | ID : %d") % (len(self.dictFamillesRattachees), self.IDindividu)
+        else :
+            texteID = _(u"Rattaché à %d familles | ID : %d") % (nbreFamilles, self.IDindividu)
         self.Set_Header("ID", texteID)
             
                 
@@ -487,9 +489,12 @@ class Dialog(wx.Dialog):
         IDrattachement = DB.ReqInsert("rattachements", listeDonnees)
         DB.Close()
         # Mémorise l'action dans l'historique
-        if IDcategorie == 1 : labelCategorie = _(u"représentant")
-        if IDcategorie == 2 : labelCategorie = _(u"enfant")
-        if IDcategorie == 3 : labelCategorie = _(u"contact")
+        dictLabelsCategories = {
+            1 : _(u"représentant"),
+            2 : _(u"enfant"),
+            3 : _(u"contact"),
+        }
+        labelCategorie = dictLabelsCategories.get(IDcategorie, _(u"catégorie inconnue"))
         UTILS_Historique.InsertActions([{
                 "IDindividu" : self.IDindividu,
                 "IDfamille" : IDfamille,
