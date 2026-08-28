@@ -204,8 +204,10 @@ class CTRL(wx.Panel):
         heure_fin_defaut = self.grille.dictUnites[IDunite]["heure_fin"]
         typeUnite = self.grille.dictUnites[IDunite]["type"]
 
+        evenement = case.liste_evenements[0] if typeUnite == "Evenement" and case.liste_evenements else None
         if typeUnite == "Evenement":
-            evenement = case.liste_evenements[0] if case.liste_evenements else None
+            if evenement is None:
+                return _(u"Aucun événement disponible à cette date pour cette unité.")
             conditions = (evenement,)
         else:
             conditions = (heure_debut, heure_fin)
@@ -294,7 +296,9 @@ class CTRL(wx.Panel):
         typeUnite = self.grille.dictUnites[IDunite]["type"]
 
         if typeUnite == "Evenement":
-            evenement = case.liste_evenements[0] if case.liste_evenements else None
+            if not case.liste_evenements:
+                return _(u"Aucun événement disponible à cette date pour cette unité.")
+            evenement = case.liste_evenements[0]
             if evenement.conso:
                 prestation = self.grille.dictPrestations.get(evenement.conso.IDprestation, None)
                 if prestation and prestation["IDfacture"]:
