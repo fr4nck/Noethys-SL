@@ -221,6 +221,7 @@ class Importation_CSV() :
         # Demande le caractère de séparation
         listeLabels = [_(u"Virgule (,)"), _(u"Point-virgule (;)"), _(u"Tabulation")]
         listeSeparations = [",", ";", "\t"]
+        separation = None
         dlg = wx.SingleChoiceDialog(None, _(u"Veuillez sélectionner le caractère de séparation utilisé dans ce fichier :"), _(u"Sélection du caractère de séparation"), listeLabels, wx.CHOICEDLG_STYLE)
         if dlg.ShowModal() == wx.ID_OK:
             separation = listeSeparations[dlg.GetSelection()]
@@ -547,11 +548,17 @@ class CTRL_Donnees(FastObjectListView):
         for code in self.listeColonnesDonnees :
             label = dictColonnesTemp[code]["label"]
             format = dictColonnesTemp[code]["format"]
-            if format == "texte" : converter = Formate_texte
-            if format == "date" : converter = Formate_date
-            if format == "telephone" : converter = Formate_telephone
-            if format == "cp" : converter = Formate_cp
-            if format == "ville" : converter = Formate_ville
+            dictConverters = {
+                "texte" : Formate_texte,
+                "date" : Formate_date,
+                "telephone" : Formate_telephone,
+                "cp" : Formate_cp,
+                "codepostal" : Formate_cp,
+                "ville" : Formate_ville,
+            }
+            if format not in dictConverters :
+                raise ValueError("format de colonne inconnu : %s" % format)
+            converter = dictConverters[format]
             listeColonnes.append(ColumnDefn(label, 'left', 150, code, stringConverter=converter))
         
         self.SetColumns(listeColonnes)
