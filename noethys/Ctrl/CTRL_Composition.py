@@ -39,6 +39,17 @@ else :
     CURSOR = wx.StockCursor
 
 
+def GetPositionsLiensFiliation(posSeparation, nbreLiensFiliation):
+    """Retourne les positions horizontales des groupes de filiation."""
+    if nbreLiensFiliation <= 0:
+        return []
+    decalageDepart = -2 * (nbreLiensFiliation - 1)
+    return [
+        posSeparation + decalageDepart + 4 * index
+        for index in range(nbreLiensFiliation)
+    ]
+
+
 class GetValeurs() :
     def __init__(self, IDfamille=None, dlgfamille=None):
         self.IDfamille = IDfamille
@@ -839,11 +850,7 @@ class CTRL_Graphique(wx.ScrolledWindow):
 
             nbreLiensFiliation = len(dictParents)
             
-            if nbreLiensFiliation == 1 : posCentrale = [self.posSeparationCol1,]
-            if nbreLiensFiliation == 2 : posCentrale = [self.posSeparationCol1-2, self.posSeparationCol1+2]
-            if nbreLiensFiliation == 3 : posCentrale = [self.posSeparationCol1-4, self.posSeparationCol1, self.posSeparationCol1+4]
-            if nbreLiensFiliation == 4 : posCentrale = [self.posSeparationCol1-6, self.posSeparationCol1-2, self.posSeparationCol1+2, self.posSeparationCol1+6]
-            if nbreLiensFiliation == 5 : posCentrale = [self.posSeparationCol1-8, self.posSeparationCol1-4, self.posSeparationCol1, self.posSeparationCol1+4, self.posSeparationCol1+8]
+            posCentrale = GetPositionsLiensFiliation(self.posSeparationCol1, nbreLiensFiliation)
             
             # Dessin des liens de filiation
             index = 0
