@@ -122,24 +122,35 @@ def VerificationDroits(dictUtilisateur=None, categorie="", action="", IDactivite
         # Restriction
         if etat.startswith("restriction") :
             code = etat.replace("restriction_", "")
-            mode, listeID = code.split(":")
-            listeID = [int(x) for x in listeID.split(";")]
+            try :
+                mode, listeID = code.split(":", 1)
+            except ValueError :
+                return False
+            if listeID == "" :
+                listeID = []
+            else :
+                try :
+                    listeID = [int(x) for x in listeID.split(";")]
+                except (TypeError, ValueError) :
+                    return False
                         
+            listeActivites = []
             if mode == "groupes" :
                 if len(listeID) == 1 : condition = "IDtype_groupe_activite=%d" % listeID[0]
-                if len(listeID) >1 : condition = "IDtype_groupe_activite IN %s" % str(tuple(listeID))
-                DB = GestionDB.DB()
-                req = """SELECT IDgroupe_activite, activites 
-                FROM groupes_activites
-                WHERE %s;""" % condition
-                DB.ExecuterReq(req)
-                listeDonnees = DB.ResultatReq()
-                listeActivites = []
-                for IDgroupe_activite, IDactivite_temp in listeDonnees :
-                    listeActivites.append(IDactivite_temp)
-                DB.Close()
+                elif len(listeID) > 1 : condition = "IDtype_groupe_activite IN %s" % str(tuple(listeID))
+                else : condition = None
+                if condition != None :
+                    DB = GestionDB.DB()
+                    req = """SELECT IDgroupe_activite, activites 
+                    FROM groupes_activites
+                    WHERE %s;""" % condition
+                    DB.ExecuterReq(req)
+                    listeDonnees = DB.ResultatReq()
+                    for IDgroupe_activite, IDactivite_temp in listeDonnees :
+                        listeActivites.append(IDactivite_temp)
+                    DB.Close()
                 
-            if mode == "activites" :
+            elif mode == "activites" :
                 listeActivites = listeID
             
             if IDactivite in listeActivites :
