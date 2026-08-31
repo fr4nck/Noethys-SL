@@ -372,6 +372,7 @@ class Archivage():
 
     def Effacer_individus(self, liste_individus=None):
         """ Effacer les individus """
+        dlgAttente = None
         if liste_individus == None :
             liste_individus = self.liste_individus
 
@@ -471,8 +472,9 @@ class Archivage():
 
         # Fin de procédure
         if self.liste_individus != []:
-            # Détruit dlgAttente
-            del dlgAttente
+            # Détruit dlgAttente uniquement si cette méthode l'a créé
+            if dlgAttente != None:
+                del dlgAttente
 
             # Succès
             dlg = wx.MessageDialog(None, _(u"L'effacement a été effectué !"), _(u"Information"), wx.OK | wx.ICON_INFORMATION)
