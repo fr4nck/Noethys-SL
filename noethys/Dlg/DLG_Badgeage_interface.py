@@ -634,12 +634,17 @@ class CTRL_Interface(wx.Panel):
                 IDquestion = int(IDquestion) 
                 
                 # Recherche les réponses
-                if dictQuestions[IDquestion]["type"] == "individu" :
-                    req = """SELECT IDreponse, reponse
-                    FROM questionnaire_reponses
-                    WHERE IDquestion=%d AND IDindividu=%d;""" % (IDquestion, IDindividu)
-                    DB.ExecuterReq(req)
-                    listeReponses = DB.ResultatReq()     
+                # Le badgeage ne sait évaluer ici que les questions individuelles.
+                # Une question absente ou d'un autre type doit faire échouer la
+                # condition, et non provoquer un UnboundLocalError plus bas.
+                if IDquestion not in dictQuestions or dictQuestions[IDquestion]["type"] != "individu" :
+                    DB.Close()
+                    return False
+                req = """SELECT IDreponse, reponse
+                FROM questionnaire_reponses
+                WHERE IDquestion=%d AND IDindividu=%d;""" % (IDquestion, IDindividu)
+                DB.ExecuterReq(req)
+                listeReponses = DB.ResultatReq()     
 
 ##                if dictQuestions[IDquestion]["type"] == "famille" :
 ##                    req = """SELECT IDreponse, reponse
