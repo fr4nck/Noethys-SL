@@ -431,7 +431,7 @@ class Dialog(wx.Dialog):
         if self.track_tarif != None :
             self.track_tarif.SetFiltres(liste_filtres)
 
-        if self.toolbook.GetPage("conditions") != None :
+        if self.track_tarif == None and self.toolbook.GetPage("conditions") != None :
             for dictInitialFiltre in self.toolbook.GetPage("conditions").GetListeInitialeFiltres() :
                 if dictInitialFiltre["IDfiltre"] not in listeID :
                     DB.ReqDEL("questionnaire_filtres", "IDfiltre", dictInitialFiltre["IDfiltre"])
