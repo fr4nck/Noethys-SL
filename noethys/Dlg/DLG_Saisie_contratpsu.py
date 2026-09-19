@@ -538,6 +538,10 @@ class Base(object) :
             ;""" % self.IDcontrat
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
+            if len(listeDonnees) == 0 :
+                if DBtemp == None :
+                    DB.Close()
+                raise ValueError("Contrat PSU introuvable : %s" % self.IDcontrat)
             if len(listeDonnees) > 0 :
                 IDindividu, IDinscription, date_debut, date_fin, observations, IDactivite, type_contrat, duree_absences_prevues, duree_heures_regularisation, arrondi_type, arrondi_delta, duree_tolerance_depassement, planning, individu_nom, individu_prenom = listeDonnees[0]
 
@@ -562,6 +566,11 @@ class Base(object) :
                 else :
                     dictValeurs["individu_nom_complet"] = individu_nom
 
+        if self.IDinscription == None :
+            if DBtemp == None :
+                DB.Close()
+            raise ValueError("Inscription requise pour un contrat PSU")
+
         # Importation des données de l'inscription
         if self.IDinscription != None :
 
@@ -571,6 +580,10 @@ class Base(object) :
             ;""" % self.IDinscription
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
+            if not listeDonnees :
+                if DBtemp == None :
+                    DB.Close()
+                raise ValueError("Inscription introuvable : %s" % self.IDinscription)
             IDindividu, IDfamille, IDactivite, IDgroupe, IDcategorie_tarif, IDcompte_payeur, date_inscription, parti = listeDonnees[0]
 
             dictValeurs["IDinscription"] = self.IDinscription
@@ -604,6 +617,10 @@ class Base(object) :
         ;""" % dictValeurs["IDactivite"]
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
+        if not listeDonnees :
+            if DBtemp == None :
+                DB.Close()
+            raise ValueError("Activité introuvable : %s" % dictValeurs["IDactivite"])
         psu_unite_prevision, psu_unite_presence, psu_tarif_forfait, psu_etiquette_rtt = listeDonnees[0]
 
         dictValeurs["IDunite_prevision"] = psu_unite_prevision
