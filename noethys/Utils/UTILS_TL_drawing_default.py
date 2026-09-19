@@ -750,7 +750,7 @@ class DefaultDrawingAlgorithm(DrawingAlgorithm):
             x += tw
 
     def _draw_balloon_bg(self, dc, inner_size, tip_pos, above):
-        """
+        r"""
         Draw the balloon background leaving inner_size for content.
 
         tip_pos determines where the tip of the ballon should be.
