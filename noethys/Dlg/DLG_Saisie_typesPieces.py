@@ -284,6 +284,8 @@ class Dialog(wx.Dialog):
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
         DB.Close()
+        if not listeDonnees :
+            return
         nom, public, duree_validite, valide_rattachement = listeDonnees[0]
 
         self.ctrl_nom.SetValue(nom)

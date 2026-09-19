@@ -183,6 +183,9 @@ class Dialog(wx.Dialog):
         WHERE IDclasse=%d;""" % self.IDclasse
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
+        if not listeDonnees :
+            DB.Close()
+            return
 
         nom = listeDonnees[0][0]
         date_debut = listeDonnees[0][1]
