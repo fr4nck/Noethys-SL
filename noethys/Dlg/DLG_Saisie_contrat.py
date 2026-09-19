@@ -160,6 +160,8 @@ class Dialog(wx.Dialog):
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
             DB.Close()
+            if not listeDonnees:
+                raise ValueError("Activité introuvable : %s" % IDactivite)
             self.IDactivite, self.nomActivite = listeDonnees[0]
             self.IDcompte_payeur, self.IDfamille, self.IDcategorie_tarif, self.IDgroupe, self.nomGroupe = None, None, None, None, None
         else :
@@ -172,6 +174,8 @@ class Dialog(wx.Dialog):
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
             DB.Close()
+            if not listeDonnees:
+                raise ValueError("Inscription introuvable : %s" % IDinscription)
             self.IDactivite, self.nomActivite, self.IDcompte_payeur, self.IDfamille, self.IDcategorie_tarif, self.IDgroupe, self.nomGroupe = listeDonnees[0]
         
         # Généralités
