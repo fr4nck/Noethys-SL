@@ -930,6 +930,9 @@ class Dialog(wx.Dialog):
             FROM locations_demandes WHERE IDdemande=%d;""" % self.IDdemande
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
+            if not listeDonnees :
+                DB.Close()
+                return
             date, IDfamille, observations, categories, produits, statut, motif_refus, IDlocation = listeDonnees[0]
 
             req = """SELECT IDfiltre, IDquestion, categorie, choix, criteres FROM questionnaire_filtres WHERE categorie='location_demande' AND IDdonnee=%d;""" % self.IDdemande
