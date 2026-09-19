@@ -313,7 +313,12 @@ class ListView(FastObjectListView):
             dlg.Destroy()
             return
         from Utils import UTILS_Printer
-        dictInfosClasse = self.GetInfosClasse(self.IDclasse) 
+        dictInfosClasse = self.GetInfosClasse(self.IDclasse)
+        if dictInfosClasse == None :
+            dlg = wx.MessageDialog(self, _(u"Cette classe n'existe plus en base de données !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         titre = dictInfosClasse["nom"]
         intro = _(u"> %s - %d inscrits") % (dictInfosClasse["periode"], len(self.donnees))
         prt = UTILS_Printer.ObjectListViewPrinter(self, titre=titre, intro=intro, total="", format="A", orientation=wx.PORTRAIT)
@@ -344,8 +349,10 @@ class ListView(FastObjectListView):
         ;""" % IDclasse
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
-        DB.Close() 
-        
+        DB.Close()
+        if not listeDonnees :
+            return None
+
         IDecole = listeDonnees[0][0]
         nom = listeDonnees[0][1]
         date_debut = listeDonnees[0][2]
@@ -363,7 +370,12 @@ class ListView(FastObjectListView):
         return dictInfos
     
     def Ajouter(self, event=None):
-        dictInfosClasse = self.GetInfosClasse(self.IDclasse) 
+        dictInfosClasse = self.GetInfosClasse(self.IDclasse)
+        if dictInfosClasse == None :
+            dlg = wx.MessageDialog(self, _(u"Cette classe n'existe plus en base de données !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         IDecole = dictInfosClasse["IDecole"]
         nom = dictInfosClasse["nom"]
         date_debut = dictInfosClasse["date_debut"]
