@@ -103,6 +103,9 @@ def GetInfosActivite(IDactivite=None, date=None):
     WHERE IDactivite=%d;""" % IDactivite
     DB.ExecuterReq(req)
     listeDonnees = DB.ResultatReq()
+    if not listeDonnees :
+        DB.Close()
+        return None
     nom, abrege, date_debut, date_fin = listeDonnees[0]
     dictActivite = {"nom":nom, "abrege":abrege, "date_debut":date_debut, "date_fin":date_fin}
     
@@ -756,11 +759,17 @@ class CTRL_Interface(wx.Panel):
         badgeage_fin = None
         maintenant = datetime.datetime(date.year, date.month, date.day, int(heure.split(":")[0]), int(heure.split(":")[1]))
         
-        # Récupération des infos sur l'activité et sur l'individu
-        dictActivite, dictUnites, listeOuvertures, dictGroupes = GetInfosActivite(IDactivite, date) 
+        # Récupération des infos sur l'individu (avant l'activité pour pouvoir logguer si celle-ci n'existe plus)
         nomIndividu = u"%s %s" % (self.infosIndividus.RechercheIndividu(IDindividu)["nom"], self.infosIndividus.RechercheIndividu(IDindividu)["prenom"])
+
+        # Récupération des infos sur l'activité
+        infosActivite = GetInfosActivite(IDactivite, date)
+        if infosActivite == None :
+            self.log.AjouterAction(individu=nomIndividu, IDindividu=IDindividu, action=_(u"Enregistrement d'une consommation"), resultat=_(u"Activité introuvable"))
+            return False
+        dictActivite, dictUnites, listeOuvertures, dictGroupes = infosActivite
         nomAction = _(u"Enregistrement d'une consommation '%s'") % dictUnites[IDunite]["nom"]
-        
+
         # Recherche si l'individu est bien inscrit à l'activité
         IDfamille, IDgroupe = self.RechercheInscription(IDindividu, nomIndividu, IDactivite, dictActivite, nomAction)
         if IDfamille == False :
@@ -921,11 +930,17 @@ class CTRL_Interface(wx.Panel):
         else :
             return False
         
-        # Récupération des infos sur l'activité et sur l'individu
-        dictActivite, dictUnites, listeOuvertures, dictGroupes = GetInfosActivite(IDactivite, dateTmp) 
+        # Récupération des infos sur l'individu (avant l'activité pour pouvoir logguer si celle-ci n'existe plus)
         nomIndividu = u"%s %s" % (self.infosIndividus.RechercheIndividu(IDindividu)["nom"], self.infosIndividus.RechercheIndividu(IDindividu)["prenom"])
+
+        # Récupération des infos sur l'activité
+        infosActivite = GetInfosActivite(IDactivite, dateTmp)
+        if infosActivite == None :
+            self.log.AjouterAction(individu=nomIndividu, IDindividu=IDindividu, action=_(u"Réservation de consommations"), resultat=_(u"Activité introuvable"))
+            return False
+        dictActivite, dictUnites, listeOuvertures, dictGroupes = infosActivite
         nomAction = _(u"Réservation de consommations '%s'") % dictActivite["nom"]
-        
+
         # Recherche si l'individu est bien inscrit à l'activité
         IDfamille, IDgroupe = self.RechercheInscription(IDindividu, nomIndividu, IDactivite, dictActivite, nomAction)
         if IDfamille == False :
