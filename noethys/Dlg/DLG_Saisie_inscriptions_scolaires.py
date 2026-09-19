@@ -547,6 +547,13 @@ class Dialog(wx.Dialog):
         listeDonnees = DB.ResultatReq()
         DB.Close()
 
+        if not listeDonnees :
+            del dlgAttente
+            dlg = wx.MessageDialog(self, _(u"Cette classe n'existe plus en base de données !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
         nomEcole = listeDonnees[0][0]
         nomClasse = listeDonnees[0][1]
         date_debut_classe = listeDonnees[0][2]
