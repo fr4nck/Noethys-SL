@@ -612,6 +612,12 @@ class Dialog(wx.Dialog):
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
         DB.Close()
+        # None est une sentinelle interne à cette fiche : famille supprimée
+        # (aucune ligne) ou famille sans compte payeur rattaché (colonne NULL).
+        # Elle ne doit jamais être transmise aux composants aval, où None
+        # signifie "aucun filtre", donc toutes les familles.
+        if len(listeDonnees) == 0 :
+            return None
         IDcompte_payeur = listeDonnees[0][0]
         return IDcompte_payeur
 
@@ -619,6 +625,11 @@ class Dialog(wx.Dialog):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_releve_prestations", "creer") == False : return
         # Récupération du IDcompte_payeur
         IDcompte_payeur = self.GetIDcomptePayeur()
+        if IDcompte_payeur == None :
+            dlg = wx.MessageDialog(self, _(u"Cette famille n'a pas de compte payeur rattaché. Cette opération est impossible."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         # Vérification de la ventilation
         from Dlg import DLG_Verification_ventilation
         tracks = DLG_Verification_ventilation.Verification(IDcompte_payeur)
@@ -637,6 +648,11 @@ class Dialog(wx.Dialog):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_attestation_presence", "creer") == False : return
         # Récupération du IDcompte_payeur
         IDcompte_payeur = self.GetIDcomptePayeur()
+        if IDcompte_payeur == None :
+            dlg = wx.MessageDialog(self, _(u"Cette famille n'a pas de compte payeur rattaché. Cette opération est impossible."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         # Vérification de la ventilation
         from Dlg import DLG_Verification_ventilation
         tracks = DLG_Verification_ventilation.Verification(IDcompte_payeur)
@@ -736,6 +752,11 @@ class Dialog(wx.Dialog):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_lettre_rappel", "creer") == False : return
         # Récupération du IDcompte_payeur
         IDcompte_payeur = self.GetIDcomptePayeur()
+        if IDcompte_payeur == None :
+            dlg = wx.MessageDialog(self, _(u"Cette famille n'a pas de compte payeur rattaché. Cette opération est impossible."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         # Vérification de la ventilation
         from Dlg import DLG_Verification_ventilation
         tracks = DLG_Verification_ventilation.Verification(IDcompte_payeur)
@@ -753,7 +774,13 @@ class Dialog(wx.Dialog):
 
     def MenuListeRappels(self, event):
         from Dlg import DLG_Liste_rappels
-        dlg = DLG_Liste_rappels.Dialog(self, IDcompte_payeur=self.GetIDcomptePayeur())
+        IDcompte_payeur = self.GetIDcomptePayeur()
+        if IDcompte_payeur == None :
+            dlg = wx.MessageDialog(self, _(u"Cette famille n'a pas de compte payeur rattaché. Cette opération est impossible."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+        dlg = DLG_Liste_rappels.Dialog(self, IDcompte_payeur=IDcompte_payeur)
         dlg.ShowModal() 
         dlg.Destroy()
 
