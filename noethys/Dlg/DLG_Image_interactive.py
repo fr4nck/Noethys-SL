@@ -166,6 +166,13 @@ class Data():
         WHERE IDmodele=%d;""" % self.IDmodele
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
+        if len(listeDonnees) == 0 :
+            # Le modèle n'existe plus en base de données : état neutre, pas de requête produits
+            self.categorie = None
+            self.IDdonnee = None
+            self.dictTracks = {}
+            DB.Close()
+            return self.dictTracks
         self.categorie, self.IDdonnee = listeDonnees[0]
 
         # Importation des produits
