@@ -1913,3 +1913,33 @@ Version 1.0.0.1 (12/12/2010) :
 Version 0.0.0.1 (15/02/2010) :
 
 - Version alpha
+
+------------------------------------------------------------
+
+Noethys SL 0.1.0 RC1 - suite du 28/09/2026
+
+- Identité publique Noethys SL et retour à une apparence claire : thèmes,
+  cadres, listes et boutons adaptés à Windows, avec repli pour les icônes
+  historiques absentes. Les anciens réglages Noir reviennent au thème Vert.
+- Envoi des emails fiabilisé sous Python 3. Mailjet utilise son client REST ;
+  les pièces jointes, la progression et la confirmation de l'envoi ont été
+  corrigées. L'envoi groupé a été essayé sur Windows par Pêle-Mêle.
+- Synchronisation Connecthys : jauge, icône et journal mis à jour sur le
+  thread graphique ; journal UTF-8 et bouton Aide corrigés. La reprise
+  après une erreur de synchronisation est conservée.
+- Import Nomadhys : opérations de la grille exécutées sur le thread wx,
+  avec gestion de l'interruption et de la fermeture de la fenêtre.
+- Listes et fiche famille : filtres valides sur base vide, onglets visibles
+  correctement suivis, temporisateurs arrêtés à la fermeture et menu des
+  pièces fournies/manquantes distingué.
+- Export comptable, badgeage, restauration et états nominatifs : reprises
+  ciblées de correctifs déjà éprouvés.
+- Prélèvements et tarifs famille : aperçu sans date sécurisé, palier à
+  0,00 € préservé et calculs des tranches horaires corrigés.
+- Planning : correction de l'ouverture des réservations avec les versions
+  récentes de ReportLab.
+- Splash de démarrage remplacé par le visuel fourni par Pêle-Mêle.
+- Construction Windows : installateur et version portable de Noethys SL.
+
+La version interne 1.3.4.2 reste celle utilisée pour les fichiers, les
+migrations de base et le protocole Connecthys.

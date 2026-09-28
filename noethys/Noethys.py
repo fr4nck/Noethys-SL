@@ -3662,15 +3662,12 @@ class MainFrame(wx.Frame):
         
     def On_propos_versions(self, event):
         """ A propos : Notes de versions """
-        # Versions.txt commence par la version interne de compatibilité :
-        # ne pas modifier son en-tête pour les notes publiques Noethys SL.
-        with codecs.open(FonctionsPerso.GetRepertoireProjet("Notes_Noethys_SL.txt"), encoding='utf-8', mode='r') as fichier:
-            notes_sl = fichier.read()
-        with codecs.open(FonctionsPerso.GetRepertoireProjet("Versions.txt"), encoding='utf-8', mode='r') as fichier:
-            historique = fichier.read()
-        msg = notes_sl + u"\n\nHistorique Noethys (version interne de compatibilité)\n\n" + historique
+        # Lecture du fichier
+        fichier = codecs.open(FonctionsPerso.GetRepertoireProjet("Versions.txt"), encoding='utf-8', mode='r')
+        msg = fichier.read()
+        fichier.close()
         from Dlg import DLG_Messagebox
-        dlg = DLG_Messagebox.Dialog(self, titre=_(u"Notes de versions"), introduction=_(u"Évolutions de Noethys SL et historique Noethys :"), detail=msg, icone=wx.ICON_INFORMATION, boutons=[_(u"Fermer"),], defaut=0)
+        dlg = DLG_Messagebox.Dialog(self, titre=_(u"Notes de versions"), introduction=_("Liste des versions du logiciel :"), detail=msg, icone=wx.ICON_INFORMATION, boutons=[_(u"Fermer"),], defaut=0)
         dlg.ShowModal()
         dlg.Destroy()
 

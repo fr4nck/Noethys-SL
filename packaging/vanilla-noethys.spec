@@ -42,7 +42,6 @@ for package in (
 datas = [
     (str(NOETHYS / "Static"), "Static"),
     (str(NOETHYS / "Versions.txt"), "."),
-    (str(NOETHYS / "Notes_Noethys_SL.txt"), "."),
     (str(NOETHYS / "Licence.txt"), "."),
     (str(NOETHYS / "Icone.ico"), "."),
 ]
