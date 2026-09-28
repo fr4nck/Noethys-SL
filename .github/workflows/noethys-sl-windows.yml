@@ -61,6 +61,23 @@ jobs:
           New-Item -ItemType Directory -Path 'windows-output' -Force | Out-Null
           Compress-Archive -Path 'dist/Noethys' -DestinationPath 'windows-output/Noethys-SL-0.1.0-RC1-Windows-portable.zip' -Force
 
+      - name: Vérifier le démarrage de l'exécutable
+        shell: pwsh
+        run: |
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-profile'
+          $env:APPDATA = Join-Path $profileRoot 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
+          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
+          $process = Start-Process -FilePath 'dist/Noethys/Noethys.exe' -PassThru
+          Start-Sleep -Seconds 12
+          if ($process.HasExited) {
+            if ($process.ExitCode -ne 0) { throw "Noethys.exe a quitté avec le code $($process.ExitCode)" }
+          }
+          else {
+            Stop-Process -Id $process.Id -Force
+            Write-Host 'Noethys.exe est resté actif pendant le contrôle de démarrage.'
+          }
+
       - name: Construire le Setup
         shell: pwsh
         run: |
