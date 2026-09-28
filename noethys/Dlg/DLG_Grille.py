@@ -356,7 +356,8 @@ class Dialog(wx.Dialog):
         self.panel_periode.SetDictDonnees(dictDonnees)
         self._mgr.AddPane(self.panel_periode, aui.AuiPaneInfo().
                           Name("periode").Caption(_(u"Sélection de la période")).
-                          Top().Layer(1).BestSize(wx.Size(230,144)).Position(1).CloseButton(False).Fixed().MaximizeButton(False))
+                          Top().Layer(1).BestSize(wx.Size(320, 190)).MinSize((300, 170)).
+                          Position(1).CloseButton(False).MaximizeButton(False))
         
         self.panel_individus = CTRL_Grille_individus.CTRL(self, self.IDfamille, self.dictIndividus, selectionIndividus, selectionTous)
         self._mgr.AddPane(self.panel_individus, aui.AuiPaneInfo().
@@ -416,6 +417,14 @@ class Dialog(wx.Dialog):
             self._mgr.LoadPerspective(self.perspectives[self.perspective_active]["perspective"])
         else:
             self._mgr.LoadPerspective(self.perspective_defaut)
+
+        # Une ancienne perspective peut mémoriser l'ancienne largeur de 230 px
+        # et ré-écraser le BestSize du sélecteur. On réapplique donc ici son
+        # espace minimal après le chargement de toute perspective.
+        pane_periode = self._mgr.GetPane("periode")
+        pane_periode.MinSize((300, 170))
+        pane_periode.BestSize(wx.Size(320, 190))
+        pane_periode.Resizable(True)
 
         self._mgr.Update()
         

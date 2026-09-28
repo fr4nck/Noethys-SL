@@ -19,6 +19,7 @@ import datetime
 import GestionDB
 from Ctrl import CTRL_Bandeau
 from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 from Ctrl import CTRL_Selection_activites
 from Ol import OL_Etat_nomin_selections
 from Dlg import DLG_Etat_nomin_resultats
@@ -29,45 +30,49 @@ class CTRL_Periode(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
         self.parent = parent
-        # Contrôles
-        self.label_date_debut = wx.StaticText(self, -1, u"Du :")
-        self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
-        self.label_date_fin = wx.StaticText(self, -1, _(u"Au :"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
-        # Layout
-        grid_sizer = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
-        grid_sizer.Add(self.label_date_debut, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer.Add(self.ctrl_date_debut, 0, wx.EXPAND, 0)
-        grid_sizer.Add(self.label_date_fin, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer.Add(self.ctrl_date_fin, 0, wx.EXPAND, 0)
-        self.SetSizer(grid_sizer)
-        self.Layout()
-        # Init Contrôles
-        dateDuJour = datetime.date.today()
-        self.ctrl_date_debut.SetDate(datetime.date(dateDuJour.year, 1, 1))
-        self.ctrl_date_fin.SetDate(datetime.date(dateDuJour.year, 12, 31))
-    
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(self, selection_multiple=False)
+        self.ctrl_periode.SetMinSize((300, 205))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.ctrl_periode, 1, wx.EXPAND, 0)
+        self.SetSizer(sizer)
+
+        annee = datetime.date.today().year
+        self.ctrl_periode.SetDictDonnees({
+            "page": 2,
+            "listeSelections": [],
+            "annee": annee,
+            "dateDebut": None,
+            "dateFin": None,
+        })
+
+    def GetPeriode(self):
+        liste = self.ctrl_periode.GetDatesSelections()
+        if len(liste) != 1:
+            return None, None
+        return liste[0]
+
     def Validation(self):
-        if self.ctrl_date_debut.GetDate() == None :
-            dlg = wx.MessageDialog(self, _(u"Vous devez obligatoirement saisir une date de début de validité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+        date_debut, date_fin = self.GetPeriode()
+        if date_debut is None or date_fin is None:
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période valide !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            self.ctrl_date_debut
             return False
-        if self.ctrl_date_fin.GetDate() == None :
-            dlg = wx.MessageDialog(self, _(u"Vous devez obligatoirement saisir une date de fin de validité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+        if date_debut > date_fin:
+            dlg = wx.MessageDialog(self, _(u"La date de début ne peut pas être supérieure à la date de fin !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            self.ctrl_date_debut
             return False
         return True
-    
+
     def GetDateDebut(self):
-        return self.ctrl_date_debut.GetDate()
-    
+        return self.GetPeriode()[0]
+
     def GetDateFin(self):
-        return self.ctrl_date_fin.GetDate()
+        return self.GetPeriode()[1]
         
+
 # -------------------------------------------------------------------------------------------------------------------------------------------------
 
 class CTRL_Groupes(wx.CheckListBox):

@@ -18,7 +18,7 @@ import datetime
 
 import GestionDB
 from Ctrl import CTRL_Bandeau
-from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 from Ctrl import CTRL_Synthese_conso
 from Utils import UTILS_Questionnaires
 from Dlg import DLG_Selection_activite
@@ -269,12 +269,20 @@ class Parametres(wx.Panel):
 
         # Période
         self.staticbox_periode_staticbox = wx.StaticBox(self, -1, _(u"Période de référence"))
-        self.label_date_debut = wx.StaticText(self, -1, u"Du")
-        self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
-        self.label_date_fin = wx.StaticText(self, -1, _(u"Au"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
-        self.ctrl_date_debut.SetDate(datetime.date(datetime.date.today().year, 1, 1))
-        self.ctrl_date_fin.SetDate(datetime.date(datetime.date.today().year, 12, 31))
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(
+            self,
+            selection_multiple=False,
+            callback_selection=self.OnChoixDate,
+        )
+        self.ctrl_periode.SetMinSize((300, 205))
+        annee = datetime.date.today().year
+        self.ctrl_periode.SetDictDonnees({
+            "page": 2,
+            "listeSelections": [],
+            "annee": annee,
+            "dateDebut": None,
+            "dateFin": None,
+        })
         
         # Activité
         self.box_activite_staticbox = wx.StaticBox(self, -1, _(u"Activité"))
@@ -314,8 +322,6 @@ class Parametres(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonActualiser, self.bouton_actualiser)
 
     def __set_properties(self):
-        self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Saisissez la date de début de période")))
-        self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Saisissez la date de fin de période")))
         self.ctrl_activite.SetToolTip(wx.ToolTip(_(u"Sélectionnez une activité")))
         self.ctrl_groupes.SetToolTip(wx.ToolTip(_(u"Cochez les groupes à prendre en compte")))
         self.ctrl_valeurs.SetToolTip(wx.ToolTip(_(u"Sélectionnez le type de données à afficher")))
@@ -326,14 +332,9 @@ class Parametres(wx.Panel):
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=6, cols=1, vgap=5, hgap=5)
 
-        # Date de référence
+        # Période de référence
         staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
-        grid_sizer_periode = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
-        grid_sizer_periode.Add(self.label_date_debut, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_debut, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.label_date_fin, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_fin, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        staticbox_periode.Add(grid_sizer_periode, 1, wx.ALL|wx.EXPAND, 5)
+        staticbox_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
         grid_sizer_base.Add(staticbox_periode, 1, wx.EXPAND, 0)
 
         # Activité
@@ -370,6 +371,12 @@ class Parametres(wx.Panel):
         grid_sizer_base.AddGrowableRow(2)
         grid_sizer_base.AddGrowableCol(0)
     
+    def GetPeriode(self):
+        liste = self.ctrl_periode.GetDatesSelections()
+        if len(liste) != 1:
+            return None, None
+        return liste[0]
+
     def OnChoixDate(self):
         self.Actualiser() 
 
@@ -387,14 +394,9 @@ class Parametres(wx.Panel):
             
     def OnBoutonActualiser(self, event): 
         # Vérifications
-        if self.ctrl_date_debut.GetDate()  == None :
-            dlg = wx.MessageDialog(self, _(u"Vous n'avez saisi aucune date de début !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return False
-
-        if self.ctrl_date_fin.GetDate()  == None :
-            dlg = wx.MessageDialog(self, _(u"Vous n'avez saisi aucune date de fin !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+        date_debut, date_fin = self.GetPeriode()
+        if date_debut is None or date_fin is None :
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période valide !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
             return False
@@ -422,8 +424,7 @@ class Parametres(wx.Panel):
 
     def Actualiser(self, event=None):
         """ MAJ du tableau """
-        date_debut = self.ctrl_date_debut.GetDate() 
-        date_fin = self.ctrl_date_fin.GetDate() 
+        date_debut, date_fin = self.GetPeriode()
         IDactivite = self.ctrl_activite.GetID()
         listeGroupes = self.ctrl_groupes.GetListeGroupes()
         affichage_valeurs = self.ctrl_valeurs.GetValeur()

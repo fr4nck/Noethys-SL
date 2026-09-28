@@ -14,7 +14,7 @@ from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
-from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 from Ctrl import CTRL_Saisie_heure
 from Ctrl import CTRL_Bandeau
 from Ctrl import CTRL_Etiquettes
@@ -669,12 +669,10 @@ class Dialog(wx.Dialog):
             self.box_individus_staticbox.Show(False)
             self.ctrl_individus.Show(False)
             
-        # Periode
+        # Période
         self.box_periode_staticbox = wx.StaticBox(self, -1, _(u"Période"))
-        self.label_date_debut = wx.StaticText(self, -1, u"Du")
-        self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
-        self.label_date_fin = wx.StaticText(self, -1, _(u"au"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(self, selection_multiple=False)
+        self.ctrl_periode.SetMinSize((300, 205))
         
         # Jours
         self.box_jours_staticbox = wx.StaticBox(self, -1, _(u"Jours"))
@@ -735,8 +733,13 @@ class Dialog(wx.Dialog):
         self.listeVacances = self.GetListeVacances()
         self.listeFeries = self.GetListeFeries() 
         
-        self.ctrl_date_debut.SetDate(date_debut)
-        self.ctrl_date_fin.SetDate(date_fin)
+        self.ctrl_periode.SetDictDonnees({
+            "page": 3,
+            "listeSelections": [],
+            "annee": None,
+            "dateDebut": date_debut,
+            "dateFin": date_fin,
+        })
         self.ctrl_scolaires.SetJoursStr(UTILS_Parametres.Parametres(mode="get", categorie="dlg_saisie_lot_conso", nom="jours_scolaires", valeur="0;1;2;3;4"))
         self.ctrl_vacances.SetJoursStr(UTILS_Parametres.Parametres(mode="get", categorie="dlg_saisie_lot_conso", nom="jours_vacances", valeur="0;1;2;3;4"))
         if IDactivite == None :
@@ -757,8 +760,6 @@ class Dialog(wx.Dialog):
         self.radio_suppression.SetToolTip(wx.ToolTip(_(u"Cochez ici pour supprimer un lot de consommations")))
         self.radio_etat.SetToolTip(wx.ToolTip(_(u"Cochez ici pour modifier l'état d'un lot de consommations")))
         self.ctrl_individus.SetToolTip(wx.ToolTip(_(u"Sélectionnez les individus visés")))
-        self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Sélectionnez une date de début")))
-        self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Sélectionnez une date de fin")))
         self.ctrl_semaines.SetToolTip(wx.ToolTip(_(u"Sélectionnez une fréquence")))
         self.ctrl_feries.SetToolTip(wx.ToolTip(_(u"Cochez cette case pour inclure les jours fériés dans le processus")))
         self.ctrl_activite.SetToolTip(wx.ToolTip(_(u"Sélectionnez une activité")))
@@ -811,12 +812,7 @@ class Dialog(wx.Dialog):
 
         # Période
         box_periode = wx.StaticBoxSizer(self.box_periode_staticbox, wx.VERTICAL)
-        grid_sizer_periode = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
-        grid_sizer_periode.Add(self.label_date_debut, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_debut, 0, 0, 0)
-        grid_sizer_periode.Add(self.label_date_fin, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_fin, 0, 0, 0)
-        box_periode.Add(grid_sizer_periode, 1, wx.ALL|wx.EXPAND, 10)
+        box_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
         grid_sizer_gauche.Add(box_periode, 1, wx.EXPAND, 0)
         
         # Jours
@@ -913,9 +909,10 @@ class Dialog(wx.Dialog):
         self.ctrl_etiquettes.SetActivites([self.ctrl_activite.GetActivite(),])
         
     def GetPeriode(self):
-        date_debut = self.ctrl_date_debut.GetDate()
-        date_fin = self.ctrl_date_fin.GetDate()
-        return date_debut, date_fin
+        liste = self.ctrl_periode.GetDatesSelections()
+        if len(liste) != 1:
+            return None, None
+        return liste[0]
 
     def GetJours(self):
         jours_scolaires = self.ctrl_scolaires.GetJours()
@@ -939,25 +936,16 @@ class Dialog(wx.Dialog):
             return
                 
         # Période
-        date_debut = self.ctrl_date_debut.GetDate()
-        date_fin = self.ctrl_date_fin.GetDate()
-        if date_debut == None :
-            dlg = wx.MessageDialog(self, _(u"Vous devez saisir une date de début de période !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+        date_debut, date_fin = self.GetPeriode()
+        if date_debut is None or date_fin is None :
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période valide !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            self.ctrl_date_debut.SetFocus()
-            return
-        if date_fin == None :
-            dlg = wx.MessageDialog(self, _(u"Vous devez saisir une date de fin de période !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            self.ctrl_date_fin.SetFocus()
             return
         if date_debut > date_fin :
             dlg = wx.MessageDialog(self, _(u"La date de début ne peut pas être supérieure à la date de fin !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            self.ctrl_date_debut.SetFocus()
             return
 
         # Jours
@@ -1147,8 +1135,13 @@ class Dialog(wx.Dialog):
         self.ctrl_etat.MAJ() 
 
         # Période
-        self.ctrl_date_debut.SetDate(dictValeurs["date_debut"])
-        self.ctrl_date_fin.SetDate(dictValeurs["date_fin"])
+        self.ctrl_periode.SetDictDonnees({
+            "page": 3,
+            "listeSelections": [],
+            "annee": None,
+            "dateDebut": dictValeurs["date_debut"],
+            "dateFin": dictValeurs["date_fin"],
+        })
         
         # Jours
         self.ctrl_scolaires.SetJours(dictValeurs["jours_scolaires"])

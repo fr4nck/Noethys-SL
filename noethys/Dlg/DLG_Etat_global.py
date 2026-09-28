@@ -19,7 +19,7 @@ import six
 import GestionDB
 from Ctrl import CTRL_Bandeau
 from Ctrl import CTRL_Selection_activites
-from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 from Ctrl import CTRL_Etat_global_parametres
 from Ctrl import CTRL_Etat_global_options
 from Ctrl import CTRL_Profil
@@ -111,10 +111,13 @@ class Parametres(wx.Panel):
         
         # Période
         self.staticbox_periode_staticbox = wx.StaticBox(self, -1, _(u"Période de référence"))
-        self.label_date_debut = wx.StaticText(self, -1, u"Du")
-        self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
-        self.label_date_fin = wx.StaticText(self, -1, _(u"Au"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(
+            self,
+            selection_multiple=False,
+            callback_selection=self.OnChoixDate,
+        )
+        self.ctrl_periode.SetMinSize((300, 205))
+        self.SetMinSize((315, -1))
 
         # Profil
         self.staticbox_profil_staticbox = wx.StaticBox(self, -1, _(u"Profil de configuration"))
@@ -130,20 +133,14 @@ class Parametres(wx.Panel):
 
 
     def __set_properties(self):
-        self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Saisissez la date de début de période")))
-        self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Saisissez la date de fin de période")))
+        pass
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
         
-        # Date de référence
+        # Période de référence
         staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
-        grid_sizer_periode = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
-        grid_sizer_periode.Add(self.label_date_debut, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_debut, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.label_date_fin, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_fin, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        staticbox_periode.Add(grid_sizer_periode, 1, wx.ALL|wx.EXPAND, 5)
+        staticbox_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
         grid_sizer_base.Add(staticbox_periode, 1, wx.RIGHT|wx.EXPAND, 5)
 
         # Profil
@@ -189,9 +186,10 @@ class Parametres(wx.Panel):
         return True
     
     def GetPeriode(self):
-        date_debut = self.ctrl_date_debut.GetDate()
-        date_fin = self.ctrl_date_fin.GetDate()
-        return date_debut, date_fin
+        liste_periodes = self.ctrl_periode.GetDatesSelections()
+        if len(liste_periodes) != 1:
+            return None, None
+        return liste_periodes[0]
     
     def OnChoixDate(self):
         date_debut, date_fin = self.GetPeriode() 
@@ -213,8 +211,9 @@ class Parametres(wx.Panel):
 
     def GetLabelParametres(self):
         # Label Paramètres
+        date_debut, date_fin = self.GetPeriode()
         listeParametres = [ 
-            _(u"Période du %s au %s") % (UTILS_Dates.DateEngFr(str(self.ctrl_date_debut.GetDate())), UTILS_Dates.DateEngFr(str(self.ctrl_date_fin.GetDate()))),
+            _(u"Période du %s au %s") % (UTILS_Dates.DateEngFr(str(date_debut)), UTILS_Dates.DateEngFr(str(date_fin))),
             _(u"Activités : %s") % self.GetNomsActivites(),
             ]
         labelParametres = " | ".join(listeParametres)
@@ -261,10 +260,15 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         
-        # Données Test
+        # Période par défaut : année civile courante, comportement historique.
         anneeActuelle = datetime.date.today().year
-        self.panel_parametres.ctrl_date_debut.SetDate(datetime.date(anneeActuelle, 1, 1))
-        self.panel_parametres.ctrl_date_fin.SetDate(datetime.date(anneeActuelle, 12, 31))
+        self.panel_parametres.ctrl_periode.SetDictDonnees({
+            "page": 2,
+            "listeSelections": [],
+            "annee": anneeActuelle,
+            "dateDebut": None,
+            "dateFin": None,
+        })
 
         # Sélectionne profil par défaut
         self.panel_parametres.ctrl_profil.SetOnDefaut()
@@ -383,16 +387,9 @@ class Dialog(wx.Dialog):
         listeAnomalies = []
 
         # Validation de la période
-        date_debut = self.panel_parametres.ctrl_date_debut.GetDate() 
-        if self.panel_parametres.ctrl_date_debut.FonctionValiderDate() == False or date_debut == None :
-            dlg = wx.MessageDialog(self, _(u"La date de début de période semble incorrecte !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-        
-        date_fin = self.panel_parametres.ctrl_date_fin.GetDate() 
-        if self.panel_parametres.ctrl_date_fin.FonctionValiderDate() == False or date_fin == None :
-            dlg = wx.MessageDialog(self, _(u"La date de fin de période semble incorrecte !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+        date_debut, date_fin = self.panel_parametres.GetPeriode()
+        if date_debut is None or date_fin is None :
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période de référence valide."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
             return
