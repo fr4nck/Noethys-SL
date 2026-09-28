@@ -4428,20 +4428,31 @@ class MyApp(wx.App):
         # Lit les paramètres de l'interface
         theme = UTILS_Interface.GetTheme()
 
-        # AdvancedSplashScreen
+        # Splash Pêle-Mêle de Noethys SL, affiché à chaque démarrage.
+        # La ressource fait partie de Static (source et paquet PyInstaller).
+        # En son absence, conserver le splash historique et sa condition.
         splash = None
-        if CUSTOMIZE.GetValeur("utilisateur", "pass", "") == "" :
-            nom_fichier_splash = "Logo_splash.png"
-            if six.PY3 and theme == "Vert":
-                nom_fichier_splash = "Logo_splash_2019.png"
-            bmp = wx.Bitmap(Chemins.GetStaticPath("Images/Interface/%s/%s" % (theme, nom_fichier_splash)), wx.BITMAP_TYPE_PNG)
+        chemin_splash_pmsl = Chemins.GetStaticPath(
+            "Images/Interface/NoethysSL/Splash_PMSL_Slime.png"
+        )
+        splash_pmsl_disponible = os.path.isfile(chemin_splash_pmsl)
+        if splash_pmsl_disponible or CUSTOMIZE.GetValeur("utilisateur", "pass", "") == "" :
+            if splash_pmsl_disponible:
+                chemin_splash = chemin_splash_pmsl
+            else:
+                nom_fichier_splash = "Logo_splash.png"
+                if six.PY3 and theme == "Vert":
+                    nom_fichier_splash = "Logo_splash_2019.png"
+                chemin_splash = Chemins.GetStaticPath(
+                    "Images/Interface/%s/%s" % (theme, nom_fichier_splash)
+                )
+            bmp = wx.Bitmap(chemin_splash, wx.BITMAP_TYPE_PNG)
             splash = AS.AdvancedSplash(None, bitmap=bmp, timeout=3000, agwStyle=AS.AS_CENTER_ON_SCREEN)
             anneeActuelle = str(datetime.date.today().year)
             splash.SetText(u"Copyright © 2010-%s Ivan LUCAS" % anneeActuelle[2:])
             splash.SetTextFont(wx.Font(8, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
-            splash.SetTextPosition((425, 212))
-            couleur_texte = "WHITE" #UTILS_Interface.GetValeur("couleur_claire", wx.Colour(255, 255, 255))
-            splash.SetTextColour(couleur_texte)
+            splash.SetTextPosition((12, 516) if splash_pmsl_disponible else (425, 212))
+            splash.SetTextColour(wx.Colour(4, 66, 84) if splash_pmsl_disponible else "WHITE")
             splash.Refresh()
             splash.Update()
             if 'phoenix' not in wx.PlatformInfo:

@@ -1,0 +1,99 @@
+name: Noethys SL RC - Windows portable et Setup
+
+on:
+  pull_request:
+    branches:
+      - release/noethys-sl-0.1.0
+    paths:
+      - 'noethys/Noethys.py'
+      - 'noethys/Static/Images/Interface/NoethysSL/**'
+      - 'packaging/vanilla-noethys.spec'
+      - 'packaging/vanilla-installer.iss'
+      - 'requirements.txt'
+      - '.github/workflows/noethys-sl-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Construire Noethys SL 0.1.0 RC1 pour Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Installer les dépendances
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+
+      - name: Compiler et vérifier le visuel
+        run: |
+          python -m compileall -q noethys tests
+          python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splash_PMSL_Slime.png'; im=Image.open(p); assert im.size == (960, 540); im.verify()"
+
+      - name: Construire l'exécutable
+        run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+
+      - name: Vérifier le splash et préparer le portable
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
+          $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splash_PMSL_Slime.png'
+          if (-not (Test-Path $splash)) { throw 'Splash Pêle-Mêle absent du paquet' }
+          if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
+          @(
+            'Noethys SL 0.1.0 RC1 - Windows'
+            "Commit: $env:GITHUB_SHA"
+            "Workflow run: $env:GITHUB_RUN_ID"
+          ) | Set-Content 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
+          New-Item -ItemType Directory -Path 'windows-output' -Force | Out-Null
+          Compress-Archive -Path 'dist/Noethys' -DestinationPath 'windows-output/Noethys-SL-0.1.0-RC1-Windows-portable.zip' -Force
+
+      - name: Vérifier le démarrage de l'exécutable
+        shell: pwsh
+        run: |
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-profile'
+          $env:APPDATA = Join-Path $profileRoot 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
+          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
+          $process = Start-Process -FilePath 'dist/Noethys/Noethys.exe' -PassThru
+          Start-Sleep -Seconds 12
+          if ($process.HasExited) {
+            if ($process.ExitCode -ne 0) { throw "Noethys.exe a quitté avec le code $($process.ExitCode)" }
+          }
+          else {
+            Stop-Process -Id $process.Id -Force
+            Write-Host 'Noethys.exe est resté actif pendant le contrôle de démarrage.'
+          }
+
+      - name: Construire le Setup
+        shell: pwsh
+        run: |
+          Copy-Item 'dist/Noethys' 'dist/Noethys-installable' -Recurse
+          choco install innosetup --no-progress -y
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
+          & $iscc '/DMyAppVersion=0.1.0-rc.1' 'packaging\vanilla-installer.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
+          if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-RC1-Setup.exe'
+
+      - name: Publier les deux fichiers Windows
+        uses: actions/upload-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-RC1-Windows
+          path: windows-output/*
+          if-no-files-found: error
+          retention-days: 14
