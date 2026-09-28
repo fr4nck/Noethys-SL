@@ -6,7 +6,9 @@ on:
       - release/noethys-sl-0.1.0
     paths:
       - 'noethys/Noethys.py'
+      - 'noethys/Utils/UTILS_Portail_synchro.py'
       - 'noethys/Static/Images/Interface/NoethysSL/**'
+      - 'tests/test_vanilla_connecthys_synchro.py'
       - 'packaging/vanilla-noethys.spec'
       - 'packaging/vanilla-installer.iss'
       - 'requirements.txt'
@@ -38,9 +40,10 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Compiler et vérifier le visuel
+      - name: Compiler et tester Connecthys
         run: |
           python -m compileall -q noethys tests
+          python -m unittest tests.test_vanilla_connecthys_synchro
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
 
       - name: Construire l'exécutable

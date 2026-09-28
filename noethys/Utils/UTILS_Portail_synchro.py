@@ -25,6 +25,9 @@ from six.moves.urllib.request import Request, urlopen
 from six.moves.urllib.parse import quote
 import sys
 import importlib
+import importlib.util
+import importlib.machinery
+import uuid
 import platform
 import time
 from dateutil import relativedelta
@@ -415,6 +418,79 @@ class Synchro():
         else :
             pass
 
+    def ChargeModuleModels(self, chemin, nomFichier):
+        """ Charge le fichier models.py téléchargé depuis le portail.
+
+        Historiquement chargé via sys.path.append(chemin) puis
+        importlib.import_module("models") : un models.py autonome
+        fonctionnait, mais un models.py utilisant un import relatif
+        (from . import x -- Connecthys actuel ou futur) levait
+        "attempted relative import with no known parent package", faute de
+        tout contexte de package (un module importé nu n'a pas de
+        __package__ vers lequel résoudre l'import relatif). sys.path
+        restait en outre pollué pour toute la durée du processus, et un
+        "models" laissé dans sys.modules par une synchronisation pouvait
+        contaminer la suivante.
+
+        Ici, chaque appel crée un PACKAGE réel et unique (nom dérivé d'un
+        uuid) dont le __path__ pointe vers chemin, le répertoire
+        réellement téléchargé : un import relatif dans models.py résout
+        donc correctement contre ce répertoire, exactement comme il le
+        ferait sur le serveur Connecthys lui-même. Un models.py autonome
+        (sans import relatif) continue de fonctionner à l'identique, son
+        contenu ne dépendant pas de ce contexte. Aucune modification du
+        fichier téléchargé (aucun remplacement de texte, aucun exec()
+        hors contexte maîtrisé) : seul le mécanisme de chargement change.
+
+        Le package et le module créés sont systématiquement retirés de
+        sys.modules avant de rendre la main (succès ou échec) : la
+        référence à models déjà renvoyée à l'appelant reste utilisable,
+        mais rien ne persiste dans sys.modules ni dans sys.path d'une
+        synchronisation à l'autre. """
+        chemin_models = os.path.realpath(os.path.join(chemin, nomFichier))
+        if not os.path.isfile(chemin_models) :
+            raise ImportError(_(u"Fichier %s introuvable après téléchargement") % nomFichier)
+
+        nom_package = "noethys_connecthys_sync_%s" % uuid.uuid4().hex
+        nom_module = nom_package + ".models"
+        try :
+            spec_package = importlib.util.spec_from_loader(nom_package, loader=None, is_package=True)
+            package = importlib.util.module_from_spec(spec_package)
+            package.__path__ = [chemin]
+            sys.modules[nom_package] = package
+
+            # loader.get_source() (et non exec_module()) : lit toujours le
+            # source .py réellement présent sur disque, sans jamais passer
+            # par un cache de bytecode (__pycache__). Un même répertoire de
+            # téléchargement est réutilisé par Noethys pour toute la durée
+            # du processus (voir GetRepTemp, basé sur le PID) : deux
+            # synchronisations successives peuvent réécrire models.py avec
+            # un contenu différent mais une taille et une seconde de
+            # modification identiques (limite de résolution du système de
+            # fichiers), ce qui ferait relire à tort un bytecode compilé
+            # lors de la synchronisation précédente si le mécanisme
+            # standard de cache était utilisé ici.
+            loader = importlib.machinery.SourceFileLoader(nom_module, chemin_models)
+            spec_module = importlib.util.spec_from_file_location(nom_module, chemin_models, loader=loader)
+            if spec_module is None :
+                raise ImportError(_(u"Impossible de préparer le chargement de %s") % nomFichier)
+
+            models = importlib.util.module_from_spec(spec_module)
+            models.__package__ = nom_package
+            sys.modules[nom_module] = models
+            code_source = compile(loader.get_source(nom_module), chemin_models, "exec")
+            exec(code_source, models.__dict__)
+            return models
+        finally :
+            # Noms uniques (uuid) : rien à réutiliser d'une synchronisation
+            # à l'autre, donc rien à laisser polluer sys.modules ensuite --
+            # y compris les sous-modules qu'un import relatif dans
+            # models.py aurait chargés (ex. "from . import config"),
+            # enregistrés sous nom_package + ".config" par le mécanisme
+            # d'import standard, jamais nettoyés automatiquement.
+            for cle in [c for c in sys.modules if c == nom_package or c.startswith(nom_package + ".")] :
+                sys.modules.pop(cle, None)
+
     def Upload_data(self, full_synchro=False) :
         self.log.EcritLog(_(u"Lancement de la synchronisation des données..."))
         t1 = time.time()
@@ -445,12 +521,21 @@ class Synchro():
             return False
 
         chemin, nomFichier = resultat
-        if "models" in sys.modules:
-            del sys.modules["models"]
 
-        # Import du fichier models.py
-        sys.path.append(chemin)
-        models = importlib.import_module(nomFichier.replace(".py", ""))
+        # Import du fichier models.py téléchargé depuis le portail. Voir
+        # ChargeModuleModels() : chargé comme membre d'un package réel et
+        # unique à cette synchronisation (jamais comme module nu "models"
+        # via sys.path.append), pour rester compatible à la fois avec un
+        # models.py historique autonome et avec un models.py utilisant un
+        # import relatif (from . import x) -- ce dernier échouait
+        # auparavant avec "attempted relative import with no known parent
+        # package", faute de tout contexte de package.
+        try :
+            models = self.ChargeModuleModels(chemin, nomFichier)
+        except Exception as err :
+            self.log.EcritLog(_(u"Échec du chargement du modèle Connecthys : %s") % err)
+            self.Deconnexion(ftp)
+            return False
 
         # Génération d'un nombre secret pour le nom de fichier des données
         secret = ""
