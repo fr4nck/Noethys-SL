@@ -519,11 +519,19 @@ class Dialog(wx.Dialog):
         except:
             pass
 
-        # Fermeture dlg_progress si besoin
+        # Fermeture dlg_progress si besoin -- Envoyer_lot() la détruit déjà
+        # systématiquement avant de rendre la main (fin normale de l'envoi,
+        # erreur bloquante, ou arrêt utilisateur) : cet appel est un filet de
+        # sécurité pour un backend qui ne la détruirait pas elle-même, pas le
+        # chemin normal. dlg_progress (variable locale à cette méthode)
+        # référence alors un objet déjà détruit : Destroy() y lève RuntimeError
+        # ("wrapped C/C++ object ... has been deleted"), vérifié à l'exécution
+        # -- on ne masque donc que ce cas précis et documenté, jamais une
+        # erreur inattendue.
         if dlg_progress != None:
             try :
                 dlg_progress.Destroy()
-            except:
+            except RuntimeError:
                 pass
 
         # Suppression des images temporaires incluses dans le message

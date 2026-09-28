@@ -32,7 +32,9 @@ class MailerPython3Contracts(unittest.TestCase):
         source = lire("noethys/Utils/UTILS_Envoi_email.py")
         self.assertIn("def _TexteUtf8(valeur):", source)
         self.assertNotIn('err = str(err).decode("utf8")', source)
-        self.assertIn("err = _TexteUtf8(err)", source)
+
+        methode = source_methode("noethys/Utils/UTILS_Envoi_email.py", "Mailjet", "Envoyer_lot")
+        self.assertIn("_TexteUtf8(err)", methode, "Envoyer_lot() doit convertir l'erreur via _TexteUtf8()")
 
     def test_normalisation_bytes_utilise_un_repli_sur_caractere_invalide(self):
         source = lire("noethys/Utils/UTILS_Envoi_email.py")
