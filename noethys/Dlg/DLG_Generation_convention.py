@@ -47,6 +47,8 @@ class Dialog(wx.Dialog):
         # voir RecalculerValeursAutomatiques ci-dessous).
         self._auto_representant = u""
         self._auto_tarif = u""
+        self._auto_tarif_adulte = u""
+        self._auto_tarif_enfant = u""
 
         # --- Modèle -----------------------------------------------------
         label_modele = wx.StaticText(self, -1, _(u"Modèle de convention :"))
@@ -57,11 +59,32 @@ class Dialog(wx.Dialog):
         self.ctrl_date_debut = MyDatePickerCtrl(self)
         self.ctrl_date_fin = MyDatePickerCtrl(self)
         aujourdhui = datetime.date.today()
-        self.ctrl_date_debut.SetDate(date_debut or aujourdhui)
-        self.ctrl_date_fin.SetDate(date_fin or aujourdhui)
-
+        periode_auto = (None, None)
+        if self.IDfamille is not None and (date_debut is None or date_fin is None):
+            try:
+                from Utils import UTILS_Convention_champs as CC
+                periode_auto = CC.GetPeriodeParDefaut(self.IDfamille, date_reference=aujourdhui)
+            except Exception:
+                periode_auto = (None, None)
+        debut_initial = date_debut or periode_auto[0] or aujourdhui
+        fin_initiale = date_fin or periode_auto[1] or debut_initial
+        self.ctrl_date_debut.SetDate(debut_initial)
+        self.ctrl_date_fin.SetDate(fin_initiale)
+        self.label_periode_info = wx.StaticText(self, -1, u"")
+        if periode_auto[0] is not None and periode_auto[1] is not None:
+            self.label_periode_info.SetLabel(_(u"Période préremplie depuis les séances enregistrées."))
+        elif date_debut is None and date_fin is None:
+            self.label_periode_info.SetLabel(_(u"Aucune séance trouvée : vérifiez la période manuellement."))
+            self.label_periode_info.SetForegroundColour(wx.Colour(180, 70, 0))
         label_saison = wx.StaticText(self, -1, _(u"Saison (facultatif, ex. 2026-2027) :"))
-        self.ctrl_saison = wx.TextCtrl(self, -1, saison)
+        saison_initiale = saison
+        if not saison_initiale and periode_auto[0] is not None and periode_auto[1] is not None:
+            try:
+                from Utils import UTILS_Convention_champs as CC
+                saison_initiale = CC.SaisonDepuisPeriode(periode_auto[0], periode_auto[1])
+            except Exception:
+                saison_initiale = u""
+        self.ctrl_saison = wx.TextCtrl(self, -1, saison_initiale)
 
         # --- Représentant ---------------------------------------------
         label_representant = wx.StaticText(self, -1, _(u"Représentant de la structure :"))
@@ -80,11 +103,27 @@ class Dialog(wx.Dialog):
         self.ctrl_lieu_signature = wx.TextCtrl(self, -1, u"")
         self.ctrl_lieu_signature.SetToolTip(wx.ToolTip(_(u"Lieu de signature (ex. LANNILIS)")))
 
-        # --- Tarif ------------------------------------------------------
-        label_tarif = wx.StaticText(self, -1, _(u"Tarif horaire (€) :"))
+        # --- Tarifs ------------------------------------------------------
+        label_tarifs = wx.StaticText(self, -1, _(u"Tarifs horaires détectés (€) :"))
         self.ctrl_tarif_horaire = wx.TextCtrl(self, -1, u"")
-        self.ctrl_tarif_horaire.SetToolTip(wx.ToolTip(
-            _(u"Prérempli automatiquement quand un taux horaire unique et non ambigu est détecté. Sinon, saisissez-le ici.")))
+        self.ctrl_tarif_adulte = wx.TextCtrl(self, -1, u"")
+        self.ctrl_tarif_enfant = wx.TextCtrl(self, -1, u"")
+        self.label_tarif_horaire_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
+        self.label_tarif_adulte_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
+        self.label_tarif_enfant_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
+        sizer_tarifs = wx.FlexGridSizer(rows=3, cols=3, vgap=5, hgap=8)
+        for libelle, ctrl, provenance in (
+            (_(u"Unique :"), self.ctrl_tarif_horaire, self.label_tarif_horaire_provenance),
+            (_(u"Adultes :"), self.ctrl_tarif_adulte, self.label_tarif_adulte_provenance),
+            (_(u"Enfants :"), self.ctrl_tarif_enfant, self.label_tarif_enfant_provenance),
+        ):
+            sizer_tarifs.Add(wx.StaticText(self, -1, libelle), 0, wx.ALIGN_CENTER_VERTICAL)
+            sizer_tarifs.Add(ctrl, 0, wx.EXPAND)
+            sizer_tarifs.Add(provenance, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND)
+        sizer_tarifs.AddGrowableCol(2)
+        self.ctrl_tarif_horaire.SetToolTip(wx.ToolTip(_(u"Utilisé seulement quand un taux unique est démontré sur la période.")))
+        self.ctrl_tarif_adulte.SetToolTip(wx.ToolTip(_(u"Prérempli quand les données démontrent un taux adulte stable.")))
+        self.ctrl_tarif_enfant.SetToolTip(wx.ToolTip(_(u"Prérempli quand les données démontrent un taux enfant stable.")))
 
         # --- Boutons ------------------------------------------------------
         self.bouton_planning = wx.Button(self, -1, _(u"Imprimer le planning"))
@@ -97,10 +136,13 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonPlanning, self.bouton_planning)
 
         # --- Mise en page ------------------------------------------------
-        sizer_periode = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_periode.Add(self.ctrl_date_debut, 0, wx.RIGHT, 5)
-        sizer_periode.Add(wx.StaticText(self, -1, _(u"au")), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 5)
-        sizer_periode.Add(self.ctrl_date_fin, 0)
+        sizer_periode_ligne = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_periode_ligne.Add(self.ctrl_date_debut, 0, wx.RIGHT, 5)
+        sizer_periode_ligne.Add(wx.StaticText(self, -1, _(u"au")), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 5)
+        sizer_periode_ligne.Add(self.ctrl_date_fin, 0)
+        sizer_periode = wx.BoxSizer(wx.VERTICAL)
+        sizer_periode.Add(sizer_periode_ligne, 0)
+        sizer_periode.Add(self.label_periode_info, 0, wx.TOP, 4)
 
         sizer_signature = wx.BoxSizer(wx.HORIZONTAL)
         sizer_signature.Add(self.ctrl_date_signature, 0, wx.RIGHT, 10)
@@ -124,7 +166,7 @@ class Dialog(wx.Dialog):
             (label_representant, self.ctrl_representant_nom_complet),
             (label_fonction, self.ctrl_representant_fonction),
             (label_date_signature, sizer_signature),
-            (label_tarif, self.ctrl_tarif_horaire),
+            (label_tarifs, sizer_tarifs),
         ):
             sizer_general.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
             if isinstance(ctrl, wx.Sizer):
@@ -181,12 +223,24 @@ class Dialog(wx.Dialog):
             self.ctrl_representant_nom_complet.SetValue(nouveau_representant)
         self._auto_representant = nouveau_representant
 
-        tarif = champs.get("{CONVENTION_TARIF_HORAIRE}")
-        nouveau_tarif = (u"%.2f" % tarif) if isinstance(tarif, (int, float)) else u""
-        valeurActuelle = self.ctrl_tarif_horaire.GetValue().strip()
-        if valeurActuelle in (u"", self._auto_tarif):
-            self.ctrl_tarif_horaire.SetValue(nouveau_tarif)
-        self._auto_tarif = nouveau_tarif
+        def MajTarif(ctrl, attribut, code):
+            tarif = champs.get(code)
+            nouveau = (u"%.2f" % tarif) if isinstance(tarif, (int, float)) else u""
+            valeurActuelle = ctrl.GetValue().strip()
+            precedente = getattr(self, attribut)
+            if valeurActuelle in (u"", precedente):
+                ctrl.SetValue(nouveau)
+            setattr(self, attribut, nouveau)
+        MajTarif(self.ctrl_tarif_horaire, "_auto_tarif", "{CONVENTION_TARIF_HORAIRE}")
+        MajTarif(self.ctrl_tarif_adulte, "_auto_tarif_adulte", "{CONVENTION_TARIF_ADULTE}")
+        MajTarif(self.ctrl_tarif_enfant, "_auto_tarif_enfant", "{CONVENTION_TARIF_ENFANT}")
+        for label, code in (
+            (self.label_tarif_horaire_provenance, "{CONVENTION_TARIF_HORAIRE_PROVENANCE}"),
+            (self.label_tarif_adulte_provenance, "{CONVENTION_TARIF_ADULTE_PROVENANCE}"),
+            (self.label_tarif_enfant_provenance, "{CONVENTION_TARIF_ENFANT_PROVENANCE}"),
+        ):
+            label.SetLabel(champs.get(code) or u"")
+            label.Wrap(390)
 
     # ------------------------------------------------------------------
     # Planning séparé (moteur Réservations historique, inchangé)
@@ -255,10 +309,15 @@ class Dialog(wx.Dialog):
             "{CONVENTION_DATE_SIGNATURE}": self.ctrl_date_signature.GetDate().strftime("%d/%m/%Y"),
             "{CONVENTION_LIEU_SIGNATURE}": self.ctrl_lieu_signature.GetValue().strip(),
         }
-        tarif_saisi = self.ctrl_tarif_horaire.GetValue().strip().replace(",", ".")
-        if tarif_saisi:
-            try:
-                overrides["{CONVENTION_TARIF_HORAIRE}"] = float(tarif_saisi)
-            except ValueError:
-                pass
+        for code, ctrl in (
+            ("{CONVENTION_TARIF_HORAIRE}", self.ctrl_tarif_horaire),
+            ("{CONVENTION_TARIF_ADULTE}", self.ctrl_tarif_adulte),
+            ("{CONVENTION_TARIF_ENFANT}", self.ctrl_tarif_enfant),
+        ):
+            tarif_saisi = ctrl.GetValue().strip().replace(",", ".")
+            if tarif_saisi:
+                try:
+                    overrides[code] = float(tarif_saisi)
+                except ValueError:
+                    pass
         return overrides

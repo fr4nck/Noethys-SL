@@ -28,6 +28,100 @@ JOURS_SEMAINE = [
     _(u"Vendredi"), _(u"Samedi"), _(u"Dimanche"),
 ]
 
+SEUIL_RUPTURE_ESTIVALE_JOURS = 45
+
+
+def _date_simple(valeur):
+    if isinstance(valeur, datetime.datetime):
+        return valeur.date()
+    if isinstance(valeur, datetime.date):
+        return valeur
+    try:
+        return datetime.datetime.strptime(str(valeur)[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _rupture_estivale(date_precedente, date_suivante):
+    """Sépare deux saisons uniquement sur une vraie coupure d'été."""
+    if date_precedente is None or date_suivante is None:
+        return False
+    ecart = (date_suivante - date_precedente).days
+    return (
+        ecart >= SEUIL_RUPTURE_ESTIVALE_JOURS
+        and date_precedente.month in (5, 6, 7)
+        and date_suivante.month in (8, 9, 10)
+    )
+
+
+def GetPeriodeParDefaut(IDfamille, date_reference=None, DB=None):
+    """Déduit la période des consommations réelles, sans saison théorique."""
+    fermer = DB is None
+    if DB is None:
+        import GestionDB
+        DB = GestionDB.DB()
+    DB.ExecuterReq(
+        """SELECT DISTINCT consommations.date
+        FROM consommations
+        INNER JOIN rattachements
+            ON rattachements.IDindividu = consommations.IDindividu
+        WHERE rattachements.IDfamille=%d
+        AND (consommations.etat IS NULL OR consommations.etat <> 'refus')
+        ORDER BY consommations.date;""" % int(IDfamille)
+    )
+    dates = [_date_simple(row[0]) for row in DB.ResultatReq()]
+    if fermer:
+        DB.Close()
+    dates = sorted({d for d in dates if d is not None})
+    if not dates:
+        return None, None
+
+    groupes = [[dates[0]]]
+    for date in dates[1:]:
+        if _rupture_estivale(groupes[-1][-1], date):
+            groupes.append([date])
+        else:
+            groupes[-1].append(date)
+
+    reference = _date_simple(date_reference) or datetime.date.today()
+    def distance(groupe):
+        debut, fin = groupe[0], groupe[-1]
+        if debut <= reference <= fin:
+            return 0
+        return min(abs((reference - debut).days), abs((reference - fin).days))
+    groupe = min(groupes, key=distance)
+    return groupe[0], groupe[-1]
+
+
+def SaisonDepuisPeriode(date_debut, date_fin):
+    debut = _date_simple(date_debut)
+    fin = _date_simple(date_fin)
+    if debut is None or fin is None:
+        return u""
+    if debut.year == fin.year:
+        return str(debut.year)
+    return u"%d-%d" % (debut.year, fin.year)
+
+
+def ComposerAdresseConvention(rue=None, cp=None, ville=None):
+    """Compose une adresse sans répéter CP/ville déjà inclus dans la rue."""
+    rue = (rue or u"").strip()
+    cp = (str(cp).strip() if cp not in (None, u"") else u"")
+    ville = (ville or u"").strip()
+    suffixe = u" ".join(partie for partie in (cp, ville) if partie).strip()
+    lignes = [ligne.strip() for ligne in rue.splitlines() if ligne.strip()]
+    if suffixe:
+        suffixe_upper = suffixe.upper()
+        if lignes and lignes[-1].upper().endswith(suffixe_upper):
+            prefixe = lignes[-1][:-len(suffixe)].rstrip(u" ,-")
+            if prefixe:
+                lignes[-1] = prefixe
+            else:
+                lignes.pop()
+        if not lignes or lignes[-1].upper() != suffixe_upper:
+            lignes.append(suffixe)
+    return u"\n".join(lignes)
+
 
 # ---------------------------------------------------------------------------
 # Représentant : réutilise le mécanisme historique {REPRESENTANT_RATTACHE_x_*}
@@ -104,34 +198,38 @@ def _iter_consommations(dictDonnees):
 
 
 def DetecterTarifs(dictDonnees):
-    """ Analyse les prestations et durées réellement enregistrées pour
-    proposer un ou plusieurs taux horaires. Ne modifie jamais les
-    prestations Noethys : le résultat ne sert qu'à préremplir des champs
-    Convention, toujours modifiables avant génération.
-
-    Retourne un dict :
-    - mode="unique"  : un seul taux horaire ressort, sans ambiguïté,
-      quelle que soit l'activité -> {CONVENTION_TARIF_HORAIRE} ;
-    - mode="detail"  : chaque activité a son propre taux stable, mais les
-      activités ont des taux différents entre elles (ex. adulte/enfant) ;
-    - mode="manuel"  : au moins une activité présente des taux
-      incohérents pour une même durée -> aucune valeur fiable à
-      proposer automatiquement pour elle.
-    """
+    """Analyse les prestations et expose aussi une provenance vérifiable."""
     tauxParActivite = {}
-    for IDactivite, date, conso in _iter_consommations(dictDonnees):
-        prestation = conso.get("prestation")
-        if not prestation or prestation.get("montant") is None:
-            continue
-        duree = _duree_heures(conso.get("heure_debut"), conso.get("heure_fin"))
-        if not duree:
-            continue
-        montant = _montant_decimal(prestation["montant"])
-        if montant is None:
-            continue
-        taux = (montant / Decimal(str(duree))).quantize(Decimal("0.01"))
-        tauxParActivite.setdefault(IDactivite, set()).add(taux)
-
+    preuvesParActivite = {}
+    nomsActivites = {}
+    for dictIndividu in dictDonnees.values():
+        for IDactivite, dictActivite in dictIndividu["activites"].items():
+            nomsActivites[IDactivite] = dictActivite.get("nom") or u""
+            for date, dictDate in dictActivite["dates"].items():
+                for listeConso in dictDate["unites"].values():
+                    for conso in listeConso:
+                        prestation = conso.get("prestation")
+                        if not prestation or prestation.get("montant") is None:
+                            continue
+                        duree = _duree_heures(conso.get("heure_debut"), conso.get("heure_fin"))
+                        if not duree:
+                            continue
+                        montant = _montant_decimal(prestation["montant"])
+                        if montant is None:
+                            continue
+                        taux = (montant / Decimal(str(duree))).quantize(Decimal("0.01"))
+                        tauxParActivite.setdefault(IDactivite, set()).add(taux)
+                        preuvesParActivite.setdefault(IDactivite, []).append({
+                            "date": date,
+                            "heure_debut": conso.get("heure_debut"),
+                            "heure_fin": conso.get("heure_fin"),
+                            "duree_minutes": int(round(duree * 60)),
+                            "montant": montant,
+                            "taux": taux,
+                            "IDconso": conso.get("IDconso"),
+                            "IDprestation": conso.get("IDprestation"),
+                            "label": prestation.get("label") or u"",
+                        })
     tauxRetenus = {}
     ambigu = False
     for IDactivite, ensembleTaux in tauxParActivite.items():
@@ -139,18 +237,110 @@ def DetecterTarifs(dictDonnees):
             tauxRetenus[IDactivite] = next(iter(ensembleTaux))
         else:
             ambigu = True
-
+    commun = {
+        "taux_par_activite": tauxRetenus,
+        "preuves_par_activite": preuvesParActivite,
+        "noms_activites": nomsActivites,
+    }
     if ambigu or not tauxRetenus:
-        return {"mode": "manuel", "taux_par_activite": tauxRetenus}
-
+        commun["mode"] = "manuel"
+        return commun
     valeursDistinctes = set(tauxRetenus.values())
     if len(valeursDistinctes) == 1:
-        return {"mode": "unique", "taux": next(iter(valeursDistinctes)), "taux_par_activite": tauxRetenus}
+        commun.update({"mode": "unique", "taux": next(iter(valeursDistinctes))})
+        return commun
+    commun["mode"] = "detail"
+    return commun
 
-    return {"mode": "detail", "taux_par_activite": tauxRetenus}
+
+def CompleterIDconsosProvenance(resultatTarifs, DB=None):
+    """Complète les preuves tarifaires avec l'IDconso réel sans modifier
+    le moteur Réservations historique.
+
+    GetDonnees() expose déjà l'IDprestation utilisé pour chaque séance.
+    On s'en sert comme clé de traçabilité pour retrouver l'IDconso en
+    lecture seule. Une preuve qui ne possède pas d'IDprestation reste
+    simplement sans IDconso : aucune valeur n'est inventée.
+    """
+    preuves = resultatTarifs.get("preuves_par_activite", {})
+    ids_prestations = sorted({
+        preuve.get("IDprestation")
+        for liste in preuves.values()
+        for preuve in liste
+        if preuve.get("IDprestation") is not None
+    })
+    if not ids_prestations:
+        return resultatTarifs
+
+    fermer = DB is None
+    if DB is None:
+        import GestionDB
+        DB = GestionDB.DB()
+    try:
+        req = """SELECT IDconso, IDprestation
+        FROM consommations
+        WHERE IDprestation IN (%s)
+        ORDER BY IDconso;""" % ", ".join(str(int(ID)) for ID in ids_prestations)
+        DB.ExecuterReq(req)
+        correspondances = {}
+        for IDconso, IDprestation in DB.ResultatReq():
+            if IDprestation not in correspondances:
+                correspondances[IDprestation] = IDconso
+        for liste in preuves.values():
+            for preuve in liste:
+                if preuve.get("IDconso") is None:
+                    preuve["IDconso"] = correspondances.get(preuve.get("IDprestation"))
+    finally:
+        if fermer:
+            DB.Close()
+    return resultatTarifs
+
+
+def _format_decimal_fr(valeur):
+    return (u"%.2f" % float(valeur)).replace(".", ",")
+
+
+def _format_montant_euro(valeur):
+    if valeur in (None, u""):
+        return u""
+    try:
+        return u"%s €" % _format_decimal_fr(valeur)
+    except (TypeError, ValueError, InvalidOperation):
+        return str(valeur)
+
+
+def FormateProvenanceTarif(IDactivite, taux, resultatTarifs):
+    preuves = [
+        preuve for preuve in resultatTarifs.get("preuves_par_activite", {}).get(IDactivite, [])
+        if preuve.get("taux") == taux
+    ]
+    if not preuves:
+        return u""
+    preuve = preuves[0]
+    activite = resultatTarifs.get("noms_activites", {}).get(IDactivite, u"")
+    duree = FormateDureeHeures(preuve["duree_minutes"])
+    date = _formate_date_fr(preuve["date"])
+    texte = _(u"%s € / %s = %s €/h") % (
+        _format_decimal_fr(preuve["montant"]), duree, _format_decimal_fr(taux)
+    )
+    details = []
+    if activite:
+        details.append(activite)
+    if date:
+        details.append(date)
+    if preuve.get("IDconso") is not None:
+        details.append(_(u"consommation #%s") % preuve["IDconso"])
+    if preuve.get("IDprestation") is not None:
+        details.append(_(u"prestation #%s") % preuve["IDprestation"])
+    if details:
+        texte += u" — " + u", ".join(details)
+    if len(preuves) > 1:
+        texte += _(u" (%d séances au même taux)") % len(preuves)
+    return texte
 
 
 # ---------------------------------------------------------------------------
+# Résumé du planning# ---------------------------------------------------------------------------
 # Résumé du planning : déterministe, factuel, sans invention
 # ---------------------------------------------------------------------------
 
@@ -330,6 +520,28 @@ def FormatePeriode(periode):
     return ligne
 
 
+def FormateCreneauxConvention(listePeriodes):
+    """Liste compacte des créneaux récurrents, sans répéter toutes les dates."""
+    lignes = []
+    vus = set()
+    for periode in listePeriodes:
+        cle = (periode.jour_semaine, periode.heure_debut, periode.heure_fin, periode.activite)
+        if cle in vus:
+            continue
+        vus.add(cle)
+        if periode.jour_semaine is not None and periode.heure_debut and periode.heure_fin:
+            ligne = _(u"%s de %s à %s") % (
+                JOURS_SEMAINE[periode.jour_semaine],
+                _formate_heure(periode.heure_debut), _formate_heure(periode.heure_fin),
+            )
+        else:
+            ligne = _(u"Créneau à préciser")
+        if periode.activite:
+            ligne += u" : %s" % periode.activite
+        lignes.append(u"- " + ligne)
+    return u"\n".join(lignes)
+
+
 def FormatePeriodes(listePeriodes):
     """ Regroupe les périodes par groupe/cycle (ordre stable, déjà trié
     par ConstruirePeriodes) et produit le texte final. """
@@ -366,6 +578,7 @@ def GetResumePlanning(dictDonnees):
     total_montant = sum((p.montant_total for p in periodes), Decimal("0"))
     return {
         "detail": FormatePeriodes(periodes),
+        "creneaux": FormateCreneauxConvention(periodes),
         "nbre_seances": total_seances,
         "total_heures_minutes": total_minutes,
         "total_montant": total_montant,
@@ -450,7 +663,18 @@ def GetChampsConvention(
         "{CONVENTION_TARIF_HORAIRE}": u"",
         "{CONVENTION_TARIF_ADULTE}": u"",
         "{CONVENTION_TARIF_ENFANT}": u"",
+        "{CONVENTION_TARIF_HORAIRE_AFFICHE}": u"",
+        "{CONVENTION_TARIF_ADULTE_AFFICHE}": u"",
+        "{CONVENTION_TARIF_ENFANT_AFFICHE}": u"",
+        "{CONVENTION_TARIF_HORAIRE_PROVENANCE}": u"",
+        "{CONVENTION_TARIF_ADULTE_PROVENANCE}": u"",
+        "{CONVENTION_TARIF_ENFANT_PROVENANCE}": u"",
+        "{CONVENTION_ADRESSE_STRUCTURE}": u"",
     })
+
+    champs["{CONVENTION_ADRESSE_STRUCTURE}"] = ComposerAdresseConvention(
+        champs.get("{FAMILLE_RUE}"), champs.get("{FAMILLE_CP}"), champs.get("{FAMILLE_VILLE}")
+    )
 
     representant = GetRepresentant(IDfamille, informations=informations)
     if representant is not None:
@@ -467,44 +691,63 @@ def GetChampsConvention(
 
     resume = GetResumePlanning(dictDonnees)
     champs["{CONVENTION_PLANNING_DETAIL}"] = resume["detail"]
+    champs["{CONVENTION_PLANNING_CRENEAUX}"] = resume["creneaux"]
     champs["{CONVENTION_PLANNING_NBRE_SEANCES}"] = resume["nbre_seances"]
     champs["{CONVENTION_PLANNING_TOTAL_HEURES}"] = FormateDureeHeures(resume["total_heures_minutes"])
     champs["{CONVENTION_PLANNING_TOTAL_MONTANT}"] = float(resume["total_montant"])
 
     tarifs = DetecterTarifs(dictDonnees)
+    CompleterIDconsosProvenance(tarifs, DB=DB)
     if tarifs["mode"] == "unique":
         champs["{CONVENTION_TARIF_HORAIRE}"] = float(tarifs["taux"])
+        IDactivite = next(iter(tarifs["taux_par_activite"]))
+        champs["{CONVENTION_TARIF_HORAIRE_PROVENANCE}"] = FormateProvenanceTarif(
+            IDactivite, tarifs["taux"], tarifs
+        )
     elif tarifs["mode"] == "detail":
-        _CompleterTarifsAdulteEnfant(champs, tarifs["taux_par_activite"], dictDonnees)
-    # mode == "manuel" : aucun taux fiable, {CONVENTION_TARIF_HORAIRE}
-    # reste vide -- à saisir manuellement (voir "overrides" ci-dessous).
+        _CompleterTarifsAdulteEnfant(champs, tarifs, dictDonnees)
 
     if overrides:
+        correspondance_provenance = {
+            "{CONVENTION_TARIF_HORAIRE}": "{CONVENTION_TARIF_HORAIRE_PROVENANCE}",
+            "{CONVENTION_TARIF_ADULTE}": "{CONVENTION_TARIF_ADULTE_PROVENANCE}",
+            "{CONVENTION_TARIF_ENFANT}": "{CONVENTION_TARIF_ENFANT_PROVENANCE}",
+        }
         for code, valeur in overrides.items():
             if valeur is not None:
+                if code in correspondance_provenance and valeur != champs.get(code):
+                    champs[correspondance_provenance[code]] = _(u"Saisie manuelle dans le générateur.")
                 champs[code] = valeur
+
+    for code, code_affiche in (
+        ("{CONVENTION_TARIF_HORAIRE}", "{CONVENTION_TARIF_HORAIRE_AFFICHE}"),
+        ("{CONVENTION_TARIF_ADULTE}", "{CONVENTION_TARIF_ADULTE_AFFICHE}"),
+        ("{CONVENTION_TARIF_ENFANT}", "{CONVENTION_TARIF_ENFANT_AFFICHE}"),
+    ):
+        champs[code_affiche] = _format_montant_euro(champs.get(code))
 
     return champs, dictDonnees
 
 
-def _CompleterTarifsAdulteEnfant(champs, tauxParActivite, dictDonnees):
-    """ Quand plusieurs taux cohérents existent (mode="detail"), les
-    exposer sous {CONVENTION_TARIF_ADULTE}/{CONVENTION_TARIF_ENFANT}
-    uniquement si le nom réel de l'activité (tel qu'enregistré dans
-    Noethys) permet de le déterminer sans ambiguïté -- jamais en
-    devinant. Sinon, taux_par_activite reste disponible dans le résultat
-    de DetecterTarifs() pour un usage plus générique par l'appelant. """
+def _CompleterTarifsAdulteEnfant(champs, tarifs, dictDonnees):
+    """Expose les taux adulte/enfant uniquement quand le libellé le démontre."""
+    tauxParActivite = tarifs["taux_par_activite"]
     nomsActivites = {}
     for dictIndividu in dictDonnees.values():
         for IDactivite, dictActivite in dictIndividu["activites"].items():
             nomsActivites[IDactivite] = dictActivite.get("nom") or u""
-
     for IDactivite, taux in tauxParActivite.items():
         nom = nomsActivites.get(IDactivite, u"").lower()
         if "enfant" in nom and not champs.get("{CONVENTION_TARIF_ENFANT}"):
             champs["{CONVENTION_TARIF_ENFANT}"] = float(taux)
+            champs["{CONVENTION_TARIF_ENFANT_PROVENANCE}"] = FormateProvenanceTarif(
+                IDactivite, taux, tarifs
+            )
         elif "adulte" in nom and not champs.get("{CONVENTION_TARIF_ADULTE}"):
             champs["{CONVENTION_TARIF_ADULTE}"] = float(taux)
+            champs["{CONVENTION_TARIF_ADULTE_PROVENANCE}"] = FormateProvenanceTarif(
+                IDactivite, taux, tarifs
+            )
 
 
 def GetIndividusRattaches(IDfamille, DB=None):
