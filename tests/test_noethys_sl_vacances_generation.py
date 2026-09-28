@@ -48,6 +48,19 @@ class TestVacancesGeneration(unittest.TestCase):
             module.EstEnVacancesGeneration(datetime.date(2026, 11, 1), self.vacances)
         )
 
+    def test_fin_non_dimanche_est_prolongee_au_dimanche(self):
+        vacances = [("2026-10-17", "2026-10-30", "Toussaint", "2026")]
+        self.assertEqual(
+            module.GetFinVacancesGeneration("2026-10-30"),
+            datetime.date(2026, 11, 1),
+        )
+        self.assertTrue(
+            module.EstEnVacancesGeneration(datetime.date(2026, 11, 1), vacances)
+        )
+        self.assertFalse(
+            module.EstEnVacancesGeneration(datetime.date(2026, 11, 2), vacances)
+        )
+
     def test_lundi_reprise_est_scolaire(self):
         self.assertFalse(
             module.EstEnVacancesGeneration(datetime.date(2026, 11, 2), self.vacances)
