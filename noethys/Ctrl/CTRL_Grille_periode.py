@@ -12,6 +12,7 @@
 import Chemins
 from Utils import UTILS_Adaptations
 from Utils import UTILS_Dates
+from Utils import UTILS_PeriodesSaison
 from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
@@ -73,16 +74,30 @@ class CTRL_Annee(wx.SpinCtrl):
 
 
 class CTRL_ListBox(wx.ListBox):
-    def __init__(self, parent):
-        wx.ListBox.__init__(self, parent, -1, style=wx.LB_EXTENDED) 
+    def __init__(self, parent, selection_multiple=True):
+        self.selection_multiple = selection_multiple
+        style = wx.LB_EXTENDED if selection_multiple else wx.LB_SINGLE
+        wx.ListBox.__init__(self, parent, -1, style=style)
         self.parent = parent
-        self.SetToolTip(wx.ToolTip(_(u"Sélectionnez une ou plusieurs périodes avec les touches SHIFT ou CTRL")))
+        if selection_multiple:
+            self.SetToolTip(wx.ToolTip(_(u"Sélectionnez une ou plusieurs périodes avec les touches SHIFT ou CTRL")))
+        else:
+            self.SetToolTip(wx.ToolTip(_(u"Sélectionnez une période")))
         self.listeChoix = []
+
+    def GetSelectionIndices(self):
+        """Retourne les index sélectionnés sans surcharger l'API wx native."""
+        if self.selection_multiple:
+            return list(wx.ListBox.GetSelections(self))
+        index = wx.ListBox.GetSelection(self)
+        if index == wx.NOT_FOUND:
+            return []
+        return [index]
     
     def SetListeChoix(self, listeChoix=[], conserveSelections=False):
         # Format : (nomItem, date_debut, date_fin)
         self.listeChoix = listeChoix
-        listeSelections = self.GetSelections()
+        listeSelections = self.GetSelectionIndices()
         self.Clear()
         listeItems = []
         for nomItem, date_debut, date_fin in listeChoix :
@@ -93,7 +108,7 @@ class CTRL_ListBox(wx.ListBox):
                 self.Select(indexSelection)
     
     def GetDatesSelections(self):
-        listeSelections = self.GetSelections()
+        listeSelections = self.GetSelectionIndices()
         listeDatesSelections = []
         for indexSelection in listeSelections :
             date_debut = self.listeChoix[indexSelection][1]
@@ -110,7 +125,7 @@ class CTRL_ListBox(wx.ListBox):
     
     def SetVisibleSelection(self):
         try :
-            indexSelection = self.GetSelections()[0]
+            indexSelection = self.GetSelectionIndices()[0]
             self.Select(indexSelection)
             self.EnsureVisible(indexSelection)
         except Exception as err :
@@ -119,7 +134,7 @@ class CTRL_ListBox(wx.ListBox):
 
 # --------------------------------------------------------------------------------------------------------
 class Mois(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, selection_multiple=True):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.parent = parent
         self.listeMois = [_(u"Janvier"), _(u"Février"), _(u"Mars"), _(u"Avril"), _(u"Mai"), _(u"Juin"), _(u"Juillet"), _(u"Août"), _(u"Septembre"), _(u"Octobre"), _(u"Novembre"), _(u"Décembre")]
@@ -127,7 +142,7 @@ class Mois(wx.Panel):
         self.label_annee = wx.StaticText(self, -1, _(u"Année :"))
         self.ctrl_annee = CTRL_Annee(self)
         self.label_mois = wx.StaticText(self, -1, _(u"Mois :"))
-        self.ctrl_mois = CTRL_ListBox(self)
+        self.ctrl_mois = CTRL_ListBox(self, selection_multiple=selection_multiple)
         # Layout
         grid_sizer_mois = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
         grid_sizer_mois.Add(self.label_annee, 0, wx.LEFT|wx.TOP|wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 5)
@@ -196,14 +211,14 @@ class Annee(wx.Panel):
         
 
 class Vacances(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, selection_multiple=True):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.parent = parent
         # Controles
         self.label_annee = wx.StaticText(self, -1, _(u"Année :"))
         self.ctrl_annee = CTRL_Annee(self)
         self.label_periode = wx.StaticText(self, -1, _(u"Période :"))
-        self.ctrl_periode = CTRL_ListBox(self)
+        self.ctrl_periode = CTRL_ListBox(self, selection_multiple=selection_multiple)
         # Layout
         grid_sizer_vacances = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
         grid_sizer_vacances.Add(self.label_annee, 0, wx.LEFT|wx.TOP|wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 5)
@@ -256,6 +271,190 @@ class Vacances(wx.Panel):
 
 
 
+class CTRL_Saison(wx.ComboBox):
+    """Choix compact d'une saison sans table préchargée de milliers d'années."""
+
+    NB_SAISONS_AUTOUR = 10
+
+    def __init__(self, parent):
+        wx.ComboBox.__init__(
+            self,
+            parent,
+            -1,
+            choices=[],
+            style=wx.CB_DROPDOWN | wx.TE_PROCESS_ENTER,
+        )
+        self.annee_min_choix = None
+        self.annee_max_choix = None
+        self.SetMinSize((110, -1))
+        self.SetToolTip(wx.ToolTip(
+            _(u"Sélectionnez une saison ou saisissez directement son année de début")
+        ))
+        self.SetAnnee(UTILS_PeriodesSaison.GetAnneeDebutSaison())
+
+    def _Formater(self, annee):
+        return u"%d - %d" % (annee, annee + 1)
+
+    def _Parser(self, valeur):
+        try:
+            texte = str(valeur).strip()
+            annee = int(texte.split("-")[0].strip())
+        except Exception:
+            return None
+        if annee < 1 or annee >= datetime.MAXYEAR:
+            return None
+        return annee
+
+    def _ChoixContiennent(self, annee):
+        return (
+            self.annee_min_choix is not None
+            and self.annee_min_choix <= annee <= self.annee_max_choix
+        )
+
+    def _RafraichirChoix(self, annee_centre):
+        debut = max(1, annee_centre - self.NB_SAISONS_AUTOUR)
+        fin = min(datetime.MAXYEAR - 1, annee_centre + self.NB_SAISONS_AUTOUR)
+
+        # wx.ComboBox.Set() efface brièvement la zone texte sous Windows.
+        # On ne reconstruit donc la petite liste dynamique que si la saison
+        # demandée sort réellement de la fenêtre déjà chargée.
+        if self._ChoixContiennent(annee_centre):
+            return
+
+        self.Freeze()
+        try:
+            self.Set([self._Formater(annee) for annee in range(debut, fin + 1)])
+            self.annee_min_choix = debut
+            self.annee_max_choix = fin
+        finally:
+            self.Thaw()
+
+    def SetAnnee(self, annee):
+        try:
+            annee = int(annee)
+        except Exception:
+            annee = UTILS_PeriodesSaison.GetAnneeDebutSaison()
+
+        annee = max(1, min(datetime.MAXYEAR - 1, annee))
+        self._RafraichirChoix(annee)
+        wx.ComboBox.SetValue(self, self._Formater(annee))
+
+    def GetAnnee(self):
+        annee = self._Parser(wx.ComboBox.GetValue(self))
+        if annee is None:
+            annee = UTILS_PeriodesSaison.GetAnneeDebutSaison()
+            self.SetAnnee(annee)
+        return annee
+
+    def Normaliser(self):
+        annee = self.GetAnnee()
+        self.SetAnnee(annee)
+        return annee
+
+
+class Saison(wx.Panel):
+    """Raccourcis de période basés sur une saison de septembre à août."""
+
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
+        self.parent = parent
+
+        self.listePeriodes = [
+            ("saison", _(u"Saison complète (sept.-août)")),
+            ("trimestre_1", _(u"1er trimestre (sept.-déc.)")),
+            ("trimestre_2", _(u"2e trimestre (janv.-mars)")),
+            ("trimestre_3", _(u"3e trimestre (avr.-août)")),
+            ("semestre_1", _(u"1er semestre (sept.-févr.)")),
+            ("semestre_2", _(u"2e semestre (mars-août)")),
+        ]
+
+        self.label_saison = wx.StaticText(self, -1, _(u"Saison :"))
+        self.ctrl_annee = CTRL_Saison(self)
+        self.label_periode = wx.StaticText(self, -1, _(u"Période :"))
+        self.ctrl_periode = wx.ListBox(
+            self,
+            -1,
+            choices=[label for code, label in self.listePeriodes],
+            style=wx.LB_SINGLE,
+        )
+        self.ctrl_periode.SetToolTip(
+            wx.ToolTip(_(u"Sélectionnez une saison, un trimestre ou un semestre"))
+        )
+
+        grid_sizer_saison = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
+        grid_sizer_saison.Add(
+            self.label_saison,
+            0,
+            wx.LEFT | wx.TOP | wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL,
+            5,
+        )
+        grid_sizer_saison.Add(
+            self.ctrl_annee,
+            0,
+            wx.TOP | wx.RIGHT,
+            5,
+        )
+        grid_sizer_saison.Add(self.label_periode, 0, wx.ALIGN_RIGHT, 0)
+        grid_sizer_saison.Add(
+            self.ctrl_periode,
+            0,
+            wx.RIGHT | wx.BOTTOM | wx.EXPAND,
+            5,
+        )
+        self.SetSizer(grid_sizer_saison)
+        grid_sizer_saison.AddGrowableRow(1)
+        grid_sizer_saison.AddGrowableCol(1)
+
+        self.ctrl_annee.Bind(wx.EVT_COMBOBOX, self.OnSelectionAnnee)
+        self.ctrl_annee.Bind(wx.EVT_TEXT_ENTER, self.OnSelectionAnnee)
+        self.ctrl_periode.Bind(wx.EVT_LISTBOX, self.OnSelectionPeriode)
+
+        self.ctrl_annee.SetAnnee(UTILS_PeriodesSaison.GetAnneeDebutSaison())
+        self.ctrl_periode.SetSelection(0)
+
+    def _GetCodeSelectionne(self):
+        index = self.ctrl_periode.GetSelection()
+        if index == wx.NOT_FOUND:
+            return None
+        return self.listePeriodes[index][0]
+
+    def OnSelectionAnnee(self, event):
+        self.ctrl_annee.Normaliser()
+        self.GetGrandParent().OnSelection()
+        if event is not None:
+            event.Skip()
+
+    def OnSelectionPeriode(self, event):
+        self.GetGrandParent().OnSelection()
+
+    def SetSelectionIndex(self, indexSelection=None):
+        try:
+            if indexSelection is not None and 0 <= indexSelection < len(self.listePeriodes):
+                self.ctrl_periode.SetSelection(indexSelection)
+                self.ctrl_periode.EnsureVisible(indexSelection)
+        except Exception:
+            pass
+
+    def SetVisibleSelection(self):
+        try:
+            index = self.ctrl_periode.GetSelection()
+            if index != wx.NOT_FOUND:
+                self.ctrl_periode.EnsureVisible(index)
+        except Exception:
+            pass
+
+    def GetDatesSelections(self):
+        code = self._GetCodeSelectionne()
+        if code is None:
+            return []
+        return [
+            UTILS_PeriodesSaison.GetPeriodeSaison(
+                code,
+                annee_debut=self.ctrl_annee.GetAnnee(),
+            )
+        ]
+
+
 class Dates(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
@@ -296,25 +495,32 @@ class Dates(wx.Panel):
 # -----------------------------------------------------------------------------------------------------------------------
 
 class CTRL(wx.Panel):
-    def __init__(self, parent):
-        u""" Selection d'une période pour la grille de saisie des conso u"""
+    def __init__(self, parent, selection_multiple=True, callback_selection=None):
+        u""" Sélection d'une période réutilisable dans les écrans Noethys SL. """
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.parent = parent
-        self.nomParent = self.GetParent().GetName() 
+        self.nomParent = self.GetParent().GetName()
+        self.callback_selection = callback_selection
         
         self.evtActif = True
         
         self.notebook = wx.Notebook(self, -1, style=wx.BK_TOP)
+        # Largeur minimale pour afficher simultanément :
+        # Mois | Vacances | Année | Dates | Saison, sans flèches de navigation.
+        self.notebook.SetMinSize((300, -1))
+        self.SetMinSize((300, -1))
         
         self.page_dates = Dates(self.notebook)
         self.page_annee = Annee(self.notebook)
-        self.page_vacances = Vacances(self.notebook)
-        self.page_mois = Mois(self.notebook)
+        self.page_vacances = Vacances(self.notebook, selection_multiple=selection_multiple)
+        self.page_mois = Mois(self.notebook, selection_multiple=selection_multiple)
+        self.page_saison = Saison(self.notebook)
         
         self.notebook.AddPage(self.page_mois, _(u"Mois"))
         self.notebook.AddPage(self.page_vacances, _(u"Vacances"))
         self.notebook.AddPage(self.page_annee, _(u"Année"))
         self.notebook.AddPage(self.page_dates, _(u"Dates"))
+        self.notebook.AddPage(self.page_saison, _(u"Saison"))
 
         self.__do_layout()
         
@@ -341,6 +547,8 @@ class CTRL(wx.Panel):
             self.parent.SetListesPeriodes(listeSelections) 
         
         self.evtActif = True
+        if self.callback_selection is not None:
+            self.callback_selection()
             
     
     def OnPageChanged(self, event):
@@ -354,6 +562,8 @@ class CTRL(wx.Panel):
             listeSelections = page.GetDatesSelections()
             self.parent.SetListesPeriodes(listeSelections)
             self.parent.MAJ_grille()
+        if self.evtActif == True and self.callback_selection is not None:
+            self.callback_selection()
         event.Skip()
     
     def GetDatesSelections(self):
@@ -366,7 +576,7 @@ class CTRL(wx.Panel):
         try :
             indexPage = self.notebook.GetSelection()
             page = self.notebook.GetPage(indexPage)
-            if indexPage in (0, 2):
+            if hasattr(page, "SetVisibleSelection"):
                 page.SetVisibleSelection()
         except : 
             pass
@@ -375,6 +585,15 @@ class CTRL(wx.Panel):
         if dictDonnees == None : return
         self.evtActif = False
         numPage = dictDonnees["page"]
+        # Tolère une préférence mémorisée par une version possédant davantage
+        # d'onglets (par exemple Saison) sans faire planter wx.Notebook.
+        try:
+            numPage = int(numPage)
+        except Exception:
+            numPage = 0
+        if numPage < 0 or numPage >= self.notebook.GetPageCount():
+            numPage = 0
+
         annee = dictDonnees["annee"]
         listeSelections = dictDonnees["listeSelections"]
         dateDebut = dictDonnees["dateDebut"]
@@ -417,6 +636,13 @@ class CTRL(wx.Panel):
             # Dates
             if dateDebut != None : page.ctrl_date_debut.SetDate(dateDebut)
             if dateFin != None : page.ctrl_date_fin.SetDate(dateFin)
+
+        if numPage == 4 :
+            # Saison
+            if annee != None :
+                page.ctrl_annee.SetAnnee(annee)
+            if len(listeSelections) > 0 :
+                page.SetSelectionIndex(listeSelections[0])
         
         self.evtActif = True
         
@@ -434,7 +660,7 @@ class CTRL(wx.Panel):
         # Mois
         if numPage == 0 :
             dictDonnees["page"] = 0
-            dictDonnees["listeSelections"] = page.ctrl_mois.GetSelections()
+            dictDonnees["listeSelections"] = page.ctrl_mois.GetSelectionIndices()
             dictDonnees["annee"] = page.ctrl_annee.GetValue()
             dictDonnees["dateDebut"] = None
             dictDonnees["dateFin"] = None
@@ -442,7 +668,7 @@ class CTRL(wx.Panel):
         # Vacances
         if numPage == 1 :
             dictDonnees["page"] = 1
-            dictDonnees["listeSelections"] = page.ctrl_periode.GetSelections()
+            dictDonnees["listeSelections"] = page.ctrl_periode.GetSelectionIndices()
             dictDonnees["annee"] = page.ctrl_annee.GetValue()
             dictDonnees["dateDebut"] = None
             dictDonnees["dateFin"] = None
@@ -462,6 +688,18 @@ class CTRL(wx.Panel):
             dictDonnees["annee"] = None
             dictDonnees["dateDebut"] = page.ctrl_date_debut.GetDate()
             dictDonnees["dateFin"] = page.ctrl_date_fin.GetDate()
+
+        # Saison
+        if numPage == 4 :
+            dictDonnees["page"] = 4
+            indexSelection = page.ctrl_periode.GetSelection()
+            if indexSelection == wx.NOT_FOUND :
+                dictDonnees["listeSelections"] = []
+            else :
+                dictDonnees["listeSelections"] = [indexSelection]
+            dictDonnees["annee"] = page.ctrl_annee.GetAnnee()
+            dictDonnees["dateDebut"] = None
+            dictDonnees["dateFin"] = None
         
         dictDonnees["listePeriodes"] = self.GetDatesSelections()
         return dictDonnees
