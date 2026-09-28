@@ -1936,6 +1936,10 @@ Noethys SL 0.1.0 RC1 - suite du 28/09/2026
   ciblées de correctifs déjà éprouvés.
 - Prélèvements et tarifs famille : aperçu sans date sécurisé, palier à
   0,00 € préservé et calculs des tranches horaires corrigés.
+- Saisonnalité des périodes : saison de septembre à août avec choix de
+  l'année de départ, trimestre en cours, T1/T2/T3, semestre en cours et
+  S1/S2. Le sélecteur commun est utilisé dans les états de consommations,
+  la synthèse, le devis et le traitement par lot.
 - Planning : correction de l'ouverture des réservations avec les versions
   récentes de ReportLab.
 - Splash de démarrage remplacé par le visuel fourni par Pêle-Mêle.
