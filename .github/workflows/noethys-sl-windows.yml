@@ -41,7 +41,7 @@ jobs:
       - name: Compiler et vérifier le visuel
         run: |
           python -m compileall -q noethys tests
-          python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splash_PMSL_Slime.png'; im=Image.open(p); assert im.size == (960, 540); im.verify()"
+          python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
 
       - name: Construire l'exécutable
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
@@ -50,7 +50,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
-          $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splash_PMSL_Slime.png'
+          $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'
           if (-not (Test-Path $splash)) { throw 'Splash Pêle-Mêle absent du paquet' }
           if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
           @(
