@@ -6,12 +6,9 @@ import types
 import unittest
 from pathlib import Path
 
-from scripts import audit_branch_assignment_gaps
-
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_ROOT = ROOT / "noethys"
-SOURCE = SOURCE_ROOT / "Dlg" / "DLG_Compta_graphiques.py"
+SOURCE = ROOT / "noethys" / "Dlg" / "DLG_Compta_graphiques.py"
 
 
 class FakeDB:
@@ -84,15 +81,19 @@ class FakeSelf:
         pass
 
 
-def load_graphe_repartition_categories():
+def get_graphe_repartition_categories_node():
     tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
-    fonction = next(
+    return next(
         node
         for classe in tree.body
         if isinstance(classe, ast.ClassDef) and classe.name == "CTRL_Graphique"
         for node in classe.body
         if isinstance(node, ast.FunctionDef) and node.name == "Graphe_repartition_categories"
     )
+
+
+def load_graphe_repartition_categories():
+    fonction = get_graphe_repartition_categories_node()
     module = ast.Module(body=[fonction], type_ignores=[])
     ast.fix_missing_locations(module)
 
@@ -123,14 +124,37 @@ class ComptaGraphiquesCategoryAmountContractTests(unittest.TestCase):
             ["Catégorie A\n10.00 €", "Catégorie B\n25.50 €"],
         )
 
-    def test_stale_sql_amount_branch_gap_is_gone(self):
-        findings = audit_branch_assignment_gaps.scan_file(SOURCE, SOURCE_ROOT)
-        targeted = [
-            item for item in findings
-            if item.get("function") == "Graphe_repartition_categories"
-            and item.get("name") == "montant"
+    def test_label_source_uses_current_category_amount(self):
+        fonction = get_graphe_repartition_categories_node()
+        label_updates = [
+            node
+            for node in ast.walk(fonction)
+            if isinstance(node, ast.AugAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "label"
         ]
-        self.assertEqual(targeted, [], targeted)
+        self.assertEqual(len(label_updates), 1, label_updates)
+        expression = label_updates[0].value
+
+        stale_amount_reads = [
+            node
+            for node in ast.walk(expression)
+            if isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id == "montant"
+        ]
+        self.assertEqual(stale_amount_reads, [])
+
+        current_category_amount_reads = [
+            node
+            for node in ast.walk(expression)
+            if isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "dictTemp"
+            and isinstance(node.slice, ast.Constant)
+            and node.slice.value == "montant"
+        ]
+        self.assertEqual(len(current_category_amount_reads), 1, current_category_amount_reads)
 
 
 if __name__ == "__main__":
