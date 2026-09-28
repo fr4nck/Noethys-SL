@@ -767,6 +767,51 @@ class SmtpV2(Base_messagerie):
 
 
 
+# Étapes réelles traversées pour l'envoi d'UN message via Mailjet
+# (Mailjet.Envoyer_lot() / Mailjet.Envoyer()) : chacune correspond à une
+# phase effectivement franchie, jamais à un pourcentage inventé.
+_ETAPE_PREPARATION = 0
+_ETAPE_PIECES_JOINTES = 1
+_ETAPE_ENVOI_ET_ATTENTE = 2
+_ETAPE_SUCCES = 3
+_NB_ETAPES_PAR_MESSAGE = 4
+
+
+def _FormaterTailleOctets(nb_octets):
+    """"XXX Ko", arrondi -- jamais d'octets bruts, jamais de décimale."""
+    if nb_octets <= 0:
+        return u"0 Ko"
+    return u"%d Ko" % max(1, round(nb_octets / 1024.0))
+
+
+def _LibelleProgressionEnvoi(index, total, label_destinataire, sujet=None, etape_texte=None):
+    """Construit le message affiché par la wx.ProgressDialog de
+    Mailjet.Envoyer_lot(). Ne doit jamais recevoir ni afficher de clé API,
+    de secret Mailjet, de mot de passe, ni le contenu complet du mail :
+    seuls index/total, le libellé destinataire, le sujet (tronqué à 80
+    caractères) et un texte d'étape lui sont transmis."""
+    lignes = [
+        _(u"Message %d/%d") % (index, total),
+        _(u"Destinataire : %s") % label_destinataire,
+    ]
+    if sujet:
+        sujet_tronque = sujet if len(sujet) <= 80 else sujet[:80] + u"..."
+        lignes.append(_(u"Sujet : %s") % sujet_tronque)
+    if etape_texte:
+        lignes.append(etape_texte)
+    return u"\n".join(lignes)
+
+
+def _FermerProgressDialog(dlg_progress):
+    """Détruit dlg_progress si elle existe encore, puis renvoie None.
+    Idempotent : n'appelle jamais Destroy() deux fois sur le même objet
+    (dlg_progress est systématiquement remise à None par l'appelant après
+    cet appel)."""
+    if dlg_progress is not None:
+        dlg_progress.Destroy()
+    return None
+
+
 class Mailjet(Base_messagerie):
     def __init__(self, **kwds):
         Base_messagerie.__init__(self, **kwds)
@@ -914,7 +959,15 @@ class Mailjet(Base_messagerie):
         for fichier in message.images:
             ctype, encoding = mimetypes.guess_type(fichier)
             with open(fichier, "rb") as file:
-                Base64Content = base64.b64encode(file.read())
+                # base64.b64encode() renvoie des bytes (Python 2 comme
+                # Python 3 : en Python 2, bytes == str, .decode("ascii")
+                # y fonctionne aussi puisque l'alphabet Base64 est ASCII
+                # pur). mailjet_rest transmet ce dictionnaire directement à
+                # json.dumps() (via requests) : sous Python 3, des bytes
+                # non décodés y lèvent TypeError("Object of type bytes is
+                # not JSON serializable") -- reproduit à l'exécution avant
+                # correctif. Mailjet exige explicitement une chaîne ASCII.
+                Base64Content = base64.b64encode(file.read()).decode("ascii")
             nom_fichier = os.path.basename(fichier)
 
             dict_fichier = {
@@ -930,7 +983,7 @@ class Mailjet(Base_messagerie):
         for fichier in message.fichiers:
             ctype, encoding = mimetypes.guess_type(fichier)
             with open(fichier, "rb") as file:
-                Base64Content = base64.b64encode(file.read())
+                Base64Content = base64.b64encode(file.read()).decode("ascii")
             nom_fichier = os.path.basename(fichier)
 
             dict_fichier = {
@@ -964,44 +1017,118 @@ class Mailjet(Base_messagerie):
 
     def Envoyer_lot(self, messages=[], dlg_progress=None, afficher_confirmation_envoi=True):
         """ Envoi des messages par lot """
-        # Envoi des mails
         index = 1
+        total = len(messages)
         listeAnomalies = []
         listeSucces = []
         ne_pas_signaler_erreurs = False
+        # Progression par étapes réellement franchies (préparation, pièces
+        # jointes, envoi+attente, succès) et non plus un seul cran par
+        # message entier : pour 1 message, l'ancien schéma
+        # (maximum=len(messages)+1, un seul Update() avant l'envoi) laissait
+        # la barre statique à 50% pendant toute la phase réelle d'envoi.
+        maximum = total * _NB_ETAPES_PAR_MESSAGE + 1
+        if dlg_progress is not None:
+            # dlg_progress peut avoir été construite par l'appelant (ex.
+            # DLG_Mailer.Envoyer(), qui l'utilise déjà pour afficher "Connexion
+            # au serveur de messagerie...") avec un autre maximum : on aligne
+            # sa plage sur notre propre schéma de progression, sans exiger de
+            # l'appelant qu'il en connaisse le détail.
+            dlg_progress.SetRange(maximum)
+
         for message in messages:
             while True:
-                adresse = message.GetLabelDestinataires()
-                labelAdresse = _TexteUtf8(adresse)
-                label = _(u"Envoi %d/%d : %s...") % (index, len(messages), labelAdresse)
-
-                # Si la dlg_progress a été fermée, on la réouvre
-                if dlg_progress == None:
-                    dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u""), maximum=len(messages) + 1, parent=None)
-                    dlg_progress.SetSize((450, 140))
-                    dlg_progress.CenterOnScreen()
-                dlg_progress.Update(index, label)
-
-                # Envoi
                 try:
+                    adresse = message.GetLabelDestinataires()
+                    labelAdresse = _TexteUtf8(adresse)
+                    sujet = _TexteUtf8(message.sujet) if message.sujet else None
+                    base = (index - 1) * _NB_ETAPES_PAR_MESSAGE
+
+                    # Si la dlg_progress a été fermée (ou n'a jamais existé), on la (ré)ouvre.
+                    if dlg_progress is None:
+                        dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u""), maximum=maximum, parent=None)
+                        dlg_progress.SetSize((450, 140))
+                        dlg_progress.CenterOnScreen()
+
+                    # 1. Préparation.
+                    dlg_progress.Update(
+                        base + _ETAPE_PREPARATION,
+                        _LibelleProgressionEnvoi(index, total, labelAdresse, sujet),
+                    )
+
+                    # 2. Pièces jointes (images incluses + fichiers joints), si présentes.
+                    fichiers_joints = list(message.images) + list(message.fichiers)
+                    if fichiers_joints:
+                        taille_totale = sum(
+                            os.path.getsize(fichier) for fichier in fichiers_joints if os.path.exists(fichier)
+                        )
+                        if len(fichiers_joints) == 1:
+                            etape_texte = _(u"Préparation de 1 pièce jointe (%s)...") % _FormaterTailleOctets(taille_totale)
+                        else:
+                            etape_texte = _(u"Préparation de %d pièces jointes (%s)...") % (
+                                len(fichiers_joints), _FormaterTailleOctets(taille_totale),
+                            )
+                        dlg_progress.Update(
+                            base + _ETAPE_PIECES_JOINTES,
+                            _LibelleProgressionEnvoi(index, total, labelAdresse, sujet, etape_texte),
+                        )
+
+                    # 3. Connexion/envoi + attente de la réponse : un seul appel
+                    # bloquant (mailjet_rest exécute la requête HTTP de façon
+                    # synchrone -- aucun évènement wx n'est traité, donc aucune
+                    # animation possible pendant l'attente réseau elle-même).
+                    # Le libellé n'est donc affiché qu'une fois, juste avant
+                    # l'appel : c'est le seul moment où il est garanti d'être
+                    # réellement peint à l'écran avant le blocage.
+                    dlg_progress.Update(
+                        base + _ETAPE_ENVOI_ET_ATTENTE,
+                        _LibelleProgressionEnvoi(
+                            index, total, labelAdresse, sujet,
+                            _(u"Envoi via Mailjet — attente de la réponse..."),
+                        ),
+                    )
+
                     self.Envoyer(message)
                     listeSucces.append(message)
+
+                    # 4. Succès.
+                    dlg_progress.Update(
+                        base + _ETAPE_SUCCES,
+                        _LibelleProgressionEnvoi(index, total, labelAdresse, sujet, _(u"Envoi terminé avec succès")),
+                    )
                 except Exception as err:
-                    err = _TexteUtf8(err)
-                    listeAnomalies.append((message, err))
-                    print(("Erreur dans l'envoi d'un mail : %s..." % err))
+                    # Toute exception survenue pendant la préparation, le
+                    # calcul de taille des pièces jointes, l'appel à
+                    # mailjet_rest (encodage + requête HTTP, dans Envoyer()),
+                    # l'analyse de la réponse ou le formatage de l'erreur
+                    # elle-même est capturée ici : aucune de ces phases ne
+                    # doit laisser la dlg_progress ouverte dans un état
+                    # incohérent.
+                    try:
+                        err_texte = _TexteUtf8(err)
+                    except Exception:
+                        # Filet ciblé : ne concerne que le formatage de
+                        # l'erreur elle-même, ne masque jamais l'erreur
+                        # d'origine (toujours mémorisée/affichée ensuite).
+                        err_texte = repr(err)
+
+                    listeAnomalies.append((message, err_texte))
+                    print(("Erreur dans l'envoi d'un mail : %s..." % err_texte))
                     traceback.print_exc(file=sys.stdout)
 
                     if ne_pas_signaler_erreurs == False:
 
-                        # Fermeture de la dlg_progress
-                        dlg_progress.Destroy()
-                        dlg_progress = None
+                        # La dlg_progress est toujours détruite avant
+                        # l'affichage d'une boîte d'erreur bloquante, quelle
+                        # que soit la phase où l'exception est survenue.
+                        # Idempotent : jamais de double Destroy() (dlg_progress
+                        # est remise à None juste après par _FermerProgressDialog).
+                        dlg_progress = _FermerProgressDialog(dlg_progress)
 
                         # Affichage de l'erreur
                         intro = _(u"L'erreur suivante a été détectée :")
-                        detail = err
-                        if index <= len(messages) - 1:
+                        detail = err_texte
+                        if index <= total - 1:
                             conclusion = _(u"Souhaitez-vous quand même continuer l'envoi des autres emails ?")
                             boutons = [_(u"Réessayer"), _(u"Continuer"),
                                        _(u"Continuer et ne plus signaler les erreurs"), _(u"Arrêter")]
@@ -1020,14 +1147,14 @@ class Mailjet(Base_messagerie):
                             return listeSucces
                 break
 
-            if len(messages) > 1:
+            if total > 1:
                 time.sleep(1)
             index += 1
 
         # Fin de la gauge
-        if dlg_progress != None:
-            dlg_progress.Update(index, _(u"Fin de l'envoi."))
-            dlg_progress.Destroy()
+        if dlg_progress is not None:
+            dlg_progress.Update(maximum, _(u"Fin de l'envoi."))
+            dlg_progress = _FermerProgressDialog(dlg_progress)
 
         # Si tous les Emails envoyés avec succès
         if len(listeAnomalies) == 0 and afficher_confirmation_envoi == True:

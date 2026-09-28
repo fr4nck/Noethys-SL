@@ -1010,10 +1010,27 @@ class Dialog(wx.Dialog):
 
         resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=self.categorie_email, listeAdresses=[], visible=visible, log=self.track, CreationPDF=self.CreationPDF, IDmodele=IDmodele)
 
-        # Mémorise la date de l'envoi de l'email
+        # Mémorise la date de l'envoi de l'email -- uniquement en cas de succès réel
         if resultat == True :
             self.track.email_date = datetime.date.today()
             self.MAJ_email_date()
+
+        # Confirmation explicite pour le bouton "Envoyer" (visible=False) :
+        # l'éditeur n'étant pas affiché, DLG_Mailer ne montre alors aucune
+        # confirmation (afficher_confirmation_envoi suit le même paramètre
+        # que la visibilité de l'éditeur -- voir EnvoiEmailFamille -- ce qui
+        # masquait aussi la confirmation de succès/échec). Quand l'éditeur
+        # est affiché (visible=True, bouton "Editeur d'Emails"), DLG_Mailer
+        # affiche déjà sa propre confirmation : on ne la double pas ici.
+        if visible == False :
+            if resultat == True :
+                dlg = wx.MessageDialog(self, _(u"L'Email a été envoyé avec succès !"), _(u"Envoi de l'Email"), wx.OK | wx.ICON_INFORMATION)
+            else :
+                dlg = wx.MessageDialog(self, _(u"L'envoi de l'Email a échoué."), _(u"Envoi de l'Email"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+
+        return resultat
 
     def CreationPDF(self, nomDoc="", afficherDoc=True):
         """ Création du PDF pour Email """

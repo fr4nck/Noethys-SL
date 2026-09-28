@@ -21,3 +21,4 @@ opencv-python
 sqlalchemy
 pystrich
 mysqlclient
+mailjet-rest
