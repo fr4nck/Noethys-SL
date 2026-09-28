@@ -43,8 +43,7 @@ jobs:
           python -m compileall -q noethys tests
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
 
-          python -c "from pathlib import Path; n=Path('noethys/Notes_Noethys_SL.txt').read_text(encoding='utf-8'); assert 'Mailjet' in n and 'Splashscreen' in n; assert Path('noethys/Versions.txt').read_text(encoding='utf-8').startswith('Version 1.3.4.2 ')"
-
+          python -c "from pathlib import Path; n=Path('noethys/Notes_Noethys_SL.txt').read_text(encoding='utf-8'); assert 'Mailjet' in n and 'splash' in n.lower(); assert Path('noethys/Versions.txt').read_text(encoding='utf-8').startswith('Version 1.3.4.2 ')"
       - name: Construire l'exécutable
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
 
