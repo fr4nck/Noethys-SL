@@ -17,7 +17,7 @@ from Ctrl import CTRL_Bouton_image
 import datetime
 import wx.grid as gridlib
 from Ctrl import CTRL_Bandeau
-from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 import GestionDB
 from Data import DATA_Civilites as Civilites
 from Utils import UTILS_Dates
@@ -533,12 +533,12 @@ class Dialog(wx.Dialog):
         
         # Période
         self.staticbox_periode_staticbox = wx.StaticBox(self, -1, _(u"Période"))
-        self.label_date_debut = wx.StaticText(self, -1, u"Du")
-        self.ctrl_date_debut = CTRL_Saisie_date.Date(self)
-        self.bouton_date_debut = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath(u"Images/16x16/Calendrier.png"), wx.BITMAP_TYPE_ANY))
-        self.label_date_fin = wx.StaticText(self, -1, _(u"au"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date(self)
-        self.bouton_date_fin = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath(u"Images/16x16/Calendrier.png"), wx.BITMAP_TYPE_ANY))
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(
+            self,
+            selection_multiple=False,
+            callback_selection=self.MAJlistes,
+        )
+        self.ctrl_periode.SetMinSize((520, 205))
 
         # Individus
         self.staticbox_individus_staticbox = wx.StaticBox(self, -1, _(u"Sélection des individus"))
@@ -571,10 +571,6 @@ class Dialog(wx.Dialog):
         self.__set_properties()
         self.__do_layout()
 
-        self.Bind(wx.EVT_TEXT, self.OnTextDateDebut, self.ctrl_date_debut)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonDateDebut, self.bouton_date_debut)
-        self.Bind(wx.EVT_TEXT, self.OnTexteDateFin, self.ctrl_date_fin)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonDateFin, self.bouton_date_fin)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonEmail, self.bouton_email)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
@@ -582,25 +578,29 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self.OnBoutonAnnuler)
         
         # Init contrôles
-        if date_debut != None : 
-            self.ctrl_date_debut.SetDate(date_debut)
-        if date_fin != None : 
-            self.ctrl_date_fin.SetDate(date_fin)
         if date_debut != None and date_fin != None :
-            self.ctrl_individus.SetPeriode(date_debut, date_fin)
-            listeIndividus = self.ctrl_individus.GetListeIndividus()
-            self.ctrl_activites.SetDonnees(listeIndividus, date_debut, date_fin)
-            listeActivites = self.ctrl_activites.GetListeActivites()
-            self.ctrl_unites.SetDonnees(listeIndividus, listeActivites, date_debut, date_fin)
+            self.ctrl_periode.SetDictDonnees({
+                "page": 3,
+                "listeSelections": [],
+                "annee": None,
+                "dateDebut": date_debut,
+                "dateFin": date_fin,
+            })
+        else :
+            annee = datetime.date.today().year
+            self.ctrl_periode.SetDictDonnees({
+                "page": 2,
+                "listeSelections": [],
+                "annee": annee,
+                "dateDebut": None,
+                "dateFin": None,
+            })
+        self.MAJlistes()
         
         
 
     def __set_properties(self):
         self.SetTitle(_(u"Edition d'un devis"))
-        self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Saisissez la date de début")))
-        self.bouton_date_debut.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour sélectionner la date de début")))
-        self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Saisissez la date de fin")))
-        self.bouton_date_fin.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour sélectionner la date de fin")))
         self.ctrl_individus.SetToolTip(wx.ToolTip(_(u"Cochez les individus")))
         self.ctrl_activites.SetToolTip(wx.ToolTip(_(u"Cochez les activités")))
         self.ctrl_unites.SetToolTip(wx.ToolTip(_(u"Cochez les unites")))
@@ -618,16 +618,7 @@ class Dialog(wx.Dialog):
         
         # Période
         staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
-        grid_sizer_periode = wx.FlexGridSizer(rows=1, cols=8, vgap=5, hgap=5)
-        grid_sizer_periode.Add((20, 20), 0, wx.EXPAND, 0)
-        grid_sizer_periode.Add(self.label_date_debut, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_debut, 0, 0, 0)
-        grid_sizer_periode.Add(self.bouton_date_debut, 0, 0, 0)
-        grid_sizer_periode.Add((5, 5), 0, wx.EXPAND, 0)
-        grid_sizer_periode.Add(self.label_date_fin, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-        grid_sizer_periode.Add(self.ctrl_date_fin, 0, 0, 0)
-        grid_sizer_periode.Add(self.bouton_date_fin, 0, 0, 0)
-        staticbox_periode.Add(grid_sizer_periode, 1, wx.ALL|wx.EXPAND, 5)
+        staticbox_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
         grid_sizer_base.Add(staticbox_periode, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
         
         grid_sizer_gauche = wx.FlexGridSizer(rows=3, cols=1, vgap=10, hgap=10)
@@ -687,9 +678,16 @@ class Dialog(wx.Dialog):
         self.Layout()
         self.CenterOnScreen() 
     
+    def GetPeriode(self):
+        liste = self.ctrl_periode.GetDatesSelections()
+        if len(liste) != 1:
+            return None, None
+        return liste[0]
+
     def MAJlistes(self):
-        date_debut = self.ctrl_date_debut.GetDate()
-        date_fin = self.ctrl_date_fin.GetDate()
+        date_debut, date_fin = self.GetPeriode()
+        if date_debut is None or date_fin is None:
+            return
         self.ctrl_individus.SetPeriode(date_debut, date_fin)
         listeIndividus = self.ctrl_individus.GetListeIndividus()
         self.ctrl_activites.SetDonnees(listeIndividus, date_debut, date_fin)
@@ -700,30 +698,6 @@ class Dialog(wx.Dialog):
         self.ctrl_unites.MAJ() 
         self.ctrl_unites.CocheTout()
         
-    def OnTextDateDebut(self, event): 
-        date = self.ctrl_date_debut.GetDate() 
-        self.MAJlistes() 
-
-    def OnBoutonDateDebut(self, event):
-        from Dlg import DLG_calendrier_simple
-        dlg = DLG_calendrier_simple.Dialog(self)
-        if dlg.ShowModal() == wx.ID_OK :
-            date = dlg.GetDate()
-            self.ctrl_date_debut.SetDate(date)
-        dlg.Destroy()
-
-    def OnTexteDateFin(self, event): 
-        date = self.ctrl_date_fin.GetDate() 
-        self.MAJlistes() 
-
-    def OnBoutonDateFin(self, event):
-        from Dlg import DLG_calendrier_simple
-        dlg = DLG_calendrier_simple.Dialog(self)
-        if dlg.ShowModal() == wx.ID_OK :
-            date = dlg.GetDate()
-            self.ctrl_date_fin.SetDate(date)
-        dlg.Destroy()        
-
     def OnBoutonAide(self, event):
         from Utils import UTILS_Aide
         UTILS_Aide.Aide("Genererundevis")
@@ -797,8 +771,12 @@ class Dialog(wx.Dialog):
         dictChampsFusion = {}
 
         # Récupération des valeurs
-        date_debut = self.ctrl_date_debut.GetDate()
-        date_fin = self.ctrl_date_fin.GetDate()
+        date_debut, date_fin = self.GetPeriode()
+        if date_debut is None or date_fin is None:
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période valide !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
         listeIndividus = self.ctrl_individus.GetListeIndividus()
         listeActivites = self.ctrl_activites.GetListeActivites()
         listeUnites = self.ctrl_unites.GetListeUnites()
