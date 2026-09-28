@@ -4,9 +4,9 @@
 """Convention de vacances utilisée par la génération des plannings.
 
 Les dates officielles stockées en base ne sont pas modifiées. Pour la
-génération des ouvertures, une période de vacances commence au premier
-dimanche à partir de sa date officielle de début. Le samedi de départ
-reste donc traité comme un jour scolaire.
+génération des ouvertures, une période de vacances commence au premier dimanche à partir de son
+début officiel et se termine au premier dimanche à partir de sa fin
+officielle, bornes incluses. Le samedi de départ reste scolaire.
 """
 
 import datetime
@@ -29,12 +29,19 @@ def GetDebutVacancesGeneration(date_debut):
     return date_debut + datetime.timedelta(days=jours_jusqua_dimanche)
 
 
+def GetFinVacancesGeneration(date_fin):
+    """Retourne le premier dimanche à partir de la fin officielle."""
+    date_fin = _ConvertirDate(date_fin)
+    jours_jusqua_dimanche = (6 - date_fin.weekday()) % 7
+    return date_fin + datetime.timedelta(days=jours_jusqua_dimanche)
+
+
 def EstEnVacancesGeneration(dateDD, listeVacances):
     """Indique si une date est en vacances pour la génération du planning."""
     dateDD = _ConvertirDate(dateDD)
     for valeurs in listeVacances:
         date_debut = GetDebutVacancesGeneration(valeurs[0])
-        date_fin = _ConvertirDate(valeurs[1])
+        date_fin = GetFinVacancesGeneration(valeurs[1])
         if date_debut <= dateDD <= date_fin:
             return True
     return False
