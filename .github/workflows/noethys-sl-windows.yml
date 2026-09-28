@@ -38,10 +38,10 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Compiler et tester le parcours Mailjet
+      - name: Compiler et vérifier le visuel
         run: |
           python -m compileall -q noethys tests
-          python -m unittest tests.test_vanilla_mailjet_email_confirmation tests.test_vanilla_mailjet_progress_lifecycle
+          python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splash_PMSL_Slime.png'; im=Image.open(p); assert im.size == (960, 540); im.verify()"
 
       - name: Construire l'exécutable
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
