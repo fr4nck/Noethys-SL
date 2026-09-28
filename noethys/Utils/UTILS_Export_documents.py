@@ -132,6 +132,13 @@ def Importer(fichier="", dictDonnees={}, IDfond=None, defaut=0):
     for dictObjet in listeObjets :
         dictObjet["IDmodele"] = IDmodele
 
+        # Réinitialisé à chaque objet : sans cela, un dictObjet sans clé
+        # "image" (fichier .ndc importé/édité en dehors d'Exporter(), qui
+        # inclut aujourd'hui systématiquement cette clé mais ne le
+        # garantit pas pour tout fichier .ndc possible) soit lève
+        # UnboundLocalError au premier objet sans image, soit réutilise à
+        # tort le blob de l'objet précédent pour un objet qui n'en a pas.
+        blob = None
         listeDonnees = []
         for champ, donnee in dictObjet.items() :
             if champ == "image" :
@@ -150,6 +157,42 @@ def Importer(fichier="", dictDonnees={}, IDfond=None, defaut=0):
 
     DB.Close()
     return IDmodele
+
+
+def ImporterModeleExempleIdempotent(fichier=""):
+    """ Importe un modèle .ndc "exemple" fourni avec le produit (voir
+    noethys/Static/ModelesConventionExemples/, docs/recette_conventions/README.md)
+    de façon idempotente : n'importe JAMAIS un doublon.
+
+    Si un modèle portant EXACTEMENT le même nom et la même catégorie que
+    celui du fichier existe déjà, ne fait RIEN et renvoie son IDmodele
+    existant tel quel -- ne modifie jamais son contenu, même s'il diffère
+    du fichier (ce pourrait être une version que l'utilisateur a
+    volontairement modifiée après un premier import). Sinon, importe
+    normalement via Importer() et renvoie le nouvel IDmodele.
+
+    Utilisée UNIQUEMENT pour les modèles d'exemple fournis avec le
+    produit -- jamais pour le bouton "Importer" générique de l'écran
+    Modèles de documents, qui doit continuer à toujours créer un nouveau
+    modèle quel que soit son nom (un utilisateur import du contenu
+    externe explicitement choisi, pas un modèle fourni par Noethys). """
+    if six.PY2:
+        fichier = fichier.encode("utf8")
+    data = UTILS_Json.Lire(fichier)
+
+    DB = GestionDB.DB()
+    nomEchappe = data["nom"].replace("'", "''")
+    categorieEchappee = data["categorie"].replace("'", "''")
+    req = """SELECT IDmodele FROM documents_modeles
+    WHERE nom='%s' AND categorie='%s';""" % (nomEchappe, categorieEchappee)
+    DB.ExecuterReq(req)
+    listeExistants = DB.ResultatReq()
+    DB.Close()
+
+    if len(listeExistants) > 0 :
+        return listeExistants[0][0]
+
+    return Importer(dictDonnees=data)
 
 
 

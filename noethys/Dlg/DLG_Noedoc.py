@@ -1096,7 +1096,9 @@ class Convention():
             (_(u"Résumé du planning (créneaux/périodes)"), _(u"Lundi de 19h30 à 20h30 : Fitness"), "{CONVENTION_PLANNING_DETAIL}"),
             (_(u"Nombre total de séances"), u"34", "{CONVENTION_PLANNING_NBRE_SEANCES}"),
             (_(u"Volume horaire total"), _(u"51h00"), "{CONVENTION_PLANNING_TOTAL_HEURES}"),
+            (_(u"Créneaux compacts de la convention"), _(u"Lundi de 19h30 à 20h30 : Fitness"), "{CONVENTION_PLANNING_CRENEAUX}"),
             (_(u"Montant total prévisionnel"), u"1224.00 €", "{CONVENTION_PLANNING_TOTAL_MONTANT}"),
+            (_(u"Adresse de la structure sans doublon CP/ville"), _(u"1 rue de Test\n00000 TESTVILLE"), "{CONVENTION_ADRESSE_STRUCTURE}"),
 
             # Tarifs : automatiquement déterminés depuis les prestations
             # réellement facturées quand un taux horaire unique et non
@@ -1105,14 +1107,39 @@ class Convention():
             (_(u"Tarif horaire (si un seul taux)"), u"20.00 €", "{CONVENTION_TARIF_HORAIRE}"),
             (_(u"Tarif horaire adulte"), u"36.50 €", "{CONVENTION_TARIF_ADULTE}"),
             (_(u"Tarif horaire enfant"), u"24.00 €", "{CONVENTION_TARIF_ENFANT}"),
+            (_(u"Tarif unique formaté"), u"20,00 €", "{CONVENTION_TARIF_HORAIRE_AFFICHE}"),
+            (_(u"Tarif adulte formaté"), u"36,50 €", "{CONVENTION_TARIF_ADULTE_AFFICHE}"),
+            (_(u"Tarif enfant formaté"), u"24,00 €", "{CONVENTION_TARIF_ENFANT_AFFICHE}"),
+            (_(u"Provenance du tarif unique"), _(u"20,00 € / 1h00 = 20,00 €/h"), "{CONVENTION_TARIF_HORAIRE_PROVENANCE}"),
+            (_(u"Provenance du tarif adulte"), _(u"36,50 € / 1h00 = 36,50 €/h"), "{CONVENTION_TARIF_ADULTE_PROVENANCE}"),
+            (_(u"Provenance du tarif enfant"), _(u"36,00 € / 1h30 = 24,00 €/h"), "{CONVENTION_TARIF_ENFANT_PROVENANCE}"),
             ]
 
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
 
         self.codesbarres = []
 
-        self.speciaux = [{"nom": _(u"Cadre principal"), "champ": _(
-            u"cadre_principal"), "obligatoire": True, "nbreMax": 1, "x": None, "y": None, "verrouillageX": False, "verrouillageY": False, "Xmodifiable": True, "Ymodifiable": True, "largeur": 100, "hauteur": 150, "largeurModifiable": True, "hauteurModifiable": True, "largeurMin": 80, "largeurMax": 1000, "hauteurMin": 80, "hauteurMax": 1000, "verrouillageLargeur": False, "verrouillageHauteur": False, "verrouillageProportions": False, "interditModifProportions": False, }]
+        self.speciaux = [
+            {"nom": _(u"Cadre principal"), "champ": _(u"cadre_principal"), "obligatoire": True,
+             "nbreMax": 1, "x": None, "y": None, "verrouillageX": False, "verrouillageY": False,
+             "Xmodifiable": True, "Ymodifiable": True, "largeur": 100, "hauteur": 150,
+             "largeurModifiable": True, "hauteurModifiable": True, "largeurMin": 80,
+             "largeurMax": 1000, "hauteurMin": 80, "hauteurMax": 1000,
+             "verrouillageLargeur": False, "verrouillageHauteur": False,
+             "verrouillageProportions": False, "interditModifProportions": False},
+            {"nom": _(u"Cadre pages suivantes"), "champ": _(u"cadre_pages_suivantes"), "obligatoire": False,
+             "nbreMax": 1, "x": None, "y": None, "largeur": 100, "hauteur": 250,
+             "largeurModifiable": True, "hauteurModifiable": True, "verrouillageLargeur": False,
+             "verrouillageHauteur": False, "interditModifProportions": False},
+            {"nom": _(u"Saut de page"), "champ": _(u"saut_page"), "obligatoire": False,
+             "x": None, "y": None, "largeur": 5, "hauteur": 5, "largeurModifiable": False,
+             "hauteurModifiable": False, "verrouillageLargeur": True, "verrouillageHauteur": True,
+             "interditModifProportions": True},
+            {"nom": _(u"Espace vertical"), "champ": _(u"espace_vertical"), "obligatoire": False,
+             "x": None, "y": None, "largeur": 5, "hauteur": 10, "largeurModifiable": False,
+             "hauteurModifiable": True, "verrouillageLargeur": True, "verrouillageHauteur": False,
+             "interditModifProportions": False},
+        ]
 
         # Questionnaires (facultatifs : voir UTILS_Convention_champs, la
         # génération ne dépend jamais d'une réponse de questionnaire)
@@ -5814,6 +5841,9 @@ def ImportationObjets(IDmodele=None, InForeground=True):
                     IDdonnee=objet["IDdonnee"],
                     )
         
+        if objet["categorie"] in ("ligne_texte", "bloc_texte") and objet.get("nomPolice"):
+            objetCanvas.FaceName = objet["nomPolice"]
+
         listeObjetsCanvas.append(objetCanvas)
 
     return listeObjetsCanvas
@@ -6031,15 +6061,30 @@ def DessineObjetPDF(objet, canvas, valeur=None):
         canvas.setFillColorRGB(r, g, b)
     
     def GetPolice(objet):
-        police = "Arial"
-        if objet.Weight == wx.BOLD : police = "Arial-Bold"
-        if objet.Style == wx.ITALIC : police = "Arial-Oblique"
-        if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD : police = "Arial-BoldOblique"
-##        police = "Helvetica"
-##        if objet.Weight == wx.BOLD : police = "Helvetica-Bold"
-##        if objet.Style == wx.ITALIC : police = "Helvetica-Oblique"
-##        if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD : police = "Helvetica-BoldOblique"
-        return police
+        from reportlab.pdfbase import pdfmetrics
+        face = (getattr(objet, "FaceName", None) or u"").strip()
+        if face.lower() in ("arial", "arial regular"):
+            face = "Arial"
+        enregistrees = set(pdfmetrics.getRegisteredFontNames())
+        if face not in enregistrees:
+            face = "Arial"
+        if face == "Arial":
+            if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD:
+                return "Arial-BoldOblique"
+            if objet.Weight == wx.BOLD:
+                return "Arial-Bold"
+            if objet.Style == wx.ITALIC:
+                return "Arial-Oblique"
+            return "Arial"
+        suffixe = ""
+        if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD:
+            suffixe = "-BoldOblique"
+        elif objet.Weight == wx.BOLD:
+            suffixe = "-Bold"
+        elif objet.Style == wx.ITALIC:
+            suffixe = "-Oblique"
+        candidate = face + suffixe if suffixe else face
+        return candidate if candidate in enregistrees else face
 
     canvas.saveState() 
     

@@ -138,5 +138,37 @@ class DialogGenerationConventionTests(unittest.TestCase):
         faux_message.assert_called_once()
 
 
+    def test_periode_par_defaut_est_la_periode_reelle_des_seances(self):
+        with creer_base_association_simple() as base:
+            with RedirectionGestionDB(base.chemin):
+                dlg = DLG_Generation_convention.Dialog(None, IDfamille=1)
+                debut = str(dlg.ctrl_date_debut.GetDate())
+                fin = str(dlg.ctrl_date_fin.GetDate())
+                dlg.Destroy()
+        self.assertEqual(debut, "2026-09-02")
+        self.assertEqual(fin, "2026-09-21")
+        self.assertNotEqual(debut, fin)
+
+    def test_tarifs_adulte_enfant_sont_visibles_avec_provenance(self):
+        with creer_base_association_simple() as base:
+            with RedirectionGestionDB(base.chemin):
+                dlg = DLG_Generation_convention.Dialog(
+                    None, IDfamille=1,
+                    date_debut=datetime.date(2026, 9, 1),
+                    date_fin=datetime.date(2026, 9, 30),
+                )
+                unique = dlg.ctrl_tarif_horaire.GetValue()
+                adulte = dlg.ctrl_tarif_adulte.GetValue()
+                enfant = dlg.ctrl_tarif_enfant.GetValue()
+                prov_adulte = dlg.label_tarif_adulte_provenance.GetLabel()
+                prov_enfant = dlg.label_tarif_enfant_provenance.GetLabel()
+                dlg.Destroy()
+        self.assertEqual(unique, "")
+        self.assertEqual(adulte, "36.50")
+        self.assertEqual(enfant, "24.00")
+        self.assertIn("36,50 €/h", prov_adulte)
+        self.assertIn("24,00 €/h", prov_enfant)
+
+
 if __name__ == "__main__":
     unittest.main()
