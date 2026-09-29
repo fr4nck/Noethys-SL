@@ -70,6 +70,7 @@ import FonctionsPerso
 from Utils.UTILS_Traduction import _
 from Dlg import DLG_Noedoc
 from Utils import UTILS_Convention_champs
+from Utils import UTILS_Export_documents
 
 from reportlab.platypus.doctemplate import BaseDocTemplate, PageTemplate
 from reportlab.platypus.frames import Frame
@@ -210,16 +211,16 @@ def _GetCadrePagesSuivantes(modeleDoc, cadre_principal):
     return cadre_principal if objet is None else modeleDoc.GetCoordsObjet(objet)
 
 
-_MARQUEURS_MOJIBAKE = (u"Ã", u"Â", u"â‚", u"â€™", u"â€œ", u"â€", u"�")
-
-
 def _ValideEncodageModele(modeleDoc):
+    # Détecteur partagé avec la récupération par copie propre
+    # (UTILS_Export_documents.GetObjetsMalEncodes) : ce qui bloque ici est
+    # exactement ce que DLG_Generation_convention propose de récupérer.
     suspects = []
     for objet in modeleDoc.listeObjets:
         if "texte" not in objet.categorie:
             continue
         texte = objet.GetTexte() or u""
-        if any(marqueur in texte for marqueur in _MARQUEURS_MOJIBAKE):
+        if UTILS_Export_documents.TexteSembleMalEncode(texte):
             suspects.append(objet.nom or u"objet #%s" % getattr(objet, "IDobjet", u"?"))
     if suspects:
         raise ValueError(_(
