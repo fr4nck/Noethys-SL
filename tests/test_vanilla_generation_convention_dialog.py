@@ -37,10 +37,23 @@ from Dlg import DLG_Generation_convention  # noqa: E402
 
 
 class DialogGenerationConventionTests(unittest.TestCase):
+    def test_taille_initiale_est_bornee_par_la_zone_ecran(self):
+        taille = DLG_Generation_convention._CalculerTailleDialogue(
+            (760, 1200), (460, 55), (1366, 768)
+        )
+        self.assertLessEqual(taille[0], 1326)
+        self.assertLessEqual(taille[1], 728)
+        self.assertGreaterEqual(taille[0], 620)
+        self.assertGreaterEqual(taille[1], 480)
+
     def test_dialog_se_construit_sans_planter(self):
         with creer_base_association_simple() as base:
             with RedirectionGestionDB(base.chemin):
                 dlg = DLG_Generation_convention.Dialog(None, IDfamille=1)
+                self.assertIs(dlg.bouton_ok.GetParent(), dlg)
+                self.assertIs(dlg.bouton_annuler.GetParent(), dlg)
+                self.assertIs(dlg.zone_contenu.GetParent(), dlg)
+                self.assertNotEqual(dlg.ctrl_date_debut.GetParent(), dlg)
                 dlg.Destroy()
 
     def test_onselection_existe_et_ne_plante_pas_sur_changement_de_date(self):

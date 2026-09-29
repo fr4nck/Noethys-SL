@@ -36,6 +36,36 @@ from Ctrl.CTRL_Choix_modele import CTRL_Choice
 from Ctrl.CTRL_Grille_periode import MyDatePickerCtrl
 
 
+def _CalculerTailleDialogue(taille_contenu, taille_boutons, taille_ecran):
+    """Calcule une taille initiale bornée par la zone de travail écran.
+
+    Les valeurs sont exprimées en unités wx (donc déjà adaptées au DPI).
+    Le contenu central peut dépasser cette hauteur : il est alors
+    scrollable, tandis que la barre de boutons reste toujours hors scroll.
+    """
+    largeur_ecran, hauteur_ecran = (int(taille_ecran[0]), int(taille_ecran[1]))
+    largeur_max = max(320, largeur_ecran - 40)
+    hauteur_max = max(280, hauteur_ecran - 40)
+    largeur_min = min(620, largeur_max)
+    hauteur_min = min(480, hauteur_max)
+    largeur = max(largeur_min, int(taille_contenu[0]) + 30, int(taille_boutons[0]) + 30)
+    hauteur = max(hauteur_min, int(taille_contenu[1]) + int(taille_boutons[1]) + 30)
+    return min(largeur, largeur_max), min(hauteur, hauteur_max)
+
+
+class _ZoneConventionScrollable(wx.ScrolledWindow):
+    """Zone centrale scrollable qui relaie le changement de dates au dialogue."""
+
+    def __init__(self, parent):
+        wx.ScrolledWindow.__init__(
+            self, parent, -1, style=wx.VSCROLL | wx.TAB_TRAVERSAL | wx.BORDER_NONE
+        )
+        self.SetScrollRate(0, 10)
+
+    def OnSelection(self):
+        self.GetParent().OnSelection()
+
+
 class Dialog(wx.Dialog):
     def __init__(self, parent, IDfamille=None, date_debut=None, date_fin=None, saison=""):
         wx.Dialog.__init__(self, parent, -1, _(u"Générer une convention"),
@@ -50,14 +80,20 @@ class Dialog(wx.Dialog):
         self._auto_tarif_adulte = u""
         self._auto_tarif_enfant = u""
 
+        # Les champs sont placés dans une zone centrale scrollable. La
+        # barre de boutons reste directement dans le dialogue afin d'être
+        # toujours visible, même sous scaling/DPI Windows élevé.
+        self.zone_contenu = _ZoneConventionScrollable(self)
+        parent_contenu = self.zone_contenu
+
         # --- Modèle -----------------------------------------------------
-        label_modele = wx.StaticText(self, -1, _(u"Modèle de convention :"))
-        self.ctrl_modele = CTRL_Choice(self, categorie="convention")
+        label_modele = wx.StaticText(parent_contenu, -1, _(u"Modèle de convention :"))
+        self.ctrl_modele = CTRL_Choice(parent_contenu, categorie="convention")
 
         # --- Période ------------------------------------------------------
-        label_periode = wx.StaticText(self, -1, _(u"Période concernée :"))
-        self.ctrl_date_debut = MyDatePickerCtrl(self)
-        self.ctrl_date_fin = MyDatePickerCtrl(self)
+        label_periode = wx.StaticText(parent_contenu, -1, _(u"Période concernée :"))
+        self.ctrl_date_debut = MyDatePickerCtrl(parent_contenu)
+        self.ctrl_date_fin = MyDatePickerCtrl(parent_contenu)
         aujourdhui = datetime.date.today()
         periode_auto = (None, None)
         if self.IDfamille is not None and (date_debut is None or date_fin is None):
@@ -70,13 +106,13 @@ class Dialog(wx.Dialog):
         fin_initiale = date_fin or periode_auto[1] or debut_initial
         self.ctrl_date_debut.SetDate(debut_initial)
         self.ctrl_date_fin.SetDate(fin_initiale)
-        self.label_periode_info = wx.StaticText(self, -1, u"")
+        self.label_periode_info = wx.StaticText(parent_contenu, -1, u"")
         if periode_auto[0] is not None and periode_auto[1] is not None:
             self.label_periode_info.SetLabel(_(u"Période préremplie depuis les séances enregistrées."))
         elif date_debut is None and date_fin is None:
             self.label_periode_info.SetLabel(_(u"Aucune séance trouvée : vérifiez la période manuellement."))
             self.label_periode_info.SetForegroundColour(wx.Colour(180, 70, 0))
-        label_saison = wx.StaticText(self, -1, _(u"Saison (facultatif, ex. 2026-2027) :"))
+        label_saison = wx.StaticText(parent_contenu, -1, _(u"Saison (facultatif, ex. 2026-2027) :"))
         saison_initiale = saison
         if not saison_initiale and periode_auto[0] is not None and periode_auto[1] is not None:
             try:
@@ -84,40 +120,40 @@ class Dialog(wx.Dialog):
                 saison_initiale = CC.SaisonDepuisPeriode(periode_auto[0], periode_auto[1])
             except Exception:
                 saison_initiale = u""
-        self.ctrl_saison = wx.TextCtrl(self, -1, saison_initiale)
+        self.ctrl_saison = wx.TextCtrl(parent_contenu, -1, saison_initiale)
 
         # --- Représentant ---------------------------------------------
-        label_representant = wx.StaticText(self, -1, _(u"Représentant de la structure :"))
-        self.ctrl_representant_nom_complet = wx.TextCtrl(self, -1, u"")
+        label_representant = wx.StaticText(parent_contenu, -1, _(u"Représentant de la structure :"))
+        self.ctrl_representant_nom_complet = wx.TextCtrl(parent_contenu, -1, u"")
         self.ctrl_representant_nom_complet.SetToolTip(wx.ToolTip(
             _(u"Préremplit automatiquement depuis le représentant rattaché à la famille. Corrigez uniquement si nécessaire.")))
 
-        label_fonction = wx.StaticText(self, -1, _(u"Fonction (facultatif) :"))
-        self.ctrl_representant_fonction = wx.TextCtrl(self, -1, u"")
+        label_fonction = wx.StaticText(parent_contenu, -1, _(u"Fonction (facultatif) :"))
+        self.ctrl_representant_fonction = wx.TextCtrl(parent_contenu, -1, u"")
 
         # --- Signature ------------------------------------------------
-        label_date_signature = wx.StaticText(self, -1, _(u"Date et lieu de signature :"))
-        self.ctrl_date_signature = MyDatePickerCtrl(self)
+        label_date_signature = wx.StaticText(parent_contenu, -1, _(u"Date et lieu de signature :"))
+        self.ctrl_date_signature = MyDatePickerCtrl(parent_contenu)
         self.ctrl_date_signature.SetDate(aujourdhui)
 
-        self.ctrl_lieu_signature = wx.TextCtrl(self, -1, u"")
+        self.ctrl_lieu_signature = wx.TextCtrl(parent_contenu, -1, u"")
         self.ctrl_lieu_signature.SetToolTip(wx.ToolTip(_(u"Lieu de signature (ex. LANNILIS)")))
 
         # --- Tarifs ------------------------------------------------------
-        label_tarifs = wx.StaticText(self, -1, _(u"Tarifs horaires détectés (€) :"))
-        self.ctrl_tarif_horaire = wx.TextCtrl(self, -1, u"")
-        self.ctrl_tarif_adulte = wx.TextCtrl(self, -1, u"")
-        self.ctrl_tarif_enfant = wx.TextCtrl(self, -1, u"")
-        self.label_tarif_horaire_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
-        self.label_tarif_adulte_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
-        self.label_tarif_enfant_provenance = wx.StaticText(self, -1, u"", size=(390, -1))
+        label_tarifs = wx.StaticText(parent_contenu, -1, _(u"Tarifs horaires détectés (€) :"))
+        self.ctrl_tarif_horaire = wx.TextCtrl(parent_contenu, -1, u"")
+        self.ctrl_tarif_adulte = wx.TextCtrl(parent_contenu, -1, u"")
+        self.ctrl_tarif_enfant = wx.TextCtrl(parent_contenu, -1, u"")
+        self.label_tarif_horaire_provenance = wx.StaticText(parent_contenu, -1, u"", size=(390, -1))
+        self.label_tarif_adulte_provenance = wx.StaticText(parent_contenu, -1, u"", size=(390, -1))
+        self.label_tarif_enfant_provenance = wx.StaticText(parent_contenu, -1, u"", size=(390, -1))
         sizer_tarifs = wx.FlexGridSizer(rows=3, cols=3, vgap=5, hgap=8)
         for libelle, ctrl, provenance in (
             (_(u"Unique :"), self.ctrl_tarif_horaire, self.label_tarif_horaire_provenance),
             (_(u"Adultes :"), self.ctrl_tarif_adulte, self.label_tarif_adulte_provenance),
             (_(u"Enfants :"), self.ctrl_tarif_enfant, self.label_tarif_enfant_provenance),
         ):
-            sizer_tarifs.Add(wx.StaticText(self, -1, libelle), 0, wx.ALIGN_CENTER_VERTICAL)
+            sizer_tarifs.Add(wx.StaticText(parent_contenu, -1, libelle), 0, wx.ALIGN_CENTER_VERTICAL)
             sizer_tarifs.Add(ctrl, 0, wx.EXPAND)
             sizer_tarifs.Add(provenance, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND)
         sizer_tarifs.AddGrowableCol(2)
@@ -129,17 +165,17 @@ class Dialog(wx.Dialog):
         self.bouton_planning = wx.Button(self, -1, _(u"Imprimer le planning"))
         self.bouton_planning.SetToolTip(wx.ToolTip(
             _(u"Génère, pour la même famille et la même période, le Planning séparé (document distinct de la Convention).")))
-        bouton_ok = wx.Button(self, wx.ID_OK, _(u"Générer la convention"))
-        bouton_ok.SetDefault()
-        bouton_annuler = wx.Button(self, wx.ID_CANCEL, _(u"Annuler"))
+        self.bouton_ok = wx.Button(self, wx.ID_OK, _(u"Générer la convention"))
+        self.bouton_ok.SetDefault()
+        self.bouton_annuler = wx.Button(self, wx.ID_CANCEL, _(u"Annuler"))
 
         self.Bind(wx.EVT_BUTTON, self.OnBoutonPlanning, self.bouton_planning)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, bouton_ok)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
 
         # --- Mise en page ------------------------------------------------
         sizer_periode_ligne = wx.BoxSizer(wx.HORIZONTAL)
         sizer_periode_ligne.Add(self.ctrl_date_debut, 0, wx.RIGHT, 5)
-        sizer_periode_ligne.Add(wx.StaticText(self, -1, _(u"au")), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 5)
+        sizer_periode_ligne.Add(wx.StaticText(parent_contenu, -1, _(u"au")), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 5)
         sizer_periode_ligne.Add(self.ctrl_date_fin, 0)
         sizer_periode = wx.BoxSizer(wx.VERTICAL)
         sizer_periode.Add(sizer_periode_ligne, 0)
@@ -150,8 +186,8 @@ class Dialog(wx.Dialog):
         sizer_signature.Add(self.ctrl_lieu_signature, 1, wx.EXPAND)
 
         sizer_boutons = wx.StdDialogButtonSizer()
-        sizer_boutons.AddButton(bouton_ok)
-        sizer_boutons.AddButton(bouton_annuler)
+        sizer_boutons.AddButton(self.bouton_ok)
+        sizer_boutons.AddButton(self.bouton_annuler)
         sizer_boutons.Realize()
 
         sizer_bas = wx.BoxSizer(wx.HORIZONTAL)
@@ -159,7 +195,7 @@ class Dialog(wx.Dialog):
         sizer_bas.AddStretchSpacer()
         sizer_bas.Add(sizer_boutons, 0)
 
-        sizer_general = wx.BoxSizer(wx.VERTICAL)
+        sizer_contenu = wx.BoxSizer(wx.VERTICAL)
         for label, ctrl in (
             (label_modele, self.ctrl_modele),
             (label_periode, sizer_periode),
@@ -169,15 +205,33 @@ class Dialog(wx.Dialog):
             (label_date_signature, sizer_signature),
             (label_tarifs, sizer_tarifs),
         ):
-            sizer_general.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+            sizer_contenu.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
             if isinstance(ctrl, wx.Sizer):
-                sizer_general.Add(ctrl, 0, wx.ALL | wx.EXPAND, 10)
+                sizer_contenu.Add(ctrl, 0, wx.ALL | wx.EXPAND, 10)
             else:
-                sizer_general.Add(ctrl, 0, wx.ALL | wx.EXPAND, 10)
-        sizer_general.Add(sizer_bas, 0, wx.ALL | wx.EXPAND, 10)
+                sizer_contenu.Add(ctrl, 0, wx.ALL | wx.EXPAND, 10)
 
+        self.zone_contenu.SetSizer(sizer_contenu)
+        self.zone_contenu.SetAutoLayout(True)
+        self.zone_contenu.FitInside()
+
+        sizer_general = wx.BoxSizer(wx.VERTICAL)
+        sizer_general.Add(self.zone_contenu, 1, wx.EXPAND)
+        sizer_general.Add(sizer_bas, 0, wx.ALL | wx.EXPAND, 10)
         self.SetSizer(sizer_general)
-        sizer_general.Fit(self)
+
+        index_ecran = wx.Display.GetFromWindow(self)
+        if index_ecran != wx.NOT_FOUND:
+            zone_ecran = wx.Display(index_ecran).GetClientArea()
+        else:
+            zone_ecran = wx.GetClientDisplayRect()
+        taille = _CalculerTailleDialogue(
+            sizer_contenu.CalcMin(), sizer_bas.CalcMin(), zone_ecran.GetSize()
+        )
+        self.SetSize(taille)
+        self.SetMinSize((min(520, taille[0]), min(380, taille[1])))
+        self.Layout()
+        self.zone_contenu.FitInside()
         self.CentreOnParent()
 
         # Préremplissage initial des valeurs automatiques (représentant,
