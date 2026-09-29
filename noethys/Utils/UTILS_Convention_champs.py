@@ -197,6 +197,31 @@ def _iter_consommations(dictDonnees):
                         yield IDactivite, date, conso
 
 
+def GetActivitesConvention(dictDonnees):
+    """Retourne les activités réellement présentes sur la période.
+
+    Les libellés proviennent exclusivement de dictDonnees, donc du même
+    résultat filtré par période que le planning et les tarifs. Les noms
+    vides et doublons sont ignorés ; l'ordre alphabétique insensible à la
+    casse rend le champ stable indépendamment de l'ordre des dictionnaires.
+    """
+    noms = {}
+    for dictIndividu in dictDonnees.values():
+        for _IDactivite, dictActivite in dictIndividu.get("activites", {}).items():
+            dates = dictActivite.get("dates", {})
+            presente = any(
+                listeConso
+                for dictDate in dates.values()
+                for listeConso in dictDate.get("unites", {}).values()
+            )
+            if not presente:
+                continue
+            nom = (dictActivite.get("nom") or u"").strip()
+            if nom:
+                noms.setdefault(nom.casefold(), nom)
+    return u", ".join(noms[cle] for cle in sorted(noms))
+
+
 def DetecterTarifs(dictDonnees):
     """Analyse les prestations et expose aussi une provenance vérifiable."""
     tauxParActivite = {}
@@ -670,6 +695,7 @@ def GetChampsConvention(
         "{CONVENTION_TARIF_ADULTE_PROVENANCE}": u"",
         "{CONVENTION_TARIF_ENFANT_PROVENANCE}": u"",
         "{CONVENTION_ADRESSE_STRUCTURE}": u"",
+        "{CONVENTION_ACTIVITES}": u"",
     })
 
     champs["{CONVENTION_ADRESSE_STRUCTURE}"] = ComposerAdresseConvention(
@@ -688,6 +714,8 @@ def GetChampsConvention(
         champs["{CONVENTION_DATE_DEBUT}"] = date_debut
     if date_fin:
         champs["{CONVENTION_DATE_FIN}"] = date_fin
+
+    champs["{CONVENTION_ACTIVITES}"] = GetActivitesConvention(dictDonnees)
 
     resume = GetResumePlanning(dictDonnees)
     champs["{CONVENTION_PLANNING_DETAIL}"] = resume["detail"]
