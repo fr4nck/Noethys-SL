@@ -119,15 +119,15 @@ class Dialog(wx.Dialog):
         
         # Txt remarque
         txtRemarque = u"""
-        <IMG SRC="Static/Images/16x16/Attention2.png">
         <FONT SIZE=-1>
-        Si l'individu à rattacher n'apparaît pas dans cette liste, 
-        vous devez cliquez sur ce bouton 
-        <A HREF="Saisie">Saisir un nouvel individu</A>
+        Si l'individu à rattacher n'apparaît pas dans cette liste,
+        <A HREF="Saisie"><B>Saisir un nouvel individu</B></A>
         pour créer une nouvelle fiche individuelle.
         </FONT>
         """
-        self.ctrl_html = MyHtml(self, texte=txtRemarque, hauteur=31)
+        # 31 px ne suffit pas sous Windows avec scaling/DPI : le lien était
+        # alors rogné jusqu'au premier redimensionnement manuel.
+        self.ctrl_html = MyHtml(self, texte=txtRemarque, hauteur=52)
         
         # Boutons
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
@@ -159,7 +159,7 @@ class Dialog(wx.Dialog):
         self.bouton_ok.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour rattacher l'individu selectionné dans la liste")))
         self.bouton_annuler.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour annuler et fermer")))
         self.ctrl_titulaire.SetToolTip(wx.ToolTip(_(u"Cochez cette case si l'individu doit être considéré comme titulaire du dossier")))
-        self.SetMinSize((500, 550))
+        self.SetMinSize((500, 570))
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
@@ -200,9 +200,15 @@ class Dialog(wx.Dialog):
         grid_sizer_boutons.AddGrowableCol(1)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
         self.SetSizer(grid_sizer_base)
-        grid_sizer_base.Fit(self)
         grid_sizer_base.AddGrowableRow(2)
         grid_sizer_base.AddGrowableCol(0)
+        taille_min = grid_sizer_base.CalcMin()
+        largeur = max(500, taille_min[0])
+        hauteur = max(570, taille_min[1])
+        zone_ecran = wx.GetClientDisplayRect()
+        largeur = min(largeur, max(400, zone_ecran.GetWidth() - 40))
+        hauteur = min(hauteur, max(450, zone_ecran.GetHeight() - 40))
+        self.SetSize((largeur, hauteur))
         self.Layout()
         self.CenterOnScreen()
         
