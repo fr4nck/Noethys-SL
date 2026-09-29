@@ -134,6 +134,7 @@ class Dialog(wx.Dialog):
         bouton_annuler = wx.Button(self, wx.ID_CANCEL, _(u"Annuler"))
 
         self.Bind(wx.EVT_BUTTON, self.OnBoutonPlanning, self.bouton_planning)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, bouton_ok)
 
         # --- Mise en page ------------------------------------------------
         sizer_periode_ligne = wx.BoxSizer(wx.HORIZONTAL)
@@ -279,6 +280,94 @@ class Dialog(wx.Dialog):
             )
             dlg.ShowModal()
             dlg.Destroy()
+
+    # ------------------------------------------------------------------
+    # Modèle mal encodé : récupération par copie propre d'un modèle fourni
+    # ------------------------------------------------------------------
+
+    def OnBoutonOk(self, event):
+        """ Avant de fermer, vérifie que le modèle choisi n'a pas été
+        enregistré avec un mauvais encodage (ancien import Windows) : la
+        génération serait de toute façon refusée par
+        UTILS_Impression_convention._ValideEncodageModele. Dans ce cas, le
+        dialogue reste ouvert (saisies conservées) et propose d'installer
+        une copie propre d'un modèle fourni. """
+        IDmodele = self.GetIDmodele()
+        if IDmodele is not None:
+            from Utils import UTILS_Export_documents
+            try:
+                suspects = UTILS_Export_documents.GetObjetsMalEncodes(IDmodele)
+            except Exception:
+                # Best-effort : la validation de génération reste le garde-fou.
+                suspects = []
+            if suspects:
+                self.ProposerCopiePropre(IDmodele, suspects)
+                return
+        self.EndModal(wx.ID_OK)
+
+    def ProposerCopiePropre(self, IDmodele, suspects):
+        """ Ne modifie ni ne supprime jamais le modèle IDmodele : installe
+        seulement, après confirmation, une copie propre du modèle fourni
+        choisi par l'utilisateur, puis la sélectionne. """
+        from Utils import UTILS_Export_documents
+        nomModele = self.ctrl_modele.GetStringSelection()
+        exemples = UTILS_Export_documents.GetModelesExemplesConvention()
+        if not exemples:
+            self._Informer(_(u"Le modèle « %s » semble avoir été enregistré avec un mauvais encodage "
+                             u"(%s), et aucun modèle fourni n'est disponible pour le remplacer.")
+                           % (nomModele, u", ".join(suspects)), erreur=True)
+            return
+
+        fichierCorrespondant = UTILS_Export_documents.TrouverModeleExempleCorrespondant(IDmodele)
+        selection = -1
+        for index, exemple in enumerate(exemples):
+            if exemple["fichier"] == fichierCorrespondant:
+                selection = index
+        message = _(
+            u"Le modèle « %s » semble avoir été enregistré avec un mauvais encodage "
+            u"(textes concernés : %s).\n\n"
+            u"Une copie propre du modèle fourni peut être installée sans modifier l'original. "
+            u"Elle reprend le texte d'origine du modèle fourni : vos éventuelles "
+            u"personnalisations du modèle actuel n'y figureront pas.\n\n"
+            u"Choisissez le modèle fourni à installer :"
+        ) % (nomModele, u", ".join(suspects))
+        index = self._DemanderModeleExemple(message, [e["nom"] for e in exemples], selection)
+        if index is None:
+            return
+
+        try:
+            IDcopie, nomCopie, cree = UTILS_Export_documents.InstallerCopiePropreModeleExemple(
+                exemples[index]["fichier"])
+        except Exception as err:
+            self._Informer(_(u"La copie propre n'a pas pu être installée.\n\n%s") % err, erreur=True)
+            return
+
+        self.ctrl_modele.MAJ()
+        self.ctrl_modele.SetID(IDcopie)
+        if cree:
+            debut = _(u"La copie propre « %s » a été installée et sélectionnée.") % nomCopie
+        else:
+            debut = _(u"Le modèle propre « %s », déjà installé, a été sélectionné.") % nomCopie
+        self._Informer(debut + u"\n\n" + _(
+            u"Le modèle d'origine « %s » n'a pas été modifié : vous pouvez le supprimer vous-même "
+            u"depuis Paramétrage > Modèles de documents si vous n'en avez plus besoin.\n\n"
+            u"Vérifiez les informations puis cliquez à nouveau sur « Générer la convention »."
+        ) % nomModele)
+
+    def _DemanderModeleExemple(self, message, noms, selection):
+        """ Renvoie l'index choisi, ou None si l'utilisateur annule. """
+        dlg = wx.SingleChoiceDialog(self, message, _(u"Modèle mal encodé"), noms, wx.CHOICEDLG_STYLE)
+        if selection >= 0:
+            dlg.SetSelection(selection)
+        index = dlg.GetSelection() if dlg.ShowModal() == wx.ID_OK else None
+        dlg.Destroy()
+        return index
+
+    def _Informer(self, message, erreur=False):
+        dlg = wx.MessageDialog(self, message, _(u"Convention"),
+                               wx.OK | (wx.ICON_ERROR if erreur else wx.ICON_INFORMATION))
+        dlg.ShowModal()
+        dlg.Destroy()
 
     # ------------------------------------------------------------------
     # Accesseurs
