@@ -2,13 +2,13 @@
 
 > État consolidé au 30 septembre 2026.
 
-Cette feuille de route décrit la trajectoire du fork `fr4nck/Noethys`. Elle complète :
+Cette feuille de route décrit la trajectoire du fork `fr4nck/Noethys-SL`. Elle complète :
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md) — décisions transversales et sources de vérité ;
 - [`NOE-BACKLOG.md`](NOE-BACKLOG.md) — correspondance entre séries Noe-xxx, issues et état opérationnel ;
 - [`UPGRADE-HISTORY.md`](UPGRADE-HISTORY.md) — historique des choix déjà arrêtés.
 
-L'objectif n'est pas de réécrire Noethys ni d'imposer une migration de données. Le projet prolonge Noethys Desktop en conservant son métier, ses bases existantes et sa compatibilité historique autant que possible, tout en modernisant progressivement runtime, interface, reporting et intégrations.
+L'objectif n'est pas de réécrire Noethys ni d'imposer une migration de données. Le projet prolonge Noethys Desktop en conservant son métier, ses bases existantes et sa compatibilité historique autant que possible, tout en modernisant progressivement runtime, interface et reporting.
 
 ## État Noethys SL au 30 septembre 2026
 
@@ -17,7 +17,7 @@ La ligne **Noethys SL 0.1.0 RC1** actuellement utilisée pour la qualification W
 État fonctionnel de cette ligne :
 
 - identité publique **Noethys SL**, apparence claire Windows et splash Pêle-Mêle intégrés ;
-- envoi Mailjet, Connecthys, Nomadhys, listes/fiches et plusieurs correctifs métier historiques fiabilisés sur la ligne RC1 ;
+- envoi Mailjet, synchronisation Connecthys, Nomadhys, listes/fiches et plusieurs correctifs métier historiques fiabilisés sur la ligne RC1 ;
 - calendrier saisonnier septembre → août avec T1/T2/T3, S1/S2 et années bissextiles ;
 - génération par lot des vacances selon la règle dimanche → dimanche, sans modifier les dates officielles stockées ;
 - socle CAF / AFAS de prévision et d'actualisation disponible sans migration de base ;
@@ -41,9 +41,8 @@ L'artefact produit est `Noethys-Vanilla-Windows-portable`. Ce build constitue la
 - maintenir Windows, Linux et macOS comme cibles du code source ;
 - garder Windows comme cible de distribution prioritaire ;
 - tester les changements touchant les données sur une copie de base réelle ;
-- faire d'une donnée métier une source de vérité réutilisable par écran, export, PDF, rapport et portail ;
-- moderniser les composants communs avant les écrans particuliers ;
-- conserver les frontières entre Noethys, PMSL-Équipe, Teamworks-CCNS, Connecthys et les autres outils associés.
+- faire d'une donnée métier une source de vérité réutilisable par écran, export, PDF et rapport ;
+- moderniser les composants communs avant les écrans particuliers.
 
 ---
 
@@ -223,8 +222,7 @@ Principes :
 - occurrences datées issues du moteur de récurrence historique ;
 - convention, annexe et avenant depuis les mêmes données ;
 - snapshots des documents officiels ;
-- réalisé et facturation issus du même socle ;
-- identifiants stables pour l'échange avec PMSL-Équipe.
+- réalisé et facturation issus du même socle.
 
 L'ancienne PR #61 a été fermée sans fusion car sa branche était devenue trop en retard sur `master`. Elle reste une référence de conception ; les lots futurs seront reconstruits depuis le `master` courant.
 
@@ -240,33 +238,7 @@ Référence : [`ARCHITECTURE-TIERS-PRESTATIONS-PLANNING.md`](ARCHITECTURE-TIERS-
 
 ---
 
-## Phase 7 — Portail Connecthys et contenus dynamiques
-
-### Noe-063
-
-Objectif : faire du portail une vue de données et contenus déjà maintenus ailleurs, sans double saisie et sans exposer directement la base locale.
-
-Lots conservés dans **l'issue unique #62** :
-
-- contenu externe compatible avec le Connecthys hébergé ;
-- RSS / Atom natif avec cache sûr ;
-- publication automatique des barèmes Noethys ;
-- à terme, personnalisation authentifiée réellement liée au compte connecté ;
-- contenus Piwigo / documents / réseaux lorsque le besoin est stabilisé.
-
-Principes :
-
-- le moteur tarifaire Noethys reste la source de vérité ;
-- ne jamais afficher un faux « prix personnel » si le contexte de consommation est nécessaire ;
-- conserver le dernier rendu valide en cas de panne d'une source externe ;
-- aucune migration destructive ;
-- compatibilité avec un Connecthys hébergé non modifié pour les premiers lots.
-
-Les anciennes PR #63/#66/#68/#69/#71/#72 ont été fermées sans fusion après inspection. Elles restent des références historiques de conception/diff. Les anciennes sous-issues #65 et #67 ont été closes après consolidation de leurs exigences dans #62. Toute reprise reconstruit un lot propre depuis le `master` courant.
-
----
-
-## Phase 8 — Extensions optionnelles : piste dormante
+## Phase 7 — Extensions optionnelles : piste dormante
 
 Le registre minimal d'extensions reste une **piste d'architecture**, pas un chantier actif. L'issue #80 a été close comme `not planned` tant qu'aucun consommateur concret ne justifie de rouvrir le sujet.
 
@@ -291,10 +263,9 @@ Les issues GitHub constituent la source de vérité pour le travail restant. Au 
 - **pré-RC : #19 / Noe-042 uniquement** ;
 - dette SQL progressive : #40 / Noe-005 ;
 - reporting et pilotage : #51, #54, #55, #56, #57, #58, #59 ;
-- conventions / mises à disposition : #60 / Noe-062 ;
-- portail Connecthys : #62 / Noe-063.
+- conventions / mises à disposition : #60 / Noe-062.
 
-Les issues #5, #6, #7, #14, #53, #65, #67 et #80 sont closes. Leur contenu utile est soit intégré au code, soit absorbé dans un suivi parent, soit conservé comme référence non planifiée.
+Les issues #5, #6, #7, #14, #53 et #80 sont closes. Leur contenu utile est soit intégré au code, soit absorbé dans un suivi parent, soit conservé comme référence non planifiée.
 
 Le détail et les numéros d'issues sont maintenus dans [`NOE-BACKLOG.md`](NOE-BACKLOG.md).
 
