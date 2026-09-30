@@ -99,6 +99,9 @@ DB_DATA = {
                    u"Mémo concernant l'individu"),
                   ("IDtype_sieste", "INTEGER", u"Type de sieste"),
 
+                  ("aeeh", "INTEGER",
+                   u"Bénéficiaire AEEH : NULL=non renseigné, 0=non, 1=oui"),
+
                   ("date_creation", "DATE",
                    u"Date de création de la fiche individu"),
                   ("etat", "VARCHAR(50)", u"Etat"),

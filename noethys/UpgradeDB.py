@@ -1591,6 +1591,15 @@ class DB(GestionDB.DB):
 
         # =============================================================
 
+        versionFiltre = (1, 3, 4, 3)
+        if versionFichier < versionFiltre:
+            try:
+                self.AjoutChamp("individus", "aeeh", "INTEGER")
+            except Exception as err:
+                return " filtre de conversion %s | " % ".".join([str(x) for x in versionFiltre]) + str(err)
+
+        # =============================================================
+
 
 
         return True

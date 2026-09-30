@@ -1,3 +1,8 @@
+Version 1.3.4.3 (30/09/2026) :
+
+- Ajout du statut Bénéficiaire AEEH sur la fiche individu (onglet Identité)
+  et exposition du champ dans l'Etat Nominatif
+
 Version 1.3.4.2 (01/02/2026) :
 
 - Ajout des périodes dans la synthèse des déductions
