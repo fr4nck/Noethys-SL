@@ -165,7 +165,7 @@ class Panel_identite(wx.Panel):
         self.ctrl_annee_deces.SetMinSize((40, -1))
         self.ctrl_sieste.SetToolTip(wx.ToolTip(_(u"Sélectionnez ici un type de sieste pour cet individu")))
         self.bouton_sieste.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour accéder à la fenêtre de gestion des types de sieste")))
-        self.ctrl_aeeh.SetToolTip(wx.ToolTip(_(u"Indiquez si cet individu est bénéficiaire de l'AEEH (Allocation d'Education de l'Enfant Handicapé). Cette information est indépendante des informations médicales de l'onglet Médical.")))
+        self.ctrl_aeeh.SetToolTip(wx.ToolTip(_(u"Indique uniquement si cet individu bénéficie de l'AEEH (Allocation d'Education de l'Enfant Handicapé). Une réponse \"Non\" ne signifie pas que l'individu n'est pas en situation de handicap. \"Non renseigné\" signifie que l'information est inconnue ou n'a pas été saisie. Cette information est indépendante des informations médicales de l'onglet Médical.")))
         self.ctrl_memo.SetToolTip(wx.ToolTip(_(u"Saisissez ici les informations de votre choix concernant cet individu")))
 
     def __do_layout(self):
