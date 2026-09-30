@@ -1916,7 +1916,7 @@ Version 0.0.0.1 (15/02/2010) :
 
 ------------------------------------------------------------
 
-Noethys SL 0.1.0 RC1 - état du 28/09/2026
+Noethys SL 0.1.0 RC1 - état du 30/09/2026
 
 - Identité publique Noethys SL et apparence claire stabilisée sous Windows : thèmes, cadres, listes, boutons et ressources historiques adaptés sans modifier les données métier.
 - Envoi des emails fiabilisé sous Python 3. Mailjet utilise son client REST ; pièces jointes, progression et confirmation d'envoi ont été corrigées.
@@ -1927,7 +1927,7 @@ Noethys SL 0.1.0 RC1 - état du 28/09/2026
 - Calendrier saisonnier : saison septembre à août, T1/T2/T3, S1/S2, année de départ explicite et prise en compte des années bissextiles dans le sélecteur commun de périodes.
 - Génération par lot des ouvertures : les vacances sont prises du premier dimanche à partir du début officiel jusqu'au premier dimanche à partir de la fin officielle, bornes incluses, sans modifier les dates officielles enregistrées.
 - CAF / AFAS : ajout du socle métier pur de prévision annuelle et d'actualisation (N-1 ajusté aux jours ouverts, moyennes 2/3 ans, valeur manuelle, réalisé + prévisionnel restant), sans interface ni migration de base dans ce lot.
-- Conventions Noedoc : finalisation de la génération depuis Noethys avec modèles .ndc, extraction des séances/groupes/dates/horaires, découpage des périodes et trous de vacances, détection non ambiguë des tarifs et représentants, modèles d'exemple association/PMSL/école et génération du planning séparé.
-- Splash de démarrage fourni par Pêle-Mêle et construction Windows portable / installateur conservés.
+- Conventions Noedoc : finalisation de la génération depuis Noethys avec modèles .ndc, extraction des séances/groupes/dates/horaires, découpage des périodes et trous de vacances, détection non ambiguë des tarifs et représentants, modèles d'exemple association/PMSL/école et génération du planning séparé. Gestion complète des modèles directement depuis le dialogue : installation automatique si aucun modèle n'existe, installation idempotente des exemples, édition dans Noedoc, duplication, renommage, définition du modèle par défaut et suppression contrôlée, sans écraser les modèles utilisateur.
+- Splash de démarrage fourni par Pêle-Mêle et packaging Windows conservé. Le portable Windows de référence a été construit et qualifié le 29/09/2026 sur le HEAD `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a` : compilation, wxPython, tests de non-régression du workflow, contrôle du paquet et smoke de démarrage de `Noethys.exe` réussis (run GitHub Actions `36598587342`).
 
 La version interne 1.3.4.2 reste celle utilisée pour les fichiers, les migrations historiques et le protocole Connecthys. Les lots ci-dessus n'ajoutent aucune migration de base de données.
