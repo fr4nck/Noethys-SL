@@ -117,18 +117,18 @@ class BaseCalculEtatGlobalTests(unittest.TestCase):
         self.base.db.Commit()
 
     def _conso(self, IDconso, IDindividu, IDunite, date, heure_debut=None, heure_fin=None,
-               etat="present", quantite=None, IDactivite=10, IDprestation=None, IDcompte_payeur=1):
-        return (IDconso, IDindividu, IDunite, date, heure_debut, heure_fin, etat, quantite, IDactivite, IDprestation, IDcompte_payeur)
+               etat="present", quantite=None, IDactivite=10, IDprestation=None, IDcompte_payeur=1, IDgroupe=None):
+        return (IDconso, IDindividu, IDunite, date, heure_debut, heure_fin, etat, quantite, IDactivite, IDprestation, IDcompte_payeur, IDgroupe)
 
     def _inserer_consos(self, listeConso):
         self.base.inserer(
             "consommations",
-            ["IDconso", "IDindividu", "IDunite", "date", "heure_debut", "heure_fin", "etat", "quantite", "IDactivite", "IDprestation", "IDcompte_payeur"],
+            ["IDconso", "IDindividu", "IDunite", "date", "heure_debut", "heure_fin", "etat", "quantite", "IDactivite", "IDprestation", "IDcompte_payeur", "IDgroupe"],
             listeConso,
         )
         self.base.db.Commit()
 
-    def _calculer(self, date_debut, date_fin, dictUnites, dict_options, listeActivites=(10, 20), dictInfosIndividus=None, dictInfosFamilles=None):
+    def _calculer(self, date_debut, date_fin, dictUnites, dict_options, listeActivites=(10, 20), dictInfosIndividus=None, dictInfosFamilles=None, listeGroupes=None):
         return self.calculateur.CalculerEtatGlobal(
             date_debut=date_debut,
             date_fin=date_fin,
@@ -137,6 +137,7 @@ class BaseCalculEtatGlobalTests(unittest.TestCase):
             dict_options=dict_options,
             dictInfosIndividus=dictInfosIndividus or {},
             dictInfosFamilles=dictInfosFamilles or {},
+            listeGroupes=listeGroupes,
         )
 
 
@@ -332,6 +333,80 @@ class MultiActiviteTests(BaseCalculEtatGlobalTests):
         resultat2 = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(regroupement_principal="activite"))
         self.assertEqual(resultat2["dict_resultats"]["ALSH enfants"][0]["petitesVacs"][1], datetime.timedelta(hours=4))
         self.assertEqual(resultat2["dict_resultats"]["ALSH ados"][0]["petitesVacs"][1], datetime.timedelta(hours=5))
+
+
+class FiltrageGroupeTests(BaseCalculEtatGlobalTests):
+    """Filtre optionnel listeGroupes : aucun ID PMSL réel, IDgroupe génériques.
+
+    Trois groupes sous l'activité 10 (101, 102, 103) + un groupe sous
+    l'activité 20 (201), même jour, même unité (typeCalcul=1, temps réel),
+    pour isoler strictement l'effet du filtre par groupe."""
+
+    def _fixture_trois_groupes(self):
+        """ Insère en base 3 groupes de l'activité 10 + 1 groupe d'une AUTRE
+        activité (20) réellement présent en base -- mais dictUnites ne
+        contient que l'unité de l'activité 10 : c'est ce périmètre
+        (dictUnites/listeActivites), pas listeGroupes seul, qui empêche déjà
+        toute fuite inter-activité (cf. test 5). """
+        self._inserer_vacances_large()
+        # Individus 3 et 4, en plus des 1/2 du socle commun -- même tranche
+        # d'âge pour que toutes les contributions tombent dans le même
+        # panier (index_tranche_age=0) ; sans date_naiss, une conso serait
+        # rangée sous une tranche d'âge "None" distincte.
+        date_naiss = str(datetime.date.today().replace(year=datetime.date.today().year - 10))
+        self.base.inserer(
+            "individus",
+            ["IDindividu", "nom", "prenom", "IDcivilite", "date_naiss"],
+            [(3, "DURAND", "Enfant C", 1, date_naiss), (4, "PETIT", "Enfant D", 1, date_naiss)],
+        )
+        self.base.db.Commit()
+        self._inserer_consos([
+            self._conso(1, 1, 151, "2026-03-10", "08:00", "10:00", IDactivite=10, IDgroupe=101),  # 2h
+            self._conso(2, 2, 151, "2026-03-10", "08:00", "11:00", IDactivite=10, IDgroupe=102),  # 3h
+            self._conso(3, 3, 151, "2026-03-10", "08:00", "09:00", IDactivite=10, IDgroupe=103),  # 1h
+            self._conso(4, 4, 251, "2026-03-10", "08:00", "12:00", IDactivite=20, IDgroupe=201),  # 4h, autre activité, hors dictUnites
+        ])
+        dictUnites = {
+            151: self._unite(151, IDactivite=10, nomActivite="ALSH enfants", typeCalcul=1),
+        }
+        return dictUnites
+
+    def _total(self, resultat):
+        try:
+            return resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        except KeyError:
+            return datetime.timedelta(0)
+
+    def test_1_sans_filtre_groupe_comportement_historique_inchange(self):
+        dictUnites = self._fixture_trois_groupes()
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(), listeActivites=[10])
+        # Les 3 groupes de l'activité 10 sont sommés, comme avant l'existence de listeGroupes.
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=2 + 3 + 1))
+
+    def test_2_listeGroupes_un_seul_groupe_A(self):
+        dictUnites = self._fixture_trois_groupes()
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(), listeActivites=[10], listeGroupes=[101])
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=2))
+
+    def test_3_listeGroupes_un_seul_groupe_B(self):
+        dictUnites = self._fixture_trois_groupes()
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(), listeActivites=[10], listeGroupes=[102])
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=3))
+
+    def test_4_plusieurs_groupes_union_correcte(self):
+        dictUnites = self._fixture_trois_groupes()
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(), listeActivites=[10], listeGroupes=[101, 102])
+        # Union de A et B, exclut explicitement le 3e groupe (103) de la même activité.
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=2 + 3))
+
+    def test_5_groupe_dune_autre_activite_que_listeActivites_ne_donne_aucun_resultat(self):
+        dictUnites = self._fixture_trois_groupes()
+        # Le groupe 201 existe réellement en base, mais sur l'activité 20 --
+        # hors du périmètre (dictUnites/listeActivites=[10]) de cet appel.
+        # Même en lui passant explicitement listeGroupes=[201], aucune fuite :
+        # aucune consommation de l'activité 10 n'a ce groupe.
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(), listeActivites=[10], listeGroupes=[201])
+        self.assertEqual(resultat["dict_resultats"], {})
 
 
 class BugPorteeUniteNTests(BaseCalculEtatGlobalTests):

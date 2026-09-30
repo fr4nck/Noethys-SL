@@ -138,14 +138,19 @@ class CalculateurEtatGlobal():
 
         return resultat
 
-    def CalculerEtatGlobal(self, date_debut=None, date_fin=None, listeActivites=None, dictUnites=None, dict_options=None, dictInfosIndividus=None, dictInfosFamilles=None):
+    def CalculerEtatGlobal(self, date_debut=None, date_fin=None, listeActivites=None, dictUnites=None, dict_options=None, dictInfosIndividus=None, dictInfosFamilles=None, listeGroupes=None):
         """ Calcul métier de l'état global des consommations, indépendant du rendu PDF.
 
         Extrait tel quel (même sémantique, mêmes résultats) du corps de
         Apercu(). Ne montre aucune boîte de dialogue wx : toute anomalie
         bloquante (horaires incohérents, formule invalide) est remontée via
         ErreurCalculEtatGlobal, à charge de l'appelant (Dialog.Apercu()) de
-        l'afficher exactement comme avant. """
+        l'afficher exactement comme avant.
+
+        listeGroupes (optionnel) : restreint en plus par
+        consommations.IDgroupe (même logique que listeActivites : aucun
+        groupe fourni -> aucune restriction supplémentaire). Apercu() ne
+        fournit jamais ce paramètre -- comportement historique inchangé. """
         listeAnomalies = []
 
         DB = GestionDB.DB()
@@ -326,6 +331,16 @@ class CalculateurEtatGlobal():
         elif len(listeUnitesUtilisees) == 1 : conditionSQL = "AND consommations.IDunite IN (%d)" % listeUnitesUtilisees[0]
         else : conditionSQL = "AND consommations.IDunite IN %s" % str(tuple(listeUnitesUtilisees))
 
+        # Filtre optionnel par groupe (même logique que le filtre par activité) :
+        # aucun groupe fourni -> aucune restriction supplémentaire, comportement
+        # historique inchangé (Apercu() ne fournit jamais ce paramètre).
+        if not listeGroupes :
+            conditionSQL_groupes = ""
+        elif len(listeGroupes) == 1 :
+            conditionSQL_groupes = "AND consommations.IDgroupe = %d" % listeGroupes[0]
+        else :
+            conditionSQL_groupes = "AND consommations.IDgroupe IN %s" % str(tuple(listeGroupes))
+
         req = """SELECT IDconso, consommations.date, consommations.IDindividu, consommations.IDunite, consommations.IDgroupe, consommations.IDactivite, consommations.etiquettes,
         heure_debut, heure_fin, consommations.etat, quantite, consommations.IDevenement, consommations.IDprestation, prestations.temps_facture,
         comptes_payeurs.IDfamille, activites.nom, groupes.nom, categories_tarifs.nom,
@@ -342,7 +357,8 @@ class CalculateurEtatGlobal():
         WHERE consommations.date >='%s' AND consommations.date <='%s'
         AND consommations.etat NOT IN ('attente', 'refus')
         %s
-        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL)
+        %s
+        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL, conditionSQL_groupes)
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
 
