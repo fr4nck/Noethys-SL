@@ -1,0 +1,117 @@
+name: Sync Noethys SL docs 2026-09-30
+
+on:
+  push:
+    branches:
+      - chatgpt/noethys-convention-ui-activites-20260929
+    paths:
+      - .github/workflows/docs-state-sync-20260930.yml
+
+permissions:
+  contents: write
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Actualiser ROADMAP et Versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master:refs/remotes/origin/master
+          mkdir -p docs
+          git show origin/master:docs/ROADMAP.md > docs/ROADMAP.md
+
+          python - <<'PY'
+          from pathlib import Path
+
+          # --- ROADMAP -------------------------------------------------
+          roadmap_path = Path("docs/ROADMAP.md")
+          roadmap = roadmap_path.read_text(encoding="utf-8")
+          roadmap = roadmap.replace(
+              "> État consolidé au 24 août 2026.",
+              "> État consolidé au 30 septembre 2026.",
+          )
+          roadmap = roadmap.replace(
+              "Au 24 août 2026, les grands groupes encore ouverts sont :",
+              "Au 30 septembre 2026, les grands groupes encore ouverts sont :",
+          )
+
+          section_title = "## État Noethys SL au 30 septembre 2026"
+          anchor = "\n## Principes directeurs\n"
+          section = r'''
+## État Noethys SL au 30 septembre 2026
+
+La ligne **Noethys SL 0.1.0 RC1** actuellement utilisée pour la qualification Windows a été consolidée jusqu'au commit métier `6fecfc26db0fe67a33624fe2db983017f8aeb6b5`. Le commit de build `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a` ne modifie que le déclenchement du workflow de packaging et a servi à produire le portable Windows qualifié.
+
+État fonctionnel de cette ligne :
+
+- identité publique **Noethys SL**, apparence claire Windows et splash Pêle-Mêle intégrés ;
+- envoi Mailjet, Connecthys, Nomadhys, listes/fiches et plusieurs correctifs métier historiques fiabilisés sur la ligne RC1 ;
+- calendrier saisonnier septembre → août avec T1/T2/T3, S1/S2 et années bissextiles ;
+- génération par lot des vacances selon la règle dimanche → dimanche, sans modifier les dates officielles stockées ;
+- socle CAF / AFAS de prévision et d'actualisation disponible sans migration de base ;
+- génération des conventions via le moteur **Noedoc** historique, avec modèles associatif, PMSL et scolaire, extraction des groupes/séances/dates/horaires, gestion des trous de vacances, tarifs non ambigus et planning PDF séparé ;
+- gestion complète des modèles Convention depuis le dialogue : installation automatique lorsqu'aucun modèle n'existe, installation idempotente des exemples, édition dans Noedoc, duplication, renommage, définition du modèle par défaut et suppression contrôlée, sans écraser les modèles utilisateur ;
+- conservation du repli historique sur le premier modèle disponible, du dimensionnement responsive du dialogue et du mécanisme de récupération des modèles mal encodés.
+
+### Build Windows portable de référence
+
+Le workflow **Vanilla Windows portable**, run `36598587342`, s'est terminé avec succès le 29 septembre 2026 sur le HEAD `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a`. La chaîne validée couvre la compilation, l'import wxPython sous Windows, les tests de non-régression prévus par le workflow, la construction du dossier portable, le contrôle de son contenu et un smoke de démarrage de `Noethys.exe`.
+
+L'artefact produit est `Noethys-Vanilla-Windows-portable`. Ce build constitue la base opérationnelle courante ; toute anomalie révélée ensuite en usage réel est traitée comme un bug à corriger sur cette ligne plutôt que comme un motif pour maintenir indéfiniment des branches de recette parallèles.
+'''.strip("\n")
+
+          if section_title in roadmap:
+              start = roadmap.index(section_title)
+              end = roadmap.index(anchor, start)
+              roadmap = roadmap[:start] + section + roadmap[end:]
+          else:
+              if anchor not in roadmap:
+                  raise RuntimeError("Ancre 'Principes directeurs' introuvable dans ROADMAP.md")
+              roadmap = roadmap.replace(anchor, "\n" + section + "\n" + anchor, 1)
+
+          roadmap_path.write_text(roadmap, encoding="utf-8")
+
+          # --- Versions.txt -------------------------------------------
+          versions_path = Path("noethys/Versions.txt")
+          versions = versions_path.read_text(encoding="utf-8")
+
+          old_header = "Noethys SL 0.1.0 RC1 - état du 28/09/2026"
+          new_header = "Noethys SL 0.1.0 RC1 - état du 30/09/2026"
+          if old_header in versions:
+              versions = versions.replace(old_header, new_header, 1)
+          elif new_header not in versions:
+              raise RuntimeError("Bloc Noethys SL RC1 introuvable dans Versions.txt")
+
+          old_conv = "- Conventions Noedoc : finalisation de la génération depuis Noethys avec modèles .ndc, extraction des séances/groupes/dates/horaires, découpage des périodes et trous de vacances, détection non ambiguë des tarifs et représentants, modèles d'exemple association/PMSL/école et génération du planning séparé."
+          new_conv = "- Conventions Noedoc : finalisation de la génération depuis Noethys avec modèles .ndc, extraction des séances/groupes/dates/horaires, découpage des périodes et trous de vacances, détection non ambiguë des tarifs et représentants, modèles d'exemple association/PMSL/école et génération du planning séparé. Gestion complète des modèles directement depuis le dialogue : installation automatique si aucun modèle n'existe, installation idempotente des exemples, édition dans Noedoc, duplication, renommage, définition du modèle par défaut et suppression contrôlée, sans écraser les modèles utilisateur."
+          if old_conv in versions:
+              versions = versions.replace(old_conv, new_conv, 1)
+          elif new_conv not in versions:
+              raise RuntimeError("Ligne Convention attendue introuvable dans Versions.txt")
+
+          old_build = "- Splash de démarrage fourni par Pêle-Mêle et construction Windows portable / installateur conservés."
+          new_build = "- Splash de démarrage fourni par Pêle-Mêle et packaging Windows conservé. Le portable Windows de référence a été construit et qualifié le 29/09/2026 sur le HEAD `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a` : compilation, wxPython, tests de non-régression du workflow, contrôle du paquet et smoke de démarrage de `Noethys.exe` réussis (run GitHub Actions `36598587342`)."
+          if old_build in versions:
+              versions = versions.replace(old_build, new_build, 1)
+          elif new_build not in versions:
+              raise RuntimeError("Ligne build attendue introuvable dans Versions.txt")
+
+          versions_path.write_text(versions, encoding="utf-8")
+          PY
+
+      - name: Commit documentaire
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "PMSL35"
+          git config user.email "direction@pelemele.org"
+          git rm .github/workflows/docs-state-sync-20260930.yml
+          git add docs/ROADMAP.md noethys/Versions.txt
+          git commit -m "docs: actualiser Noethys SL au 30 septembre 2026"
+          git push origin HEAD:chatgpt/noethys-convention-ui-activites-20260929
