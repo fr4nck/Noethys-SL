@@ -63,8 +63,50 @@ class Test_SchemaContientAeeh(unittest.TestCase):
 # 2) et 4) Migration additive + conservation stricte NULL / 0 / 1
 # ---------------------------------------------------------------------------
 
+_ABSENT = object()
+
+NOMS_MODULES_STUBBES = ("wx", "six", "Chemins", "GestionDB", "Utils", "Utils.UTILS_Traduction")
+
+
+class _RedirectionModules(object):
+    """ Stubbe des entrées de sys.modules le temps du bloc, puis les restaure
+    EXACTEMENT à leur état antérieur (même objet si la clé existait déjà,
+    clé de nouveau absente sinon) -- même principe que RedirectionGestionDB
+    (tests/_fixtures_noethys_db.py), qui mute puis restaure un attribut du
+    vrai module GestionDB au lieu de le remplacer sans jamais revenir en
+    arrière.
+
+    Avant cette correction, le nettoyage ne supprimait que les clés
+    NOUVELLEMENT ajoutées à sys.modules : "GestionDB" et "wx" sont presque
+    toujours déjà importés par un autre fichier de test collecté dans le
+    même process, donc la clé restait pointée vers le faux module pour le
+    reste du process -- exposant tout code de production faisant un import
+    GestionDB tardif (résolu au moment de l'appel, pas à l'import du
+    fichier), comme Utils/UTILS_Convention_champs.GetIndividusRattaches()
+    ou Utils/UTILS_Impression_reservations.GetDonnees(), au faux
+    _FakeGestionDB (sans .cursor) dès qu'un test de ce fichier avait tourné
+    plus tôt dans le même process pytest. """
+
+    def __init__(self, noms=NOMS_MODULES_STUBBES):
+        self.noms = tuple(noms)
+
+    def __enter__(self):
+        self._sauvegarde = {nom: sys.modules.get(nom, _ABSENT) for nom in self.noms}
+        return self
+
+    def __exit__(self, *exc_info):
+        for nom, valeur in self._sauvegarde.items():
+            if valeur is _ABSENT:
+                sys.modules.pop(nom, None)
+            else:
+                sys.modules[nom] = valeur
+        return False
+
+
 def _installer_stubs():
-    """ Stubbe les dépendances non nécessaires au test (wx absent de l'environnement). """
+    """ Stubbe les dépendances non nécessaires au test (wx absent de l'environnement).
+    N'installe rien dans sys.modules de façon durable : à utiliser uniquement
+    à l'intérieur d'un bloc _RedirectionModules (voir Test_MigrationAdditive). """
     wx = types.ModuleType("wx")
     sys.modules["wx"] = wx
 
@@ -126,7 +168,8 @@ def _installer_stubs():
 
 class Test_MigrationAdditive(unittest.TestCase):
     def setUp(self):
-        self._modules_avant = set(sys.modules.keys())
+        self._redirection = _RedirectionModules()
+        self._redirection.__enter__()
         self.FakeGestionDB = _installer_stubs()
 
         # Charge le vrai module de migration (celui qui sera exécuté en production)
@@ -144,10 +187,8 @@ class Test_MigrationAdditive(unittest.TestCase):
 
     def tearDown(self):
         self.db.connexion.close()
-        # Nettoyage des stubs pour ne pas polluer les autres tests du run
-        for nom in list(sys.modules.keys()):
-            if nom not in self._modules_avant:
-                del sys.modules[nom]
+        # Restaure sys.modules EXACTEMENT à son état d'avant setUp (voir _RedirectionModules)
+        self._redirection.__exit__(None, None, None)
 
     def _colonnes_individus(self):
         self.db.cursor.execute("PRAGMA table_info(individus)")
@@ -195,12 +236,72 @@ class Test_MigrationAdditive(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 2bis) Non-régression : isolation de sys.modules entre tests
+# ---------------------------------------------------------------------------
+
+class Test_IsolationSysModules(unittest.TestCase):
+    """ Garde-fou anti-régression : Test_MigrationAdditive stubbe wx/GestionDB
+    pour exécuter réellement UpgradeDB.py sans wx installé. Avant correction,
+    son tearDown ne supprimait que les clés NOUVELLEMENT ajoutées à
+    sys.modules ; comme "GestionDB" et "wx" sont presque toujours déjà
+    importés par un autre fichier de test collecté dans le même process, la
+    clé restait pointée vers le faux module pour le reste du process --
+    exposant tout code de production faisant un import GestionDB tardif
+    (résolu au moment de l'appel, pas à l'import du fichier), comme
+    Utils/UTILS_Convention_champs.GetIndividusRattaches() ou
+    Utils/UTILS_Impression_reservations.GetDonnees(), au faux
+    _FakeGestionDB (sans .cursor) dès qu'un test de migration AEEH avait
+    tourné plus tôt dans le même process pytest.
+
+    Ce test exécute réellement un test de Test_MigrationAdditive (setUp +
+    test + tearDown), puis vérifie que sys.modules est revenu EXACTEMENT
+    (même objet, pas juste "une valeur quelconque") à son état d'avant, et
+    qu'un import ultérieur de GestionDB ne renvoie jamais _FakeGestionDB. """
+
+    def test_gestiondb_et_wx_restaures_exactement_apres_migration_additive(self):
+        import GestionDB as gestiondb_avant
+        import wx as wx_avant
+
+        resultat = unittest.TestResult()
+        Test_MigrationAdditive("test_migration_ajoute_la_colonne_aeeh").run(resultat)
+        self.assertEqual(resultat.errors, [])
+        self.assertEqual(resultat.failures, [])
+
+        # Restauration EXACTE : le même objet module qu'avant, pas un autre GestionDB
+        self.assertIs(sys.modules["GestionDB"], gestiondb_avant)
+        self.assertIs(sys.modules["wx"], wx_avant)
+
+        # Un import ultérieur (fraîchement résolu) ne renvoie jamais le faux GestionDB
+        import GestionDB as gestiondb_apres
+        self.assertIs(gestiondb_apres, gestiondb_avant)
+        self.assertNotEqual(gestiondb_apres.DB.__name__, "_FakeGestionDB")
+        self.assertTrue(
+            hasattr(gestiondb_apres.DB, "OuvertureFichierLocal"),
+            "GestionDB.DB doit rester la vraie classe de production, pas le stub de test",
+        )
+
+    def test_utils_restaure_exactement_apres_mapping_tri_etat(self):
+        """ Même garde-fou pour Test_MappingTriEtat, qui stubbe "Utils"/
+        "Utils.UTILS_Traduction" (utilisé par ex. par OL_Etat_nomin_champs.py
+        pour ses libellés de champs STANDARD, dont INDIVIDU_AEEH). """
+        import Utils as utils_avant
+
+        resultat = unittest.TestResult()
+        Test_MappingTriEtat("test_index_par_defaut_est_non_renseigne").run(resultat)
+        self.assertEqual(resultat.errors, [])
+        self.assertEqual(resultat.failures, [])
+
+        self.assertIs(sys.modules["Utils"], utils_avant)
+
+
+# ---------------------------------------------------------------------------
 # 3) Mapping tri-état pur (UTILS_Aeeh) - valeur par défaut = Non renseigné
 # ---------------------------------------------------------------------------
 
 class Test_MappingTriEtat(unittest.TestCase):
     def setUp(self):
-        self._modules_avant = set(sys.modules.keys())
+        self._redirection = _RedirectionModules(("Utils", "Utils.UTILS_Traduction"))
+        self._redirection.__enter__()
         utils_pkg = types.ModuleType("Utils")
         utils_pkg.__path__ = []
         sys.modules["Utils"] = utils_pkg
@@ -212,9 +313,8 @@ class Test_MappingTriEtat(unittest.TestCase):
         self.UTILS_Aeeh = _charger_module("noethys/Utils/UTILS_Aeeh.py", "UTILS_Aeeh_test")
 
     def tearDown(self):
-        for nom in list(sys.modules.keys()):
-            if nom not in self._modules_avant:
-                del sys.modules[nom]
+        # Restaure sys.modules EXACTEMENT à son état d'avant setUp (voir _RedirectionModules)
+        self._redirection.__exit__(None, None, None)
 
     def test_index_par_defaut_est_non_renseigne(self):
         self.assertEqual(self.UTILS_Aeeh.ValeurVersIndex(None), 0)
