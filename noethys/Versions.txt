@@ -1927,6 +1927,28 @@ Version 0.0.0.1 (15/02/2010) :
 
 ------------------------------------------------------------
 
+Noethys SL 0.1.0 RC2 - suite du 01/10/2026
+
+- Adhésion annuelle automatique : une adhésion glissante d'un an est créée
+  (cotisation, prestation et marqueur [adhesion-auto]) lors de
+  l'enregistrement de la grille des consommations, sans doublon et sans
+  jamais bloquer la sauvegarde. Aucune adhésion existante n'est supprimée ;
+  les cas facturés ou réglés sont signalés à vérifier.
+- AFAS : historique des périodes et lecture des heures réelles et
+  facturées par phase, avec le sous-total des individus bénéficiaires de
+  l'AEEH.
+- AEEH : statut Bénéficiaire AEEH sur la fiche individu, exposé dans l'état
+  nominatif, et stockage historisé des périodes de droit.
+- Etat global : arrondis corrigés ; factures : prestations sans activité
+  prises en charge.
+- Mailer : correction du parent de la fenêtre de progression de l'envoi
+  des emails (fenêtre non affichée).
+
+La version interne 1.3.4.4 est celle utilisée pour les fichiers, les
+migrations de base et le protocole Connecthys.
+
+------------------------------------------------------------
+
 Noethys SL 0.1.0 RC1 - suite du 28/09/2026
 
 - Identité publique Noethys SL et retour à une apparence claire : thèmes,
