@@ -46,6 +46,25 @@ def GetPeriodes(IDindividu):
     ]
 
 
+def GetIndividusActifsADate(date):
+    """ Liste des IDindividu ayant au moins une période de droit AEEH active
+    à `date`, bornes inclusives (même règle que EstAEEHActif, en une seule
+    requête -- pas une boucle appelant EstAEEHActif individu par individu) :
+
+    date_debut <= date ET (date_fin IS NULL OU date <= date_fin)
+
+    Ne lit jamais `individus.aeeh` : seule `aeeh_periodes` fait foi. """
+    date = str(date)
+    req = """SELECT DISTINCT IDindividu
+    FROM aeeh_periodes
+    WHERE date_debut<='%s' AND (date_fin IS NULL OR date_fin>='%s');""" % (date, date)
+    DB = GestionDB.DB()
+    DB.ExecuterReq(req)
+    listeDonnees = DB.ResultatReq()
+    DB.Close()
+    return [IDindividu for IDindividu, in listeDonnees]
+
+
 def EstAEEHActif(IDindividu, date):
     """ True si `date` tombe dans au moins une période de droit AEEH de cet
     individu, bornes inclusives :
