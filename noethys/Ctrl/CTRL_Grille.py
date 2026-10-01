@@ -41,6 +41,7 @@ import GestionDB
 from Data import DATA_Touches as Touches
 from Utils import UTILS_Identification
 from Utils import UTILS_Historique
+from Utils import UTILS_Adhesions
 from Utils import UTILS_Filtres_questionnaires
 from Utils import UTILS_Questionnaires
 from Utils import UTILS_Divers
@@ -5649,6 +5650,17 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
         # Cloture de la DB
         DB.Close()
+
+        # Adhésion annuelle automatique (point d'appel unique, idempotent, sans jamais bloquer la sauvegarde)
+        depuis = {}
+        for dictIndividus in dictHistorique.values() :
+            for IDindividu, dictCategories in dictIndividus.items() :
+                for codeCategorie in ("ajout", "modif") :
+                    for date in dictCategories[codeCategorie] :
+                        if IDindividu not in depuis or str(date) < str(depuis[IDindividu]) :
+                            depuis[IDindividu] = date
+        if depuis :
+            UTILS_Adhesions.ReconcilierSansEchec(list(depuis.keys()), depuis=depuis, IDutilisateur=self.IDutilisateur)
 
 
     def SauvegardeTransports(self):
