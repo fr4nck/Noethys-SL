@@ -77,6 +77,65 @@ def GetQF(dictQuotientsFamiliaux={}, IDfamille=None, date=None):
     return None
 
 
+# Table de correspondance EXACTE entre l'index sauvegardé en profil par
+# CTRL_Arrondi.GetParametre() (= wx.Choice.GetSelection(), jamais traduit
+# avant d'être persisté dans profils_parametres) et la valeur métier
+# (None ou tuple (arrondi_type, arrondi_delta)) -- recopiée à l'identique de
+# CTRL_Etat_global_parametres.CTRL_Arrondi.listeValeurs (sans les libellés,
+# ni aucune dépendance wx), même ordre, même longueur. Si ce choix évolue un
+# jour côté GUI, cette table doit être mise à jour en miroir.
+ARRONDIS_PAR_INDEX = [
+    None,
+    ("duree", 5),
+    ("duree", 10),
+    ("duree", 15),
+    ("duree", 30),
+    ("duree", 60),
+    ("tranche_horaire", 5),
+    ("tranche_horaire", 10),
+    ("tranche_horaire", 15),
+    ("tranche_horaire", 30),
+    ("tranche_horaire", 60),
+]
+
+
+def DecoderArrondi(arrondi):
+    """ Décode dictUnites[IDunite]["arrondi"] vers sa forme métier (None ou
+    tuple (arrondi_type, arrondi_delta)), en acceptant les 3 formes
+    historiquement valides :
+
+    - None : aucun arrondi (inchangé) ;
+    - un tuple/liste (arrondi_type, arrondi_delta) déjà décodé (inchangé,
+      utilisé tel quel -- c'est la forme produite par le GUI via
+      CTRL_Arrondi.GetValeur()/Track.GetArrondi()) ;
+    - un entier : index de sélection du wx.Choice CTRL_Arrondi, tel que
+      réellement persisté en profil par CTRL_Arrondi.GetParametre() (ex. 0
+      pour "Aucun", 3 pour "Durée : 15 min. sup.") -- décodé ici via
+      ARRONDIS_PAR_INDEX, avec exactement la même correspondance que le
+      GUI, sans aucune dépendance wx.
+
+    Toute autre valeur (type incorrect, index hors plage, tuple de mauvaise
+    forme) lève ErreurCalculEtatGlobal explicitement -- jamais de
+    comportement silencieux. """
+    if arrondi is None :
+        return None
+
+    if isinstance(arrondi, bool) :
+        raise ErreurCalculEtatGlobal(_(u"Valeur d'arrondi invalide : %r.") % (arrondi,), titre=_(u"Erreur"))
+
+    if isinstance(arrondi, int) :
+        if 0 <= arrondi < len(ARRONDIS_PAR_INDEX) :
+            return ARRONDIS_PAR_INDEX[arrondi]
+        raise ErreurCalculEtatGlobal(_(u"Index d'arrondi invalide : %r (attendu entre 0 et %d).") % (arrondi, len(ARRONDIS_PAR_INDEX) - 1), titre=_(u"Erreur"))
+
+    if isinstance(arrondi, (tuple, list)) and len(arrondi) == 2 :
+        arrondi_type, arrondi_delta = arrondi
+        if isinstance(arrondi_type, str) and isinstance(arrondi_delta, (int, float)) and not isinstance(arrondi_delta, bool) :
+            return (arrondi_type, arrondi_delta)
+
+    raise ErreurCalculEtatGlobal(_(u"Valeur d'arrondi invalide : %r.") % (arrondi,), titre=_(u"Erreur"))
+
+
 class Unite():
     def __init__(self, IDunite=None, heure_debut=None, heure_fin=None, etat=None, quantite=1):
         # Formatage des heures
@@ -160,7 +219,21 @@ class CalculateurEtatGlobal():
         période/état) chevauche strictement cette tranche -- debut < fin_midi
         et fin > debut_midi --, le forfait est ajouté une seule fois par
         (IDindividu, date), jamais ventilé par unité ni dépendant d'une
-        unité "Repas" en particulier. """
+        unité "Repas" en particulier.
+
+        dictUnites[IDunite]["arrondi"] (typeCalcul=1) est décodé par
+        DecoderArrondi() (cf. docstring de cette fonction, module-level,
+        sans dépendance wx) : accepte None, un tuple (arrondi_type,
+        arrondi_delta) déjà décodé, ou l'index entier réellement stocké en
+        profil par CTRL_Arrondi.GetParametre() (ex. 0 pour "Aucun", jamais
+        traduit en tuple/None avant d'être persisté -- cette traduction
+        n'a lieu, normalement, que côté GUI via
+        CTRL_Arrondi.GetValeur()/Track.GetArrondi()). Un appelant qui
+        reconstruit dictUnites directement depuis un profil enregistré (ex.
+        futur appelant AFAS) peut donc transmettre cet index brut : il est
+        décodé ici avec exactement la même correspondance que le GUI
+        (ARRONDIS_PAR_INDEX). Toute autre valeur lève ErreurCalculEtatGlobal
+        explicitement. """
         listeAnomalies = []
 
         DB = GestionDB.DB()
@@ -568,8 +641,11 @@ class CalculateurEtatGlobal():
                         if "day" in str(valeur) :
                             raise ErreurCalculEtatGlobal(_(u"Les horaires de cette consommation sont incorrectes : IDconso=%d | IDindividu=%d | IDfamille=%d | date=%s.") % (IDconso, IDindividu, IDfamille, date), titre=_(u"Erreur"))
 
-                        # Si un arrondi est demandé
-                        arrondi = dictCalcul["arrondi"]
+                        # Si un arrondi est demandé -- cf. DecoderArrondi() : accepte
+                        # None, un tuple déjà décodé, ou l'index entier réellement
+                        # stocké en profil par CTRL_Arrondi.GetParametre() (ex. 0 pour
+                        # "Aucun"), avec exactement la même correspondance que le GUI.
+                        arrondi = DecoderArrondi(dictCalcul["arrondi"])
                         if arrondi != None :
                             arrondi_type, arrondi_delta = arrondi
                             valeur = UTILS_Dates.CalculerArrondi(arrondi_type=arrondi_type, arrondi_delta=arrondi_delta, heure_debut=heure_debut, heure_fin=heure_fin)

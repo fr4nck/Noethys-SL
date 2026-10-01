@@ -202,6 +202,104 @@ class TypeCalculTests(BaseCalculEtatGlobalTests):
         self.assertEqual(total, datetime.timedelta(hours=3))
 
 
+class ArrondiDecodageTests(BaseCalculEtatGlobalTests):
+    """Correctif : dictUnites[IDunite]["arrondi"] peut être un INDEX ENTIER
+    QUELCONQUE (pas seulement 0), pas uniquement None ou un tuple
+    (arrondi_type, arrondi_delta) déjà décodé -- c'est la forme réellement
+    stockée en profil PMSL par CTRL_Arrondi.GetParametre(), qui persiste
+    TOUJOURS l'index de sélection du wx.Choice (0="Aucun", 1="Durée 5 min
+    sup.", ..., 3="Durée 15 min sup.", etc. -- cf. DLG_Etat_global.
+    ARRONDIS_PAR_INDEX, copie exacte et sans wx de CTRL_Arrondi.listeValeurs),
+    jamais traduit en tuple/None avant d'être persisté. Un appelant qui
+    reconstruit dictUnites directement depuis un profil enregistré (plutôt
+    que via le round-trip GUI CTRL_Arrondi.GetValeur()) transmet donc cet
+    index brut, quel qu'il soit -- pas seulement 0.
+
+    Avant le premier correctif (arrondi=0 seul) : `arrondi_type, arrondi_delta
+    = arrondi` levait TypeError: cannot unpack non-iterable int object pour
+    TOUT index entier, pas seulement 0 -- DecoderArrondi() décode maintenant
+    n'importe quel index valide avec exactement la même correspondance que
+    le GUI, et lève une erreur explicite (ErreurCalculEtatGlobal) pour toute
+    valeur invalide, au lieu d'un comportement silencieux."""
+
+    def test_arrondi_zero_pas_de_crash_duree_reelle_inchangee(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([self._conso(1, 1, 61, "2026-03-10", "08:00", "12:00")])
+        dictUnites = {61: self._unite(61, typeCalcul=1, arrondi=0)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        total = resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        self.assertEqual(total, datetime.timedelta(hours=4))
+
+    def test_arrondi_none_comportement_inchange(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([self._conso(1, 1, 62, "2026-03-10", "08:00", "12:00")])
+        dictUnites = {62: self._unite(62, typeCalcul=1, arrondi=None)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        total = resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        self.assertEqual(total, datetime.timedelta(hours=4))
+
+    def test_arrondi_tuple_valide_comportement_inchange(self):
+        self._inserer_vacances_large()
+        # 1h20 arrondi aux 15 min. sup. -> 1h30.
+        self._inserer_consos([self._conso(1, 1, 63, "2026-03-10", "08:00", "09:20")])
+        dictUnites = {63: self._unite(63, typeCalcul=1, arrondi=("duree", 15))}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        total = resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        self.assertEqual(total, datetime.timedelta(hours=1, minutes=30))
+
+    def test_arrondi_index_non_nul_meme_resultat_que_son_tuple_equivalent(self):
+        """ Index 3 = ("duree", 15) dans ARRONDIS_PAR_INDEX/CTRL_Arrondi.listeValeurs
+        -- un profil stockant l'index brut 3 doit produire exactement le même
+        résultat que le tuple ("duree", 15) transmis directement. """
+        self._inserer_vacances_large()
+        self._inserer_consos([
+            self._conso(1, 1, 64, "2026-03-10", "08:00", "09:20"),
+            self._conso(2, 2, 65, "2026-03-10", "08:00", "09:20"),
+        ])
+        dictUnites = {
+            64: self._unite(64, typeCalcul=1, arrondi=3),            # index brut de profil
+            65: self._unite(65, typeCalcul=1, arrondi=("duree", 15)),  # tuple déjà décodé
+        }
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(regroupement_principal="individu"),
+                                   dictInfosIndividus={1: {"INDIVIDU_NOM_COMPLET": "Individu_1"}, 2: {"INDIVIDU_NOM_COMPLET": "Individu_2"}})
+        total_index = resultat["dict_resultats"]["Individu_1"][0]["petitesVacs"][1]
+        total_tuple = resultat["dict_resultats"]["Individu_2"][0]["petitesVacs"][1]
+        self.assertEqual(total_index, datetime.timedelta(hours=1, minutes=30))
+        self.assertEqual(total_index, total_tuple)
+
+    def test_arrondi_valeur_invalide_leve_erreur_explicite_sans_dialogue(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([self._conso(1, 1, 66, "2026-03-10", "08:00", "09:20")])
+        # Index hors plage (aucune entrée au-delà de 10 dans ARRONDIS_PAR_INDEX).
+        dictUnites = {66: self._unite(66, typeCalcul=1, arrondi=999)}
+        with self.assertRaises(DLG_Etat_global.ErreurCalculEtatGlobal) as ctx:
+            self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        self.assertEqual(ctx.exception.titre, u"Erreur")
+
+        # Forme complètement invalide (ni None, ni tuple, ni entier).
+        dictUnites2 = {66: self._unite(66, typeCalcul=1, arrondi="duree:15")}
+        with self.assertRaises(DLG_Etat_global.ErreurCalculEtatGlobal):
+            self._calculer("2026-03-01", "2026-03-31", dictUnites2, self._options())
+
+    def test_garderie_reelle_pmsl_arrondi_zero_sans_seuil_ni_plafond(self):
+        """ Configuration réelle PMSL (Garderie du matin/soir, Accueil de
+        loisirs) : typeCalcul=1, arrondi=0, aucun seuil/plafond -- audit en
+        lecture seule sur la base réelle (confirmé : ANOMALIE d'origine de ce
+        correctif). Deux garderies le même jour, même individu. """
+        self._inserer_vacances_large()
+        self._inserer_consos([
+            self._conso(1, 1, 71, "2026-03-10", "07:30", "09:00"),   # Garderie du matin : 1h30
+            self._conso(2, 1, 72, "2026-03-10", "17:00", "18:30"),   # Garderie du soir : 1h30
+        ])
+        dictUnites = {
+            71: self._unite(71, nomUnite="Garderie du matin", typeCalcul=1, arrondi=0),
+            72: self._unite(72, nomUnite="Garderie du soir", typeCalcul=1, arrondi=0),
+        }
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        total = resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        self.assertEqual(total, datetime.timedelta(hours=3))
+
+
 class JourneeMultiUnitesTests(BaseCalculEtatGlobalTests):
     """Point 6 : garderie matin + ALSH + repas + garderie soir, même jour, même enfant."""
 
