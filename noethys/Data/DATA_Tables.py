@@ -1302,6 +1302,12 @@ DB_DATA = {
                   ("IDniveau", "INTEGER", u"ID du niveau scolaire"),
                   ],  # Scolarité
 
+    "aeeh_periodes": [("IDperiode", "INTEGER PRIMARY KEY AUTOINCREMENT", u"ID Période AEEH"),
+                       ("IDindividu", "INTEGER", u"ID de l'individu"),
+                       ("date_debut", "DATE", u"Date de début de la période de droit AEEH"),
+                       ("date_fin", "DATE", u"Date de fin de la période de droit AEEH (NULL = période ouverte)"),
+                       ],  # Historique des périodes de droit AEEH
+
     "transports_compagnies": [("IDcompagnie", "INTEGER PRIMARY KEY AUTOINCREMENT", u"ID Compagnie"),
                               ("categorie", "VARCHAR(200)",
                                u"Catégorie de la compagnie (taxi,train,avion,etc...)"),

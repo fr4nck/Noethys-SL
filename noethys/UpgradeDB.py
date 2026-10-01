@@ -1600,6 +1600,15 @@ class DB(GestionDB.DB):
 
         # =============================================================
 
+        versionFiltre = (1, 3, 4, 4)
+        if versionFichier < versionFiltre:
+            try:
+                if self.IsTableExists("aeeh_periodes") == False : self.CreationTable("aeeh_periodes", Tables.DB_DATA)
+            except Exception as err:
+                return " filtre de conversion %s | " % ".".join([str(x) for x in versionFiltre]) + str(err)
+
+        # =============================================================
+
 
 
         return True
