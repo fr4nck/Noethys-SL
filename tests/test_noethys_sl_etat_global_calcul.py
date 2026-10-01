@@ -468,6 +468,217 @@ class BugPorteeUniteNTests(BaseCalculEtatGlobalTests):
         self.assertNotEqual(valeur_A, valeur_B)
 
 
+class PresenceMeridienneTests(BaseCalculEtatGlobalTests):
+    """Forfait de présence méridienne (+1h ou valeur paramétrée, une seule fois
+    par (IDindividu, date)), lu nativement par CalculerEtatGlobal via
+    dict_options -- aucune unité "Repas" n'est impliquée, aucune ventilation
+    par unité, aucun ID PMSL codé en dur. Toujours qualifié ici avec
+    regroupement_principal="aucun" (seul mode visé par ce lot).
+
+    Les coefficients 4/4/8/10 (Matin/Après-midi/Journée/Journée camp) sont
+    simulés avec typeCalcul=0 (coefficient fixe) -- comme en configuration
+    PMSL réelle -- tout en fournissant heure_debut/heure_fin sur la
+    consommation : un conso "Horaire" porte toujours ses propres horaires
+    réels, même quand le calcul de la valeur (coeff fixe) ne les utilise
+    pas -- c'est précisément sur ces horaires-là que porte la détection de
+    chevauchement avec la tranche méridienne."""
+
+    def _total(self, resultat):
+        try:
+            return resultat["dict_resultats"][None][0]["petitesVacs"][1]
+        except KeyError:
+            return datetime.timedelta(0)
+
+    def test_1_plage_sans_chevauchement_aucun_forfait(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([self._conso(1, 1, 201, "2026-03-10", "08:00", "11:30")])
+        dictUnites = {201: self._unite(201, typeCalcul=1)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=3, minutes=30))
+
+    def test_2_plage_chevauchant_midi_ajoute_le_forfait_une_fois(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([self._conso(1, 1, 202, "2026-03-10", "08:00", "13:00")])
+        dictUnites = {202: self._unite(202, typeCalcul=1)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        # 5h de présence + 1h de forfait méridien.
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=6))
+
+    def test_3_deux_plages_une_seule_chevauchant_ajoute_le_forfait_une_fois(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([
+            self._conso(1, 1, 203, "2026-03-10", "07:00", "08:00"),   # 1h, ne chevauche pas midi
+            self._conso(2, 1, 204, "2026-03-10", "12:00", "14:00"),   # 2h, chevauche midi
+        ])
+        dictUnites = {
+            203: self._unite(203, typeCalcul=1),
+            204: self._unite(204, typeCalcul=1),
+        }
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        # 1h + 2h + 1h de forfait (déclenché une fois, pas par plage).
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=4))
+
+    def test_4_deux_plages_chevauchant_toutes_les_deux_ajoute_le_forfait_une_seule_fois(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([
+            self._conso(1, 1, 205, "2026-03-10", "12:00", "12:45"),   # chevauche midi
+            self._conso(2, 1, 206, "2026-03-10", "13:00", "14:00"),   # chevauche midi aussi
+        ])
+        dictUnites = {
+            205: self._unite(205, typeCalcul=1),
+            206: self._unite(206, typeCalcul=1),
+        }
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        # 0h45 + 1h + 1h de forfait -- jamais 2h de forfait malgré 2 plages chevauchantes.
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=2, minutes=45))
+
+    def test_5_depart_exactement_a_la_borne_fin_de_midi_aucun_forfait(self):
+        self._inserer_vacances_large()
+        # Départ pile à la borne de fin de midi (12:30) : ne touche pas la tranche
+        # (fin > heure_debut_midi est requis strictement) -- aucun chevauchement.
+        self._inserer_consos([self._conso(1, 1, 207, "2026-03-10", "08:00", "12:30")])
+        dictUnites = {207: self._unite(207, typeCalcul=1)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=4, minutes=30))
+
+    def test_6_arrivee_exactement_a_la_borne_debut_de_midi_aucun_forfait(self):
+        self._inserer_vacances_large()
+        # Arrivée pile à la borne de début de midi (13:30) : ne touche pas la
+        # tranche (debut < heure_fin_midi est requis strictement).
+        self._inserer_consos([self._conso(1, 1, 208, "2026-03-10", "13:30", "17:00")])
+        dictUnites = {208: self._unite(208, typeCalcul=1)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=3, minutes=30))
+
+    def test_7_journee_complete_chevauchant_midi_huit_heures_plus_forfait_neuf_heures(self):
+        self._inserer_vacances_large()
+        # Journée (coeff fixe = 8h), horaires réels 08h-17h : le coefficient ne
+        # dépend pas des horaires, mais ces horaires réels servent bien à
+        # détecter le chevauchement avec la tranche méridienne.
+        self._inserer_consos([self._conso(1, 1, 209, "2026-03-10", "08:00", "17:00")])
+        dictUnites = {209: self._unite(209, typeCalcul=0, coeff=8)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=9))
+
+    def test_8_demi_journee_matin_chevauchant_midi_quatre_heures_plus_forfait_cinq_heures(self):
+        self._inserer_vacances_large()
+        # Matin (coeff fixe = 4h), horaires réels 08h-13h (récupération tardive
+        # qui déborde sur la tranche méridienne).
+        self._inserer_consos([self._conso(1, 1, 210, "2026-03-10", "08:00", "13:00")])
+        dictUnites = {210: self._unite(210, typeCalcul=0, coeff=4)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=5))
+
+    def test_9_demi_journee_matin_sans_chevauchement_quatre_heures_inchange(self):
+        self._inserer_vacances_large()
+        # Matin (coeff fixe = 4h), horaires réels 08h-12h : départ avant midi.
+        self._inserer_consos([self._conso(1, 1, 211, "2026-03-10", "08:00", "12:00")])
+        dictUnites = {211: self._unite(211, typeCalcul=0, coeff=4)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=4))
+
+    def test_10_option_desactivee_aucun_forfait_meme_en_cas_de_chevauchement(self):
+        self._inserer_vacances_large()
+        # Même scénario journée complète que le test 7, mais forfait_presence_midi=0
+        # (désactivé) : le chevauchement est réel mais ne produit aucun forfait --
+        # c'est l'option, jamais une détection d'activité, qui gouverne l'activation.
+        self._inserer_consos([self._conso(1, 1, 212, "2026-03-10", "08:00", "17:00")])
+        dictUnites = {212: self._unite(212, typeCalcul=0, coeff=8)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=0))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=8))
+
+    def test_11_mini_camp_meme_mecanisme_generique_sans_forfait_si_option_desactivee(self):
+        self._inserer_vacances_large()
+        # Journée camp (coeff fixe = 10h) : même mécanisme générique que
+        # n'importe quelle autre activité, aucun traitement spécifique au
+        # mini-camp -- ici avec l'option désactivée (comme pour un contexte où
+        # la présence méridienne n'a pas de sens), le total reste 10h.
+        self._inserer_consos([self._conso(1, 1, 213, "2026-03-10", "08:00", "18:00", IDactivite=20)])
+        dictUnites = {213: self._unite(213, IDactivite=20, nomActivite="ALSH ados", typeCalcul=0, coeff=10)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=0))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=10))
+
+    def test_12_aucune_dependance_a_une_unite_repas(self):
+        self._inserer_vacances_large()
+        # Enfant A : plage Horaire qui chevauche midi (5h) + une conso "Repas"
+        # (Unitaire, coeff, sans aucun horaire). Enfant B : exactement la même
+        # plage Horaire, mais AUCUNE conso Repas. Le forfait méridien (basé
+        # uniquement sur les horaires de la plage Horaire) doit se déclencher
+        # identiquement pour les deux -- la seule différence entre A et B doit
+        # être le 1h de Repas, jamais une différence sur le forfait lui-même.
+        self._inserer_consos([
+            self._conso(1, 1, 214, "2026-03-10", "08:00", "13:00"),         # Enfant A : Horaire, chevauche midi
+            self._conso(2, 1, 215, "2026-03-10", None, None, "present", 1),  # Enfant A : "Repas", coeff, sans horaire
+            self._conso(3, 2, 214, "2026-03-10", "08:00", "13:00"),         # Enfant B : même Horaire, pas de Repas
+        ])
+        dictUnites = {
+            214: self._unite(214, typeCalcul=1),
+            215: self._unite(215, typeCalcul=0, coeff=1, nomUnite="Repas"),
+        }
+        resultat = self._calculer(
+            "2026-03-01", "2026-03-31", dictUnites,
+            self._options(forfait_presence_midi=60, regroupement_principal="individu"),
+            dictInfosIndividus={
+                1: {"INDIVIDU_NOM_COMPLET": "Enfant A"},
+                2: {"INDIVIDU_NOM_COMPLET": "Enfant B"},
+            },
+        )
+        total_A = resultat["dict_resultats"]["Enfant A"][0]["petitesVacs"][1]
+        total_B = resultat["dict_resultats"]["Enfant B"][0]["petitesVacs"][1]
+        self.assertEqual(total_A, datetime.timedelta(hours=7))  # 5h Horaire + 1h Repas + 1h forfait
+        self.assertEqual(total_B, datetime.timedelta(hours=6))  # 5h Horaire + 1h forfait, sans Repas
+        # La seule différence entre les deux est le 1h de Repas : le forfait
+        # méridien (1h) est identique des deux côtés.
+        self.assertEqual(total_A - total_B, datetime.timedelta(hours=1))
+
+    def test_13_prestation_temps_facture_non_renseignee_ne_necessite_aucun_repas(self):
+        self._inserer_vacances_large()
+        self.base.inserer("prestations", ["IDprestation", "temps_facture"], [(900, None)])
+        self.base.db.Commit()
+        # Pique-nique non facturé (typeCalcul=2, temps_facture non renseigné :
+        # valeur nulle pour cette conso) + une plage Horaire qui chevauche midi
+        # sur une autre unité : le forfait se déclenche normalement, sans
+        # qu'aucune unité "Repas" n'ait jamais été nécessaire.
+        self._inserer_consos([
+            self._conso(1, 1, 216, "2026-03-10", "08:00", "13:00"),
+            self._conso(2, 1, 217, "2026-03-10", None, None, "present", None, 10, 900),
+        ])
+        dictUnites = {
+            216: self._unite(216, typeCalcul=1),
+            217: self._unite(217, typeCalcul=2),
+        }
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options(forfait_presence_midi=60))
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=6))
+
+    def test_14_dict_options_sans_nouvelles_cles_comportement_inchange(self):
+        self._inserer_vacances_large()
+        # Plage qui chevauche largement midi, mais dict_options ne porte
+        # aucune des 3 nouvelles clés (profil déjà existant avant ce lot,
+        # jamais migré) : aucun forfait ne doit être ajouté.
+        self._inserer_consos([self._conso(1, 1, 218, "2026-03-10", "08:00", "17:00")])
+        dictUnites = {218: self._unite(218, typeCalcul=1)}
+        resultat = self._calculer("2026-03-01", "2026-03-31", dictUnites, self._options())
+        self.assertEqual(self._total(resultat), datetime.timedelta(hours=9))
+
+    def test_15_deux_individus_meme_jour_seul_celui_qui_chevauche_recoit_le_forfait(self):
+        self._inserer_vacances_large()
+        self._inserer_consos([
+            self._conso(1, 1, 219, "2026-03-10", "08:00", "13:00"),  # Enfant A : chevauche midi
+            self._conso(2, 2, 219, "2026-03-10", "08:00", "12:00"),  # Enfant B : ne chevauche pas
+        ])
+        dictUnites = {219: self._unite(219, typeCalcul=1)}
+        resultat = self._calculer(
+            "2026-03-01", "2026-03-31", dictUnites,
+            self._options(forfait_presence_midi=60, regroupement_principal="individu"),
+            dictInfosIndividus={
+                1: {"INDIVIDU_NOM_COMPLET": "Enfant A"},
+                2: {"INDIVIDU_NOM_COMPLET": "Enfant B"},
+            },
+        )
+        self.assertEqual(resultat["dict_resultats"]["Enfant A"][0]["petitesVacs"][1], datetime.timedelta(hours=6))
+        self.assertEqual(resultat["dict_resultats"]["Enfant B"][0]["petitesVacs"][1], datetime.timedelta(hours=4))
+
+
 class ErreursSansDialogueWxTests(BaseCalculEtatGlobalTests):
     """IMPORTANT -- ERREURS UI : le calcul extrait ne doit afficher aucune boîte
     de dialogue wx. Les deux cas bloquants remontent via ErreurCalculEtatGlobal,

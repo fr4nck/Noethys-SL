@@ -150,7 +150,17 @@ class CalculateurEtatGlobal():
         listeGroupes (optionnel) : restreint en plus par
         consommations.IDgroupe (même logique que listeActivites : aucun
         groupe fourni -> aucune restriction supplémentaire). Apercu() ne
-        fournit jamais ce paramètre -- comportement historique inchangé. """
+        fournit jamais ce paramètre -- comportement historique inchangé.
+
+        dict_options peut porter 3 clés optionnelles (lues via .get(), donc
+        sans effet sur un dict_options existant qui ne les porte pas) pour la
+        présence méridienne : forfait_presence_midi (minutes, 0 = désactivé),
+        heure_debut_presence_midi et heure_fin_presence_midi (défauts
+        "12:30"/"13:30"). Dès qu'une plage valide (après filtrage
+        période/état) chevauche strictement cette tranche -- debut < fin_midi
+        et fin > debut_midi --, le forfait est ajouté une seule fois par
+        (IDindividu, date), jamais ventilé par unité ni dépendant d'une
+        unité "Repas" en particulier. """
         listeAnomalies = []
 
         DB = GestionDB.DB()
@@ -290,6 +300,13 @@ class CalculateurEtatGlobal():
         jours_vacances = dict_options["jours_vacances"]
         etats = dict_options["etat_consommations"]
 
+        # Présence méridienne (forfait journalier, en minutes, 0 = désactivé) :
+        # lu via .get() pour qu'un dict_options existant sans ces clés (anciens
+        # profils) conserve exactement son comportement actuel.
+        forfait_presence_midi = dict_options.get("forfait_presence_midi", 0)
+        heure_debut_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_debut_presence_midi", "12:30"))
+        heure_fin_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_fin_presence_midi", "13:30"))
+
         # Recherche des données
         listeRegimesUtilises = []
 
@@ -372,6 +389,7 @@ class CalculateurEtatGlobal():
         dict_resultats = {}
         listePrestationsTraitees = []
         dict_temps_journalier_individu = {}
+        dict_presence_midi = {}
         dict_stats = {"individus": [], "familles": []}
         for IDconso, date, IDindividu, IDunite, IDgroupe, IDactivite, etiquettes, heure_debut, heure_fin, etat, quantite, IDevenement, IDprestation, temps_facture, IDfamille, nomActivite, nomGroupe, nomCategorie, IDcaisse, IDregime, date_naiss in listeDonnees:
             date = UTILS_Dates.DateEngEnDateDD(date)
@@ -620,6 +638,31 @@ class CalculateurEtatGlobal():
                 if age == -1 :
                     index_tranche_age = None
 
+                # ----- Présence méridienne : collecte des plages du jour -----
+                # Ne dépend d'aucune unité en particulier (ni "Repas") : on ne
+                # regarde que les horaires de la consommation, s'ils existent.
+                # Une seule clé de regroupement est mémorisée par (individu,
+                # date) -- avec regroupement_principal="aucun" (seul mode
+                # qualifié par ce lot), elle est de toute façon identique pour
+                # toutes les plages de ce jour.
+                if forfait_presence_midi > 0 :
+                    # Même normalisation d'IDregime que "Mémorisation du
+                    # résultat" ci-dessous, pour que le forfait retombe dans
+                    # le même compartiment dict_resultats que les
+                    # consommations de ce jour.
+                    IDregime_jour = IDregime
+                    if dict_options["associer_regime_inconnu"] not in (None, "non", "") and IDregime_jour == None :
+                        IDregime_jour = dict_options["associer_regime_inconnu"]
+                    if not IDregime_jour :
+                        IDregime_jour = 0
+
+                    cle_jour = (IDindividu, date)
+                    if cle_jour not in dict_presence_midi :
+                        dict_presence_midi[cle_jour] = {"chevauche_midi": False, "IDfamille": IDfamille, "cle_regroupement": (regroupement, index_tranche_age, periode, IDregime_jour)}
+                    if heure_debut != None and heure_debut != "" and heure_fin != None and heure_fin != "" :
+                        if heure_debut < heure_fin_presence_midi and heure_fin > heure_debut_presence_midi :
+                            dict_presence_midi[cle_jour]["chevauche_midi"] = True
+
                 # Mémorisation du résultat
                 if valeur != datetime.timedelta(hours=0, minutes=0) or valeur != datetime.timedelta(hours=0, minutes=0) :
                     # Si régime inconnu :
@@ -641,6 +684,26 @@ class CalculateurEtatGlobal():
                     # Mémorisation du résultat
                     dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
                     dict_resultats[regroupement][index_tranche_age][periode][IDregime] += valeur * quantite
+
+        # ----- Présence méridienne : application du forfait -----
+        # Un seul forfait par (IDindividu, date), quel que soit le nombre de
+        # plages chevauchant la tranche méridienne ce jour-là -- jamais
+        # ventilé par unité, jamais multiplié par une quantité.
+        if forfait_presence_midi > 0 :
+            for (IDindividu_jour, date_jour), dictPresence in dict_presence_midi.items() :
+                if dictPresence["chevauche_midi"] == True :
+                    regroupement, index_tranche_age, periode, IDregime = dictPresence["cle_regroupement"]
+                    IDfamille = dictPresence["IDfamille"]
+
+                    if IDregime not in listeRegimesUtilises :
+                        listeRegimesUtilises.append(IDregime)
+                    if IDindividu_jour not in dict_stats["individus"]:
+                        dict_stats["individus"].append(IDindividu_jour)
+                    if IDfamille not in dict_stats["familles"]:
+                        dict_stats["familles"].append(IDfamille)
+
+                    dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
+                    dict_resultats[regroupement][index_tranche_age][periode][IDregime] += datetime.timedelta(minutes=forfait_presence_midi)
 
         DB.Close()
 
