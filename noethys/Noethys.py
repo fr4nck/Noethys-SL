@@ -109,6 +109,27 @@ ID_TB_CALCULATRICE = wx.Window.NewControlId()
 ID_TB_UTILISATEUR = wx.Window.NewControlId()
 
 
+def FermerSplashProgressivement(splash):
+    """Efface le logo une fois la fenêtre principale entièrement préparée."""
+    if splash is None:
+        return
+    niveaux = (230, 205, 180, 155, 130, 105, 80, 55, 30, 0)
+
+    def attenuer(index=0):
+        try:
+            if not splash:
+                return
+            if index == len(niveaux) or not splash.SetTransparent(niveaux[index]):
+                splash.Destroy()
+                return
+            wx.CallLater(40, attenuer, index + 1)
+        except RuntimeError:
+            # La fenêtre a pu être détruite lors de la fermeture de l'application.
+            return
+
+    wx.CallLater(40, attenuer)
+
+
 class MainFrame(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, -1, title=_(u"Noethys"), name="general", style=wx.DEFAULT_FRAME_STYLE)
@@ -4092,7 +4113,8 @@ class MainFrame(wx.Frame):
                     self.ChargeUtilisateur(dictTemp)
                     return True
         # Permet de donner le focus à la fenetre de connection sur LXDE (Fonctionnait sans sur d'autres distributions)
-        self.Raise()
+        if self.IsShown():
+            self.Raise()
         dlg = CTRL_Identification.Dialog(self, listeUtilisateurs=listeUtilisateurs, nomFichier=nomFichier)
         reponse = dlg.ShowModal() 
         dictUtilisateur = dlg.GetDictUtilisateur()
@@ -4451,7 +4473,13 @@ class MyApp(wx.App):
                     "Images/Interface/%s/%s" % (theme, nom_fichier_splash)
                 )
             bmp = wx.Bitmap(chemin_splash, wx.BITMAP_TYPE_PNG)
-            splash = AS.AdvancedSplash(None, bitmap=bmp, timeout=3000, agwStyle=AS.AS_CENTER_ON_SCREEN)
+            splash = AS.AdvancedSplash(
+                None, bitmap=bmp,
+                style=wx.FRAME_NO_TASKBAR | wx.FRAME_SHAPED,
+                agwStyle=AS.AS_NOTIMEOUT | AS.AS_CENTER_ON_SCREEN)
+            # Garder le logo jusqu’à la fin du chargement, y compris après un clic.
+            splash.Unbind(wx.EVT_MOUSE_EVENTS)
+            splash.Unbind(wx.EVT_CHAR)
             if not splash_sl_disponible:
                 anneeActuelle = str(datetime.date.today().year)
                 splash.SetText(u"Copyright © 2010-%s Ivan LUCAS" % anneeActuelle[2:])
@@ -4469,17 +4497,10 @@ class MyApp(wx.App):
         frame.Initialisation()
         # Update() AUI utilise CallAfter : placer les panneaux avant de montrer la fenêtre.
         frame._mgr.DoUpdate()
-        if splash is not None:
-            splash.Hide()
-            splash.Destroy()
-        frame.Show()
         if getattr(frame, "maximiser_au_demarrage", False):
             frame.Maximize(True)
         frame._mgr.DoUpdate()
         frame.Layout()
-        # Peindre avant les dialogues et le chargement du fichier réseau.
-        frame.Refresh()
-        frame.Update()
 
         # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
         etat_annonce = frame.Annonce()
@@ -4515,6 +4536,17 @@ class MyApp(wx.App):
         # Démarrage du serveur Nomadhys
         if hasattr(frame, 'ctrl_serveur_nomade') == True:
             frame.ctrl_serveur_nomade.StartServeur()
+
+        # Tous les chargements initiaux sont terminés : montrer une seule disposition.
+        frame._mgr.DoUpdate()
+        frame.Layout()
+        if splash is not None:
+            splash.SetWindowStyleFlag(splash.GetWindowStyleFlag() | wx.STAY_ON_TOP)
+            splash.Raise()
+        frame.Show()
+        frame.Refresh()
+        frame.Update()
+        FermerSplashProgressivement(splash)
 
         print("Temps de chargement ouverture de Noethys = ", time.time() - heure_debut)
         return True
