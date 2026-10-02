@@ -9,6 +9,7 @@
 #-----------------------------------------------------------
 
 
+import copy
 import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
@@ -1042,9 +1043,19 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                        self.GetGridColLabelWindow(), self.GetGridCornerLabelWindow()):
             window.Update()
         self.MAJ_donnees()
+        etat = copy.deepcopy(tuple(getattr(self, nom, None) for nom in (
+            "dictActivites", "dictOuvertures", "dictRemplissage",
+            "dictUnitesRemplissage", "dictConsoAttente", "dictRemplissageEvenements",
+            "dictGroupes", "listeGroupesUtilises", "listeVacances",
+            "listeActivites", "listePeriodes", "modeAffichage")))
+        etat += (datetime.date.today(), ABREGE_GROUPES, AFFICHE_TOTAUX,
+                 LARGEUR_COLONNE_UNITE, LARGEUR_COLONNE_ACTIVITE)
+        if etat == getattr(self, "_etat_affiche", None):
+            return
         self.Freeze()
         try:
             self.MAJ_affichage()
+            self._etat_affiche = etat
         finally:
             self.Thaw()
             # La grille contient plusieurs fenêtres natives (cellules et labels).
