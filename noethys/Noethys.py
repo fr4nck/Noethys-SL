@@ -246,7 +246,8 @@ class MainFrame(wx.Frame):
             self.userConfig["taille_fenetre"] = (0, 0)
         taille_fenetre = self.userConfig["taille_fenetre"]
         if taille_fenetre == (0, 0) or taille_fenetre == [0, 0]:
-            self.Maximize(True)
+            # Appliquer la maximisation après la création complète des panneaux.
+            self.maximiser_au_demarrage = True
         else:
             self.SetSize(taille_fenetre)
         self.CenterOnScreen()
@@ -4470,6 +4471,10 @@ class MyApp(wx.App):
             splash.Hide()
             splash.Destroy()
         frame.Show()
+        if getattr(frame, "maximiser_au_demarrage", False):
+            frame.Maximize(True)
+        frame._mgr.Update()
+        frame.Layout()
         # Peindre avant les dialogues et le chargement du fichier réseau.
         frame.Refresh()
         frame.Update()
