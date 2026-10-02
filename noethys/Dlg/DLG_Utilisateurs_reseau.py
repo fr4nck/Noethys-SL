@@ -202,7 +202,7 @@ class ListCtrl(wx.ListCtrl, CheckListCtrlMixin):
             else:
                 autorisationStr = "Non"
             if 'phoenix' in wx.PlatformInfo:
-                index = self.InsertItem(six.MAXSIZE, autorisationStr)
+                index = self.InsertItem(self.GetItemCount(), autorisationStr)
             else:
                 index = self.InsertStringItem(six.MAXSIZE, autorisationStr)
             if user == "root" :
