@@ -1037,9 +1037,13 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
     def MAJ(self):
         self.Freeze()
-        self.MAJ_donnees()
-        self.MAJ_affichage()
-        self.Thaw()
+        try:
+            self.MAJ_donnees()
+            self.MAJ_affichage()
+        finally:
+            self.Thaw()
+            # La grille contient plusieurs fenêtres natives (cellules et labels).
+            self.ForceRefresh()
             
     def MAJ_donnees(self):
         if self.dictDonnees != None :
