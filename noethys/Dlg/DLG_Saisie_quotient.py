@@ -17,6 +17,8 @@ from Ctrl import CTRL_Bouton_image
 from Ctrl import CTRL_Saisie_date
 from Ctrl import CTRL_Saisie_euros
 from Utils import UTILS_Dates
+from Utils import UTILS_Quotients_validite
+import datetime
 
 import GestionDB
 
@@ -75,6 +77,7 @@ class Dialog(wx.Dialog):
         self.parent = parent
         self.IDfamille = IDfamille
         self.IDquotient = IDquotient
+        self._fin_proposee = None
         
         # Dates
         self.staticbox_dates_staticbox = wx.StaticBox(self, -1, _(u"Dates de validité"))
@@ -82,6 +85,8 @@ class Dialog(wx.Dialog):
         self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
         self.label_date_fin = wx.StaticText(self, -1, _(u"au"))
         self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
+        self.bouton_echeance = wx.Button(self, -1, _(u"Fin à la prochaine échéance"))
+        self.label_echeances = wx.StaticText(self, -1, _(u"Renouvellement : 10 janvier et 10 septembre.\nCette saisie ne recalcule pas les factures établies."))
         
         # Paramètres
         self.staticbox_parametres_staticbox = wx.StaticBox(self, -1, _(u"Paramètres"))
@@ -112,6 +117,8 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
 
+        self.Bind(wx.EVT_BUTTON, self.OnProchaineEcheance, self.bouton_echeance)
+
         # Init
         self.Importation()
 
@@ -139,6 +146,8 @@ class Dialog(wx.Dialog):
         grid_sizer_dates.Add(self.label_date_fin, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_dates.Add(self.ctrl_date_fin, 0, 0, 0)
         staticbox_dates.Add(grid_sizer_dates, 1, wx.ALL|wx.EXPAND, 10)
+        staticbox_dates.Add(self.bouton_echeance, 0, wx.LEFT|wx.RIGHT|wx.BOTTOM, 10)
+        staticbox_dates.Add(self.label_echeances, 0, wx.LEFT|wx.RIGHT|wx.BOTTOM, 10)
         grid_sizer_base.Add(staticbox_dates, 1, wx.LEFT|wx.RIGHT|wx.TOP|wx.EXPAND, 10)
 
         grid_sizer_parametres = wx.FlexGridSizer(rows=4, cols=2, vgap=10, hgap=10)
@@ -192,6 +201,17 @@ class Dialog(wx.Dialog):
     
     def SetDateDebut(self, date=None):
         self.ctrl_date_debut.SetDate(date)
+
+    def OnProchaineEcheance(self, event=None):
+        debut = self.GetDateDebut()
+        if debut is not None:
+            self._fin_proposee = UTILS_Quotients_validite.DateFinProposee(debut)
+            self.SetDateFin(self._fin_proposee)
+
+    def OnChoixDate(self):
+        # Suivre le début tant que l'utilisateur n'a pas personnalisé la fin.
+        if self.IDquotient is None and self.GetDateFin() in (None, self._fin_proposee):
+            self.OnProchaineEcheance()
 
     def SetDateFin(self, date=None):
         self.ctrl_date_fin.SetDate(date)
@@ -251,6 +271,11 @@ class Dialog(wx.Dialog):
             self.ctrl_date_fin.SetFocus()
             return False
 
+        if date_fin < date_debut:
+            wx.MessageBox(_(u"La fin de validité doit être postérieure ou égale au début."),
+                          _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION, self)
+            return False
+
         # Quotient
         quotient = self.ctrl_quotient.GetValue()
         if len(quotient) > 0 :
@@ -280,54 +305,63 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
             return False
 
-        # Vérifie que ce quotient ne se superpose pas sur un autre
-        if self.IDquotient == None :
-            IDquotient = 0
-        else :
-            IDquotient = self.IDquotient
+        # Ajustement proposé uniquement pour un précédent du même type.
         DB = GestionDB.DB()
-        req = """
-        SELECT date_debut, date_fin
-        FROM quotients
-        WHERE IDfamille=%d AND IDquotient<>%d AND date_debut<='%s' AND date_fin>='%s';""" % (self.IDfamille, IDquotient, date_fin, date_debut)
-        DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()
-        DB.Close()
-        if len(listeDonnees) > 0 :
-            dlg = wx.MessageDialog(self, _(u"Il existe déjà %d quotient/revenu saisi sur cette période.\n\nSouhaitez-vous tout de même l'enregistrer ?") % len(listeDonnees), _(u"Anomalie"), wx.YES_NO | wx.NO_DEFAULT | wx.CANCEL | wx.ICON_EXCLAMATION)
+        try:
+            chevauchements = UTILS_Quotients_validite.LireChevauchements(
+                DB, self.IDfamille, self.GetTypeQuotient(), self.IDquotient, date_debut, date_fin)
+        except Exception:
+            wx.MessageBox(_(u"Impossible de vérifier les quotients existants. Rien n'a été enregistré."),
+                          _(u"Erreur"), wx.OK | wx.ICON_ERROR, self)
+            return False
+        finally:
+            DB.Close()
+        precedent = None
+        if chevauchements:
+            if self.IDquotient is None:
+                precedent = UTILS_Quotients_validite.PrecedentACloturer(chevauchements, date_debut)
+            if precedent is None:
+                wx.MessageBox(_(u"Ces dates chevauchent des quotients qui ne peuvent pas être ajustés automatiquement.\n\nVérifiez leurs périodes avant d'enregistrer."),
+                              _(u"Périodes à vérifier"), wx.OK | wx.ICON_EXCLAMATION, self)
+                return False
+            fin_precedent = date_debut - datetime.timedelta(days=1)
+            message = _(u"Le nouveau quotient débute le %s.\n\nRamener la fin du quotient précédent du %s au %s et enregistrer le nouveau ?\n\nLes factures établies ne seront pas recalculées.") % (
+                date_debut.strftime("%d/%m/%Y"), precedent[2].strftime("%d/%m/%Y"),
+                fin_precedent.strftime("%d/%m/%Y"))
+            dlg = wx.MessageDialog(self, message, _(u"Renouvellement du quotient"),
+                                   wx.YES_NO | wx.NO_DEFAULT | wx.CANCEL | wx.ICON_QUESTION)
             reponse = dlg.ShowModal()
             dlg.Destroy()
-            if reponse != wx.ID_YES :
+            if reponse != wx.ID_YES:
                 return False
 
-        # Sauvegarde
-        self.Sauvegarde()
+        if not self.Sauvegarde(precedent=precedent):
+            return False
 
         # Fermeture
         self.EndModal(wx.ID_OK)
 
-    def Sauvegarde(self):
-        date_debut = self.GetDateDebut()
-        date_fin = self.GetDateFin()
-        quotient = self.GetQuotient()
-        revenu = self.GetRevenu()
-        IDtype_quotient = self.GetTypeQuotient()
-        observations = self.GetObservations()
+    def Sauvegarde(self, precedent=None):
+        donnees = {
+            "IDfamille": self.IDfamille,
+            "date_debut": self.GetDateDebut(), "date_fin": self.GetDateFin(),
+            "quotient": self.GetQuotient(), "revenu": self.GetRevenu(),
+            "observations": self.GetObservations(), "IDtype_quotient": self.GetTypeQuotient(),
+        }
         DB = GestionDB.DB()
-        listeDonnees = [
-            ("IDfamille", self.IDfamille),
-            ("date_debut", date_debut),
-            ("date_fin", date_fin),
-            ("quotient", quotient),
-            ("revenu", revenu),
-            ("observations", observations),
-            ("IDtype_quotient", IDtype_quotient),
-        ]
-        if self.IDquotient == None :
-            self.IDquotient = DB.ReqInsert("quotients", listeDonnees)
-        else:
-            DB.ReqMAJ("quotients", listeDonnees, "IDquotient", self.IDquotient)
-        DB.Close()
+        try:
+            self.IDquotient = UTILS_Quotients_validite.Enregistrer(
+                DB, donnees, IDquotient=self.IDquotient, precedent=precedent)
+            return True
+        except ValueError as erreur:
+            wx.MessageBox(str(erreur), _(u"Périodes à vérifier"), wx.OK | wx.ICON_EXCLAMATION, self)
+            return False
+        except Exception:
+            wx.MessageBox(_(u"L'enregistrement a échoué. Les quotients n'ont pas été modifiés."),
+                          _(u"Erreur"), wx.OK | wx.ICON_ERROR, self)
+            return False
+        finally:
+            DB.Close()
 
     def GetIDquotient(self):
         return self.IDquotient
@@ -336,24 +370,11 @@ class Dialog(wx.Dialog):
         if self.IDquotient == None :
 
             self.SetTitle(_(u"Saisie d'un quotient familial/revenu"))
-            # Recherche des dates à appliquer
-            DB = GestionDB.DB()
-            req = """
-            SELECT date_debut, date_fin
-            FROM quotients
-            ORDER BY IDquotient DESC LIMIT 1;"""
-            DB.ExecuterReq(req)
-            listeDonnees = DB.ResultatReq()
-            DB.Close()
-            if len(listeDonnees) > 0 :
-                date_debut, date_fin = listeDonnees[0]
-                date_debut = UTILS_Dates.DateEngEnDateDD(date_debut)
-                date_fin = UTILS_Dates.DateEngEnDateDD(date_fin)
-            else :
-                date_debut, date_fin = None, None
-
+            # Date d'effet proposée : aujourd'hui, sans appliquer le QF rétroactivement.
+            date_debut = datetime.date.today()
+            self._fin_proposee = UTILS_Quotients_validite.DateFinProposee(date_debut)
             self.SetDateDebut(date_debut)
-            self.SetDateFin(date_fin)
+            self.SetDateFin(self._fin_proposee)
 
         else :
             self.SetTitle(_(u"Modification d'un quotient familial/revenu"))
