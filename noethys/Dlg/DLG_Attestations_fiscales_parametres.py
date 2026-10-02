@@ -128,6 +128,8 @@ class Parametres(wx.Panel):
         # Séparation
         self.staticbox_dateNaiss_staticbox = wx.StaticBox(self, -1, _(u"Limite d'âge"))
         self.check_dateNaiss = wx.CheckBox(self, -1, _(u"Date de naissance min. :"))
+        self.check_dateNaiss.SetValue(True)
+        self.check_dateNaiss.Enable(False)
         self.ctrl_dateNaiss = CTRL_Saisie_date.Date(self)
         
         # Activités
@@ -153,7 +155,7 @@ class Parametres(wx.Panel):
     def __set_properties(self):
         self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Saisissez la date de début de période")))
         self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Saisissez la date de fin de période")))
-        self.ctrl_dateNaiss.SetToolTip(wx.ToolTip(_(u"Saisissez une date de naissance maximale")))
+        self.ctrl_dateNaiss.SetToolTip(wx.ToolTip(_(u"Limite fiscale calculée au 1er janvier de l'année de référence.")))
         self.bouton_actualiser.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour actualiser la liste")))
 
     def __do_layout(self):
@@ -200,10 +202,13 @@ class Parametres(wx.Panel):
         grid_sizer_base.AddGrowableCol(0)
     
     def OnCheckAge(self, event):
-        etat = self.check_dateNaiss.GetValue()
-        self.ctrl_dateNaiss.Enable(etat)
-        if etat == True :
-            self.ctrl_dateNaiss.SetFocus()
+        self.ctrl_dateNaiss.Enable(False)
+        self.OnChoixDate()
+
+    def OnChoixDate(self):
+        debut = self.ctrl_date_debut.GetDate()
+        if debut is not None:
+            self.ctrl_dateNaiss.SetDate(datetime.date(debut.year - 6, 1, 1))
 
     def OnBoutonActualiser(self, event): 
         # Validation de la période
@@ -227,6 +232,12 @@ class Parametres(wx.Panel):
             dlg.Destroy()
             return False
         
+        if date_fin.year != date_debut.year:
+            wx.MessageBox(_(u"Pour appliquer la limite d'âge fiscale, générez une attestation par année civile."),
+                          _(u"Période de référence"), wx.OK | wx.ICON_EXCLAMATION, self)
+            return False
+        self.OnChoixDate()
+
         # Validation de la date de naissance limite
         dateNaiss = None 
         if self.check_dateNaiss.GetValue() == True :
@@ -280,6 +291,7 @@ class Parametres(wx.Panel):
         pass
     
     def MAJprestations(self):
+        self.OnChoixDate()
         date_debut = self.ctrl_date_debut.GetDate()
         date_fin = self.ctrl_date_fin.GetDate()
         if self.check_dateNaiss.GetValue() == True :
@@ -320,7 +332,7 @@ class Panel(wx.Panel):
         anneeActuelle = datetime.date.today().year
         self.ctrl_parametres.ctrl_date_debut.SetDate(datetime.date(anneeActuelle-1, 1, 1))
         self.ctrl_parametres.ctrl_date_fin.SetDate(datetime.date(anneeActuelle-1, 12, 31))
-        self.ctrl_parametres.ctrl_dateNaiss.SetDate(datetime.date(anneeActuelle-7, 1, 1))
+        self.ctrl_parametres.OnChoixDate()
         
         # Init contrôles
         self.ctrl_parametres.MAJprestations()
