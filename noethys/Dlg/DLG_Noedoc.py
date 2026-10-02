@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------------------------------------
-# Application :    Noethys, gestion multi-activités
+# Application :    Noethys, gestion multi-activit�s
 # Site internet :  www.noethys.com
 # Auteur:           Ivan LUCAS
 # Copyright:       (c) 2010-11 Ivan LUCAS
@@ -44,7 +44,7 @@ from Utils import UTILS_Dates
 from Utils import UTILS_Infos_individus
 
 from Utils import UTILS_Config
-SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
+SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"�")
 
 from Utils import UTILS_Impressions
 UTILS_Impressions.AjouterPolicesPDF() 
@@ -87,12 +87,12 @@ class Fond():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
             ]
         self.codesbarres = []
@@ -107,51 +107,51 @@ class Facture():
         self.photosIndividuelles = False
                         
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND Gérard"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND G�rard"), "{FAMILLE_NOM}"),
             (_(u"Rue de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Individus concernés"), _(u"Kévin ALLIBERT"), "{INDIVIDUS_CONCERNES}"),
+            (_(u"Individus concern�s"), _(u"K�vin ALLIBERT"), "{INDIVIDUS_CONCERNES}"),
             
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Numéro de facture"), u"1234567", "{NUM_FACTURE}"),
-            (_(u"Code-barres - Numéro de facture"), u"F123456", "{CODEBARRES_NUM_FACTURE}"),
+            (_(u"Num�ro de facture"), u"1234567", "{NUM_FACTURE}"),
+            (_(u"Code-barres - Num�ro de facture"), u"F123456", "{CODEBARRES_NUM_FACTURE}"),
             (_(u"Nom du lot"), _(u"Mars 2014"), "{NOM_LOT}"),
-            (_(u"Date d'échéance de paiement (long)"), _(u"Lundi 10 janvier 2011"), "{DATE_ECHEANCE_LONG}"),
-            (_(u"Date d'échéance de paiement (court)"), u"10/01/2011", "{DATE_ECHEANCE_COURT}"),
-            (_(u"Texte échéance de paiement"), _(u"Date d'échéance : 10/01/2011"), "{TEXTE_ECHEANCE}"),
-            (_(u"Date d'édition de la facture (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition de la facture (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
-            (_(u"Date du prélèvement si facture prélevée"), u"15/10/2011", "{DATE_PRELEVEMENT}"),
+            (_(u"Date d'�ch�ance de paiement (long)"), _(u"Lundi 10 janvier 2011"), "{DATE_ECHEANCE_LONG}"),
+            (_(u"Date d'�ch�ance de paiement (court)"), u"10/01/2011", "{DATE_ECHEANCE_COURT}"),
+            (_(u"Texte �ch�ance de paiement"), _(u"Date d'�ch�ance : 10/01/2011"), "{TEXTE_ECHEANCE}"),
+            (_(u"Date d'�dition de la facture (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition de la facture (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Date du pr�l�vement si facture pr�lev�e"), u"15/10/2011", "{DATE_PRELEVEMENT}"),
             (_(u"Mention 1"), u"Mention libre", "{MENTION1}"),
             (_(u"Mention 2"), u"Mention libre", "{MENTION2}"),
             (_(u"Mention 3"), u"Mention libre", "{MENTION3}"),
             
-            (_(u"Total des prestations de la période"), u"10.00 €", "{TOTAL_PERIODE}"),
-            (_(u"Total déjà réglé pour la période"), u"6.00 €", "{TOTAL_REGLE}"),
-            (_(u"Solde dû pour la période"), u"4.00 €", "{SOLDE_DU}"),
-            (_(u"Total des reports des périodes précédentes"), u"134.50 €", "{TOTAL_REPORTS}"),
-            (_(u"Solde avec reports"), u"138.50 €", "{SOLDE_AVEC_REPORTS}"),
-            (_(u"Solde du compte"), u"-35.80 €", "{SOLDE_COMPTE}"),
-            (_(u"Total des déductions"), u"20.50 €", "{TOTAL_DEDUCTIONS}"),
+            (_(u"Total des prestations de la p�riode"), u"10.00 �", "{TOTAL_PERIODE}"),
+            (_(u"Total d�j� r�gl� pour la p�riode"), u"6.00 �", "{TOTAL_REGLE}"),
+            (_(u"Solde d� pour la p�riode"), u"4.00 �", "{SOLDE_DU}"),
+            (_(u"Total des reports des p�riodes pr�c�dentes"), u"134.50 �", "{TOTAL_REPORTS}"),
+            (_(u"Solde avec reports"), u"138.50 �", "{SOLDE_AVEC_REPORTS}"),
+            (_(u"Solde du compte"), u"-35.80 �", "{SOLDE_COMPTE}"),
+            (_(u"Total des d�ductions"), u"20.50 �", "{TOTAL_DEDUCTIONS}"),
 
-            (_(u"PES ORMC ID de la pièce"), u"12345", "{PES_IDPIECE}"),
+            (_(u"PES ORMC ID de la pi�ce"), u"12345", "{PES_IDPIECE}"),
             (_(u"PES ORMC Nom du lot"), u"Cantine janv 2016", "{PES_NOM_LOT}"),
             (_(u"PES ORMC Exercice"), u"2016", "{PES_LOT_EXERCICE}"),
             (_(u"PES ORMC Mois"), u"12", "{PES_LOT_MOIS}"),
-            (_(u"PES ORMC Objet du lot"), u"Accueil périscolaire", "{PES_LOT_OBJET}"),
+            (_(u"PES ORMC Objet du lot"), u"Accueil p�riscolaire", "{PES_LOT_OBJET}"),
             (_(u"PES ORMC ID Bordereau"), u"17", "{PES_LOT_ID_BORDEREAU}"),
             (_(u"PES ORMC Code produit"), u"87", "{PES_LOT_CODE_PRODUIT}"),
             ]
@@ -159,7 +159,7 @@ class Facture():
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
         
         self.codesbarres = [ 
-            (_(u"Numéro de facture"), u"1234567", "{CODEBARRES_NUM_FACTURE}"),
+            (_(u"Num�ro de facture"), u"1234567", "{CODEBARRES_NUM_FACTURE}"),
             (_(u"Datamatrix PESV2"), u"1234567", "{PES_DATAMATRIX}"),
             ]
             
@@ -189,7 +189,7 @@ class Facture():
                     "interditModifProportions" : False,
                 },
                 {
-                    "nom" : _(u"Coupon-réponse vertical"),
+                    "nom" : _(u"Coupon-r�ponse vertical"),
                     "champ" : _(u"coupon_vertical"),
                     "obligatoire" : False,
                     "x" : None,
@@ -203,7 +203,7 @@ class Facture():
                     "interditModifProportions" : True,
                 },
                 {
-                    "nom" : _(u"Coupon-réponse horizontal"),
+                    "nom" : _(u"Coupon-r�ponse horizontal"),
                     "champ" : _(u"coupon_horizontal"),
                     "obligatoire" : False,
                     "x" : None,
@@ -234,36 +234,36 @@ class Attestation():
         self.photosIndividuelles = False
 
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
             
-            (_(u"Nom du destinataire"), _(u"M. DUPOND Gérard"), "{DESTINATAIRE_NOM}"),
+            (_(u"Nom du destinataire"), _(u"M. DUPOND G�rard"), "{DESTINATAIRE_NOM}"),
             (_(u"Rue de l'adresse du destinataire"), _(u"10 rue des oiseaux"), "{DESTINATAIRE_RUE}"),
             (_(u"Ville de l'adresse du destinataire"), _(u"29000 QUIMPER"), "{DESTINATAIRE_VILLE}"),
             
-            (_(u"Nom des individus concernés"), u"Xavier DUPOND et Lucie DUPOND", "{NOMS_INDIVIDUS}"),
-            (_(u"Date de début de la période"), u"01/01/2011", "{DATE_DEBUT}"),
-            (_(u"Date de fin de la période"), u"31/01/2011", "{DATE_FIN}"),
+            (_(u"Nom des individus concern�s"), u"Xavier DUPOND et Lucie DUPOND", "{NOMS_INDIVIDUS}"),
+            (_(u"Date de d�but de la p�riode"), u"01/01/2011", "{DATE_DEBUT}"),
+            (_(u"Date de fin de la p�riode"), u"31/01/2011", "{DATE_FIN}"),
             
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Numéro de l'attestation"), u"1234567", "{NUM_ATTESTATION}"),
-            (_(u"Date d'édition de l'attestation (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition de l'attestation (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Num�ro de l'attestation"), u"1234567", "{NUM_ATTESTATION}"),
+            (_(u"Date d'�dition de l'attestation (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition de l'attestation (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
             
-            (_(u"Total des prestations de la période"), u"10.00 €", "{TOTAL_PERIODE}"),
-            (_(u"Total déjà réglé pour la période"), u"6.00 €", "{TOTAL_REGLE}"),
-            (_(u"Solde dû pour la période"), u"4.00 €", "{SOLDE_DU}"),
-            (_(u"Total des déductions"), u"20.50 €", "{TOTAL_DEDUCTIONS}"),
+            (_(u"Total des prestations de la p�riode"), u"10.00 �", "{TOTAL_PERIODE}"),
+            (_(u"Total d�j� r�gl� pour la p�riode"), u"6.00 �", "{TOTAL_REGLE}"),
+            (_(u"Solde d� pour la p�riode"), u"4.00 �", "{SOLDE_DU}"),
+            (_(u"Total des d�ductions"), u"20.50 �", "{TOTAL_DEDUCTIONS}"),
             ]
         
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
@@ -312,8 +312,8 @@ class Rappel():
         self.photosIndividuelles = False
                         
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND Gérard"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND G�rard"), "{FAMILLE_NOM}"),
             (_(u"Rue de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
@@ -322,30 +322,30 @@ class Rappel():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Numéro de rappel"), u"1234567", "{NUM_RAPPEL}"),
-            (_(u"Code-barres - Numéro de rappel"), u"F123456", "{CODEBARRES_NUM_RAPPEL}"),
+            (_(u"Num�ro de rappel"), u"1234567", "{NUM_RAPPEL}"),
+            (_(u"Code-barres - Num�ro de rappel"), u"F123456", "{CODEBARRES_NUM_RAPPEL}"),
             (_(u"Nom du lot"), _(u"Mars 2014"), "{NOM_LOT}"),
-            (_(u"Date d'édition du rappel (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition du rappel (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
-            (_(u"Date de début"), u"10/07/2011", "{DATE_DEBUT}"),
+            (_(u"Date d'�dition du rappel (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition du rappel (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Date de d�but"), u"10/07/2011", "{DATE_DEBUT}"),
             (_(u"Date de fin"), u"21/12/2011", "{DATE_FIN}"),
             
-            (_(u"Solde"), u"12.00 €", "{SOLDE}"),
+            (_(u"Solde"), u"12.00 �", "{SOLDE}"),
             (_(u"Solde en lettres"), _(u"Douze Euros"), "{SOLDE_LETTRES}"),
             ]
         
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
         
         self.codesbarres = [ 
-            (_(u"Numéro de rappel"), u"1234567", "{CODEBARRES_NUM_RAPPEL}"),
+            (_(u"Num�ro de rappel"), u"1234567", "{CODEBARRES_NUM_RAPPEL}"),
             ]
             
         self.speciaux = [ 
@@ -374,7 +374,7 @@ class Rappel():
                     "interditModifProportions" : False,
                 },
                 {
-                    "nom" : _(u"Coupon-réponse vertical"),
+                    "nom" : _(u"Coupon-r�ponse vertical"),
                     "champ" : _(u"coupon_vertical"),
                     "obligatoire" : False,
                     "x" : None,
@@ -388,7 +388,7 @@ class Rappel():
                     "interditModifProportions" : True,
                 },
                 {
-                    "nom" : _(u"Coupon-réponse horizontal"),
+                    "nom" : _(u"Coupon-r�ponse horizontal"),
                     "champ" : _(u"coupon_horizontal"),
                     "obligatoire" : False,
                     "x" : None,
@@ -413,15 +413,15 @@ class Rappel():
 
 class Reglement():
     def __init__(self):
-        self.nom = _(u"Règlement")
+        self.nom = _(u"R�glement")
         self.code = "reglement"
         
         self.photosIndividuelles = False
 
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
             
-            (_(u"Nom du destinataire"), _(u"M. DUPOND Gérard"), "{DESTINATAIRE_NOM}"),
+            (_(u"Nom du destinataire"), _(u"M. DUPOND G�rard"), "{DESTINATAIRE_NOM}"),
             (_(u"Rue de l'adresse du destinataire"), _(u"10 rue des oiseaux"), "{DESTINATAIRE_RUE}"),
             (_(u"Ville de l'adresse du destinataire"), _(u"29000 QUIMPER"), "{DESTINATAIRE_VILLE}"),
             
@@ -429,28 +429,28 @@ class Reglement():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Numéro du reçu"), u"1234567", "{NUM_RECU}"),
-            (_(u"Date d'édition du reçu (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition du reçu (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Num�ro du re�u"), u"1234567", "{NUM_RECU}"),
+            (_(u"Date d'�dition du re�u (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition du re�u (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
             
-            (_(u"ID du règlement"), u"11234567", "{IDREGLEMENT}"),
-            (_(u"Date du règlement"), u"21/03/2011", "{DATE_REGLEMENT}"),
-            (_(u"Mode de règlement"), _(u"Chèque"), "{MODE_REGLEMENT}"),
-            (_(u"Nom de l'émetteur"), _(u"Caisse d'épargne"), "{NOM_EMETTEUR}"),
-            (_(u"Numéro de pièce"), u"0001243", "{NUM_PIECE}"),
-            (_(u"Montant du règlement"), u"10.00 €", "{MONTANT_REGLEMENT}"),
-            (_(u"Nom du payeur"), _(u"DUPOND Gérard"), "{NOM_PAYEUR}"),
-            (_(u"Numéro de quittancier"), u"246", "{NUM_QUITTANCIER}"),
-            (_(u"Date de saisie du règlement"), u"23/03/2011", "{DATE_SAISIE}"),
-            (_(u"Date d'encaissement différé"), u"24/04/2011", "{DATE_DIFFERE}"),
+            (_(u"ID du r�glement"), u"11234567", "{IDREGLEMENT}"),
+            (_(u"Date du r�glement"), u"21/03/2011", "{DATE_REGLEMENT}"),
+            (_(u"Mode de r�glement"), _(u"Ch�que"), "{MODE_REGLEMENT}"),
+            (_(u"Nom de l'�metteur"), _(u"Caisse d'�pargne"), "{NOM_EMETTEUR}"),
+            (_(u"Num�ro de pi�ce"), u"0001243", "{NUM_PIECE}"),
+            (_(u"Montant du r�glement"), u"10.00 �", "{MONTANT_REGLEMENT}"),
+            (_(u"Nom du payeur"), _(u"DUPOND G�rard"), "{NOM_PAYEUR}"),
+            (_(u"Num�ro de quittancier"), u"246", "{NUM_QUITTANCIER}"),
+            (_(u"Date de saisie du r�glement"), u"23/03/2011", "{DATE_SAISIE}"),
+            (_(u"Date d'encaissement diff�r�"), u"24/04/2011", "{DATE_DIFFERE}"),
             (_(u"Observations"), _(u"Observations"), "{OBSERVATIONS}"),
             ]
         
@@ -499,12 +499,12 @@ class Individu():
         self.photosIndividuelles = True
         
         self.champs = [ 
-            (_(u"Numéro ID de l'individu"), u"2582", "{IDINDIVIDU}"),
-            (_(u"Civilité de l'individu (long)"), _(u"Mademoiselle"), "{INDIVIDU_CIVILITE_LONG}"),
-            (_(u"Civilité de l'individu (court)"), _(u"Melle"), "{INDIVIDU_CIVILITE_COURT}"),
+            (_(u"Num�ro ID de l'individu"), u"2582", "{IDINDIVIDU}"),
+            (_(u"Civilit� de l'individu (long)"), _(u"Mademoiselle"), "{INDIVIDU_CIVILITE_LONG}"),
+            (_(u"Civilit� de l'individu (court)"), _(u"Melle"), "{INDIVIDU_CIVILITE_COURT}"),
             (_(u"Genre de l'individu (M ou F)"), u"M", "{INDIVIDU_GENRE}"),
             (_(u"Nom de l'individu"), _(u"DUPOND"), "{INDIVIDU_NOM}"),
-            (_(u"Prénom de l'individu"), _(u"Lucie"), "{INDIVIDU_PRENOM}"),
+            (_(u"Pr�nom de l'individu"), _(u"Lucie"), "{INDIVIDU_PRENOM}"),
             (_(u"Date de naissance de l'individu"), u"12/04/1998", "{INDIVIDU_DATE_NAISS}"),
             (_(u"Age de l'individu"), u"12", "{INDIVIDU_AGE}"),
             (_(u"Code postal de la ville de naissance"), u"29200", "{INDIVIDU_CP_NAISS}"),
@@ -514,11 +514,11 @@ class Individu():
             (_(u"Ville de l'adresse de l'individu"), _(u"BREST"), "{INDIVIDU_VILLE}"),
             (_(u"Profession de l'individu"), _(u"Menuisier"), "{INDIVIDU_PROFESSION}"),
             (_(u"Employeur de l'individu"), _(u"SARL DUPOND"), "{INDIVIDU_EMPLOYEUR}"),
-            (_(u"Téléphone fixe de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_TEL_DOMICILE}"),
-            (_(u"Téléphone mobile de l'individu"), u"06.01.02.03.04.", "{INDIVIDU_TEL_MOBILE}"),
+            (_(u"T�l�phone fixe de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_TEL_DOMICILE}"),
+            (_(u"T�l�phone mobile de l'individu"), u"06.01.02.03.04.", "{INDIVIDU_TEL_MOBILE}"),
             (_(u"Fax de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_FAX}"),
             (_(u"Adresse internet de l'individu"), _(u"moi@test.com"), "{INDIVIDU_EMAIL}"),
-            (_(u"Téléphone fixe pro de l'individu"), u"01.04.05.04.05.", "{INDIVIDU_TEL_PRO}"),
+            (_(u"T�l�phone fixe pro de l'individu"), u"01.04.05.04.05.", "{INDIVIDU_TEL_PRO}"),
             (_(u"Fax pro de l'individu"), u"06.03.04.05.04.", "{INDIVIDU_FAX_PRO}"),
             (_(u"Adresse internet pro"), _(u"montravail@test.com"), "{INDIVIDU_EMAIL_PRO}"),
 
@@ -526,12 +526,12 @@ class Individu():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
             ]
         
@@ -556,14 +556,14 @@ class Famille():
         self.photosIndividuelles = False
         
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires"), _(u"DUPOND Gérard et Lucie"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires"), _(u"DUPOND G�rard et Lucie"), "{FAMILLE_NOM}"),
             (_(u"Rue de l'adresse de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de l'adresse de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de l'adresse de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Régime social de la famille"), _(u"Régime général"), "{FAMILLE_REGIME}"),
+            (_(u"R�gime social de la famille"), _(u"R�gime g�n�ral"), "{FAMILLE_REGIME}"),
             (_(u"Caisse de la famille"), _(u"C.A.F."), "{FAMILLE_CAISSE}"),
-            (_(u"Numéro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
+            (_(u"Num�ro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
             (_(u"Identifiant internet"), u"123456789", "{FAMILLE_INTERNET_IDENTIFIANT}"),
             (_(u"Mot de passe internet"), u"123456789", "{FAMILLE_INTERNET_MDP}"),
 
@@ -571,12 +571,12 @@ class Famille():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
             ]
         
@@ -601,12 +601,12 @@ class Inscription():
         self.photosIndividuelles = True
         
         self.champs = [ 
-            (_(u"Numéro ID de l'individu"), u"2582", "{IDINDIVIDU}"),
-            (_(u"Civilité de l'individu (long)"), _(u"Mademoiselle"), "{INDIVIDU_CIVILITE_LONG}"),
-            (_(u"Civilité de l'individu (court)"), _(u"Melle"), "{INDIVIDU_CIVILITE_COURT}"),
+            (_(u"Num�ro ID de l'individu"), u"2582", "{IDINDIVIDU}"),
+            (_(u"Civilit� de l'individu (long)"), _(u"Mademoiselle"), "{INDIVIDU_CIVILITE_LONG}"),
+            (_(u"Civilit� de l'individu (court)"), _(u"Melle"), "{INDIVIDU_CIVILITE_COURT}"),
             (_(u"Genre de l'individu (M ou F)"), u"M", "{INDIVIDU_GENRE}"),
             (_(u"Nom de l'individu"), _(u"DUPOND"), "{INDIVIDU_NOM}"),
-            (_(u"Prénom de l'individu"), _(u"Lucie"), "{INDIVIDU_PRENOM}"),
+            (_(u"Pr�nom de l'individu"), _(u"Lucie"), "{INDIVIDU_PRENOM}"),
             (_(u"Date de naissance de l'individu"), u"12/04/1998", "{INDIVIDU_DATE_NAISS}"),
             (_(u"Age de l'individu"), u"12", "{INDIVIDU_AGE}"),
             (_(u"Code postal de la ville de naissance"), u"29200", "{INDIVIDU_CP_NAISS}"),
@@ -616,52 +616,52 @@ class Inscription():
             (_(u"Ville de l'adresse de l'individu"), _(u"BREST"), "{INDIVIDU_VILLE}"),
             (_(u"Profession de l'individu"), _(u"Menuisier"), "{INDIVIDU_PROFESSION}"),
             (_(u"Employeur de l'individu"), _(u"SARL DUPOND"), "{INDIVIDU_EMPLOYEUR}"),
-            (_(u"Téléphone fixe de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_TEL_DOMICILE}"),
-            (_(u"Téléphone mobile de l'individu"), u"06.01.02.03.04.", "{INDIVIDU_TEL_MOBILE}"),
+            (_(u"T�l�phone fixe de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_TEL_DOMICILE}"),
+            (_(u"T�l�phone mobile de l'individu"), u"06.01.02.03.04.", "{INDIVIDU_TEL_MOBILE}"),
             (_(u"Fax de l'individu"), u"01.02.03.04.05.", "{INDIVIDU_FAX}"),
             (_(u"Adresse internet de l'individu"), _(u"moi@test.com"), "{INDIVIDU_EMAIL}"),
-            (_(u"Téléphone fixe pro de l'individu"), u"01.04.05.04.05.", "{INDIVIDU_TEL_PRO}"),
+            (_(u"T�l�phone fixe pro de l'individu"), u"01.04.05.04.05.", "{INDIVIDU_TEL_PRO}"),
             (_(u"Fax pro de l'individu"), u"06.03.04.05.04.", "{INDIVIDU_FAX_PRO}"),
             (_(u"Adresse internet pro"), _(u"montravail@test.com"), "{INDIVIDU_EMAIL_PRO}"),
 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires"), _(u"DUPOND Gérard et Lucie"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires"), _(u"DUPOND G�rard et Lucie"), "{FAMILLE_NOM}"),
             (_(u"Rue de l'adresse de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de l'adresse de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de l'adresse de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Régime social de la famille"), _(u"Régime général"), "{FAMILLE_REGIME}"),
+            (_(u"R�gime social de la famille"), _(u"R�gime g�n�ral"), "{FAMILLE_REGIME}"),
             (_(u"Caisse de la famille"), _(u"C.A.F."), "{FAMILLE_CAISSE}"),
-            (_(u"Numéro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
+            (_(u"Num�ro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
 
-            (_(u"Numéro ID de l'inscription"), u"003", "{IDINSCRIPTION}"),
+            (_(u"Num�ro ID de l'inscription"), u"003", "{IDINSCRIPTION}"),
             (_(u"Date de l'inscription"), u"01/01/2013", "{DATE_INSCRIPTION}"),
             (_(u"Est parti"), _(u"Oui"), "{EST_PARTI}"),
 
-            (_(u"Numéro ID de l'activité"), u"003", "{IDACTIVITE}"),
-            (_(u"Nom de l'activité (long)"), _(u"Accueil de Loisirs"), "{ACTIVITE_NOM_LONG}"),
-            (_(u"Nom de l'activité (abrégé)"), _(u"ALSH"), "{ACTIVITE_NOM_COURT}"),
+            (_(u"Num�ro ID de l'activit�"), u"003", "{IDACTIVITE}"),
+            (_(u"Nom de l'activit� (long)"), _(u"Accueil de Loisirs"), "{ACTIVITE_NOM_LONG}"),
+            (_(u"Nom de l'activit� (abr�g�)"), _(u"ALSH"), "{ACTIVITE_NOM_COURT}"),
 
-            (_(u"Numéro ID du groupe"), u"001", "{IDGROUPE}"),
+            (_(u"Num�ro ID du groupe"), u"001", "{IDGROUPE}"),
             (_(u"Nom du groupe (long)"), _(u"Accueil de Loisirs"), "{GROUPE_NOM_LONG}"),
-            (_(u"Nom du groupe (abrégé)"), _(u"ALSH"), "{GROUPE_NOM_COURT}"),
+            (_(u"Nom du groupe (abr�g�)"), _(u"ALSH"), "{GROUPE_NOM_COURT}"),
 
-            (_(u"Numéro ID de la catégorie de tarif"), u"004", "{IDCATEGORIETARIF}"),
-            (_(u"Nom de la catégorie de tarif"), _(u"Hors commune"), "{NOM_CATEGORIE_TARIF}"),
+            (_(u"Num�ro ID de la cat�gorie de tarif"), u"004", "{IDCATEGORIETARIF}"),
+            (_(u"Nom de la cat�gorie de tarif"), _(u"Hors commune"), "{NOM_CATEGORIE_TARIF}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Date d'édition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Date d'�dition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
         ]
         
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="individu+famille"))
@@ -717,62 +717,62 @@ class Cotisation():
         self.photosIndividuelles = False
         
         self.champs = [ 
-            (_(u"Numéro ID de la cotisation"), u"13215", "{IDCOTISATION}"),
-            (_(u"Numéro ID du type de cotisation"), u"034", "{IDTYPE_COTISATION}"),
-            (_(u"Numéro ID de l'unité de cotisation"), u"31", "{IDUNITE_COTISATION}"),
-            (_(u"Numéro ID de l'utilisateur qui a saisi la cotisation"), u"023", "{IDUTILISATEUR}"),
+            (_(u"Num�ro ID de la cotisation"), u"13215", "{IDCOTISATION}"),
+            (_(u"Num�ro ID du type de cotisation"), u"034", "{IDTYPE_COTISATION}"),
+            (_(u"Num�ro ID de l'unit� de cotisation"), u"31", "{IDUNITE_COTISATION}"),
+            (_(u"Num�ro ID de l'utilisateur qui a saisi la cotisation"), u"023", "{IDUTILISATEUR}"),
             (_(u"Date de saisie de la cotisation"), u"01/01/2014", "{DATE_SAISIE}"),
-            (_(u"Date de création de la carte"), u"10/01/2014", "{DATE_CREATION_CARTE}"),
-            (_(u"Numéro de la carte"), u"0123321", "{NUMERO_CARTE}"),
-            (_(u"Numéro ID du dépôt de cotisation"), u"064", "{IDDEPOT_COTISATION}"),
-            (_(u"Date de début de validité"), u"01/01/2014", "{DATE_DEBUT}"),
-            (_(u"Date de fin de validité"), u"31/12/2014", "{DATE_FIN}"),
-            (_(u"Numéro ID de la prestation"), u"31211", "{IDPRESTATION}"),
-            (_(u"Nom du type de cotisation"), _(u"Carte d'adhérent"), "{NOM_TYPE_COTISATION}"),
-            (_(u"Nom de l'unité de cotisation"), u"2014", "{NOM_UNITE_COTISATION}"),
+            (_(u"Date de cr�ation de la carte"), u"10/01/2014", "{DATE_CREATION_CARTE}"),
+            (_(u"Num�ro de la carte"), u"0123321", "{NUMERO_CARTE}"),
+            (_(u"Num�ro ID du d�p�t de cotisation"), u"064", "{IDDEPOT_COTISATION}"),
+            (_(u"Date de d�but de validit�"), u"01/01/2014", "{DATE_DEBUT}"),
+            (_(u"Date de fin de validit�"), u"31/12/2014", "{DATE_FIN}"),
+            (_(u"Num�ro ID de la prestation"), u"31211", "{IDPRESTATION}"),
+            (_(u"Nom du type de cotisation"), _(u"Carte d'adh�rent"), "{NOM_TYPE_COTISATION}"),
+            (_(u"Nom de l'unit� de cotisation"), u"2014", "{NOM_UNITE_COTISATION}"),
             (_(u"Cotisation familiale ou individuelle"), _(u"Cotisation familiale"), "{COTISATION_FAM_IND}"),
-            (_(u"Nom de la cotisation (Type + unité)"), _(u"Carte d'adhérent - 2014"), "{NOM_COTISATION}"),
-            (_(u"Nom de dépôt de cotisations"), _(u"Dépôt Janvier 2014"), "{NOM_DEPOT}"),
-            (_(u"Montant facturé"), u"20.00 €", "{MONTANT_FACTURE}"),
-            (_(u"Montant réglé"), u"20.00 €", "{MONTANT_REGLE}"),
-            (_(u"Solde actuel"), u"20.00 €", "{SOLDE_ACTUEL}"),
-            (_(u"Activités associées"), u"Centre de loisirs, Cantine", "{ACTIVITES}"),
+            (_(u"Nom de la cotisation (Type + unit�)"), _(u"Carte d'adh�rent - 2014"), "{NOM_COTISATION}"),
+            (_(u"Nom de d�p�t de cotisations"), _(u"D�p�t Janvier 2014"), "{NOM_DEPOT}"),
+            (_(u"Montant factur�"), u"20.00 �", "{MONTANT_FACTURE}"),
+            (_(u"Montant r�gl�"), u"20.00 �", "{MONTANT_REGLE}"),
+            (_(u"Solde actuel"), u"20.00 �", "{SOLDE_ACTUEL}"),
+            (_(u"Activit�s associ�es"), u"Centre de loisirs, Cantine", "{ACTIVITES}"),
             (_(u"Notes"), u"Texte libre", "{NOTES}"),
-            (_(u"Montant facturé en lettres"), _(u"Vingt Euros"), "{MONTANT_FACTURE_LETTRES}"),
-            (_(u"Montant réglé en lettres"), _(u"Vingt Euros"), "{MONTANT_REGLE_LETTRES}"),
+            (_(u"Montant factur� en lettres"), _(u"Vingt Euros"), "{MONTANT_FACTURE_LETTRES}"),
+            (_(u"Montant r�gl� en lettres"), _(u"Vingt Euros"), "{MONTANT_REGLE_LETTRES}"),
             (_(u"Solde actuel en lettres"), _(u"Vingt Euros"), "{SOLDE_ACTUEL_LETTRES}"),
-            (_(u"Date du règlement"), u"01/01/2014", "{DATE_REGLEMENT}"),
-            (_(u"Mode de règlement"), _(u"Chèque"), "{MODE_REGLEMENT}"),
+            (_(u"Date du r�glement"), u"01/01/2014", "{DATE_REGLEMENT}"),
+            (_(u"Mode de r�glement"), _(u"Ch�que"), "{MODE_REGLEMENT}"),
             
-            (_(u"Numéro ID de l'individu bénéficiaire"), u"4654", "{IDINDIVIDU}"),
-            (_(u"Numéro ID de la famille bénéficiare"), u"13211", "{BENEFICIAIRE_NOM}"),
-            (_(u"Adresse du bénéficiaire - Rue"), _(u"10 rue des oiseaux"), "{BENEFICIAIRE_RUE}"),
-            (_(u"Adresse du bénéficiaire - CP"), u"29200", "{BENEFICIAIRE_CP}"),
-            (_(u"Adresse du bénéficiaire - Ville"), _(u"BREST"), "{BENEFICIAIRE_VILLE}"),
+            (_(u"Num�ro ID de l'individu b�n�ficiaire"), u"4654", "{IDINDIVIDU}"),
+            (_(u"Num�ro ID de la famille b�n�ficiare"), u"13211", "{BENEFICIAIRE_NOM}"),
+            (_(u"Adresse du b�n�ficiaire - Rue"), _(u"10 rue des oiseaux"), "{BENEFICIAIRE_RUE}"),
+            (_(u"Adresse du b�n�ficiaire - CP"), u"29200", "{BENEFICIAIRE_CP}"),
+            (_(u"Adresse du b�n�ficiaire - Ville"), _(u"BREST"), "{BENEFICIAIRE_VILLE}"),
             
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires"), _(u"DUPOND Gérard et Lucie"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires"), _(u"DUPOND G�rard et Lucie"), "{FAMILLE_NOM}"),
             (_(u"Rue de l'adresse de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de l'adresse de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de l'adresse de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Régime social de la famille"), _(u"Régime général"), "{FAMILLE_REGIME}"),
+            (_(u"R�gime social de la famille"), _(u"R�gime g�n�ral"), "{FAMILLE_REGIME}"),
             (_(u"Caisse de la famille"), _(u"C.A.F."), "{FAMILLE_CAISSE}"),
-            (_(u"Numéro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
+            (_(u"Num�ro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Date d'édition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Date d'�dition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
             ]
         
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="individu+famille"))
@@ -797,8 +797,8 @@ class Attestation_fiscale():
         self.photosIndividuelles = False
                         
         self.champs = [ 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND Gérard"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires de dossier"), _(u"M. DUPOND G�rard"), "{FAMILLE_NOM}"),
             (_(u"Rue de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
@@ -807,34 +807,34 @@ class Attestation_fiscale():
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Date d'édition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
-            (_(u"Date de début"), u"10/07/2011", "{DATE_DEBUT}"),
+            (_(u"Date d'�dition (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Date de d�but"), u"10/07/2011", "{DATE_DEBUT}"),
             (_(u"Date de fin"), u"21/12/2011", "{DATE_FIN}"),
 
-            (_(u"Montant facturé"), u"20.00 €", "{MONTANT_FACTURE}"),
-            (_(u"Montant réglé"), u"20.00 €", "{MONTANT_REGLE}"),
-            (_(u"Montant impayé"), u"20.00 €", "{MONTANT_IMPAYE}"),
-            (_(u"Montant facturé en lettres"), _(u"Vingt Euros"), "{MONTANT_FACTURE_LETTRES}"),
-            (_(u"Montant réglé en lettres"), _(u"Vingt Euros"), "{MONTANT_REGLE_LETTRES}"),
-            (_(u"Montant impayé en lettres"), _(u"Vingt Euros"), "{MONTANT_IMPAYE_LETTRES}"),
+            (_(u"Montant factur�"), u"20.00 �", "{MONTANT_FACTURE}"),
+            (_(u"Montant r�gl�"), u"20.00 �", "{MONTANT_REGLE}"),
+            (_(u"Montant impay�"), u"20.00 �", "{MONTANT_IMPAYE}"),
+            (_(u"Montant factur� en lettres"), _(u"Vingt Euros"), "{MONTANT_FACTURE_LETTRES}"),
+            (_(u"Montant r�gl� en lettres"), _(u"Vingt Euros"), "{MONTANT_REGLE_LETTRES}"),
+            (_(u"Montant impay� en lettres"), _(u"Vingt Euros"), "{MONTANT_IMPAYE_LETTRES}"),
             
             (_(u"Texte d'introduction"), _(u"Veuillez trouver ici le montant..."), "{INTRO}"),
             
-            (_(u"Détail enfant 1"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_1}"),
-            (_(u"Détail enfant 2"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_2}"),
-            (_(u"Détail enfant 3"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_3}"),
-            (_(u"Détail enfant 4"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_4}"),
-            (_(u"Détail enfant 5"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_5}"),
-            (_(u"Détail enfant 6"), _(u"10.00 € pour Lucie DUPOND née le 01/02/2005"), "{TXT_ENFANT_6}"),
+            (_(u"D�tail enfant 1"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_1}"),
+            (_(u"D�tail enfant 2"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_2}"),
+            (_(u"D�tail enfant 3"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_3}"),
+            (_(u"D�tail enfant 4"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_4}"),
+            (_(u"D�tail enfant 5"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_5}"),
+            (_(u"D�tail enfant 6"), _(u"10.00 � pour Lucie DUPOND n�e le 01/02/2005"), "{TXT_ENFANT_6}"),
             
             ]
         
@@ -884,39 +884,39 @@ class Location():
         self.photosIndividuelles = False
 
         self.champs = [
-            (_(u"Numéro ID de la location"), u"13215", "{IDLOCATION}"),
-            (_(u"Numéro ID du produit"), u"034", "{IDPRODUIT}"),
-            (_(u"Date de début de la location"), u"01/01/2017", "{DATE_DEBUT}"),
+            (_(u"Num�ro ID de la location"), u"13215", "{IDLOCATION}"),
+            (_(u"Num�ro ID du produit"), u"034", "{IDPRODUIT}"),
+            (_(u"Date de d�but de la location"), u"01/01/2017", "{DATE_DEBUT}"),
             (_(u"Date de fin de la location"), u"31/12/2017", "{DATE_FIN}"),
-            (_(u"Heure de début de la location"), u"01/01/2014", "{HEURE_DEBUT}"),
+            (_(u"Heure de d�but de la location"), u"01/01/2014", "{HEURE_DEBUT}"),
             (_(u"Heure de fin de la location"), u"10/01/2014", "{HEURE_FIN}"),
             (_(u"Nom du produit"), u"0123321", "{NOM_PRODUIT}"),
-            (_(u"Nom de la catégorie"), u"064", "{NOM_CATEGORIE}"),
+            (_(u"Nom de la cat�gorie"), u"064", "{NOM_CATEGORIE}"),
             (_(u"Notes sur la location"), u"01/01/2014", "{NOTES}"),
 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires"), _(u"DUPOND Gérard et Lucie"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires"), _(u"DUPOND G�rard et Lucie"), "{FAMILLE_NOM}"),
             (_(u"Rue de l'adresse de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de l'adresse de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de l'adresse de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Régime social de la famille"), _(u"Régime général"), "{FAMILLE_REGIME}"),
+            (_(u"R�gime social de la famille"), _(u"R�gime g�n�ral"), "{FAMILLE_REGIME}"),
             (_(u"Caisse de la famille"), _(u"C.A.F."), "{FAMILLE_CAISSE}"),
-            (_(u"Numéro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
+            (_(u"Num�ro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Date d'édition (long)"), _(u"Lundi 9 septembre 2017"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition (court)"), u"19/09/2017", "{DATE_EDITION_COURT}"),
+            (_(u"Date d'�dition (long)"), _(u"Lundi 9 septembre 2017"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition (court)"), u"19/09/2017", "{DATE_EDITION_COURT}"),
         ]
 
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
@@ -948,36 +948,36 @@ class Location_demande():
         self.photosIndividuelles = False
 
         self.champs = [
-            (_(u"Numéro ID de la demande"), u"13215", "{IDDEMANDE}"),
+            (_(u"Num�ro ID de la demande"), u"13215", "{IDDEMANDE}"),
             (_(u"Date de la demande"), u"01/01/2017", "{DATE}"),
             (_(u"Heure de la demande"), u"01/01/2014", "{HEURE}"),
-            (_(u"Catégories demandées"), u"Catégorie 1, catégorie 2", "{CATEGORIES}"),
-            (_(u"Produits demandés"), u"Produit 1, produit 2", "{PRODUITS}"),
+            (_(u"Cat�gories demand�es"), u"Cat�gorie 1, cat�gorie 2", "{CATEGORIES}"),
+            (_(u"Produits demand�s"), u"Produit 1, produit 2", "{PRODUITS}"),
             (_(u"Notes sur la demande"), u"01/01/2014", "{NOTES}"),
 
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
-            (_(u"Noms des titulaires"), _(u"DUPOND Gérard et Lucie"), "{FAMILLE_NOM}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Noms des titulaires"), _(u"DUPOND G�rard et Lucie"), "{FAMILLE_NOM}"),
             (_(u"Rue de l'adresse de la famille"), _(u"10 rue des oiseaux"), "{FAMILLE_RUE}"),
             (_(u"Code postal de l'adresse de la famille"), u"29200", "{FAMILLE_CP}"),
             (_(u"Ville de l'adresse de la famille"), _(u"BREST"), "{FAMILLE_VILLE}"),
-            (_(u"Régime social de la famille"), _(u"Régime général"), "{FAMILLE_REGIME}"),
+            (_(u"R�gime social de la famille"), _(u"R�gime g�n�ral"), "{FAMILLE_REGIME}"),
             (_(u"Caisse de la famille"), _(u"C.A.F."), "{FAMILLE_CAISSE}"),
-            (_(u"Numéro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
+            (_(u"Num�ro d'allocataire de la famille"), u"0123456X", "{FAMILLE_NUMALLOC}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Date d'édition (long)"), _(u"Lundi 9 septembre 2017"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition (court)"), u"19/09/2017", "{DATE_EDITION_COURT}"),
+            (_(u"Date d'�dition (long)"), _(u"Lundi 9 septembre 2017"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition (court)"), u"19/09/2017", "{DATE_EDITION_COURT}"),
         ]
 
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
@@ -1006,36 +1006,36 @@ class Devis():
         self.photosIndividuelles = False
 
         self.champs = [
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
 
-            (_(u"Nom du destinataire"), _(u"M. DUPOND Gérard"), "{DESTINATAIRE_NOM}"),
+            (_(u"Nom du destinataire"), _(u"M. DUPOND G�rard"), "{DESTINATAIRE_NOM}"),
             (_(u"Rue de l'adresse du destinataire"), _(u"10 rue des oiseaux"), "{DESTINATAIRE_RUE}"),
             (_(u"Ville de l'adresse du destinataire"), _(u"29000 QUIMPER"), "{DESTINATAIRE_VILLE}"),
 
-            (_(u"Nom des individus concernés"), u"Xavier DUPOND et Lucie DUPOND", "{NOMS_INDIVIDUS}"),
-            (_(u"Date de début de la période"), u"01/01/2011", "{DATE_DEBUT}"),
-            (_(u"Date de fin de la période"), u"31/01/2011", "{DATE_FIN}"),
+            (_(u"Nom des individus concern�s"), u"Xavier DUPOND et Lucie DUPOND", "{NOMS_INDIVIDUS}"),
+            (_(u"Date de d�but de la p�riode"), u"01/01/2011", "{DATE_DEBUT}"),
+            (_(u"Date de fin de la p�riode"), u"31/01/2011", "{DATE_FIN}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Fax de l'organisateur"), u"01.04.05.06.", "{ORGANISATEUR_FAX}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
             (_(u"Site internet de l'organisateur"), u"www.noethys.com", "{ORGANISATEUR_SITE}"),
-            (_(u"Numéro d'agrément de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
-            (_(u"Numéro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
+            (_(u"Num�ro d'agr�ment de l'organisateur"), u"0256ORG234", "{ORGANISATEUR_AGREMENT}"),
+            (_(u"Num�ro SIRET de l'organisateur"), u"123456789123", "{ORGANISATEUR_SIRET}"),
             (_(u"Code APE de l'organisateur"), _(u"NO123"), "{ORGANISATEUR_APE}"),
 
-            (_(u"Numéro du devis"), u"1234567", "{NUM_DEVIS}"),
-            (_(u"Date d'édition du devis (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
-            (_(u"Date d'édition du devis (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
+            (_(u"Num�ro du devis"), u"1234567", "{NUM_DEVIS}"),
+            (_(u"Date d'�dition du devis (long)"), _(u"Lundi 9 septembre 2011"), "{DATE_EDITION_LONG}"),
+            (_(u"Date d'�dition du devis (court)"), u"19/09/2011", "{DATE_EDITION_COURT}"),
 
-            (_(u"Total des prestations de la période"), u"10.00 €", "{TOTAL_PERIODE}"),
-            (_(u"Total déjà réglé pour la période"), u"6.00 €", "{TOTAL_REGLE}"),
-            (_(u"Solde dû pour la période"), u"4.00 €", "{SOLDE_DU}"),
-            (_(u"Total des déductions"), u"20.50 €", "{TOTAL_DEDUCTIONS}"), ]
+            (_(u"Total des prestations de la p�riode"), u"10.00 �", "{TOTAL_PERIODE}"),
+            (_(u"Total d�j� r�gl� pour la p�riode"), u"6.00 �", "{TOTAL_REGLE}"),
+            (_(u"Solde d� pour la p�riode"), u"4.00 �", "{SOLDE_DU}"),
+            (_(u"Total des d�ductions"), u"20.50 �", "{TOTAL_DEDUCTIONS}"), ]
 
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
 
@@ -1059,60 +1059,60 @@ class Convention():
         self.photosIndividuelles = False
 
         self.champs = [
-            (_(u"Numéro ID de la famille"), u"2582", "{IDFAMILLE}"),
+            (_(u"Num�ro ID de la famille"), u"2582", "{IDFAMILLE}"),
 
             (_(u"Nom de l'organisateur"), _(u"Association Noethys"), "{ORGANISATEUR_NOM}"),
             (_(u"Rue de l'organisateur"), _(u"Avenue des Lilas"), "{ORGANISATEUR_RUE}"),
             (_(u"Code postal de l'organisateur"), u"29870", "{ORGANISATEUR_CP}"),
             (_(u"Ville de l'organisateur"), _(u"LANNILIS"), "{ORGANISATEUR_VILLE}"),
-            (_(u"Téléphone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
+            (_(u"T�l�phone de l'organisateur"), u"01.98.01.02.03", "{ORGANISATEUR_TEL}"),
             (_(u"Mail de l'organisateur"), _(u"noethys") + u"@gmail.com", "{ORGANISATEUR_MAIL}"),
 
-            # Alias stables du représentant de la structure cocontractante :
-            # alimentés par le fournisseur de champs Convention (voir
-            # Utils/UTILS_Convention_champs.py) à partir du même mécanisme
-            # historique {REPRESENTANT_RATTACHE_x_*}, sans redéfinir de
-            # deuxième source de données ni imposer à l'utilisateur de
-            # connaître un index "x".
-            (_(u"Nom du représentant de la structure"), _(u"DUPOND"), "{CONVENTION_REPRESENTANT_NOM}"),
-            (_(u"Prénom du représentant de la structure"), _(u"Gérard"), "{CONVENTION_REPRESENTANT_PRENOM}"),
-            (_(u"Nom complet du représentant de la structure"), _(u"M. DUPOND Gérard"), "{CONVENTION_REPRESENTANT_NOM_COMPLET}"),
-            (_(u"Fonction du représentant de la structure"), _(u"Président"), "{CONVENTION_REPRESENTANT_FONCTION}"),
+            # Alias stables du repr�sentant de la structure cocontractante :
+            # aliment�s par le fournisseur de champs Convention (voir
+            # Utils/UTILS_Convention_champs.py) � partir du m�me m�canisme
+            # historique {REPRESENTANT_RATTACHE_x_*}, sans red�finir de
+            # deuxi�me source de donn�es ni imposer � l'utilisateur de
+            # conna�tre un index "x".
+            (_(u"Nom du repr�sentant de la structure"), _(u"DUPOND"), "{CONVENTION_REPRESENTANT_NOM}"),
+            (_(u"Pr�nom du repr�sentant de la structure"), _(u"G�rard"), "{CONVENTION_REPRESENTANT_PRENOM}"),
+            (_(u"Nom complet du repr�sentant de la structure"), _(u"M. DUPOND G�rard"), "{CONVENTION_REPRESENTANT_NOM_COMPLET}"),
+            (_(u"Fonction du repr�sentant de la structure"), _(u"Pr�sident"), "{CONVENTION_REPRESENTANT_FONCTION}"),
 
             (_(u"Saison de la convention"), _(u"2026-2027"), "{CONVENTION_SAISON}"),
-            (_(u"Date de début de la période"), u"01/09/2026", "{CONVENTION_DATE_DEBUT}"),
-            (_(u"Date de fin de la période"), u"30/06/2027", "{CONVENTION_DATE_FIN}"),
+            (_(u"Date de d�but de la p�riode"), u"01/09/2026", "{CONVENTION_DATE_DEBUT}"),
+            (_(u"Date de fin de la p�riode"), u"30/06/2027", "{CONVENTION_DATE_FIN}"),
 
-            # Signature : toujours saisis manuellement dans le générateur
+            # Signature : toujours saisis manuellement dans le g�n�rateur
             # (DLG_Generation_convention) -- rien dans Noethys ne permet
-            # de déterminer automatiquement une date ou un lieu de
+            # de d�terminer automatiquement une date ou un lieu de
             # signature.
             (_(u"Date de signature"), u"01/09/2026", "{CONVENTION_DATE_SIGNATURE}"),
             (_(u"Lieu de signature"), _(u"LANNILIS"), "{CONVENTION_LIEU_SIGNATURE}"),
 
-            # Résumé du planning calculé depuis les données Noethys
-            # (consommations/prestations réellement enregistrées) : voir
+            # R�sum� du planning calcul� depuis les donn�es Noethys
+            # (consommations/prestations r�ellement enregistr�es) : voir
             # UTILS_Convention_champs.GetResumePlanning().
-            (_(u"Résumé du planning (créneaux/périodes)"), _(u"Lundi de 19h30 à 20h30 : Fitness"), "{CONVENTION_PLANNING_DETAIL}"),
-            (_(u"Nombre total de séances"), u"34", "{CONVENTION_PLANNING_NBRE_SEANCES}"),
+            (_(u"R�sum� du planning (cr�neaux/p�riodes)"), _(u"Lundi de 19h30 � 20h30 : Fitness"), "{CONVENTION_PLANNING_DETAIL}"),
+            (_(u"Nombre total de s�ances"), u"34", "{CONVENTION_PLANNING_NBRE_SEANCES}"),
             (_(u"Volume horaire total"), _(u"51h00"), "{CONVENTION_PLANNING_TOTAL_HEURES}"),
-            (_(u"Créneaux compacts de la convention"), _(u"Lundi de 19h30 à 20h30 : Fitness"), "{CONVENTION_PLANNING_CRENEAUX}"),
-            (_(u"Montant total prévisionnel"), u"1224.00 €", "{CONVENTION_PLANNING_TOTAL_MONTANT}"),
+            (_(u"Cr�neaux compacts de la convention"), _(u"Lundi de 19h30 � 20h30 : Fitness"), "{CONVENTION_PLANNING_CRENEAUX}"),
+            (_(u"Montant total pr�visionnel"), u"1224.00 �", "{CONVENTION_PLANNING_TOTAL_MONTANT}"),
             (_(u"Adresse de la structure sans doublon CP/ville"), _(u"1 rue de Test\n00000 TESTVILLE"), "{CONVENTION_ADRESSE_STRUCTURE}"),
 
-            # Tarifs : automatiquement déterminés depuis les prestations
-            # réellement facturées quand un taux horaire unique et non
+            # Tarifs : automatiquement d�termin�s depuis les prestations
+            # r�ellement factur�es quand un taux horaire unique et non
             # ambigu existe (voir UTILS_Convention_champs.DetecterTarifs) ;
-            # sinon laissés à la saisie manuelle dans le générateur.
-            (_(u"Tarif horaire (si un seul taux)"), u"20.00 €", "{CONVENTION_TARIF_HORAIRE}"),
-            (_(u"Tarif horaire adulte"), u"36.50 €", "{CONVENTION_TARIF_ADULTE}"),
-            (_(u"Tarif horaire enfant"), u"24.00 €", "{CONVENTION_TARIF_ENFANT}"),
-            (_(u"Tarif unique formaté"), u"20,00 €", "{CONVENTION_TARIF_HORAIRE_AFFICHE}"),
-            (_(u"Tarif adulte formaté"), u"36,50 €", "{CONVENTION_TARIF_ADULTE_AFFICHE}"),
-            (_(u"Tarif enfant formaté"), u"24,00 €", "{CONVENTION_TARIF_ENFANT_AFFICHE}"),
-            (_(u"Provenance du tarif unique"), _(u"20,00 € / 1h00 = 20,00 €/h"), "{CONVENTION_TARIF_HORAIRE_PROVENANCE}"),
-            (_(u"Provenance du tarif adulte"), _(u"36,50 € / 1h00 = 36,50 €/h"), "{CONVENTION_TARIF_ADULTE_PROVENANCE}"),
-            (_(u"Provenance du tarif enfant"), _(u"36,00 € / 1h30 = 24,00 €/h"), "{CONVENTION_TARIF_ENFANT_PROVENANCE}"),
+            # sinon laiss�s � la saisie manuelle dans le g�n�rateur.
+            (_(u"Tarif horaire (si un seul taux)"), u"20.00 �", "{CONVENTION_TARIF_HORAIRE}"),
+            (_(u"Tarif horaire adulte"), u"36.50 �", "{CONVENTION_TARIF_ADULTE}"),
+            (_(u"Tarif horaire enfant"), u"24.00 �", "{CONVENTION_TARIF_ENFANT}"),
+            (_(u"Tarif unique format�"), u"20,00 �", "{CONVENTION_TARIF_HORAIRE_AFFICHE}"),
+            (_(u"Tarif adulte format�"), u"36,50 �", "{CONVENTION_TARIF_ADULTE_AFFICHE}"),
+            (_(u"Tarif enfant format�"), u"24,00 �", "{CONVENTION_TARIF_ENFANT_AFFICHE}"),
+            (_(u"Provenance du tarif unique"), _(u"20,00 � / 1h00 = 20,00 �/h"), "{CONVENTION_TARIF_HORAIRE_PROVENANCE}"),
+            (_(u"Provenance du tarif adulte"), _(u"36,50 � / 1h00 = 36,50 �/h"), "{CONVENTION_TARIF_ADULTE_PROVENANCE}"),
+            (_(u"Provenance du tarif enfant"), _(u"36,00 � / 1h30 = 24,00 �/h"), "{CONVENTION_TARIF_ENFANT_PROVENANCE}"),
             ]
 
         self.champs.extend(UTILS_Infos_individus.GetNomsChampsPossibles(mode="famille"))
@@ -1142,7 +1142,7 @@ class Convention():
         ]
 
         # Questionnaires (facultatifs : voir UTILS_Convention_champs, la
-        # génération ne dépend jamais d'une réponse de questionnaire)
+        # g�n�ration ne d�pend jamais d'une r�ponse de questionnaire)
         self.champs.extend(GetQuestions("famille"))
         self.codesbarres.extend(GetCodesBarresQuestionnaires("famille"))
 
@@ -1183,7 +1183,7 @@ def GetCodesBarresQuestionnaires(type="individu"):
 NOM_APPLICATION = _(u"Noedoc")
 
 # Couleurs
-COULEUR_ZONE_TRAVAIL = (100, 200, 0)
+COULEUR_ZONE_TRAVAIL = (232, 235, 239)
 COULEUR_FOND_PAGE = (255, 255, 255)
 EPAISSEUR_OMBRE = 2
 COULEUR_OMBRE_PAGE = (0, 0, 0)
@@ -1194,14 +1194,14 @@ COULEUR_DEFAUT_OBJET = (193, 222, 245)
 
 # Astuces
 ASTUCES = [
-    _(u"Astuce : Restez appuyer sur la touche CTRL pour conserver les proportions lors d'un redimensionnement avec les poignées"),
-    _(u"Astuce : Effectuez un clic droit sur un objet pour accéder au menu contextuel"),
-    _(u"Astuce : Effectuez un clic droit sur l'une des poignées d'un polygone pour supprimer le point correspondant"),
+    _(u"Astuce : Restez appuyer sur la touche CTRL pour conserver les proportions lors d'un redimensionnement avec les poign�es"),
+    _(u"Astuce : Effectuez un clic droit sur un objet pour acc�der au menu contextuel"),
+    _(u"Astuce : Effectuez un clic droit sur l'une des poign�es d'un polygone pour supprimer le point correspondant"),
     _(u"Astuce : Effectuez un clic droit sur la ligne d'un polygone pour y ajouter un point"),
-    _(u"Astuce : Vous pouvez attribuer à chaque objet le nom de votre choix"),
+    _(u"Astuce : Vous pouvez attribuer � chaque objet le nom de votre choix"),
     _(u"Astuce : Vous pouvez verrouiller les positions ou dimensions des objets en cliquant sur les cadenas"),
-    _(u"Astuce : Appuyez sur la touche SUPPR ou DEL pour supprimer l'objet sélectionné"),
-    _(u"Astuce : Vous pouvez utiliser les touches flèches du clavier pour déplacer précisément l'objet sélectionné"),
+    _(u"Astuce : Appuyez sur la touche SUPPR ou DEL pour supprimer l'objet s�lectionn�"),
+    _(u"Astuce : Vous pouvez utiliser les touches fl�ches du clavier pour d�placer pr�cis�ment l'objet s�lectionn�"),
     ]
 
 # -----------------------------------------------------------------------------------------------------------------------------
@@ -1216,7 +1216,7 @@ def AjouterRectangle(xy, taille, nom=_(u"Rectangle"), champ=None,
                                         couleurTrait=(0, 0, 0), styleTrait="Solid", epaissTrait=1, 
                                         coulRemplis=None, styleRemplis="Solid", IDobjet=None, 
                                         InForeground=True, IDdonnee=None):
-    """ Création d'un rectangle """
+    """ Cr�ation d'un rectangle """
     objet = MovingRectangle(xy, taille, couleurTrait, styleTrait, epaissTrait, coulRemplis, styleRemplis, InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1228,7 +1228,7 @@ def AjouterRectangle(xy, taille, nom=_(u"Rectangle"), champ=None,
 def AjouterLigne(points=[], nom=_(u"Ligne"), champ=None,
                                     couleurTrait=(0, 0, 0), styleTrait="Solid", epaissTrait=1, IDobjet=None,
                                     InForeground=True, IDdonnee=None):
-    """ Création d'une ligne """
+    """ Cr�ation d'une ligne """
     objet = MovingLine(points, couleurTrait, styleTrait, epaissTrait, InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1241,7 +1241,7 @@ def AjouterEllipse(xy, taille, nom=_(u"Ellipse"), champ=None,
                                         couleurTrait=(0, 0, 0), styleTrait="Solid", epaissTrait=1, 
                                         coulRemplis=None, styleRemplis="Solid", IDobjet=None,
                                         InForeground=True, IDdonnee=None):
-    """ Création d'une ellipse """
+    """ Cr�ation d'une ellipse """
     objet = MovingEllipse(xy, taille, couleurTrait, styleTrait, epaissTrait, coulRemplis, styleRemplis, InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1254,7 +1254,7 @@ def AjouterPolygone( points=[], nom=_(u"Polygone"), champ=None,
                                         couleurTrait=(0, 0, 0), styleTrait="Solid", epaissTrait=1, 
                                         coulRemplis=None, styleRemplis="Solid", IDobjet=None,
                                         InForeground=True, IDdonnee=None):
-    """ Création d'un polygone """
+    """ Cr�ation d'un polygone """
     objet = MovingPolygon(points, couleurTrait, styleTrait, epaissTrait, coulRemplis, styleRemplis, InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1264,7 +1264,7 @@ def AjouterPolygone( points=[], nom=_(u"Polygone"), champ=None,
     return objet
 
 def AjouterImage(bmp, xy, hauteur=None, nom=_(u"Image"), champ=None, typeImage="fichier", IDobjet=None, InForeground=True, IDdonnee=None):
-    """ Création d'une image """
+    """ Cr�ation d'une image """
     objet = MovingScaledBitmap(bmp, xy, Height=hauteur, Position="bl", InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1279,7 +1279,7 @@ def AjouterLigneTexte(texte, xy, tailleFont=10, taillePolicePDF=8, nom=_(u"Ligne
                                         family = wx.MODERN, style=wx.NORMAL,
                                         weight=wx.NORMAL, underlined=False,
                                         font=None, IDobjet=None, InForeground=True, IDdonnee=None):
-    """ Création d'une ligne de texte """
+    """ Cr�ation d'une ligne de texte """
     if font != None :
         tailleFont = font.GetPointSize()
     objet = MovingScaledText(texte, xy, tailleFont, couleurTexte, couleurFond, family, style, weight, 
@@ -1299,7 +1299,7 @@ def AjouterBlocTexte(texte, xy, tailleFont=10, taillePolicePDF=8, nom=_(u"Bloc d
                                         family = wx.MODERN, style=wx.NORMAL,
                                         weight=wx.NORMAL, souligne=False, alignement="left",
                                         font=None, interligne = 1.0, IDobjet=None, InForeground=True, IDdonnee=None):
-    """ Création d'un bloc de texte """
+    """ Cr�ation d'un bloc de texte """
     objet = MovingScaledTextBox(texte, xy, tailleFont, couleurTexte, couleurFond, 
                         couleurTrait, styleTrait, epaissTrait, largeurTexte, padding,
                         family, style, weight, souligne, "tl", alignement, font, interligne, InForeground=InForeground)
@@ -1313,7 +1313,7 @@ def AjouterBlocTexte(texte, xy, tailleFont=10, taillePolicePDF=8, nom=_(u"Bloc d
     return objet
 
 def AjouterBarcode(xy, largeur=None, hauteur=None, nom=_(u"Code-barres"), champ=None, norme="Extended39", afficheNumero=False, IDobjet=None, InForeground=True):
-    """ Création d'une image """
+    """ Cr�ation d'une image """
     objet = AjouterSpecial(xy, largeur, hauteur, nom, couleurFond=(250, 250, 50), InForeground=InForeground)
     objet.nom = nom
     objet.champ = champ
@@ -1354,7 +1354,7 @@ def AjouterSpecial(xy, largeur, hauteur, nom=_(u"Special"), champ=None, couleurF
         
 class Panel_commandes(wx.Panel):
     def __init__(self, parent):
-        """ Boutons de commande en bas de la fenêtre """
+        """ Boutons de commande en bas de la fen�tre """
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.parent = parent
         # Boutons
@@ -1389,7 +1389,7 @@ class Panel_commandes(wx.Panel):
         if hasattr(self.parent, "ctrl_proprietes_doc"):
             nom = self.parent.ctrl_proprietes_doc.GetNom()
             if nom == "":
-                dlg = wx.MessageDialog(self, _(u"Vous devez obligatoirement saisir un nom pour ce modèle !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+                dlg = wx.MessageDialog(self, _(u"Vous devez obligatoirement saisir un nom pour ce mod�le !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
                 dlg.ShowModal()
                 dlg.Destroy()
                 return False
@@ -1397,7 +1397,7 @@ class Panel_commandes(wx.Panel):
         etat = self.parent.ctrl_canvas.Sauvegarde()
         if etat == False : 
             return
-        # Fermeture de la fenêtre
+        # Fermeture de la fen�tre
         if 'phoenix' in wx.PlatformInfo:
             self.parent._mgr.UnInit()
         self.parent.OnBoutonOk()
@@ -1420,7 +1420,7 @@ class Panel_infos(wx.Panel):
         """ Affichage des coords de la souris et autre infos """
         wx.Panel.__init__(self, parent, id=-1, size=(-1, 15), style=wx.TAB_TRAVERSAL)
         self.parent = parent
-        self.SetBackgroundColour((213, 252, 186))
+        self.SetBackgroundColour((232, 235, 239))
         self.ctrl_coords = wx.StaticText(self, -1, u"", (10, 1))
         self.ctrl_info = wx.StaticText(self, -1, u"", (140, 1))
         
@@ -1440,7 +1440,7 @@ class Panel_infos(wx.Panel):
 
     
 class CTRL_Style(OwnerDrawnComboBox):
-    """ ComboBox pour sélectionner le style de trait """
+    """ ComboBox pour s�lectionner le style de trait """
     def __init__(self, parent, categorie="trait", choices=[], style=0):
         self.parent = parent
         self.categorie = categorie
@@ -1450,10 +1450,10 @@ class CTRL_Style(OwnerDrawnComboBox):
             choices = [
                 _(u"Plein"),
                 _(u"Transparent"),
-                _(u"Pointillés"),
+                _(u"Pointill�s"),
                 _(u"Traits longs"),
                 _(u"Traits courts"),
-                _(u"Pointillés/traits"),
+                _(u"Pointill�s/traits"),
                 ]
             self.dictStyles = {
                 0 : "Solid",
@@ -1468,7 +1468,7 @@ class CTRL_Style(OwnerDrawnComboBox):
                 _(u"Solide"),
                 _(u"Transparent"),
                 _(u"Hachures diagonales asc."),
-                _(u"Hachures diagonales croisées"),
+                _(u"Hachures diagonales crois�es"),
                 _(u"Hachures diagonales desc."),
                 _(u"Grille"),
                 _(u"Hachures horizontales"),
@@ -1590,7 +1590,7 @@ class CTRL_Verrou(wx.StaticBitmap):
         self.bmpVerrouON_SURVOL = wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Cadenas_ferme_survol.png"), wx.BITMAP_TYPE_ANY)
         # Init Bitmap
         wx.StaticBitmap.__init__(self, parent, id, bitmap=self.bmpVerrouOFF, pos=pos, size=size, style=style)
-        self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour verrouiller ce paramètre")))
+        self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour verrouiller ce param�tre")))
         # Binds
         self.Bind(wx.EVT_MOTION, self.OnMotion)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeave)
@@ -1613,12 +1613,12 @@ class CTRL_Verrou(wx.StaticBitmap):
         if self.verrouillage : 
             self.verrouillage = False
             self.SetBitmap(self.bmpVerrouOFF)
-            self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour verrouiller ce paramètre")))
+            self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour verrouiller ce param�tre")))
         else: 
             self.verrouillage = True
             self.SetBitmap(self.bmpVerrouON)
-            self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour déverrouiller ce paramètre")))
-        # Modifie le contrôle lié du paramètre
+            self.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour d�verrouiller ce param�tre")))
+        # Modifie le contr�le li� du param�tre
         if self.lienControle != None :
             self.lienControle.Enable(not self.verrouillage)
             if self.type == "x" : self.parent.objet.verrouillageX = self.verrouillage
@@ -1677,7 +1677,7 @@ class CTRL_Fond(wx.Choice):
         return self.dictDonnees[index]["ID"]
     
     def GetInfosFond(self):
-        """ Récupère les infos sur le fond sélectionné """
+        """ R�cup�re les infos sur le fond s�lectionn� """
         index = self.GetSelection()
         if index == -1 : return None
         return self.dictDonnees[index]
@@ -1720,8 +1720,8 @@ class Panel_proprietes_doc(wx.Panel):
         self.ctrl_nom.SetToolTip(wx.ToolTip(_(u"Saisissez le nom du fond")))
         self.ctrl_largeur.SetToolTip(wx.ToolTip(_(u"Saisissez ici la largeur du document")))
         self.ctrl_hauteur.SetToolTip(wx.ToolTip(_(u"Saisissez ici la hauteur du document")))
-        self.ctrl_observations.SetToolTip(wx.ToolTip(_(u"Saisissez ici d'éventuelles observations")))
-        self.ctrl_fond.SetToolTip(wx.ToolTip(_(u"Vous pouvez sélectionner ici un fond de page")))
+        self.ctrl_observations.SetToolTip(wx.ToolTip(_(u"Saisissez ici d'�ventuelles observations")))
+        self.ctrl_fond.SetToolTip(wx.ToolTip(_(u"Vous pouvez s�lectionner ici un fond de page")))
         self.ctrl_largeur.SetMinSize((60, -1))
         self.label_x.SetMinSize((20, -1))
         self.ctrl_hauteur.SetMinSize((60, -1))
@@ -1819,7 +1819,7 @@ class Panel_proprietes_image_interactive(wx.Panel):
 
     def __set_properties(self):
         self.ctrl_nom.SetToolTip(wx.ToolTip(_(u"Saisissez le nom de l'image interactive")))
-        self.ctrl_observations.SetToolTip(wx.ToolTip(_(u"Saisissez ici d'éventuelles observations")))
+        self.ctrl_observations.SetToolTip(wx.ToolTip(_(u"Saisissez ici d'�ventuelles observations")))
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=2, vgap=5, hgap=5)
@@ -1861,7 +1861,7 @@ class Panel_proprietes_objet(wx.Panel):
         self.canvas = canvas
         self.objet = None
         
-        # Contrôles
+        # Contr�les
         self.ctrl_nom = Proprietes_nom(self, canvas)
         self.ctrl_points = Proprietes_points(self, canvas)
         self.ctrl_position = Proprietes_position(self, canvas)
@@ -1894,12 +1894,12 @@ class Panel_proprietes_objet(wx.Panel):
     
     def SetObjet(self, objet):
         self.objet = objet
-        # Si aucun objet sélectionné
+        # Si aucun objet s�lectionn�
         if objet == None : 
             etat = False
         else: 
             etat = True
-        # Activation des panneaux de propriétés
+        # Activation des panneaux de propri�t�s
         self.Freeze()
         if objet != None and "nom" in objet.proprietes :
             self.ctrl_nom.Show(True)
@@ -2041,11 +2041,15 @@ class Proprietes_position(wx.Panel):
         staticbox.Fit(self)
 
     def OnChoixX(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             self.canvas.DeplacerObjet(self.objet, newPosition=numpy.array([self.GetX(), self.GetY() ]))
             self.objet.dirty = True
 
     def OnChoixY(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             self.canvas.DeplacerObjet(self.objet, newPosition=numpy.array([self.GetX() , self.GetY() ]))
             self.objet.dirty = True
@@ -2148,6 +2152,8 @@ class Proprietes_taille(wx.Panel):
         staticbox.Fit(self)
 
     def OnChoixLargeur(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur, hauteur = self.GetLargeur(), self.GetHauteur()
             if self.objet.verrouillageProportions == True :
@@ -2157,6 +2163,8 @@ class Proprietes_taille(wx.Panel):
             self.objet.dirty = True
 
     def OnChoixHauteur(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur, hauteur = self.GetLargeur(), self.GetHauteur()
             if self.objet.verrouillageProportions == True :
@@ -2269,6 +2277,8 @@ class Proprietes_largeur(wx.Panel):
             self.OnChoixLargeur(None)
 
     def OnChoixLargeur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur = self.GetLargeur()
             self.MAJtailleObjet(largeur)
@@ -2387,6 +2397,8 @@ class Proprietes_trait(wx.Panel):
         self.ctrl_epaisseur.Enable(etat)
         
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         couleur  = self.ctrl_couleur.GetColour() 
         self.objet.LineColor = couleur
         self.MAJtrait() 
@@ -2398,6 +2410,8 @@ class Proprietes_trait(wx.Panel):
         self.ctrl_couleur.SetColour(couleur)
     
     def OnSelectStyle(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         style  = self.ctrl_style.GetValeur() 
         self.objet.LineStyle = style
         self.MAJtrait() 
@@ -2505,6 +2519,8 @@ class Proprietes_remplissage(wx.Panel):
         self.ctrl_style.Enable(etat)
 
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         couleur  = self.ctrl_couleur.GetColour()
         self.couleurActive = couleur
         self.objet.FillColor = couleur
@@ -2517,6 +2533,8 @@ class Proprietes_remplissage(wx.Panel):
         self.ctrl_couleur.SetColour(couleur)
 
     def OnSelectStyle(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         style  = self.ctrl_style.GetValeur()
         self.objet.FillStyle = style
         self.MAJremplissage()
@@ -2590,7 +2608,7 @@ class Proprietes_interactive(wx.Panel):
         self.stopEvent = False
 
         self.staticbox_staticbox = wx.StaticBox(self, -1, _(u"Zone interactive"))
-        self.label_donnee = wx.StaticText(self, -1, _(u"Donnée :"))
+        self.label_donnee = wx.StaticText(self, -1, _(u"Donn�e :"))
         self.ctrl_donnee = CTRL_Champs_interactifs(self, canvas=canvas)
 
         # Layout
@@ -2638,7 +2656,7 @@ class CTRL_Points(wx.grid.Grid):
         self.DisableDragColSize()
         self.DisableDragRowSize()
         
-        # Création des colonnes
+        # Cr�ation des colonnes
         self.AppendCols(2)
         self.SetColSize(0, 70)
         self.SetColLabelValue(0, u"X")
@@ -2752,10 +2770,14 @@ class Proprietes_texte(wx.Panel):
         self.stopEvent = False
         
         self.staticbox_staticbox = wx.StaticBox(self, -1, _(u"Texte"))
-##        self.label_police = wx.StaticText(self, -1, _(u"Police :"))
-##        self.ctrl_police = wx.FontPickerCtrl(self, style=wx.FNTP_FONTDESC_AS_LABEL)
+        self.label_police = wx.StaticText(self, -1, _(u"Police :"))
+        self.ctrl_police = wx.FontPickerCtrl(self, style=wx.FNTP_FONTDESC_AS_LABEL)
+        self.label_alignement = wx.StaticText(self, -1, _(u"Alignement :"))
+        self.ctrl_alignement = wx.Choice(self, choices=[_(u"Gauche"), _(u"Centr�"), _(u"Droite"), _(u"Justifi�")])
+        self.alignements = ["left", "center", "right", "justify"]
+        self.Bind(wx.EVT_CHOICE, self.OnAlignement, self.ctrl_alignement)
         
-        self.label_taille = wx.StaticText(self, -1, _(u"Police :"))
+        self.label_taille = wx.StaticText(self, -1, _(u"Taille :"))
         self.ctrl_taille = wx.SpinCtrl(self, -1, u"", size=(40, -1), min=1, max=300)
         
         self.ctrl_couleur = csel.ColourSelect(self, -1, u"", (0, 0, 0), size=(-1, self.ctrl_taille.GetSize()[1]+4))
@@ -2767,7 +2789,7 @@ class Proprietes_texte(wx.Panel):
         
         # Binds
         self.Bind(csel.EVT_COLOURSELECT, self.OnSelectCouleur, self.ctrl_couleur)
-##        self.Bind(wx.EVT_FONTPICKER_CHANGED, self.OnSelectPolice, self.ctrl_police)
+        self.Bind(wx.EVT_FONTPICKER_CHANGED, self.OnSelectPolice, self.ctrl_police)
         self.Bind(wx.EVT_SPINCTRL, self.OnChangeTaille, self.ctrl_taille)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnChangeGras, self.ctrl_gras)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnChangeItalique, self.ctrl_italique)
@@ -2777,12 +2799,11 @@ class Proprietes_texte(wx.Panel):
         staticbox = wx.StaticBoxSizer(self.staticbox_staticbox, wx.VERTICAL)
         grid_sizer_base = wx.FlexGridSizer(rows=3, cols=2, vgap=5, hgap=5)
         
-##        grid_sizer_base.Add(self.label_police, 1, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-##        grid_sizer_L2 = wx.FlexGridSizer(rows=1, cols=5, vgap=5, hgap=5)
-##        grid_sizer_L2.Add(self.ctrl_police, 1, wx.EXPAND, 0)
-##        grid_sizer_L2.AddGrowableCol(0)
-##        grid_sizer_base.Add(grid_sizer_L2, 1, wx.EXPAND, 5)
-        
+        grid_sizer_base.Add(self.label_police, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_police, 1, wx.EXPAND, 0)
+        grid_sizer_base.Add(self.label_alignement, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_alignement, 1, wx.EXPAND, 0)
+
         grid_sizer_base.Add(self.label_taille, 1, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_L2 = wx.FlexGridSizer(rows=1, cols=7, vgap=2, hgap=2)
         grid_sizer_L2.Add(self.ctrl_taille, 0, wx.EXPAND, 0)
@@ -2801,6 +2822,8 @@ class Proprietes_texte(wx.Panel):
         staticbox.Fit(self)
                     
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             couleur  = self.ctrl_couleur.GetColour() 
             self.couleurActive = couleur
@@ -2808,10 +2831,21 @@ class Proprietes_texte(wx.Panel):
             self.objet.SetColor(self.objet.Color)
             self.canvas.canvas.Draw(True)
     
+    def OnAlignement(self, event):
+        if not self.stopEvent and self.objet is not None and hasattr(self.objet, "Alignment"):
+            self.canvas.MemoriserEtat()
+            self.objet.Alignment = self.alignements[self.ctrl_alignement.GetSelection()]
+            self.objet.LayoutText()
+            self.objet.dirty = True
+            self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
+            self.canvas.canvas.Draw(True)
+
     def GetCouleur(self):
         return self.ctrl_couleur.GetColour()
     
     def OnSelectPolice(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             font = self.ctrl_police.GetSelectedFont()
             self.objet.FaceName =  font.GetFaceName()
@@ -2819,9 +2853,9 @@ class Proprietes_texte(wx.Panel):
             self.objet.Style =  font.GetStyle()
             self.objet.Underlined =  font.GetUnderlined()
             self.objet.Weight =  font.GetWeight()
-            self.objet.Size = font.GetPointSize()
+            self.objet.SetTaillePolicePDF(font.GetPointSize())
+            self.ctrl_taille.SetValue(font.GetPointSize())
             self.objet.Font = font
-            self.objet.SetFont(self.objet.Size, self.objet.Family, self.objet.Style, self.objet.Weight, self.objet.Underlined, self.objet.FaceName)
             self.objet.LayoutText()
             self.canvas.Selection(self.objet, forceDraw=False)
             self.canvas.canvas.Draw(True)
@@ -2842,7 +2876,11 @@ class Proprietes_texte(wx.Panel):
         self.objet = objet
         if objet == None :
             return
-##        self.SetPolice(objet.Font) 
+        font = wx.Font(int(objet.taillePolicePDF), objet.Family, objet.Style, objet.Weight, objet.Underlined, objet.FaceName)
+        self.SetPolice(font)
+        self.ctrl_alignement.Enable(hasattr(objet, "Alignment"))
+        alignment = getattr(objet, "Alignment", "left")
+        self.ctrl_alignement.SetSelection(self.alignements.index(alignment) if alignment in self.alignements else 0) 
         self.SetCouleur(objet.Color)
         self.SetTaillePolice(objet.taillePolicePDF)
         self.InitBoutonsStyle()
@@ -2856,17 +2894,21 @@ class Proprietes_texte(wx.Panel):
         self.stopEvent = False
 
     def OnChangeTaille(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         taille = self.GetTaillePolice() 
         self.objet.SetTaillePolicePDF(taille)
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
         self.canvas.canvas.Draw(True)
     
     def InitBoutonsStyle(self):
-        if self.objet.Weight == wx.BOLD : self.ctrl_gras.SetValue(True)
-        if self.objet.Style == wx.ITALIC : self.ctrl_italique.SetValue(True)
-        if self.objet.Underlined == True : self.ctrl_souligne.SetValue(True)
+        self.ctrl_gras.SetValue(self.objet.Weight == wx.BOLD)
+        self.ctrl_italique.SetValue(self.objet.Style == wx.ITALIC)
+        self.ctrl_souligne.SetValue(bool(self.objet.Underlined))
         
     def OnChangeGras(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetGras(self.ctrl_gras.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2879,6 +2921,8 @@ class Proprietes_texte(wx.Panel):
             self.objet.Weight = wx.NORMAL
         
     def OnChangeItalique(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetItalique(self.ctrl_italique.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2891,6 +2935,8 @@ class Proprietes_texte(wx.Panel):
             self.objet.Style = wx.NORMAL
 
     def OnChangeSouligne(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetSouligne(self.ctrl_souligne.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2943,10 +2989,10 @@ class Proprietes_codebarres(wx.Panel):
         self.staticbox_staticbox = wx.StaticBox(self, -1, _(u"Code-barres"))
         self.label_norme = wx.StaticText(self, -1, _(u"Norme :"))
         self.ctrl_norme = CTRL_Normes(self)
-        self.label_numero = wx.StaticText(self, -1, _(u"Numéro :"))
+        self.label_numero = wx.StaticText(self, -1, _(u"Num�ro :"))
         self.ctrl_numero = wx.CheckBox(self, -1, _(u"Afficher"))
         
-        self.ctrl_norme.SetToolTip(wx.ToolTip(_(u"Sélectionnez une norme pour ce code-barres")))
+        self.ctrl_norme.SetToolTip(wx.ToolTip(_(u"S�lectionnez une norme pour ce code-barres")))
         self.ctrl_numero.SetToolTip(wx.ToolTip(_(u"Cochez cette case pour afficher la valeur sous le code-barres")))
 
         # Layout
@@ -2983,6 +3029,8 @@ class Proprietes_codebarres(wx.Panel):
         self.stopEvent = False
 
     def OnChangeNorme(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.objet.norme = self.GetNorme()
 
     def GetAfficheNumero(self):
@@ -2994,6 +3042,8 @@ class Proprietes_codebarres(wx.Panel):
         self.stopEvent = False
 
     def OnChangeAfficheNumero(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.objet.afficheNumero = self.GetAfficheNumero()
 
 # -------------------------------------------------------------------------------------------------------------------------------
@@ -3038,7 +3088,7 @@ class MovingObjectMixin:
         return centre
 
     def GetTaille2(self):
-        """ Récupère la taille pour la sauvegarde uniquement """
+        """ R�cup�re la taille pour la sauvegarde uniquement """
         if self.categorie in ("bloc_texte", "ligne") :
             return (None, None)
         elif self.categorie == "image" :
@@ -3376,6 +3426,52 @@ class MovingScaledTextBox(FloatCanvas.ScaledTextBox, MovingObjectMixin):
         self.proprietes = ["nom", "position", "largeur", "trait", "texte", "interactive"]
         self.SetTexte(self.String)
         
+    def _Draw(self, dc, WorldToPixel, ScaleWorldToPixel, HTdc=None):
+        FloatCanvas.ScaledTextBox._Draw(self, dc, WorldToPixel, ScaleWorldToPixel, HTdc)
+        if getattr(self, "show_editor_bounds", False):
+            xy, wh = self.GetBoxRect()
+            xy = WorldToPixel(xy)
+            wh = ScaleWorldToPixel(wh) * (1, -1)
+            pen, brush = dc.GetPen(), dc.GetBrush()
+            dc.SetPen(wx.Pen(wx.Colour(170, 178, 188), 1, wx.PENSTYLE_DOT))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.DrawRectangle(int(xy[0]), int(xy[1]), max(1, int(wh[0])), max(1, int(wh[1])))
+            dc.SetPen(pen)
+            dc.SetBrush(brush)
+
+    def WrapToWidth(self):
+        dc = wx.MemoryDC(wx.Bitmap(1, 1))
+        self.SetFont(self.LayoutFontSize, self.Family, self.Style, self.Weight, self.Underlined, self.FaceName)
+        dc.SetFont(self.Font)
+        width = max(1, (self.Width - 2 * self.PadSize) * self.LayoutFontSize / self.Size)
+        lines = []
+        self._paragraph_end_lines = set()
+        for paragraph in self.Strings:
+            wrapped = wordwrap(paragraph, width, dc, breakLongWords=True).split("\n")
+            lines.extend(wrapped)
+            self._paragraph_end_lines.add(len(lines) - 1)
+        self.Strings = lines
+
+    def LayoutText(self):
+        alignment = self.Alignment
+        if alignment == "justify":
+            self.Alignment = "left"
+        try:
+            FloatCanvas.ScaledTextBox.LayoutText(self)
+        finally:
+            self.Alignment = alignment
+        if alignment == "justify" and self.Width:
+            dc = wx.MemoryDC(wx.Bitmap(1, 1))
+            dc.SetFont(self.Font)
+            offset = 0
+            scale = float(self.Size) / self.LayoutFontSize
+            for index, line in enumerate(self.Strings):
+                count = len(line.split(" "))
+                if count > 1 and index not in self._paragraph_end_lines:
+                    extra = max(0, self.Width - 2 * self.PadSize - dc.GetTextExtent(line)[0] * scale)
+                    self.Points[offset:offset + count, 0] += numpy.arange(count) * extra / (count - 1)
+                offset += count
+
     def GetTexte(self):
         return self.texte
     
@@ -3569,7 +3665,7 @@ class Panel_canvas(wx.Panel):
         # AJout le zoom avec la molette de la souris
         self.canvas.SetMode(MyGUIMouse())
 
-        # Propriétés
+        # Propri�t�s
         self.SetMinSize((800, 700)) 
         
         # Layout
@@ -3583,6 +3679,8 @@ class Panel_canvas(wx.Panel):
         # Variables
         self.Moving = False
         self.dictSelection = None
+        self._undo = []
+        self._redo = []
         self.resizing = False
         self.startResizing = None
         self.lastPosition = None
@@ -3593,7 +3691,7 @@ class Panel_canvas(wx.Panel):
         # Init Tooltip
         if self.mode == "visualisation" :
             self.tip = STT.SuperToolTip(u"")
-            self.tip.SetEndDelay(10000) # Fermeture auto du tooltip après 10 secs
+            self.tip.SetEndDelay(10000) # Fermeture auto du tooltip apr�s 10 secs
             self.SetToolTip(wx.ToolTip(""))
 
         # Binds
@@ -3605,12 +3703,60 @@ class Panel_canvas(wx.Panel):
         self.canvas.Bind(wx.EVT_KEY_UP, self.OnKeyUp ) 
         self.canvas.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow ) 
     
+    @staticmethod
+    def _CopieEtat(value):
+        if isinstance(value, numpy.ndarray):
+            return value.copy()
+        if isinstance(value, dict):
+            return {k: Panel_canvas._CopieEtat(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [Panel_canvas._CopieEtat(v) for v in value]
+        return value
+
+    def _Etat(self):
+        return [(o, self._CopieEtat(o.__dict__)) for o in self.canvas._ForeDrawList if hasattr(o, "categorie")]
+
+    def MemoriserEtat(self):
+        if self.mode == "edition":
+            self._undo.append(self._Etat())
+            self._undo = self._undo[-50:]
+            self._redo.clear()
+
+    def Annuler(self, refaire=False):
+        source, destination = (self._redo, self._undo) if refaire else (self._undo, self._redo)
+        if not source:
+            return
+        destination.append(self._Etat())
+        etat = source.pop()
+        keys = ("XY", "Points", "WH", "Width", "Size", "FaceName", "Family", "Style", "Weight", "Underlined", "Alignment", "String", "texte", "nom", "Color", "LineColor", "LineWidth", "BackgroundColor", "PadSize", "LineSpacing", "taillePolicePDF", "largeurTexte")
+        def signature(state):
+            return [(id(o), repr([attrs.get(key) for key in keys])) for o, attrs in state]
+        current = signature(destination[-1])
+        while signature(etat) == current and source:
+            etat = source.pop()
+        self.Deselection(forceDraw=False)
+        for objet in list(self.canvas._ForeDrawList):
+            if hasattr(objet, "categorie"):
+                self.canvas.RemoveObject(objet)
+        for objet, attrs in etat:
+            objet.__dict__.clear()
+            objet.__dict__.update(self._CopieEtat(attrs))
+            objet.dirty = True
+            self.canvas.AddObject(objet)
+        self.canvas.BoundingBoxDirty = True
+        self.canvas.Draw(True)
+
+    def AjusterPage(self):
+        """Cadre la feuille, m�me si un objet d�borde hors de la page."""
+        if self.canvas and getattr(self, "page", None):
+            self.canvas.ZoomToBB(self.page.BoundingBox)
+
     def Init_canvas(self):
         if self.taille_page != None :
             self.Init_page()
             self.Init_fond()
             self.Init_grille()
-            self.canvas.ZoomToBB()
+            self.AjusterPage()
     
     def Reinit_canvas(self):
         self.canvas.RemoveObject(self.page)
@@ -3657,6 +3803,8 @@ class Panel_canvas(wx.Panel):
     def AjouterObjet(self, objet):
         """ Ajoute un objet dans le canvas """
         objet.dirty = True
+        if objet.categorie == "bloc_texte":
+            objet.show_editor_bounds = self.mode == "edition"
 
         # Insertion des objets de fond
         if objet.InForeground == False:
@@ -3672,29 +3820,29 @@ class Panel_canvas(wx.Panel):
                 if "texte" in objet.categorie :
                     objet.Bind(FloatCanvas.EVT_FC_LEFT_DCLICK, self.OnDClickObjet)
 
-            # Création d'un groupe d'objets pour pouvoir ajouter un label par-dessus l'objet
+            # Cr�ation d'un groupe d'objets pour pouvoir ajouter un label par-dessus l'objet
             if self.mode == "visualisation" and objet.IDdonnee != None:
 
-                # Insertion des données interactives
+                # Insertion des donn�es interactives
                 objet.data = self.interactive_data.GetTrack(objet.IDdonnee)
 
-                # Modifie couleur si souhaité
+                # Modifie couleur si souhait�
                 if self.afficher_couleurs_donnees == True :
                     couleur = self.interactive_data.GetCouleur(objet.IDdonnee)
                     if couleur != None :
                         objet.FillColor = couleur
                         objet.SetBrush(tuple(objet.FillColor), objet.FillStyle)
 
-                # Si remplissage caché
+                # Si remplissage cach�
                 if self.afficher_remplissage_donnees == False :
                     objet.FillColor = (0, 0, 0)
                     objet.SetFillStyle("Transparent")
 
-                # Si bords cachés
+                # Si bords cach�s
                 if self.afficher_bords_donnees == False :
                     objet.SetLineStyle("Transparent")
 
-                # Création d'un label pour l'objet
+                # Cr�ation d'un label pour l'objet
                 if self.afficher_labels_donnees == True and objet.data != None :
                     label = objet.data.GetLabel()
                 else :
@@ -3731,10 +3879,10 @@ class Panel_canvas(wx.Panel):
             # Pour les images interactives
             # if False and self.mode == "visualisation" and objet.IDdonnee != None :
             #
-            #     # Ajoute les données
+            #     # Ajoute les donn�es
             #     objet.data = self.interactive_data.GetTrack(objet.IDdonnee)
             #
-            #     # Modifie couleur si souhaité
+            #     # Modifie couleur si souhait�
             #     couleur = self.interactive_data.GetCouleur(objet.IDdonnee)
             #     if couleur != None :
             #         objet.FillColor = couleur
@@ -3773,7 +3921,7 @@ class Panel_canvas(wx.Panel):
         if "Group" in str(objet) :
             objet = objet.ObjectList[0]
 
-        # Rend sa couleur d'originie à l'objet
+        # Rend sa couleur d'originie � l'objet
         objet.SetBrush(tuple(objet.FillColor), objet.FillStyle)
         objet.SetPen(tuple(objet.LineColor), objet.LineStyle, objet.LineWidth)
         self.canvas.Draw(True)
@@ -3782,6 +3930,7 @@ class Panel_canvas(wx.Panel):
         self.ActiveTooltip(actif=False)
 
     def OnDClickObjet(self, objet):
+        self.MemoriserEtat()
         """ Modifier texte sur double-clic """
         if self.mode == "edition":
             dlg = DLG_Saisie_texte_doc.Dialog(self, texte=objet.GetTexte(), listeChamps=self.infosCategorie.champs)
@@ -3807,7 +3956,7 @@ class Panel_canvas(wx.Panel):
     def OnDClick(self, event):
         # Fin du dessin d'un polyline
         if self.drawing_polyline != None :
-            # Si le nombre de points du polylin est inférieur à 2, on le supprimer
+            # Si le nombre de points du polylin est inf�rieur � 2, on le supprimer
             if self.drawing_polyline != True :
                 objet = self.drawing_polyline
                 if len(objet.Points) < 2 :
@@ -3837,6 +3986,7 @@ class Panel_canvas(wx.Panel):
         pass
 
     def OnClicGaucheObjet(self, objet):
+        self.MemoriserEtat()
         """ Clic gauche sur un objet """
         if self.drawing_polyline != None :
             self.OnLeftDownCanvas(objet)
@@ -3844,18 +3994,18 @@ class Panel_canvas(wx.Panel):
 
         if self.mode == "edition" :
 
-            # Activation du déplacement
+            # Activation du d�placement
             if not self.Moving:
                 self.Moving = True
                 self.decalage = objet.HitCoordsPixel - self.canvas.WorldToPixel(objet.GetXY())
                 self.MovingObject = objet
 
-            # Désélection si autre objet déjà sélectionné
+            # D�s�lection si autre objet d�j� s�lectionn�
             if self.dictSelection != None :
                 if self.dictSelection["objet"] != objet :
                     self.Deselection()
 
-            # Sélection de l'objet
+            # S�lection de l'objet
             if self.dictSelection == None :
                 self.Selection(objet)
             else:
@@ -3877,6 +4027,7 @@ class Panel_canvas(wx.Panel):
             self.MenuContextuel(objet)
 
     def OnClicPoignee(self, objet):
+        self.MemoriserEtat()
         if self.drawing_polyline != None :
             self.OnLeftDownCanvas(objet)
             return
@@ -3887,7 +4038,7 @@ class Panel_canvas(wx.Panel):
             self.decalage = objet.HitCoordsPixel - self.canvas.WorldToPixel(self.dictSelection["objet"].GetXY())
     
     def OnClicDroitPoignee(self, objet):
-        """ Création du menu contextuel - Poignée"""
+        """ Cr�ation du menu contextuel - Poign�e"""
         if self.drawing_polyline != None :
             return
 
@@ -3896,7 +4047,7 @@ class Panel_canvas(wx.Panel):
             menu = UTILS_Adaptations.Menu()
             ID_MENU_SUPPRIMER_POINT = wx.Window.NewControlId()
             self.point = objet
-            # Supprimer la poignée
+            # Supprimer la poign�e
             item = wx.MenuItem(menu, ID_MENU_SUPPRIMER_POINT, _(u"Supprimer ce point"), _(u"Supprimer ce point"), wx.ITEM_NORMAL)
             item.SetMarginWidth(16)
             menu.AppendItem(item)
@@ -3906,7 +4057,8 @@ class Panel_canvas(wx.Panel):
             menu.Destroy()
 
     def OnMenu_supprimer_point(self, event):
-        """ Supprimer le point sélectionné """
+        self.MemoriserEtat()
+        """ Supprimer le point s�lectionn� """
         objet = self.dictSelection["objet"]
         if len(objet.Points) == 2 :
             dlg = wx.MessageDialog(self, _(u"Un polygone doit disposer d'au moins 2 points !"), _(u"Suppression impossible"), wx.OK | wx.ICON_INFORMATION)
@@ -3928,7 +4080,7 @@ class Panel_canvas(wx.Panel):
         menu = UTILS_Adaptations.Menu()
         ID_MENU_AJOUTER_POINT = wx.Window.NewControlId()
         self.coords = objet.HitCoords
-        # Supprimer la poignée
+        # Supprimer la poign�e
         item = wx.MenuItem(menu, ID_MENU_AJOUTER_POINT, _(u"Ajouter un point ici"), _(u"Ajouter un point ici"), wx.ITEM_NORMAL)
 ##        item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Supprimer.png"), wx.BITMAP_TYPE_PNG))
         item.SetMarginWidth(16)
@@ -3939,6 +4091,7 @@ class Panel_canvas(wx.Panel):
         menu.Destroy()
 
     def OnMenu_ajouter_point(self, event):
+        self.MemoriserEtat()
         """ Ajouter un point sur le polygone """
         objet = self.dictSelection["objet"]
         x, y = self.coords
@@ -3961,8 +4114,8 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def OnMove(self, event):
-        """ Déplacement """
-        # Magnétisme
+        """ D�placement """
+        # Magn�tisme
         coordsCurseur = event.Coords
         coordsCurseur = (Arrondir(coordsCurseur[0]), Arrondir(coordsCurseur[1]))
         
@@ -3974,7 +4127,7 @@ class Panel_canvas(wx.Panel):
 ##        self.parent.SetStatusText(u"    X : %d mm   Y : %d mm" % coordsCurseur)
         self.afficheStatusBarPerso(x=coordsCurseur[0], y=coordsCurseur[1])
          
-        # Déplacement
+        # D�placement
         if self.Moving :
             objet = self.MovingObject
             objet.dirty = True
@@ -4002,7 +4155,7 @@ class Panel_canvas(wx.Panel):
             # Redimensionnement d'un autre type d'objet
             else:
                 
-                # Récupération des dimensions
+                # R�cup�ration des dimensions
                 x, y = objet.GetXY()
                 largeur, hauteur = objet.GetTaille()
                 
@@ -4059,7 +4212,7 @@ class Panel_canvas(wx.Panel):
             self.Moving = False
         if self.resizing :
             self.resizing = False
-            # Pour éviter le bug des poignées qui disparaissent
+            # Pour �viter le bug des poign�es qui disparaissent
             self.Selection(self.dictSelection["objet"], forceDraw=True)
     
     def OnKeyUp(self, event):
@@ -4072,38 +4225,39 @@ class Panel_canvas(wx.Panel):
             # Suppression avec Del et Suppr
             if codeTouche == 8 or codeTouche == 127 :
                 self.OnMenu_supprimer(None)
-            # Déplacement de l'objet avec les flèches
+            # D�placement de l'objet avec les fl�ches
             if codeTouche == 314 : self.DeplacerObjet(objet, "gauche")
             if codeTouche == 316 : self.DeplacerObjet(objet, "droite")
             if codeTouche == 315 : self.DeplacerObjet(objet, "haut")
             if codeTouche == 317 : self.DeplacerObjet(objet, "bas")
     
     def DeplacerObjet(self, objet, sens=None, newPosition=None):
-        """ Déplacement d'un objet avec les touches """
-        # Déplacement selon un sens
+        self.MemoriserEtat()
+        """ D�placement d'un objet avec les touches """
+        # D�placement selon un sens
         if sens != None :
             if sens == "haut" : delta = numpy.array([0, 1])
             if sens == "bas" : delta = numpy.array([0, -1])
             if sens == "gauche" : delta = numpy.array([-1, 0])
             if sens == "droite" : delta = numpy.array([1, 0])
-        # Déplacement selon une nouvelle position
+        # D�placement selon une nouvelle position
         if hasattr(newPosition, "all"): #newPosition != None :
             delta = newPosition - objet.GetXY()
-        # Vérification si verrouillage de la position
+        # V�rification si verrouillage de la position
         if objet.verrouillageX == True : delta[0] = 0
         if objet.verrouillageY == True : delta[1] = 0
-        # Déplacement
+        # D�placement
         objet.Move(delta)
         objet.dirty = True
         # objet.CalcBoundingBox()
-        # Affichage dans le panneau proriétés
+        # Affichage dans le panneau prori�t�s
         if objet.categorie in ("ligne", "polygone") :
             self.ctrl_proprietes.SetObjet(objet)
         else:
             x, y = objet.GetXY() 
             self.ctrl_proprietes.ctrl_position.SetX(x)
             self.ctrl_proprietes.ctrl_position.SetY(y)
-        # Déplacement du cadre de sélection
+        # D�placement du cadre de s�lection
         if self.dictSelection != None :
             self.dictSelection["cadre"].Move(delta)
             for poignee in self.dictSelection["poignees"] :
@@ -4112,7 +4266,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def ResizeCadreSelection(self, objet):
-        """ Redimensionnement du cadre de sélection """
+        """ Redimensionnement du cadre de s�lection """
         cadre = self.dictSelection["cadre"]
         poignees = self.dictSelection["poignees"]
         
@@ -4127,7 +4281,7 @@ class Panel_canvas(wx.Panel):
             cadre.Points[index] = poignees[0].XY
 
         elif objet.categorie in ("bloc_texte") :
-            # ----- Sélection rectangulaire des blocs texte -----
+            # ----- S�lection rectangulaire des blocs texte -----
 
             if objet.largeurTexte != None :
 
@@ -4137,45 +4291,45 @@ class Panel_canvas(wx.Panel):
                     cadre.Points[index] = point
                     index += 1
 
-                # Poignées du milieu
+                # Poign�es du milieu
                 if objet.verrouillageProportions != True:
                     poignees[0].XY = numpy.array((points[0][0], points[0][1] + ((points[1][1] - points[0][1]) / 2.0)))
                     poignees[1].XY = numpy.array((points[2][0], points[0][1] + ((points[1][1] - points[0][1]) / 2.0)))
 
         else:
-            # ----- Sélection rectangulaire hors texte -----
+            # ----- S�lection rectangulaire hors texte -----
             points = objet.GetOutlinePoints()
             index = 0
             for point in points :
                 cadre.Points[index] = point
                 index += 1
             
-            # Poignées du milieu
+            # Poign�es du milieu
             if objet.verrouillageProportions != True :
                 poignees[4].XY = numpy.array((points[0][0],  points[0][1] + ((points[1][1] - points[0][1] ) / 2.0)))
                 poignees[5].XY = numpy.array((points[2][0] - (points[2][0] - points[1][0]) / 2.0, points[1][1])) 
                 poignees[6].XY = numpy.array((points[2][0], points[0][1] + ((points[1][1] - points[0][1] ) / 2.0) )) 
                 poignees[7].XY = numpy.array((points[2][0] - (points[2][0] - points[1][0]) / 2.0, points[0][1])) 
             
-            # Poignées des coins
+            # Poign�es des coins
             if objet.categorie not in ["ligne_texte", "bloc_texte"] :
                 for index in range(0, 4) :
                     poignees[index].XY = points[index]
         
-        # MAJ du panneau propriétés
+        # MAJ du panneau propri�t�s
         self.ctrl_proprietes.SetObjet(objet)
         
     def Selection(self, objet, forceDraw=True, MAJpanel_proprietes=True):
-        """ Création du cadre de sélection """
+        """ Cr�ation du cadre de s�lection """
         self.Deselection(forceDraw=False, MAJpanel_proprietes=False)
         self.dictSelection = {}
 
-        # Mémorisation de l'objet sélectionné
+        # M�morisation de l'objet s�lectionn�
         self.dictSelection["objet"] = objet
         self.dictSelection["poignees"] = []
         
         if objet.categorie in ("ligne", "polygone") :
-            # ----- Sélection d'une ligne ou d'un polygone -----
+            # ----- S�lection d'une ligne ou d'un polygone -----
             points = numpy.copy(objet.Points)
             points = numpy.append(points, [points[0]],axis=0 )
             ligne = MovingLine(points, LineWidth=1, LineColor=COULEUR_CADRE_SELECTION, LineStyle="Dot", InForeground=True) 
@@ -4198,21 +4352,21 @@ class Panel_canvas(wx.Panel):
 
         elif objet.categorie in ("bloc_texte") :
 
-            # ----- Sélection rectangulaire -----
+            # ----- S�lection rectangulaire -----
 
             points = objet.GetOutlinePoints()
             cadre = MovingPolygon(points, LineWidth=1, LineColor=COULEUR_CADRE_SELECTION, LineStyle="Dot", FillStyle="Transparent", InForeground=True)
             self.canvas.AddObject(cadre)
             self.dictSelection["cadre"] = cadre
-            # Dessin des poignées d'agrandissement
+            # Dessin des poign�es d'agrandissement
             listeNoms = ["BG", "HG", "HD", "BD"]
 
-            # Création des poignées du milieu
+            # Cr�ation des poign�es du milieu
             points = numpy.append(points, [numpy.array((points[0][0], points[0][1] + ((points[1][1] - points[0][1]) / 2.0)))], axis=0)  # MG
             points = numpy.append(points, [numpy.array((points[2][0], points[0][1] + ((points[1][1] - points[0][1]) / 2.0)))], axis=0)  # MD
             listeNoms.extend(["MG", "MD"])
 
-            # Création des poignées des coins
+            # Cr�ation des poign�es des coins
             index = 0
             for point in points:
                 nom = listeNoms[index]
@@ -4226,15 +4380,15 @@ class Panel_canvas(wx.Panel):
 
         else:
             
-            # ----- Sélection rectangulaire -----
+            # ----- S�lection rectangulaire -----
             points = objet.GetOutlinePoints()
             cadre = MovingPolygon(points, LineWidth=1, LineColor=COULEUR_CADRE_SELECTION, LineStyle="Dot", FillStyle = "Transparent", InForeground=True) 
             self.canvas.AddObject(cadre)
             self.dictSelection["cadre"] = cadre
-            # Dessin des poignées d'agrandissement
+            # Dessin des poign�es d'agrandissement
             listeNoms = ["BG", "HG", "HD", "BD"]
             
-            # Création des poignées du milieu
+            # Cr�ation des poign�es du milieu
             if objet.verrouillageProportions != True :
                 points = numpy.append(points, [numpy.array((points[0][0],  points[0][1] + ((points[1][1] - points[0][1] ) / 2.0))) ],axis=0 ) # MG
                 points = numpy.append(points, [numpy.array((points[2][0] - (points[2][0] - points[1][0]) / 2.0, points[1][1])) ],axis=0 ) # MH
@@ -4242,7 +4396,7 @@ class Panel_canvas(wx.Panel):
                 points = numpy.append(points, [numpy.array((points[2][0] - (points[2][0] - points[1][0]) / 2.0, points[0][1])) ],axis=0 )  # MB
                 listeNoms.extend(["MG", "MH", "MD", "MB"])
             
-            # Création des poignées des coins
+            # Cr�ation des poign�es des coins
             index = 0
             if objet.categorie not in ["ligne_texte", "bloc_texte1"] :
                 for point in points :
@@ -4258,13 +4412,13 @@ class Panel_canvas(wx.Panel):
             self.canvas.Draw(True)
             self.AfficheAstuce() # Affiche une astuce
             
-        # MAJ du panel Propriétés
+        # MAJ du panel Propri�t�s
         if MAJpanel_proprietes == True :
             if self.ctrl_proprietes != None :
                 self.ctrl_proprietes.SetObjet(objet)
 
     def Deselection(self, forceDraw=True, MAJpanel_proprietes=True):
-        """ Désélection d'un objet """
+        """ D�s�lection d'un objet """
         if self.dictSelection != None :
             self.canvas.RemoveObject(self.dictSelection["cadre"])
             for poignee in self.dictSelection["poignees"] :
@@ -4292,7 +4446,7 @@ class Panel_canvas(wx.Panel):
         self.afficheStatusBarPerso(info=ASTUCES[index])
         
     def MenuContextuel(self, objet=None):
-        """ Création du menu contextuel """
+        """ Cr�ation du menu contextuel """
         menu = UTILS_Adaptations.Menu()
 
         # Menu contextuel Objet
@@ -4306,7 +4460,7 @@ class Panel_canvas(wx.Panel):
         ID_MENU_DUPLIQUER = wx.Window.NewControlId()
         ID_MENU_SUPPRIMER = wx.Window.NewControlId()
 
-        # Menu contextuel Poignée
+        # Menu contextuel Poign�e
         ID_MENU_SUPPRIMER_POINT = wx.Window.NewControlId()
 
         # Menu contextuel Ligne
@@ -4354,13 +4508,13 @@ class Panel_canvas(wx.Panel):
         menu.AppendSeparator()
 
         # Mettre en avant-plan
-        item = wx.MenuItem(menu, ID_MENU_AVANTPLAN, _(u"Mettre à l'avant-plan"), _(u"Mettre à l'avant-plan l'objet"), wx.ITEM_NORMAL)
+        item = wx.MenuItem(menu, ID_MENU_AVANTPLAN, _(u"Mettre � l'avant-plan"), _(u"Mettre � l'avant-plan l'objet"), wx.ITEM_NORMAL)
         item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Avant-plan.png"), wx.BITMAP_TYPE_PNG))
         menu.AppendItem(item)
         self.Bind(wx.EVT_MENU, self.OnMenu_avantplan, id=ID_MENU_AVANTPLAN)
 
-        # Mettre en arrière-plan
-        item = wx.MenuItem(menu, ID_MENU_ARRIEREPLAN, _(u"Mettre en arrière-plan"), _(u"Mettre en arrière-plan l'objet"), wx.ITEM_NORMAL)
+        # Mettre en arri�re-plan
+        item = wx.MenuItem(menu, ID_MENU_ARRIEREPLAN, _(u"Mettre en arri�re-plan"), _(u"Mettre en arri�re-plan l'objet"), wx.ITEM_NORMAL)
         item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Arriere-plan.png"), wx.BITMAP_TYPE_PNG))
         menu.AppendItem(item)
         self.Bind(wx.EVT_MENU, self.OnMenu_arriereplan, id=ID_MENU_ARRIEREPLAN)
@@ -4386,11 +4540,13 @@ class Panel_canvas(wx.Panel):
         menu.Destroy()
     
     def OnMenu_rotationGauche(self, event):
+        self.MemoriserEtat()
         objet = self.dictSelection["objet"]
         objet.Rotation(False)
         self.Selection(objet, forceDraw=True)
 
     def OnMenu_rotationDroite(self, event):
+        self.MemoriserEtat()
         objet = self.dictSelection["objet"]
         objet.Rotation(True)
         self.Selection(objet, forceDraw=True)
@@ -4400,7 +4556,8 @@ class Panel_canvas(wx.Panel):
         self.OnDClickObjet(objet)
         
     def OnMenu_arriereplan(self, event):
-        """ Mettre objet à l'arrière-plan """
+        self.MemoriserEtat()
+        """ Mettre objet � l'arri�re-plan """
         objet = self.dictSelection["objet"]
         objet.dirty = True
         self.canvas._ForeDrawList.remove(objet)
@@ -4408,7 +4565,8 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
         
     def OnMenu_avantplan(self, event):
-        """ Mettre objet à l'avant-plan """
+        self.MemoriserEtat()
+        """ Mettre objet � l'avant-plan """
         objet = self.dictSelection["objet"]
         objet.dirty = True
         self.canvas._ForeDrawList.remove(objet)
@@ -4417,6 +4575,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def OnMenu_reculer(self, event):
+        self.MemoriserEtat()
         """ Reculer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4427,6 +4586,7 @@ class Panel_canvas(wx.Panel):
             self.canvas.Draw(True)
 
     def OnMenu_avancer(self, event):
+        self.MemoriserEtat()
         """ Avancer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4437,6 +4597,7 @@ class Panel_canvas(wx.Panel):
             self.canvas.Draw(True)
 
     def OnMenu_dupliquer(self, event):
+        self.MemoriserEtat()
         """ Dupliquer l'objet """
 ##        objet = self.dictSelection["objet"]
 ##        self.Deselection(forceDraw=False)
@@ -4447,6 +4608,7 @@ class Panel_canvas(wx.Panel):
 ##        self.Selection(newObjet, forceDraw=True)
 
     def OnMenu_supprimer(self, event):
+        self.MemoriserEtat()
         """ Supprimer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4471,7 +4633,7 @@ class Panel_canvas(wx.Panel):
             self.parent.ctrl_infos.EffaceCoords()
         
     def afficheStatusBarPerso(self, x=None, y=None, info=None):
-        # Affichage des coordonnées de la souris
+        # Affichage des coordonn�es de la souris
         if hasattr(self.parent, "ctrl_infos"):
             self.parent.ctrl_infos.SetCoords(x, y)
             self.parent.ctrl_infos.SetInfo(info)
@@ -4484,7 +4646,7 @@ class Panel_canvas(wx.Panel):
     def GetPhotoPage(self):
         """ Prend une photo de la page """
         self.Deselection(forceDraw=False)
-        self.canvas.ZoomToBB()
+        self.AjusterPage()
         self.Cache_grille()
         objetPage = self.page.ObjectList[2]
         BB = objetPage.BoundingBox
@@ -4534,10 +4696,11 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetMode(GUIMode.GUIZoomIn())
 
     def OnOutil_ajuster(self, Event):
-        self.canvas.ZoomToBB()
+        self.AjusterPage()
         self.canvas.SetFocus()
 
     def OnOutil_rectangle(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un rectangle """
         taille = (100, 60)
 
@@ -4555,6 +4718,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_ligne(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ligne """
         longueurLigne = 100
         # Recherche le centre de l'objet
@@ -4570,6 +4734,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_cercle(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ellipse """
         taille = (80, 80)
         # Recherche le centre de l'objet
@@ -4585,6 +4750,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_polygone(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un polygone """
         taille = (90, 80)
         # Recherche le centre de l'objet
@@ -4601,8 +4767,9 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_polyline(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un polyline """
-        # Prépare la saisie des points
+        # Pr�pare la saisie des points
         self.afficheStatusBarPerso(info=_(u"Cliquez pour ajouter des points puis double-cliquez pour finaliser le polygone"))
         self.drawing_polyline = True
         self.canvas.SetFocus()
@@ -4615,7 +4782,7 @@ class Panel_canvas(wx.Panel):
         """ Ajouter un point sur le polyline """
         objet = self.drawing_polyline
         if objet == True :
-            # Création de l'objet si on saisit le premier point
+            # Cr�ation de l'objet si on saisit le premier point
             points = [[coords[0], coords[1]],]
             objet = AjouterPolygone(points,
                                     couleurTrait=(0, 0, 0), epaissTrait=0.25,
@@ -4631,6 +4798,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def OnOutil_image(self, event):
+        self.MemoriserEtat()
         self.OnDropDownImage(None)
 
     def OnDropDownImage(self, event):
@@ -4667,14 +4835,14 @@ class Panel_canvas(wx.Panel):
                     bmp = wx.BitmapFromImage(img)
             else:
                 bmp = wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Image_absente.png"), wx.BITMAP_TYPE_PNG)
-            item = wx.MenuItem(menuPopup, 10002, _(u"Insérer le logo de l'organisateur"), _(u"Insérer le logo de l'organisateur"), wx.ITEM_NORMAL)
+            item = wx.MenuItem(menuPopup, 10002, _(u"Ins�rer le logo de l'organisateur"), _(u"Ins�rer le logo de l'organisateur"), wx.ITEM_NORMAL)
             item.SetBitmap(bmp)
             menuPopup.AppendItem(item)
             self.Bind(wx.EVT_MENU, self.OnOutil_image_logo, id=10002)
 
             # Importation d'une photo individuelle
             if self.infosCategorie != None and self.infosCategorie.photosIndividuelles == True:
-                item = wx.MenuItem(menuPopup, 10003, _(u"Insérer une photo individuelle"), _(u"Insérer une photo individuelle"), wx.ITEM_NORMAL)
+                item = wx.MenuItem(menuPopup, 10003, _(u"Ins�rer une photo individuelle"), _(u"Ins�rer une photo individuelle"), wx.ITEM_NORMAL)
                 item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Personnes.png"), wx.BITMAP_TYPE_PNG))
                 menuPopup.AppendItem(item)
                 self.Bind(wx.EVT_MENU, self.OnOutil_image_photo, id=10003)
@@ -4686,21 +4854,22 @@ class Panel_canvas(wx.Panel):
 
             self.PopupMenu(menuPopup, pt)
 
-            # Pour éviter que les menus suivants soient déformés
+            # Pour �viter que les menus suivants soient d�form�s
             item.SetMarginWidth(16)
 
             # make sure the button is "un-stuck"
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_image_charger(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une image """
-        # Sélection d'une image
+        # S�lection d'une image
         self.repCourant = os.getcwd()
         wildcard = "Toutes les images (*.bmp; *.gif; *.jpg; *.png)|*.bmp;*.gif;*.jpg;*.png|Image JPEG (*.jpg)|*.jpg|Image PNG (*.png)|*.png|Image GIF (*.gif)|*.gif|Tous les fichiers (*.*)|*.*"
-        # Récupération du chemin des documents
+        # R�cup�ration du chemin des documents
         sp = wx.StandardPaths.Get()
         cheminDefaut = sp.GetDocumentsDir()
-        # Ouverture de la fenêtre de dialogue
+        # Ouverture de la fen�tre de dialogue
         dlg = wx.FileDialog(
             self, message=_(u"Choisissez une image"),
             defaultDir=cheminDefaut,
@@ -4716,10 +4885,10 @@ class Panel_canvas(wx.Panel):
             dlg.Destroy()
             return
 
-        # Détermine la taille de l'image
+        # D�termine la taille de l'image
         taille = os.path.getsize(nomFichierLong)
         if taille > 999999:
-            dlg = wx.MessageDialog(self, _(u"La taille de cette image est supérieure à 1 Mo !\nVous devez donc la compresser avant de l'importer..."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg = wx.MessageDialog(self, _(u"La taille de cette image est sup�rieure � 1 Mo !\nVous devez donc la compresser avant de l'importer..."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
             return
@@ -4734,7 +4903,7 @@ class Panel_canvas(wx.Panel):
         # Charge l'image (Ancienne fonction)
         #img = wx.Image(nomFichierLong)
 
-        # Détermine le type d'image
+        # D�termine le type d'image
         if nomFichierLong.endswith("png"):
             typeImage = "fichier-png"
         else:
@@ -4772,6 +4941,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_image_logo(self, event):
+        self.MemoriserEtat()
         """ Importer le logo de l'organisateur """
         img, exists = GetLogo_organisateur()
         if 'phoenix' in wx.PlatformInfo:
@@ -4796,6 +4966,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_image_photo(self, event):
+        self.MemoriserEtat()
         bmp = wx.Bitmap(Chemins.GetStaticPath("Images/128x128/Femme.png"), wx.BITMAP_TYPE_ANY)
 
         # Conversion de la taille px en mm
@@ -4813,6 +4984,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_codebarres(self, event):
+        self.MemoriserEtat()
         self.OnDropDownBarcode(None)
 
     def OnDropDownBarcode(self, event):
@@ -4827,7 +4999,7 @@ class Panel_canvas(wx.Panel):
             index = 0
             for nom, exemple, code in self.infosCategorie.codesbarres:
                 id = 10000 + index
-                item = wx.MenuItem(menuPopup, id, _(u"Insérer le code-barres '%s'") % nom, _(u"Insérer le code-barres '%s'") % nom, wx.ITEM_NORMAL)
+                item = wx.MenuItem(menuPopup, id, _(u"Ins�rer le code-barres '%s'") % nom, _(u"Ins�rer le code-barres '%s'") % nom, wx.ITEM_NORMAL)
                 item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Codebarres.png"), wx.BITMAP_TYPE_PNG))
                 item.SetMarginWidth(32)
                 menuPopup.AppendItem(item)
@@ -4841,13 +5013,14 @@ class Panel_canvas(wx.Panel):
 
             self.PopupMenu(menuPopup, pt)
 
-            # Pour éviter que les menus suivants soient déformés
+            # Pour �viter que les menus suivants soient d�form�s
             item.SetMarginWidth(16)
 
             # make sure the button is "un-stuck"
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_inserer_barcode(self, event):
+        self.MemoriserEtat()
         index = event.GetId() - 10000
         nom, exemple, champ = self.infosCategorie.codesbarres[index]
         nom = _(u"Code-barres - %s") % nom
@@ -4878,6 +5051,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_texteLigne(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ligne de texte """
         dlg = DLG_Saisie_texte_doc.Dialog(self, texte=u"", listeChamps=self.infosCategorie.champs)
         if dlg.ShowModal() == wx.ID_OK:
@@ -4908,6 +5082,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_texteBloc(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un bloc de texte """
         if self.infosCategorie != None :
             listeChamps = self.infosCategorie.champs
@@ -4928,7 +5103,7 @@ class Panel_canvas(wx.Panel):
         font = wx.Font(tailleFont, wx.SWISS, wx.NORMAL, wx.NORMAL, False, "Arial")
 
         # Insertion
-        objet = AjouterBlocTexte(texte, (0, 0), taillePolicePDF=tailleFont, font=font)
+        objet = AjouterBlocTexte(texte, (0, 0), taillePolicePDF=tailleFont, font=font, largeurTexte=max(20, self.taille_page[0] - 40))
         self.AjouterObjet(objet)
 
         # Centrer
@@ -4945,6 +5120,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_special(self, event):
+        self.MemoriserEtat()
         self.OnDropDownSpecial(None)
 
     def OnDropDownSpecial(self, event):
@@ -4959,7 +5135,7 @@ class Panel_canvas(wx.Panel):
             index = 0
             for dictSpecial in self.infosCategorie.speciaux:
                 id = 20000 + index
-                label = _(u"Insérer l'objet '%s'") % dictSpecial["nom"]
+                label = _(u"Ins�rer l'objet '%s'") % dictSpecial["nom"]
                 item = wx.MenuItem(menuPopup, id, label, label, wx.ITEM_NORMAL)
                 item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Special.png"), wx.BITMAP_TYPE_PNG))
                 item.SetMarginWidth(32)
@@ -4986,20 +5162,21 @@ class Panel_canvas(wx.Panel):
 
             self.PopupMenu(menuPopup, pt)
 
-            # Pour éviter que les menus suivants soient déformés
+            # Pour �viter que les menus suivants soient d�form�s
             item.SetMarginWidth(16)
 
             # make sure the button is "un-stuck"
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_inserer_special(self, event):
+        self.MemoriserEtat()
         index = event.GetId() - 20000
         dictSpecial = self.infosCategorie.speciaux[index]
         self.AjouterSpecial(dictSpecial)
 
     def AjouterSpecial(self, dictSpecial={}):
-        """ Ajouter un objet spécial """
-        # Position et taille par défaut
+        """ Ajouter un objet sp�cial """
+        # Position et taille par d�faut
         x = dictSpecial["x"]
         y = dictSpecial["y"]
         largeur = dictSpecial["largeur"]
@@ -5071,7 +5248,7 @@ class Panel_canvas(wx.Panel):
                 self.AjouterSpecial(objet)
 
     def Importation(self, IDmodele=None, InForeground=True, ResetBB=True):
-        """ Importation des objets d'un modèle """
+        """ Importation des objets d'un mod�le """
         listeObjets = ImportationObjets(IDmodele=IDmodele, InForeground=InForeground)
         for objet in listeObjets:
             self.AjouterObjet(objet)
@@ -5082,12 +5259,12 @@ class Panel_canvas(wx.Panel):
             return listeObjets
 
         if ResetBB == True :
-            self.canvas.ZoomToBB()
+            self.AjusterPage()
         self.SetFocus()
 
     def Sauvegarde(self):
-        """ Sauvegarde des données """
-        # Sauvegarde des propriétés du document
+        """ Sauvegarde des donn�es """
+        # Sauvegarde des propri�t�s du document
         nom = self.parent.ctrl_proprietes_doc.GetNom()
         observations = self.parent.ctrl_proprietes_doc.GetObservations()
         IDdonnee = self.IDdonnee
@@ -5202,7 +5379,7 @@ class Panel_canvas(wx.Panel):
 
             index += 1
 
-        # Effacement des objets supprimés
+        # Effacement des objets supprim�s
         for IDobjet in self.listeInitialeObjets:
             if IDobjet not in listeObjetsSauves:
                 DB.ReqDEL("documents_objets", "IDobjet", IDobjet)
@@ -5211,16 +5388,16 @@ class Panel_canvas(wx.Panel):
 
 
     def AfficheTooltip(self):
-        """ Création du supertooltip """
+        """ Cr�ation du supertooltip """
         objet = self.tip.objet
 
-        # Récupération des données du tooltip
+        # R�cup�ration des donn�es du tooltip
         dictDonnees = self.interactive_data.GetTexteInfoBulle(objet.IDdonnee)
         if dictDonnees == None or type(dictDonnees) != dict:
             self.ActiveTooltip(actif=False)
             return
 
-        # Paramétrage du tooltip
+        # Param�trage du tooltip
         font = self.GetFont()
         self.tip.SetHyperlinkFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, 'Arial'))
 
@@ -5269,9 +5446,9 @@ class Panel_canvas(wx.Panel):
         self.tipFrame.SetPosition((x + 15, y + 17))
         self.tipFrame.DropShadow(True)
         self.tipFrame.Show()
-        #self.tipFrame.StartAlpha(True)  # ou .Show() pour un affichage immédiat
+        #self.tipFrame.StartAlpha(True)  # ou .Show() pour un affichage imm�diat
 
-        # Arrêt du timer
+        # Arr�t du timer
         self.timerTip.Stop()
         del self.timerTip
 
@@ -5292,7 +5469,7 @@ class Panel_canvas(wx.Panel):
                 self.timerTip.Start(1500)
                 self.tip.objet = objet
         else:
-            # Désactive le tooltip
+            # D�sactive le tooltip
             if hasattr(self, "timerTip"):
                 if self.timerTip.IsRunning():
                     self.timerTip.Stop()
@@ -5312,7 +5489,7 @@ class Dialog(wx.Dialog):
         # DLG Attente
         dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'initialisation de Noedoc..."), self.parent)
 
-        # Recherche des données de la catégorie
+        # Recherche des donn�es de la cat�gorie
         if categorie == "fond" : self.infosCategorie = Fond()
         if categorie == "facture" : self.infosCategorie = Facture()
         if categorie == "rappel" : self.infosCategorie = Rappel()
@@ -5331,10 +5508,10 @@ class Dialog(wx.Dialog):
         self._mgr = aui.AuiManager()
         self._mgr.SetManagedWindow(self)
         
-        # Propriétés
+        # Propri�t�s
         self.SetMinSize((920, 740))
 
-        # Création des widgets
+        # Cr�ation des widgets
         self.ctrl_canvas = Panel_canvas(self, IDmodele=IDmodele, categorie=categorie, infosCategorie=self.infosCategorie, taille_page=taille_page)
 
         # Barres d'outils
@@ -5342,14 +5519,14 @@ class Dialog(wx.Dialog):
         self.toolbar2 = self.MakeToolBar2()
         self.toolbar3 = self.MakeToolBar3()
 
-        # Création des panels détachables
+        # Cr�ation des panels d�tachables
         self.ctrl_infos = Panel_infos(self)
         self.ctrl_commandes = Panel_commandes(self)
         self.ctrl_proprietes_doc = Panel_proprietes_doc(self, self.ctrl_canvas, categorie=categorie)
         self.ctrl_proprietes_objet = Panel_proprietes_objet(self, self.ctrl_canvas)
         self.ctrl_canvas.ctrl_proprietes = self.ctrl_proprietes_objet
         
-        # Création des panels amovibles
+        # Cr�ation des panels amovibles
         self._mgr.AddPane(self.ctrl_infos, aui.AuiPaneInfo().
                           Name("infos").Caption(_(u"Infos")).
                           Bottom().Layer(0).Position(1).CaptionVisible(False).CloseButton(False).MaximizeButton(False).MinSize((-1, 18)))
@@ -5359,18 +5536,18 @@ class Dialog(wx.Dialog):
                           Bottom().Layer(1).Position(2).CaptionVisible(False).CloseButton(False).MaximizeButton(False).MinSize((-1, 50)))
 
         self._mgr.AddPane(self.ctrl_proprietes_doc, aui.AuiPaneInfo().
-                          Name("proprietes_doc").Caption(_(u"Propriétés du modèle")).
+                          Name("proprietes_doc").Caption(_(u"Propri�t�s du mod�le")).
                           Right().Layer(1).Position(1).Fixed().CloseButton(False).MaximizeButton(False))
                         
         self._mgr.AddPane(self.ctrl_proprietes_objet, aui.AuiPaneInfo().
-                          Name("proprietes_objet").Caption(_(u"Propriétés de l'objet")).
+                          Name("proprietes_objet").Caption(_(u"Propri�t�s de l'objet")).
                           Right().Layer(1).Position(2).CloseButton(False).MaximizeButton(False).MinSize((160, -1)))
         
-        # Création du panel central
+        # Cr�ation du panel central
         self._mgr.AddPane(self.ctrl_canvas, aui.AuiPaneInfo().Name("canvas").
                           CenterPane())
         
-        # Création des barres d'outils
+        # Cr�ation des barres d'outils
         self._mgr.AddPane(self.toolbar1, aui.AuiPaneInfo().
                           Name("barreOutil_modes").Caption("Modes").
                           ToolbarPane().Top().
@@ -5398,7 +5575,7 @@ class Dialog(wx.Dialog):
         _icon.CopyFromBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Logo.png"), wx.BITMAP_TYPE_ANY))
         self.SetIcon(_icon)
         
-        # Remplit propriétés doc
+        # Remplit propri�t�s doc
         self.ctrl_proprietes_doc.SetNom(nom)
         self.ctrl_proprietes_doc.SetObservations(observations)
         self.ctrl_proprietes_doc.SetFond(IDfond)
@@ -5416,8 +5593,8 @@ class Dialog(wx.Dialog):
             self.ctrl_canvas.Importation(self.IDmodele)
         else:
             self.ctrl_canvas.CreationObjetsObligatoires()
-            # Demande le nom du nouveau modèle
-            dlg = wx.TextEntryDialog(self, _(u"Veuillez saisir un nom pour ce nouveau modèle :"), _(u"Nouveau modèle"))
+            # Demande le nom du nouveau mod�le
+            dlg = wx.TextEntryDialog(self, _(u"Veuillez saisir un nom pour ce nouveau mod�le :"), _(u"Nouveau mod�le"))
             if dlg.ShowModal() == wx.ID_OK:
                 self.ctrl_proprietes_doc.SetNom(dlg.GetValue())
             dlg.Destroy()
@@ -5425,7 +5602,26 @@ class Dialog(wx.Dialog):
         UTILS_Dialogs.AjusteSizePerso(self, __file__)
         self.CenterOnScreen()
         self.ctrl_canvas.OnOutil_ajuster(None)
+        self.ctrl_canvas._undo.clear()
+        self.ctrl_canvas._redo.clear()
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnHistorique)
+        self.Bind(wx.EVT_SHOW, self.OnAffichageInitial)
 
+    def OnHistorique(self, event):
+        if event.ControlDown() and event.GetKeyCode() in (ord("Z"), ord("Y")):
+            focus = wx.Window.FindFocus()
+            if isinstance(focus, wx.TextCtrl):
+                event.Skip()
+                return
+            self.ctrl_canvas.Annuler(refaire=event.GetKeyCode() == ord("Y") or event.ShiftDown())
+            return
+        event.Skip()
+
+    def OnAffichageInitial(self, event):
+        if event.IsShown():
+            self.Unbind(wx.EVT_SHOW, handler=self.OnAffichageInitial)
+            wx.CallAfter(self.ctrl_canvas.AjusterPage)
+        event.Skip()
 
     def MakeToolBar1(self):
         tbar = aui.AuiToolBar(self, -1, wx.DefaultPosition, wx.DefaultSize, agwStyle=aui.AUI_TB_DEFAULT_STYLE | aui.AUI_TB_OVERFLOW)
@@ -5437,11 +5633,11 @@ class Dialog(wx.Dialog):
         tbar.ToggleTool(ID_OUTIL_CURSEUR, True)
 
         ID_OUTIL_DEPLACER = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_DEPLACER, _(u"Déplacer"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Main.png"), wx.BITMAP_TYPE_ANY), _(u"Déplacer"), aui.ITEM_RADIO)
+        tbar.AddSimpleTool(ID_OUTIL_DEPLACER, _(u"D�placer"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Main.png"), wx.BITMAP_TYPE_ANY), _(u"D�placer"), aui.ITEM_RADIO)
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_deplacer, id=ID_OUTIL_DEPLACER)
 
         ID_OUTIL_ZOOM_OUT = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_ZOOM_OUT, _(u"Zoom arrière"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/zoom_moins.png"), wx.BITMAP_TYPE_ANY), _(u"Zoom arrière"), aui.ITEM_RADIO)
+        tbar.AddSimpleTool(ID_OUTIL_ZOOM_OUT, _(u"Zoom arri�re"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/zoom_moins.png"), wx.BITMAP_TYPE_ANY), _(u"Zoom arri�re"), aui.ITEM_RADIO)
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_zoom_moins, id=ID_OUTIL_ZOOM_OUT)
 
         ID_OUTIL_ZOOM_IN = wx.Window.NewControlId()
@@ -5457,7 +5653,7 @@ class Dialog(wx.Dialog):
         tbar.AddSeparator()
 
         ID_OUTIL_AFFICHAGE_APERCU = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_AFFICHAGE_APERCU, _(u"Afficher un aperçu PDF"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Pdf.png"), wx.BITMAP_TYPE_ANY), _(u"Afficher un aperçu PDF"))
+        tbar.AddSimpleTool(ID_OUTIL_AFFICHAGE_APERCU, _(u"Afficher un aper�u PDF"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Pdf.png"), wx.BITMAP_TYPE_ANY), _(u"Afficher un aper�u PDF"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnAffichage_apercu, id=ID_OUTIL_AFFICHAGE_APERCU)
 
         tbar.Realize()
@@ -5468,32 +5664,32 @@ class Dialog(wx.Dialog):
         tbar.SetToolBitmapSize(wx.Size(32, 32))
 
         ID_OUTIL_OBJET_TEXTE_BLOC = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_TEXTE_BLOC, _(u"Insérer un bloc de texte multi-lignes"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Texte_ligne.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer un bloc de texte multi-lignes"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_TEXTE_BLOC, _(u"Ins�rer un bloc de texte multi-lignes"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Texte_ligne.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer un bloc de texte multi-lignes"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_texteBloc, id=ID_OUTIL_OBJET_TEXTE_BLOC)
 
         ID_OUTIL_OBJET_RECTANGLE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_RECTANGLE, _(u"Insérer un rectangle"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Rectangle.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer un rectangle"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_RECTANGLE, _(u"Ins�rer un rectangle"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Rectangle.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer un rectangle"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_rectangle, id=ID_OUTIL_OBJET_RECTANGLE)
 
         ID_OUTIL_OBJET_LIGNE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_LIGNE, _(u"Insérer une ligne"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Ligne.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer une ligne"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_LIGNE, _(u"Ins�rer une ligne"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Ligne.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer une ligne"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_ligne, id=ID_OUTIL_OBJET_LIGNE)
 
         ID_OUTIL_OBJET_CERCLE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_CERCLE, _(u"Insérer une ellipse"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Cercle.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer une ellipse"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_CERCLE, _(u"Ins�rer une ellipse"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Cercle.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer une ellipse"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_cercle, id=ID_OUTIL_OBJET_CERCLE)
 
         ID_OUTIL_OBJET_POLYGONE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_POLYGONE, _(u"Insérer un polygone"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Polygone.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer un polygone"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_POLYGONE, _(u"Ins�rer un polygone"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Polygone.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer un polygone"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_polygone, id=ID_OUTIL_OBJET_POLYGONE)
 
         ID_OUTIL_OBJET_POLYLINE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_POLYLINE, _(u"Dessiner un polygone à main levée"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Polyline.png"), wx.BITMAP_TYPE_ANY), _(u"Dessiner un polygone à main levée"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_POLYLINE, _(u"Dessiner un polygone � main lev�e"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Polyline.png"), wx.BITMAP_TYPE_ANY), _(u"Dessiner un polygone � main lev�e"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_polyline, id=ID_OUTIL_OBJET_POLYLINE)
 
         ID_OUTIL_OBJET_IMAGE_DROPDOWN = wx.Window.NewControlId()
         ID_OUTIL_OBJET_IMAGE = wx.Window.NewControlId()
-        tbar.AddSimpleTool(ID_OUTIL_OBJET_IMAGE_DROPDOWN, _(u"Insérer une image"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Image.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer une image"))
+        tbar.AddSimpleTool(ID_OUTIL_OBJET_IMAGE_DROPDOWN, _(u"Ins�rer une image"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Image.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer une image"))
         self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_image, id=ID_OUTIL_OBJET_IMAGE)
         self.Bind(aui.EVT_AUITOOLBAR_TOOL_DROPDOWN, self.ctrl_canvas.OnDropDownImage, id=ID_OUTIL_OBJET_IMAGE_DROPDOWN)
         tbar.SetToolDropDown(ID_OUTIL_OBJET_IMAGE_DROPDOWN, True)
@@ -5501,7 +5697,7 @@ class Dialog(wx.Dialog):
         if len(self.infosCategorie.codesbarres) > 0 :
             ID_OUTIL_OBJET_BARCODE_DROPDOWN = wx.Window.NewControlId()
             ID_OUTIL_OBJET_CODEBARRES = wx.Window.NewControlId()
-            tbar.AddSimpleTool(ID_OUTIL_OBJET_BARCODE_DROPDOWN, _(u"Insérer un code-barres"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Codebarres.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer un code-barres"))
+            tbar.AddSimpleTool(ID_OUTIL_OBJET_BARCODE_DROPDOWN, _(u"Ins�rer un code-barres"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Codebarres.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer un code-barres"))
             self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_codebarres, id=ID_OUTIL_OBJET_CODEBARRES)
             self.Bind(aui.EVT_AUITOOLBAR_TOOL_DROPDOWN, self.ctrl_canvas.OnDropDownBarcode, id=ID_OUTIL_OBJET_BARCODE_DROPDOWN)
             tbar.SetToolDropDown(ID_OUTIL_OBJET_BARCODE_DROPDOWN, True)
@@ -5509,7 +5705,7 @@ class Dialog(wx.Dialog):
         if len(self.infosCategorie.speciaux) > 0 :
             ID_OUTIL_OBJET_SPECIAL_DROPDOWN = wx.Window.NewControlId()
             ID_OUTIL_OBJET_SPECIAL = wx.Window.NewControlId()
-            tbar.AddSimpleTool(ID_OUTIL_OBJET_SPECIAL_DROPDOWN, _(u"Insérer un objet spécial"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Special.png"), wx.BITMAP_TYPE_ANY), _(u"Insérer un objet spécial"))
+            tbar.AddSimpleTool(ID_OUTIL_OBJET_SPECIAL_DROPDOWN, _(u"Ins�rer un objet sp�cial"), wx.Bitmap(Chemins.GetStaticPath("Images/32x32/Special.png"), wx.BITMAP_TYPE_ANY), _(u"Ins�rer un objet sp�cial"))
             self.Bind(wx.EVT_TOOL, self.ctrl_canvas.OnOutil_special, id=ID_OUTIL_OBJET_SPECIAL)
             self.Bind(aui.EVT_AUITOOLBAR_TOOL_DROPDOWN, self.ctrl_canvas.OnDropDownSpecial, id=ID_OUTIL_OBJET_SPECIAL_DROPDOWN)
             tbar.SetToolDropDown(ID_OUTIL_OBJET_SPECIAL_DROPDOWN, True)
@@ -5605,8 +5801,8 @@ def GetLogo_organisateur():
 
 
 def ImportationInfosModele(IDmodele=None):
-    """ Importation des infos d'un modèle """
-    # Importation des données
+    """ Importation des infos d'un mod�le """
+    # Importation des donn�es
     DB = GestionDB.DB()
     req = "SELECT nom, categorie, largeur, hauteur, IDfond FROM documents_modeles WHERE IDmodele=%d;" % IDmodele 
     DB.ExecuterReq(req)
@@ -5618,7 +5814,7 @@ def ImportationInfosModele(IDmodele=None):
     return dictInfos
 
 def ImportationObjets(IDmodele=None, InForeground=True):
-    """ Importation des objets d'un modèle """
+    """ Importation des objets d'un mod�le """
     # Recherche des noms de champs
     from Data.DATA_Tables import DB_DATA as dictChamps
     listeChamps = []
@@ -5628,7 +5824,7 @@ def ImportationObjets(IDmodele=None, InForeground=True):
     if IDmodele == None :
         return []
 
-    # Importation des données
+    # Importation des donn�es
     DB = GestionDB.DB()
     req = "SELECT * FROM documents_objets WHERE IDmodele=%d ORDER BY ordre;" % IDmodele
     DB.ExecuterReq(req)
@@ -5659,7 +5855,7 @@ def ImportationObjets(IDmodele=None, InForeground=True):
     
     listeObjetsCanvas = []
             
-    # Création des objets
+    # Cr�ation des objets
     for objet in listeObjets :
         objet["x"] = float(objet["x"])
         objet["y"] = float(objet["y"])
@@ -5781,7 +5977,7 @@ def ImportationObjets(IDmodele=None, InForeground=True):
                     InForeground=InForeground,
                     )
 
-        # Spécial
+        # Sp�cial
         if objet["categorie"] == "special" :
             objetCanvas = AjouterSpecial(
                     numpy.array([objet["x"], objet["y"]]),
@@ -5843,6 +6039,8 @@ def ImportationObjets(IDmodele=None, InForeground=True):
         
         if objet["categorie"] in ("ligne_texte", "bloc_texte") and objet.get("nomPolice"):
             objetCanvas.FaceName = objet["nomPolice"]
+            objetCanvas.LayoutText()
+            objetCanvas.CalcBoundingBox()
 
         listeObjetsCanvas.append(objetCanvas)
 
@@ -5852,21 +6050,21 @@ def ImportationObjets(IDmodele=None, InForeground=True):
 # ------------------------------------------------------------------------------------------------------------------------------
 
 class ModeleDoc():
-    """ Importation d'un modèle pour un PDF """
+    """ Importation d'un mod�le pour un PDF """
     def __init__(self, IDmodele=None):
         self.IDmodele = IDmodele
         
         # Importation infos sur organisateur pour le fond
         self.dictOrganisateur = self.ImportationOrganisateur() 
         
-        # Importation des infos sur ce modèle
+        # Importation des infos sur ce mod�le
         self.dictInfosModele = ImportationInfosModele(IDmodele=IDmodele)
         
         # Importation des objets
         self.listeObjets = ImportationObjets(IDmodele=IDmodele)
     
     def ImportationOrganisateur(self):
-        """ Récupération des infos sur l'organisme """
+        """ R�cup�ration des infos sur l'organisme """
         DB = GestionDB.DB()
         req = """SELECT nom, rue, cp, ville, tel, fax, mail, site, num_agrement, num_siret, code_ape
         FROM organisateur
@@ -5940,7 +6138,7 @@ class ModeleDoc():
             for nomChamp, valeur in dictChamps.items() :
                 # Traitement d'une formule
                 texte = DLG_Saisie_formule.ResolveurTexte(texte=texte, listeChamps=list(dictChamps.keys()), dictValeurs=dictChamps)
-                # Remplacement des mos-clés par les valeurs
+                # Remplacement des mos-cl�s par les valeurs
                 if type(nomChamp) in (str, six.text_type) and nomChamp.startswith("{") :
                     if valeur == None : valeur = ""
                     if type(valeur) == int : valeur = str(valeur)
@@ -5948,7 +6146,7 @@ class ModeleDoc():
                     if type(valeur) == datetime.date : valeur = UTILS_Dates.DateDDEnFr(valeur)
                     if nomChamp in texte :
                         texte = texte.replace(nomChamp, valeur)
-            # Remplace également les mots-clés non utilisés par des chaînes vides
+            # Remplace �galement les mots-cl�s non utilis�s par des cha�nes vides
             texte = re.sub(r"\{[A-Za-z0-9_-]*?\}", "", texte)
             
             valeur=texte
@@ -5977,7 +6175,7 @@ class ModeleDoc():
                             img = wx.ImageFromStream(io, wx.BITMAP_TYPE_ANY)
                         valeur=img
                     else:
-                        # Image par défaut
+                        # Image par d�faut
                         if "nomImage" in dictChamps :
                             nomImage = dictChamps["nomImage"]
                             bmp = wx.Bitmap(Chemins.GetStaticPath("Images/128x128/%s" % nomImage), wx.BITMAP_TYPE_ANY)
@@ -6180,11 +6378,11 @@ def DessineObjetPDF(objet, canvas, valeur=None):
         x, y = GetXY(objet)
         largeur, hauteur = GetTaille(objet)
         if valeur != None :   
-            # Vérifie que uniquement des chiffres dans certains codes-barres
+            # V�rifie que uniquement des chiffres dans certains codes-barres
             if objet.norme in ("EAN8", "EAN13") :
                 for caract in valeur :
                     if caract not in "0123456789" :
-                        dlg = wx.MessageDialog(None, _(u"Génération du PDF impossible.\n\nErreur : Un code-barres %s doit comporter uniquement des chiffres. Cette erreur apparaît donc si une lettre se trouve dans la valeur du code-barres (Ce qui est le cas pour certains codes-barres standards de Noethys). Vous pouvez contourner le problème en créant des Codes-barres manuels avec les QUESTIONNAIRES de Noethys.") % objet.norme, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                        dlg = wx.MessageDialog(None, _(u"G�n�ration du PDF impossible.\n\nErreur : Un code-barres %s doit comporter uniquement des chiffres. Cette erreur appara�t donc si une lettre se trouve dans la valeur du code-barres (Ce qui est le cas pour certains codes-barres standards de Noethys). Vous pouvez contourner le probl�me en cr�ant des Codes-barres manuels avec les QUESTIONNAIRES de Noethys.") % objet.norme, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                         dlg.ShowModal()
                         dlg.Destroy()
                         return False
@@ -6254,11 +6452,11 @@ class Impression():
             taille_page = (self.taille_page[0]*mmPDF, self.taille_page[1]*mmPDF)
         canvas = CanvasPDF(nomDoc, pagesize=taille_page)
         
-        # Création des objets du fond
+        # Cr�ation des objets du fond
         for objet in self.listeObjetsFond :
             DessineObjetPDF(objet, canvas)
             
-        # Création des objets du premier plan
+        # Cr�ation des objets du premier plan
         for objet in listeObjets :
             DessineObjetPDF(objet, canvas)
         
