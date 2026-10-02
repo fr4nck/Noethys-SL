@@ -47,6 +47,23 @@ class Interface(wx.Panel):
         self.ctrl_theme = wx.Choice(self, -1, choices=self.liste_labels_theme)
         self.ctrl_theme.SetSelection(0)
 
+        # Fond d'accueil
+        self.liste_codes_fond = ["remplir", "adapter", "etirer", "original"]
+        self.liste_labels_fond = [
+            _(u"Remplir la fenêtre (conserver le ratio)"),
+            _(u"Adapter toute l'image (conserver le ratio)"),
+            _(u"Étirer à la fenêtre"),
+            _(u"Taille d'origine"),
+        ]
+        self.label_fond = wx.StaticText(self, -1, _(u"Fond d'accueil :"))
+        self.ctrl_fond = wx.Choice(self, -1, choices=self.liste_labels_fond)
+        self.ctrl_fond.SetSelection(0)
+
+        self.label_attenuation = wx.StaticText(self, -1, _(u"Atténuation du fond :"))
+        self.ctrl_attenuation = wx.SpinCtrl(self, -1, min=0, max=60)
+        self.ctrl_attenuation.SetValue(20)
+        self.label_attenuation_unite = wx.StaticText(self, -1, "%")
+
         # Langue
         self.liste_labels_langue = [u"Français (par défaut)",]
         self.liste_codes_langue = [None,]
@@ -77,15 +94,29 @@ class Interface(wx.Panel):
 
     def __set_properties(self):
         self.ctrl_theme.SetToolTip(wx.ToolTip(_(u"Sélectionnez un thème pour l'interface. Redémarrez le logiciel pour appliquer la modification.")))
+        self.ctrl_fond.SetToolTip(wx.ToolTip(_(u"Choisissez la façon dont l'image d'accueil s'adapte à la taille de la fenêtre.")))
+        self.ctrl_attenuation.SetToolTip(wx.ToolTip(_(u"Réduisez le contraste du fond d'accueil. 0 % conserve l'image d'origine, 60 % l'atténue fortement.")))
         self.ctrl_langue.SetToolTip(wx.ToolTip(_(u"Sélectionnez la langue de l'interface parmi les langues disponibles dans la liste. Redémarrez le logiciel pour appliquer la modification.")))
 
     def __do_layout(self):
         staticbox = wx.StaticBoxSizer(self.staticbox_staticbox, wx.VERTICAL)
-        grid_sizer_base = wx.FlexGridSizer(rows=2, cols=2, vgap=10, hgap=10)
+        grid_sizer_base = wx.FlexGridSizer(rows=4, cols=3, vgap=10, hgap=10)
         grid_sizer_base.Add(self.label_theme, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_base.Add(self.ctrl_theme, 1, wx.EXPAND, 0)
+        grid_sizer_base.Add((1, 1), 0, 0, 0)
+
+        grid_sizer_base.Add(self.label_fond, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_fond, 1, wx.EXPAND, 0)
+        grid_sizer_base.Add((1, 1), 0, 0, 0)
+
+        grid_sizer_base.Add(self.label_attenuation, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_attenuation, 0, 0, 0)
+        grid_sizer_base.Add(self.label_attenuation_unite, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+
         grid_sizer_base.Add(self.label_langue, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_base.Add(self.ctrl_langue, 1, wx.EXPAND, 0)
+        grid_sizer_base.Add((1, 1), 0, 0, 0)
+
         grid_sizer_base.AddGrowableCol(1)
         staticbox.Add(grid_sizer_base, 1, wx.ALL|wx.EXPAND, 5)
         self.SetSizer(staticbox)
@@ -99,6 +130,17 @@ class Interface(wx.Panel):
             if code == theme :
                 self.ctrl_theme.SetSelection(index)
             index += 1
+
+        # Fond d'accueil
+        mode_fond = UTILS_Config.GetParametre("fond_accueil_mode", "remplir")
+        if mode_fond not in self.liste_codes_fond:
+            mode_fond = "remplir"
+        self.ctrl_fond.SetSelection(self.liste_codes_fond.index(mode_fond))
+        try:
+            attenuation = int(UTILS_Config.GetParametre("fond_accueil_attenuation", 20))
+        except Exception:
+            attenuation = 20
+        self.ctrl_attenuation.SetValue(max(0, min(60, attenuation)))
 
         # Langue
         code = UTILS_Config.GetParametre("langue_interface", None)
@@ -115,6 +157,11 @@ class Interface(wx.Panel):
         # Thème
         theme = self.liste_codes_theme[self.ctrl_theme.GetSelection()]
         UTILS_Interface.SetTheme(theme)
+
+        # Fond d'accueil
+        mode_fond = self.liste_codes_fond[self.ctrl_fond.GetSelection()]
+        UTILS_Config.SetParametre("fond_accueil_mode", mode_fond)
+        UTILS_Config.SetParametre("fond_accueil_attenuation", self.ctrl_attenuation.GetValue())
 
         # Langue
         code = self.liste_codes_langue[self.ctrl_langue.GetSelection()]

@@ -14,6 +14,8 @@ import wx
 import datetime
 import sqlite3
 from Utils import UTILS_Interface
+from Utils import UTILS_Config
+from Utils import UTILS_FondAccueil
 from wx.lib.wordwrap import wordwrap
 import six
 
@@ -120,7 +122,21 @@ class Panel(wx.Panel):
         nom_fichier = "Fond.jpg"
         if six.PY3 and theme == "Vert":
             nom_fichier = "Fond_2019.jpg"
-        self.image_fond = wx.Bitmap(Chemins.GetStaticPath("Images/Interface/%s/%s" % (theme, nom_fichier)), wx.BITMAP_TYPE_ANY)
+
+        self.chemin_image_fond = Chemins.GetStaticPath("Images/Interface/%s/%s" % (theme, nom_fichier))
+        self.image_fond = wx.Image(self.chemin_image_fond, wx.BITMAP_TYPE_ANY)
+        self.mode_fond = UTILS_FondAccueil.NormaliserMode(
+            UTILS_Config.GetParametre("fond_accueil_mode", UTILS_FondAccueil.MODE_FOND_DEFAUT)
+        )
+        try:
+            self.attenuation_fond = int(UTILS_Config.GetParametre("fond_accueil_attenuation", 20))
+        except Exception:
+            self.attenuation_fond = 20
+        self.attenuation_fond = max(0, min(60, self.attenuation_fond))
+
+        self._bitmap_fond_cache = None
+        self._cle_fond_cache = None
+        self.SetBackgroundColour(wx.Colour(242, 242, 242))
 
         # Binds
         self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -128,23 +144,72 @@ class Panel(wx.Panel):
         self.Bind(wx.EVT_SIZE, self.OnSize)
 
     def OnSize(self, event):
+        self._bitmap_fond_cache = None
+        self._cle_fond_cache = None
         self.Refresh()
+        event.Skip()
+
+    def _GetBitmapFond(self, largeur, hauteur):
+        if not self.image_fond.IsOk() or largeur <= 0 or hauteur <= 0:
+            return None
+
+        cle = (int(largeur), int(hauteur))
+        if cle == self._cle_fond_cache and self._bitmap_fond_cache is not None:
+            return self._bitmap_fond_cache
+
+        if largeur == self.image_fond.GetWidth() and hauteur == self.image_fond.GetHeight():
+            bitmap = wx.Bitmap(self.image_fond)
+        else:
+            image = self.image_fond.Copy()
+            image.Rescale(int(largeur), int(hauteur), wx.IMAGE_QUALITY_HIGH)
+            bitmap = wx.Bitmap(image)
+
+        self._cle_fond_cache = cle
+        self._bitmap_fond_cache = bitmap
+        return bitmap
+
+    def _DessinerAttenuation(self, dc, largeur, hauteur):
+        if self.attenuation_fond <= 0 or largeur <= 0 or hauteur <= 0:
+            return
+        try:
+            alpha = int(round(255.0 * self.attenuation_fond / 100.0))
+            gc = wx.GraphicsContext.Create(dc)
+            gc.SetPen(wx.Pen(wx.Colour(242, 242, 242, 0)))
+            gc.SetBrush(wx.Brush(wx.Colour(242, 242, 242, alpha)))
+            gc.DrawRectangle(0, 0, largeur, hauteur)
+        except Exception:
+            # L'atténuation est cosmétique : le fond reste utilisable si le
+            # backend graphique ne gère pas l'alpha.
+            pass
 
     def OnPaint(self, event):
-        """ Préparation du DC """
+        """Préparation du DC et rendu adaptatif du fond d'accueil."""
         dc = wx.BufferedPaintDC(self)
-        if wx.VERSION < (2, 9, 0, 0) :
+        if wx.VERSION < (2, 9, 0, 0):
             self.PrepareDC(dc)
-        bg = wx.Brush(self.GetBackgroundColour())
-        dc.SetBackground(bg)
+
+        dc.SetBackground(wx.Brush(self.GetBackgroundColour()))
         dc.Clear()
 
-        # Dessine le fond
-        dc.DrawBitmap(self.image_fond, 0, 0)
+        largeur_zone, hauteur_zone = self.GetClientSize()
+        if self.image_fond.IsOk() and largeur_zone > 0 and hauteur_zone > 0:
+            x, y, largeur, hauteur = UTILS_FondAccueil.CalculerPlacementFond(
+                self.image_fond.GetWidth(),
+                self.image_fond.GetHeight(),
+                largeur_zone,
+                hauteur_zone,
+                self.mode_fond,
+            )
+            bitmap = self._GetBitmapFond(largeur, hauteur)
+            if bitmap is not None:
+                # useMask=True permet aussi de conserver une éventuelle
+                # transparence si le fond passe ultérieurement en PNG.
+                dc.DrawBitmap(bitmap, x, y, True)
+                self._DessinerAttenuation(dc, largeur_zone, hauteur_zone)
 
         # Récupére l'annonce
         dictAnnonce = GetAnnonce()
-        if dictAnnonce != None :
+        if dictAnnonce != None:
 
             nomImage = dictAnnonce["image"]
             bmp = wx.Bitmap(Chemins.GetStaticPath("Images/16x16/%s.png" % nomImage), wx.BITMAP_TYPE_ANY)
@@ -172,7 +237,7 @@ class Panel(wx.Panel):
             texte = wordwrap(texte_html, largeurTexte, dc, breakLongWords=True)
             if 'phoenix' in wx.PlatformInfo:
                 largeur, hauteur, hauteurLigne = dc.GetFullMultiLineTextExtent(texte)
-            else :
+            else:
                 largeur, hauteur, hauteurLigne = dc.GetMultiLineTextExtent(texte)
             dc.DrawLabel(texte, wx.Rect(int(x), int(y + 22), int(largeurTexte), int(hauteur)))
 

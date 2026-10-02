@@ -1564,7 +1564,8 @@ class Traitement():
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         else:
-            wx.SafeYield(self, True)
+            parent_window = self.parent if isinstance(self.parent, wx.Window) else None
+            wx.SafeYield(parent_window, True)
         synchro = UTILS_Portail_synchro.Synchro(log=self.track)
         chemin_fichier = synchro.ConnectEtTelechargeFichier(nomFichier=os.path.basename(chemin), repFichier="pieces/", lecture=False)
         del dlgAttente
