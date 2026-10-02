@@ -492,7 +492,24 @@ class Dialog(wx.Dialog):
             liste_messages.append(message)
 
         # Connexion messagerie
-        dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=None)
+        # parent jamais None : une ProgressDialog sans owner Win32 est une
+        # fenêtre top-level orpheline ; à sa destruction (fin d'envoi), le
+        # gestionnaire de fenêtres doit choisir seul la prochaine fenêtre
+        # active et peut brièvement révéler le bureau (ou une autre
+        # application) avant que Noethys ne reprenne le focus -- clignotement
+        # reproduit en recette.
+        # Mais self ne convient pas non plus systématiquement : dans le
+        # chemin EnvoiEmailFamille(visible=False), ce DLG_Mailer.Dialog
+        # n'est lui-même jamais affiché (cf. OnBoutonEnvoyer appelé
+        # directement) -- son HWND existe mais est caché, donc l'owner Win32
+        # immédiat de la ProgressDialog serait une fenêtre invisible (vérifié
+        # mécaniquement : GetParent()/IsShownOnScreen()/GW_OWNER). On utilise
+        # donc la première fenêtre réellement visible à l'écran : self s'il
+        # est affiché, sinon son parent (déjà visible dans ce cas précis).
+        parent_progress = self
+        if not self.IsShownOnScreen() and self.GetParent() is not None :
+            parent_progress = self.GetParent()
+        dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=parent_progress)
         dlg_progress.SetSize((450, 140))
         dlg_progress.CenterOnScreen()
 

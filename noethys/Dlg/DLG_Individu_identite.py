@@ -26,6 +26,7 @@ from Ctrl import CTRL_Saisie_pays
 from Ctrl import CTRL_Saisie_date
 
 from Utils import UTILS_Utilisateurs
+from Utils import UTILS_Aeeh
 
 DICT_CIVILITES = Civilites.GetDictCivilites() 
 
@@ -118,7 +119,12 @@ class Panel_identite(wx.Panel):
         self.staticbox_sieste = wx.StaticBox(self, -1, _(u"Sieste"))
         self.ctrl_sieste = Sieste(self)
         self.bouton_sieste = wx.Button(self, -1, "...", size=(20, 20))
-        
+
+        # AEEH
+        self.staticbox_aeeh = wx.StaticBox(self, -1, _(u"Bénéficiaire AEEH"))
+        self.ctrl_aeeh = wx.Choice(self, -1, choices=UTILS_Aeeh.GetLabels())
+        self.ctrl_aeeh.SetSelection(0)
+
         # Mémo
         self.staticbox_memo = wx.StaticBox(self, -1, _(u"Mémo"))
         self.ctrl_memo = wx.TextCtrl(self, -1, u"", style=wx.TE_MULTILINE)
@@ -159,6 +165,7 @@ class Panel_identite(wx.Panel):
         self.ctrl_annee_deces.SetMinSize((40, -1))
         self.ctrl_sieste.SetToolTip(wx.ToolTip(_(u"Sélectionnez ici un type de sieste pour cet individu")))
         self.bouton_sieste.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour accéder à la fenêtre de gestion des types de sieste")))
+        self.ctrl_aeeh.SetToolTip(wx.ToolTip(_(u"Indique uniquement si cet individu bénéficie de l'AEEH (Allocation d'Education de l'Enfant Handicapé). Une réponse \"Non\" ne signifie pas que l'individu n'est pas en situation de handicap. \"Non renseigné\" signifie que l'information est inconnue ou n'a pas été saisie. Cette information est indépendante des informations médicales de l'onglet Médical.")))
         self.ctrl_memo.SetToolTip(wx.ToolTip(_(u"Saisissez ici les informations de votre choix concernant cet individu")))
 
     def __do_layout(self):
@@ -212,9 +219,9 @@ class Panel_identite(wx.Panel):
         
         grid_sizer_gauche.Add(staticbox_naiss, 1, wx.EXPAND | wx.LEFT | wx.RIGHT , 5)
         
-        # Grid sizer Décès + Sieste
-        grid_sizer_deces_sieste = wx.FlexGridSizer(rows=1, cols=2, vgap=5, hgap=5)
-        
+        # Grid sizer Décès + Sieste + AEEH
+        grid_sizer_deces_sieste = wx.FlexGridSizer(rows=1, cols=3, vgap=5, hgap=5)
+
         # StaticBox Décès
         staticbox_deces = wx.StaticBoxSizer(self.staticbox_deces, wx.VERTICAL)
         grid_sizer_deces = wx.FlexGridSizer(rows=1, cols=3, vgap=5, hgap=5)
@@ -232,10 +239,16 @@ class Panel_identite(wx.Panel):
         staticbox_sieste.Add(grid_sizer_sieste, 1, wx.ALL|wx.EXPAND, 5)
         grid_sizer_sieste.AddGrowableCol(0)
         grid_sizer_deces_sieste.Add(staticbox_sieste, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
-        
+
+        # StaticBox AEEH
+        staticbox_aeeh = wx.StaticBoxSizer(self.staticbox_aeeh, wx.VERTICAL)
+        staticbox_aeeh.Add(self.ctrl_aeeh, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_deces_sieste.Add(staticbox_aeeh, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
         grid_sizer_gauche.Add(grid_sizer_deces_sieste, 1, wx.EXPAND, 0)
         grid_sizer_deces_sieste.AddGrowableCol(1)
-        
+        grid_sizer_deces_sieste.AddGrowableCol(2)
+
         # Finalisation du sizer gauche
         grid_sizer_base.Add(grid_sizer_gauche, 1, wx.EXPAND, 0)
         
@@ -394,8 +407,8 @@ class Panel_identite(wx.Panel):
         if self.GetGrandParent().nouvelleFiche == True :
             return
         db = GestionDB.DB()
-        req = """SELECT IDcivilite, nom, nom_jfille, prenom, num_secu, IDnationalite, date_naiss, 
-        IDpays_naiss, cp_naiss, ville_naiss, deces, annee_deces, memo, IDtype_sieste FROM individus WHERE IDindividu=%d;""" % self.IDindividu
+        req = """SELECT IDcivilite, nom, nom_jfille, prenom, num_secu, IDnationalite, date_naiss,
+        IDpays_naiss, cp_naiss, ville_naiss, deces, annee_deces, memo, IDtype_sieste, aeeh FROM individus WHERE IDindividu=%d;""" % self.IDindividu
         db.ExecuterReq(req)
         listeDonnees = db.ResultatReq()
         db.Close()
@@ -425,7 +438,9 @@ class Panel_identite(wx.Panel):
         if memo != None : self.ctrl_memo.SetValue(memo)
         
         self.ctrl_sieste.SetID(individu[13])
-        
+
+        self.ctrl_aeeh.SetSelection(UTILS_Aeeh.ValeurVersIndex(individu[14]))
+
         self.majEffectuee = True
         
         # MAJ controles
@@ -496,6 +511,7 @@ class Panel_identite(wx.Panel):
             "deces" : int(self.ctrl_deces.GetValue()),
             "memo" : self.ctrl_memo.GetValue(),
             "IDtype_sieste" : self.ctrl_sieste.GetID(),
+            "aeeh" : UTILS_Aeeh.IndexVersValeur(self.ctrl_aeeh.GetSelection()),
             }
         # Si c'est un organisme, on efface le prénom saisi :
         IDcivilite = dictDonnees["IDcivilite"]
@@ -532,6 +548,7 @@ class Panel_identite(wx.Panel):
             ("annee_deces",  dictDonnees["annee_deces"]),
             ("memo",  dictDonnees["memo"]),
             ("IDtype_sieste", dictDonnees["IDtype_sieste"]),
+            ("aeeh", dictDonnees["aeeh"]),
         ]
         DB.ReqMAJ("individus", listeDonnees, "IDindividu", self.IDindividu)
         DB.Close()

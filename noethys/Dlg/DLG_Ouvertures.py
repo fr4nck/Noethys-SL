@@ -22,7 +22,6 @@ import calendar
 import traceback
 import copy
 import GestionDB
-from Utils import UTILS_VacancesGeneration
 from Ctrl import CTRL_Bandeau
 from Utils import UTILS_Dates
 from Utils import UTILS_Parametres
@@ -1209,15 +1208,9 @@ class Calendrier(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         dateTemp = date
         for date in listeDates :
             
-            # Vérifie période et jour.
-            # Pour la génération, les vacances commencent le dimanche suivant
-            # leur date officielle de début : le samedi de départ reste scolaire.
+            # Vérifie période et jour
             valide = False
-            est_en_vacances = UTILS_VacancesGeneration.EstEnVacancesGeneration(
-                date, self.listeVacances
-            )
-
-            if est_en_vacances:
+            if self.EstEnVacances(date) :
                 if date.weekday() in jours_vacances :
                     valide = True
             else :

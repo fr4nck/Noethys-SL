@@ -197,6 +197,31 @@ def _iter_consommations(dictDonnees):
                         yield IDactivite, date, conso
 
 
+def GetActivitesConvention(dictDonnees):
+    """Retourne les activités réellement présentes sur la période.
+
+    Les libellés proviennent exclusivement de dictDonnees, donc du même
+    résultat filtré par période que le planning et les tarifs. Les noms
+    vides et doublons sont ignorés ; l'ordre alphabétique insensible à la
+    casse rend le champ stable indépendamment de l'ordre des dictionnaires.
+    """
+    noms = {}
+    for dictIndividu in dictDonnees.values():
+        for _IDactivite, dictActivite in dictIndividu.get("activites", {}).items():
+            dates = dictActivite.get("dates", {})
+            presente = any(
+                listeConso
+                for dictDate in dates.values()
+                for listeConso in dictDate.get("unites", {}).values()
+            )
+            if not presente:
+                continue
+            nom = (dictActivite.get("nom") or u"").strip()
+            if nom:
+                noms.setdefault(nom.casefold(), nom)
+    return u", ".join(noms[cle] for cle in sorted(noms))
+
+
 def DetecterTarifs(dictDonnees):
     """Analyse les prestations et expose aussi une provenance vérifiable."""
     tauxParActivite = {}
@@ -670,6 +695,7 @@ def GetChampsConvention(
         "{CONVENTION_TARIF_ADULTE_PROVENANCE}": u"",
         "{CONVENTION_TARIF_ENFANT_PROVENANCE}": u"",
         "{CONVENTION_ADRESSE_STRUCTURE}": u"",
+        "{CONVENTION_ACTIVITES}": u"",
     })
 
     champs["{CONVENTION_ADRESSE_STRUCTURE}"] = ComposerAdresseConvention(
@@ -688,6 +714,8 @@ def GetChampsConvention(
         champs["{CONVENTION_DATE_DEBUT}"] = date_debut
     if date_fin:
         champs["{CONVENTION_DATE_FIN}"] = date_fin
+
+    champs["{CONVENTION_ACTIVITES}"] = GetActivitesConvention(dictDonnees)
 
     resume = GetResumePlanning(dictDonnees)
     champs["{CONVENTION_PLANNING_DETAIL}"] = resume["detail"]
@@ -767,3 +795,50 @@ def GetIndividusRattaches(IDfamille, DB=None):
     if fermer:
         DB.Close()
     return listeIndividus
+
+
+def ConstruireSyntheseActivites(dictDonnees):
+    """Agrège le planning existant, sans recalculer les tarifs ni écrire en base."""
+    activites, prestations = {}, {}
+    for IDindividu, individu in dictDonnees.items():
+        for IDactivite, activite in individu.get('activites', {}).items():
+            ligne = activites.setdefault(IDactivite, dict(
+                nom=activite.get('nom') or u"", minutes=0, montant=Decimal('0'),
+                heures_incompletes=False, montant_incomplet=False, intervalles={}))
+            for date, donnees in activite.get('dates', {}).items():
+                for consommations in donnees.get('unites', {}).values():
+                    for conso in consommations:
+                        duree = _duree_heures(conso.get('heure_debut'), conso.get('heure_fin'))
+                        if duree is None:
+                            ligne['heures_incompletes'] = True
+                        else:
+                            h, m = (int(v) for v in str(conso['heure_debut']).split(':')[:2])
+                            debut = h * 60 + m
+                            ligne['intervalles'].setdefault((IDindividu, date), []).append(
+                                (debut, debut + int(round(duree * 60))))
+                        prestation = conso.get('prestation')
+                        valeur = _montant_decimal(prestation.get('montant')) if prestation else None
+                        if valeur is None or not valeur.is_finite():
+                            ligne['montant_incomplet'] = True
+                            continue
+                        IDprestation = conso.get('IDprestation')
+                        if IDprestation is None:
+                            ligne['montant_incomplet'] = True
+                            continue
+                        if IDprestation in prestations:
+                            if prestations[IDprestation] != (IDactivite, valeur):
+                                raise ValueError(_(u"Une prestation est partagée entre plusieurs activités ou montants : répartition à vérifier."))
+                            continue
+                        prestations[IDprestation] = (IDactivite, valeur)
+                        ligne['montant'] += valeur
+    for ligne in activites.values():
+        for intervalles in ligne.pop('intervalles').values():
+            fin_courante = -1
+            for debut, fin in sorted(intervalles):
+                ligne['minutes'] += max(0, fin - max(debut, fin_courante))
+                fin_courante = max(fin_courante, fin)
+    lignes = sorted(activites.values(), key=lambda l: l['nom'].casefold())
+    return dict(activites=lignes, minutes=sum(l['minutes'] for l in lignes),
+                montant=sum((l['montant'] for l in lignes), Decimal('0')),
+                heures_incompletes=any(l['heures_incompletes'] for l in lignes),
+                montant_incomplet=any(l['montant_incomplet'] for l in lignes))

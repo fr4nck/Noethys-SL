@@ -99,6 +99,9 @@ DB_DATA = {
                    u"Mémo concernant l'individu"),
                   ("IDtype_sieste", "INTEGER", u"Type de sieste"),
 
+                  ("aeeh", "INTEGER",
+                   u"Bénéficiaire AEEH : NULL=non renseigné, 0=non, 1=oui"),
+
                   ("date_creation", "DATE",
                    u"Date de création de la fiche individu"),
                   ("etat", "VARCHAR(50)", u"Etat"),
@@ -1298,6 +1301,12 @@ DB_DATA = {
                   ("IDclasse", "INTEGER", u"ID de la classe"),
                   ("IDniveau", "INTEGER", u"ID du niveau scolaire"),
                   ],  # Scolarité
+
+    "aeeh_periodes": [("IDperiode", "INTEGER PRIMARY KEY AUTOINCREMENT", u"ID Période AEEH"),
+                       ("IDindividu", "INTEGER", u"ID de l'individu"),
+                       ("date_debut", "DATE", u"Date de début de la période de droit AEEH"),
+                       ("date_fin", "DATE", u"Date de fin de la période de droit AEEH (NULL = période ouverte)"),
+                       ],  # Historique des périodes de droit AEEH
 
     "transports_compagnies": [("IDcompagnie", "INTEGER PRIMARY KEY AUTOINCREMENT", u"ID Compagnie"),
                               ("categorie", "VARCHAR(200)",

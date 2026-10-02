@@ -22,6 +22,7 @@ from Utils import UTILS_Interface
 from Ctrl.CTRL_ObjectListView import FastObjectListView, ColumnDefn, Filter, CTRL_Outils
 from Ctrl.CTRL_Questionnaire import LISTE_CONTROLES
 from Utils import UTILS_Titulaires, UTILS_Infos_individus
+from Utils import UTILS_Aeeh
 from Data import DATA_Civilites as Civilites
 
 
@@ -94,7 +95,8 @@ def GetDictIndividus(parametres={}):
         "date_naiss", "IDpays_naiss", "cp_naiss", "ville_naiss",
         "adresse_auto", "rue_resid", "cp_resid", "ville_resid", 
         "IDcategorie_travail", "profession", "employeur", "travail_tel", "travail_fax", "travail_mail", 
-        "tel_domicile", "tel_mobile", "tel_fax", "mail"
+        "tel_domicile", "tel_mobile", "tel_fax", "mail",
+        "aeeh"
         )
     req = """
     SELECT %s FROM individus;""" % ",".join(listeChamps)
@@ -267,6 +269,7 @@ class Track(object):
         self.INDIVIDU_VILLE = DICT_INDIVIDUS[IDindividu]["ville_resid"]
         self.INDIVIDU_SECTEUR = DICT_INDIVIDUS[IDindividu]["secteur"]
         self.INDIVIDU_NOM = DICT_INDIVIDUS[IDindividu]["nom"]
+        self.INDIVIDU_AEEH = UTILS_Aeeh.ValeurVersTexte(DICT_INDIVIDUS[IDindividu]["aeeh"])
         self.SCOLARITE_NOM_ECOLE = DICT_INDIVIDUS[IDindividu]["SCOLARITE_NOM_ECOLE"]
         self.SCOLARITE_NOM_CLASSE = DICT_INDIVIDUS[IDindividu]["SCOLARITE_NOM_CLASSE"]
         self.SCOLARITE_ABREGE_NIVEAU = DICT_INDIVIDUS[IDindividu]["SCOLARITE_ABREGE_NIVEAU"]

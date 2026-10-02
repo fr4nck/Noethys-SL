@@ -39,6 +39,7 @@ LISTE_CHAMPS_STANDARDS = [
     ("SCOLARITE_NOM_ECOLE", _(u"Nom de l'école de l'individu"), _(u"Individu"), _(u"Ecole"), 80),
     ("SCOLARITE_NOM_CLASSE", _(u"Nom de la classe de l'individu"), _(u"Individu"), _(u"Classe"), 80),
     ("SCOLARITE_ABREGE_NIVEAU", _(u"Nom du niveau scolaire de l'individu"), _(u"Individu"), _(u"Niveau"), 80),
+    ("INDIVIDU_AEEH", _(u"Bénéficiaire de l'AEEH de l'individu (Oui/Non/vide si non renseigné) -- n'indique qu'une allocation, pas une situation de handicap en général"), _(u"Individu"), _(u"AEEH"), 80),
 
     ("FAMILLE_ID", _(u"ID de la famille"), _(u"Famille"), _(u"IDfamille"), 50),
     ("FAMILLE_TITULAIRES", _(u"Nom des titulaires"), _(u"Famille"), _(u"Représentants"), 200),

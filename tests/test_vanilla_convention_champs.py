@@ -95,6 +95,41 @@ class GetRepresentantTests(unittest.TestCase):
         self.assertEqual(r["prenom"], "Éléonore")
 
 
+class GetActivitesConventionTests(unittest.TestCase):
+    def test_une_activite(self):
+        donnees = _dict_donnees_simple(
+            nom_activite="Badminton loisirs",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Badminton loisirs")
+
+    def test_plusieurs_activites_ordre_stable(self):
+        donnees = _dict_donnees_simple(
+            IDactivite=20, nom_activite="Yoga",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        donnees[2] = _dict_donnees_simple(
+            IDactivite=10, nom_activite="Athlétisme",
+            seances=[("2026-09-03", "09:00", "10:00", 20.0)],
+        )[1]
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Athlétisme, Yoga")
+
+    def test_doublons_supprimes(self):
+        donnees = _dict_donnees_simple(
+            IDactivite=10, nom_activite="Gymnastique",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        donnees[2] = _dict_donnees_simple(
+            IDactivite=11, nom_activite="Gymnastique",
+            seances=[("2026-09-03", "09:00", "10:00", 20.0)],
+        )[1]
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Gymnastique")
+
+    def test_aucune_activite_reellement_presente(self):
+        donnees = _dict_donnees_simple(nom_activite="Nom sans séance", seances=[])
+        self.assertEqual(CC.GetActivitesConvention(donnees), "")
+
+
 class DetecterTarifsTests(unittest.TestCase):
     def test_taux_unique_quand_toutes_les_activites_concordent(self):
         dictDonnees = _dict_donnees_simple(seances=[
@@ -212,6 +247,7 @@ class GetChampsConventionIntegrationTests(unittest.TestCase):
                 informations=FauxInformations({"{NBRE_REPRESENTANTS_RATTACHES}": 0}),
             )
         self.assertEqual(champs["{CONVENTION_SAISON}"], "2026-2027")
+        self.assertEqual(champs["{CONVENTION_ACTIVITES}"], "Encadrement sportif adultes, Encadrement sportif enfants")
         self.assertEqual(champs["{CONVENTION_PLANNING_NBRE_SEANCES}"], 6)
         self.assertAlmostEqual(champs["{CONVENTION_PLANNING_TOTAL_MONTANT}"], 217.5)
         self.assertEqual(champs["{CONVENTION_TARIF_ADULTE}"], 36.5)

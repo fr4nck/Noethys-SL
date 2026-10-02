@@ -392,10 +392,19 @@ class Impression():
                         story.append(tableau)
                         
                         # Insertion du nom de l'activité
+                        # "texte" vaut None pour les prestations sans activité
+                        # (IDactivite NULL en base -- ex. cotisation ou frais
+                        # divers, cf. UTILS_Facturation.py, IDactivite=0) :
+                        # une valeur légitime, jamais affichée en en-tête
+                        # (voir "if texteActivite != None" plus bas), mais
+                        # incomparable à une chaîne avec un tri par défaut.
+                        # Clé de tri déterministe : les activités nommées
+                        # d'abord (ordre alphabétique), le panier "sans
+                        # activité" toujours en dernier.
                         listeIDactivite = []
                         for IDactivite, dictActivites in dictIndividus["activites"].items() :
                             listeIDactivite.append((dictActivites["texte"], IDactivite, dictActivites))
-                        listeIDactivite.sort() 
+                        listeIDactivite.sort(key=lambda valeurs: (valeurs[0] is None, valeurs[0] or u"", valeurs[1]))
                         
                         for texteActivite, IDactivite, dictActivites in listeIDactivite :
 

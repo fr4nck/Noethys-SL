@@ -40,6 +40,16 @@ REGEX_UNITES = re.compile(r"unite[0-9]+")
 LISTE_MOIS= (_(u"Janvier"), _(u"Février"), _(u"Mars"), _(u"Avril"), _(u"Mai"), _(u"Juin"), _(u"Juillet"), _(u"Août"), _(u"Septembre"), _(u"Octobre"), _(u"Novembre"), _(u"Décembre"))
 
 
+class ErreurCalculEtatGlobal(Exception):
+    """ Erreur métier levée par CalculateurEtatGlobal.CalculerEtatGlobal() (ex.
+    horaires incohérents, formule invalide). Ne montre aucune boîte de
+    dialogue -- c'est à l'appelant (Dialog.Apercu()) de l'afficher, avec le
+    même message et le même titre qu'auparavant. """
+    def __init__(self, message, titre=None):
+        Exception.__init__(self, message)
+        self.titre = titre if titre != None else _(u"Erreur")
+
+
 def ArrondirHeureSup(heures, minutes, pas): 
     """ Arrondi l'heure au pas supérieur """
     for x in range(0, 60, pas):
@@ -67,6 +77,65 @@ def GetQF(dictQuotientsFamiliaux={}, IDfamille=None, date=None):
     return None
 
 
+# Table de correspondance EXACTE entre l'index sauvegardé en profil par
+# CTRL_Arrondi.GetParametre() (= wx.Choice.GetSelection(), jamais traduit
+# avant d'être persisté dans profils_parametres) et la valeur métier
+# (None ou tuple (arrondi_type, arrondi_delta)) -- recopiée à l'identique de
+# CTRL_Etat_global_parametres.CTRL_Arrondi.listeValeurs (sans les libellés,
+# ni aucune dépendance wx), même ordre, même longueur. Si ce choix évolue un
+# jour côté GUI, cette table doit être mise à jour en miroir.
+ARRONDIS_PAR_INDEX = [
+    None,
+    ("duree", 5),
+    ("duree", 10),
+    ("duree", 15),
+    ("duree", 30),
+    ("duree", 60),
+    ("tranche_horaire", 5),
+    ("tranche_horaire", 10),
+    ("tranche_horaire", 15),
+    ("tranche_horaire", 30),
+    ("tranche_horaire", 60),
+]
+
+
+def DecoderArrondi(arrondi):
+    """ Décode dictUnites[IDunite]["arrondi"] vers sa forme métier (None ou
+    tuple (arrondi_type, arrondi_delta)), en acceptant les 3 formes
+    historiquement valides :
+
+    - None : aucun arrondi (inchangé) ;
+    - un tuple/liste (arrondi_type, arrondi_delta) déjà décodé (inchangé,
+      utilisé tel quel -- c'est la forme produite par le GUI via
+      CTRL_Arrondi.GetValeur()/Track.GetArrondi()) ;
+    - un entier : index de sélection du wx.Choice CTRL_Arrondi, tel que
+      réellement persisté en profil par CTRL_Arrondi.GetParametre() (ex. 0
+      pour "Aucun", 3 pour "Durée : 15 min. sup.") -- décodé ici via
+      ARRONDIS_PAR_INDEX, avec exactement la même correspondance que le
+      GUI, sans aucune dépendance wx.
+
+    Toute autre valeur (type incorrect, index hors plage, tuple de mauvaise
+    forme) lève ErreurCalculEtatGlobal explicitement -- jamais de
+    comportement silencieux. """
+    if arrondi is None :
+        return None
+
+    if isinstance(arrondi, bool) :
+        raise ErreurCalculEtatGlobal(_(u"Valeur d'arrondi invalide : %r.") % (arrondi,), titre=_(u"Erreur"))
+
+    if isinstance(arrondi, int) :
+        if 0 <= arrondi < len(ARRONDIS_PAR_INDEX) :
+            return ARRONDIS_PAR_INDEX[arrondi]
+        raise ErreurCalculEtatGlobal(_(u"Index d'arrondi invalide : %r (attendu entre 0 et %d).") % (arrondi, len(ARRONDIS_PAR_INDEX) - 1), titre=_(u"Erreur"))
+
+    if isinstance(arrondi, (tuple, list)) and len(arrondi) == 2 :
+        arrondi_type, arrondi_delta = arrondi
+        if isinstance(arrondi_type, str) and isinstance(arrondi_delta, (int, float)) and not isinstance(arrondi_delta, bool) :
+            return (arrondi_type, arrondi_delta)
+
+    raise ErreurCalculEtatGlobal(_(u"Valeur d'arrondi invalide : %r.") % (arrondi,), titre=_(u"Erreur"))
+
+
 class Unite():
     def __init__(self, IDunite=None, heure_debut=None, heure_fin=None, etat=None, quantite=1):
         # Formatage des heures
@@ -83,271 +152,17 @@ class Unite():
         self.duree = self.fin - self.debut
 
 
-# ---------------------------------------------------------------------------------------
+class CalculateurEtatGlobal():
+    """ Moteur de calcul de l'état global des consommations, indépendant
+    de tout wx.Dialog -- appelable sans instancier Dialog (ex. par un futur
+    appelant AFAS). Porte lui-même self.dict_unites (construit par
+    CalculerEtatGlobal(), lu par Calcule_formule() via les références
+    uniteN des formules) : même mécanisme qu'avant, simplement déplacé
+    hors de Dialog plutôt que masqué derrière une nouvelle abstraction.
+    Ne calcule aucune nouvelle donnée métier, ne change aucun résultat. """
 
-class CTRL_profil_perso(CTRL_Profil.CTRL):
-    def __init__(self, parent, categorie="", dlg=None):
-        CTRL_Profil.CTRL.__init__(self, parent, categorie=categorie)
-        self.dlg = dlg
-
-    def Envoyer_parametres(self, dictParametres={}):
-        """ Envoi des paramètres du profil sélectionné à la fenêtre """
-        self.dlg.SetParametres(dictParametres)
-
-    def Recevoir_parametres(self):
-        """ Récupération des paramètres pour la sauvegarde du profil """
-        dictParametres = self.dlg.GetParametres()
-        self.Enregistrer(dictParametres)
-
-
-
-
-# ---------------------------------------------------------------------------------------
-
-class Parametres(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent, id=-1, name="panel_parametres", style=wx.TAB_TRAVERSAL)
-        self.parent = parent
-        
-        # Période
-        self.staticbox_periode_staticbox = wx.StaticBox(self, -1, _(u"Période de référence"))
-        self.ctrl_periode = CTRL_Grille_periode.CTRL(
-            self,
-            selection_multiple=False,
-            callback_selection=self.OnChoixDate,
-        )
-        self.ctrl_periode.SetMinSize((300, 205))
-        self.SetMinSize((315, -1))
-
-        # Profil
-        self.staticbox_profil_staticbox = wx.StaticBox(self, -1, _(u"Profil de configuration"))
-        self.ctrl_profil = CTRL_profil_perso(self, categorie="etat_global", dlg=self.parent)
-        self.ctrl_profil.SetMinSize((100, -1))
-
-        # Activités
-        self.staticbox_activites_staticbox = wx.StaticBox(self, -1, _(u"Activités"))
-        self.ctrl_activites = CTRL_Selection_activites.CTRL(self)
-        
-        self.__set_properties()
-        self.__do_layout()
-
-
-    def __set_properties(self):
-        pass
-
-    def __do_layout(self):
-        grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
-        
-        # Période de référence
-        staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
-        staticbox_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
-        grid_sizer_base.Add(staticbox_periode, 1, wx.RIGHT|wx.EXPAND, 5)
-
-        # Profil
-        staticbox_profil = wx.StaticBoxSizer(self.staticbox_profil_staticbox, wx.VERTICAL)
-        staticbox_profil.Add(self.ctrl_profil, 1, wx.ALL|wx.EXPAND, 5)
-        grid_sizer_base.Add(staticbox_profil, 1, wx.RIGHT|wx.EXPAND, 5)
-
-        # Activités
-        staticbox_activites = wx.StaticBoxSizer(self.staticbox_activites_staticbox, wx.VERTICAL)
-        staticbox_activites.Add(self.ctrl_activites, 1, wx.ALL|wx.EXPAND, 5)
-        grid_sizer_base.Add(staticbox_activites, 1, wx.RIGHT|wx.EXPAND, 5)
-
-        self.SetSizer(grid_sizer_base)
-        grid_sizer_base.Fit(self)
-        grid_sizer_base.AddGrowableRow(2)
-        grid_sizer_base.AddGrowableCol(0)
-
-    def OnBoutonAfficher(self, event):
-        """ Validation des données saisies """
-        # Vérifie date de référence
-        date_reference = self.ctrl_date.GetDate()
-        if self.ctrl_date.FonctionValiderDate() == False or date_reference == None :
-            dlg = wx.MessageDialog(self, _(u"La date de référence ne semble pas valide !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            self.ctrl_date.SetFocus()
-            return False
-                
-        # Vérifie les activités sélectionnées
-        if self.radio_groupes.GetValue() == True :
-            listeActivites = self.ctrl_groupes.GetIDcoches()
-        else:
-            listeActivites = self.ctrl_activites.GetIDcoches()
-        if len(listeActivites) == 0 :
-            dlg = wx.MessageDialog(self, _(u"Vous n'avez sélectionné aucune activité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return False
-        
-        # Envoi des données
-        self.parent.MAJ(date_reference=date_reference, listeActivites=listeActivites)
-        
-        return True
-    
-    def GetPeriode(self):
-        liste_periodes = self.ctrl_periode.GetDatesSelections()
-        if len(liste_periodes) != 1:
-            return None, None
-        return liste_periodes[0]
-    
-    def OnChoixDate(self):
-        date_debut, date_fin = self.GetPeriode() 
-        self.parent.ctrl_parametres.periode = (date_debut, date_fin)
-        self.parent.ctrl_parametres.MAJ()
-
-    def OnCheckActivites(self):
-        date_debut, date_fin = self.GetPeriode() 
-        self.parent.ctrl_parametres.periode = (date_debut, date_fin)
-        self.parent.ctrl_parametres.listeActivites = self.ctrl_activites.GetActivites()
-        self.parent.ctrl_parametres.MAJ()
-    
-    def GetActivites(self):
-        return self.ctrl_activites.GetActivites() 
-
-    def GetNomsActivites(self):
-        listeTemp = self.ctrl_activites.GetLabelActivites()
-        return ", ".join(listeTemp)
-
-    def GetLabelParametres(self):
-        # Label Paramètres
-        date_debut, date_fin = self.GetPeriode()
-        listeParametres = [ 
-            _(u"Période du %s au %s") % (UTILS_Dates.DateEngFr(str(date_debut)), UTILS_Dates.DateEngFr(str(date_fin))),
-            _(u"Activités : %s") % self.GetNomsActivites(),
-            ]
-        labelParametres = " | ".join(listeParametres)
-        return labelParametres
-
-
-
-# --------------------------------------------------------------------------------------------------------------------------------------------------
-
-class Dialog(wx.Dialog):
-    def __init__(self, parent):
-        wx.Dialog.__init__(self, parent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
-        self.parent = parent
-        self.date_debut = None
-        self.date_fin = None
-
-        # Bandeau
-        intro = _(u"Vous pouvez ici générer l'état global des consommations. C'est ici que vous pouvez notamment extraire des données à destination de la CAF ou de la MSA. Commencez par saisir une période de référence et sélectionnez une ou plusieurs activités. Après avoir renseigné les paramètres de calcul et les options, vous pouvez cliquer sur le bouton de sauvegarde d'un profil pour mémoriser la configuration. Vous pourrez ainsi la réutiliser facilement ultérieurement.")
-        titre = _(u"Etat global des consommations")
-        self.ctrl_bandeau = CTRL_Bandeau.Bandeau(self, titre=titre, texte=intro, hauteurHtml=30, nomImage="Images/32x32/Tableaux.png")
-        self.SetTitle(titre)
-        
-        # Panel Paramètres
-        self.panel_parametres = Parametres(self)
-        
-        # Paramètres de calcul
-        self.staticbox_parametres_staticbox = wx.StaticBox(self, -1, _(u"Paramètres de calcul"))
-        self.ctrl_parametres = CTRL_Etat_global_parametres.CTRL(self)
-
-        # Options
-        self.staticbox_filtres_staticbox = wx.StaticBox(self, -1, _(u"Options"))
-        self.ctrl_options = CTRL_Etat_global_options.CTRL(self)
-        self.ctrl_options.SetMinSize((-1, 130))
-
-        self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
-        self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Aperçu"), cheminImage="Images/32x32/Apercu.png")
-        self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
-
-        self.__set_properties()
-        self.__do_layout()
-        
-        self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_ok)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
-        
-        # Période par défaut : année civile courante, comportement historique.
-        anneeActuelle = datetime.date.today().year
-        self.panel_parametres.ctrl_periode.SetDictDonnees({
-            "page": 2,
-            "listeSelections": [],
-            "annee": anneeActuelle,
-            "dateDebut": None,
-            "dateFin": None,
-        })
-
-        # Sélectionne profil par défaut
-        self.panel_parametres.ctrl_profil.SetOnDefaut()
-                
-
-    def __set_properties(self):
-        self.bouton_ok.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour créer un aperçu des résultats (PDF)")))
-        self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
-        self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer")))
-        self.SetMinSize((1020, 720))
-
-    def __do_layout(self):
-        grid_sizer_base = wx.FlexGridSizer(rows=3, cols=1, vgap=10, hgap=10)
-        grid_sizer_base.Add(self.ctrl_bandeau, 1, wx.EXPAND, 0)
-        
-        grid_sizer_contenu = wx.FlexGridSizer(rows=1, cols=2, vgap=5, hgap=5)
-        
-        # Panel des paramètres
-        grid_sizer_contenu.Add(self.panel_parametres, 1, wx.EXPAND, 0)
-        
-        grid_sizer_droit = wx.FlexGridSizer(rows=2, cols=1, vgap=5, hgap=5)
-        
-        # Ctrl des parametres
-        staticbox_parametres = wx.StaticBoxSizer(self.staticbox_parametres_staticbox, wx.VERTICAL)
-        staticbox_parametres.Add(self.ctrl_parametres, 1, wx.ALL|wx.EXPAND, 5)
-        grid_sizer_droit.Add(staticbox_parametres, 1, wx.EXPAND, 5)
-
-        # Ctrl des filtres
-        staticbox_filtres = wx.StaticBoxSizer(self.staticbox_filtres_staticbox, wx.VERTICAL)
-        staticbox_filtres.Add(self.ctrl_options, 1, wx.ALL|wx.EXPAND, 5)
-        grid_sizer_droit.Add(staticbox_filtres, 1, wx.EXPAND, 5)
-
-        grid_sizer_droit.AddGrowableRow(0)
-        grid_sizer_droit.AddGrowableCol(0)
-        grid_sizer_contenu.Add(grid_sizer_droit, 1, wx.EXPAND, 0)
-
-        grid_sizer_contenu.AddGrowableRow(0)
-        grid_sizer_contenu.AddGrowableCol(1)
-        grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
-        
-        # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
-        grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
-        grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
-        grid_sizer_boutons.Add(self.bouton_ok, 0, 0, 0)
-        grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
-        grid_sizer_boutons.AddGrowableCol(1)
-        grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
-        
-        self.SetSizer(grid_sizer_base)
-        grid_sizer_base.Fit(self)
-        grid_sizer_base.AddGrowableRow(1)
-        grid_sizer_base.AddGrowableCol(0)
-        self.Layout()
-        UTILS_Dialogs.AjusteSizePerso(self, __file__)
-        self.CenterOnScreen()
-    
-    def OnBoutonFermer(self, event):
-        UTILS_Dialogs.SaveSizePerso(self, __file__)
-        self.EndModal(wx.ID_CANCEL)
-        
-    def OnBoutonAide(self, event): 
-        from Utils import UTILS_Aide
-        UTILS_Aide.Aide("Etatglobal")
-    
-    def OnClose(self, event=None):
-        event.Skip()
-
-    def GetParametres(self):
-        """ Récupération des paramètres """
-        dictParametres = {}
-        dictParametres.update(self.ctrl_options.GetParametres())
-        dictParametres.update(self.ctrl_parametres.GetParametres())
-        return dictParametres
-
-    def SetParametres(self, dictParametres={}):
-        """ Importation des paramètres """
-        self.ctrl_parametres.SetParametres(dictParametres)
-        self.ctrl_options.SetParametres(dictParametres)
+    def __init__(self):
+        self.dict_unites = {}
 
     def Calcule_formule(self, formule="", date=None, debut=None, fin=None):
         debut = UTILS_Dates.TimeEnDelta(debut)
@@ -382,78 +197,44 @@ class Dialog(wx.Dialog):
 
         return resultat
 
-    def Apercu(self, event):
-        """ Génération du document PDF """
+    def CalculerEtatGlobal(self, date_debut=None, date_fin=None, listeActivites=None, dictUnites=None, dict_options=None, dictInfosIndividus=None, dictInfosFamilles=None, listeGroupes=None):
+        """ Calcul métier de l'état global des consommations, indépendant du rendu PDF.
+
+        Extrait tel quel (même sémantique, mêmes résultats) du corps de
+        Apercu(). Ne montre aucune boîte de dialogue wx : toute anomalie
+        bloquante (horaires incohérents, formule invalide) est remontée via
+        ErreurCalculEtatGlobal, à charge de l'appelant (Dialog.Apercu()) de
+        l'afficher exactement comme avant.
+
+        listeGroupes (optionnel) : restreint en plus par
+        consommations.IDgroupe (même logique que listeActivites : aucun
+        groupe fourni -> aucune restriction supplémentaire). Apercu() ne
+        fournit jamais ce paramètre -- comportement historique inchangé.
+
+        dict_options peut porter 3 clés optionnelles (lues via .get(), donc
+        sans effet sur un dict_options existant qui ne les porte pas) pour la
+        présence méridienne : forfait_presence_midi (minutes, 0 = désactivé),
+        heure_debut_presence_midi et heure_fin_presence_midi (défauts
+        "12:30"/"13:30"). Dès qu'une plage valide (après filtrage
+        période/état) chevauche strictement cette tranche -- debut < fin_midi
+        et fin > debut_midi --, le forfait est ajouté une seule fois par
+        (IDindividu, date), jamais ventilé par unité ni dépendant d'une
+        unité "Repas" en particulier.
+
+        dictUnites[IDunite]["arrondi"] (typeCalcul=1) est décodé par
+        DecoderArrondi() (cf. docstring de cette fonction, module-level,
+        sans dépendance wx) : accepte None, un tuple (arrondi_type,
+        arrondi_delta) déjà décodé, ou l'index entier réellement stocké en
+        profil par CTRL_Arrondi.GetParametre() (ex. 0 pour "Aucun", jamais
+        traduit en tuple/None avant d'être persisté -- cette traduction
+        n'a lieu, normalement, que côté GUI via
+        CTRL_Arrondi.GetValeur()/Track.GetArrondi()). Un appelant qui
+        reconstruit dictUnites directement depuis un profil enregistré (ex.
+        futur appelant AFAS) peut donc transmettre cet index brut : il est
+        décodé ici avec exactement la même correspondance que le GUI
+        (ARRONDIS_PAR_INDEX). Toute autre valeur lève ErreurCalculEtatGlobal
+        explicitement. """
         listeAnomalies = []
-
-        # Validation de la période
-        date_debut, date_fin = self.panel_parametres.GetPeriode()
-        if date_debut is None or date_fin is None :
-            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période de référence valide."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-        
-        if date_fin < date_debut :
-            dlg = wx.MessageDialog(self, _(u"La date de début de période est supérieure à la date de fin !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-
-        # Validation des activités
-        listeActivites = self.panel_parametres.GetActivites()
-        if len(listeActivites) == 0 :
-            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner au moins une activité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-
-        # Récupération des méthodes de calcul
-        dictUnites = self.ctrl_parametres.GetDonnees()
-        if dictUnites == False :
-            return False
-        
-        # Récupération des options
-        if self.ctrl_options.Validation() == False :
-            return False
-        dict_options = self.ctrl_options.GetParametres()
-
-        modeAffichage = dict_options["format_donnees"]
-        modePeriodesDetail = dict_options["periodes_detaillees"]
-        regroupement_principal = dict_options["regroupement_principal"]
-        liste_regroupements = dict_options["regroupement_age"]
-        jours_scolaires = dict_options["jours_hors_vacances"]
-        jours_vacances = dict_options["jours_vacances"]
-        etats = dict_options["etat_consommations"]
-
-        # Récupération du labelParametres
-        labelParametres = self.panel_parametres.GetLabelParametres()
-
-        # Chargement des informations individuelles
-        if self.date_debut != date_debut :
-
-            # Infos individus et familles
-            self.infosIndividus = UTILS_Infos_individus.Informations(date_reference=date_debut, qf=True, inscriptions=True, messages=False, infosMedicales=False, cotisationsManquantes=False, piecesManquantes=False, questionnaires=True, scolarite=True)
-            self.dictInfosIndividus = self.infosIndividus.GetDictValeurs(mode="individu", ID=None, formatChamp=False)
-            self.dictInfosFamilles = self.infosIndividus.GetDictValeurs(mode="famille", ID=None, formatChamp=False)
-
-        # Mémorisation des paramètres
-        self.date_debut = date_debut
-        self.date_fin = date_fin
-
-        # Vérifie que toutes les familles ont une caisse attribuées
-        if dict_options["afficher_regime_inconnu"] == True :
-            listeFamillesSansCaisses = OL_Liste_regimes.GetFamillesSansCaisse(listeActivites, date_debut, date_fin)
-            if len(listeFamillesSansCaisses) > 0 :
-                listeTemp = []
-                for dictTemp in listeFamillesSansCaisses :
-                    listeTemp.append(dictTemp["titulaires"])
-                messageDetail = u"\n".join(listeTemp)
-                dlg = dialogs.MultiMessageDialog(self, _(u"Attention, le régime d'appartenance n'a pas été renseigné pour les %d familles suivantes :") % len(listeTemp), caption=_(u"Régime d'appartenance"), msg2=messageDetail, style = wx.ICON_EXCLAMATION | wx.OK | wx.CANCEL, btnLabels={wx.ID_OK : _(u"Continuer quand même"), wx.ID_CANCEL : _(u"Annuler")})
-                reponse = dlg.ShowModal()
-                dlg.Destroy()
-                if reponse == wx.ID_CANCEL :
-                    return
 
         DB = GestionDB.DB()
 
@@ -481,25 +262,25 @@ class Dialog(wx.Dialog):
             dictEtiquettes[IDetiquette] = {"label" : label, "IDactivite" : IDactivite, "parent" : parent, "ordre" : ordre, "couleur" : couleur}
 
         # Récupération des régimes
-        req = """SELECT 
+        req = """SELECT
         IDregime, nom
         FROM regimes
         ORDER BY IDregime
         ;"""
         DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()     
+        listeDonnees = DB.ResultatReq()
         dictRegimes = {}
         for IDregime, nomRegime in listeDonnees :
             dictRegimes[IDregime] = nomRegime
 
         # Récupération des périodes de vacances
-        req = """SELECT 
+        req = """SELECT
         IDvacance, nom, annee, date_debut, date_fin
         FROM vacances
         ORDER BY date_debut
         ;"""
         DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()     
+        listeDonnees = DB.ResultatReq()
         listeVacances = []
         for IDvacance, nom, annee, date_debut_Tmp, date_fin_Tmp in listeDonnees :
             date_debut_Tmp = UTILS_Dates.DateEngEnDateDD(date_debut_Tmp)
@@ -509,22 +290,22 @@ class Dialog(wx.Dialog):
             else:
                 grandesVacs = False
             listeVacances.append( {"nom" : nom, "annee" : annee, "date_debut" : date_debut_Tmp, "date_fin" : date_fin_Tmp, "vacs" : True, "grandesVacs" : grandesVacs} )
-        
+
         # Calcul des périodes détaillées
         listePeriodesDetail = []
         index = 0
         for dictTemp in listeVacances :
 
             # Vacances
-            if dictTemp["nom"] == _(u"Février") : 
+            if dictTemp["nom"] == _(u"Février") :
                 nom = "vacances_fevrier"
-            elif dictTemp["nom"] == _(u"Pâques") : 
+            elif dictTemp["nom"] == _(u"Pâques") :
                 nom = "vacances_paques"
-            elif dictTemp["nom"] == _(u"Eté") : 
+            elif dictTemp["nom"] == _(u"Eté") :
                 nom = "vacances_ete"
-            elif dictTemp["nom"] == _(u"Toussaint") : 
+            elif dictTemp["nom"] == _(u"Toussaint") :
                 nom = "vacances_toussaint"
-            elif dictTemp["nom"] == _(u"Noël") : 
+            elif dictTemp["nom"] == _(u"Noël") :
                 nom = "vacances_noel"
             else :
                 nom = "?"
@@ -537,15 +318,15 @@ class Dialog(wx.Dialog):
             if len(listeVacances) > index + 1 :
                 date_fin_temp = listeVacances[index+1]["date_debut"] - + datetime.timedelta(days=1)
                 annee = dictTemp["annee"]
-                if dictTemp["nom"].startswith("F") : 
+                if dictTemp["nom"].startswith("F") :
                     nom = "mercredis_mars_avril"
-                elif dictTemp["nom"].startswith("P") : 
+                elif dictTemp["nom"].startswith("P") :
                     nom = "mercredis_mai_juin"
-                elif dictTemp["nom"].startswith("E") : 
+                elif dictTemp["nom"].startswith("E") :
                     nom = "mercredis_sept_oct"
-                elif dictTemp["nom"].startswith("T") : 
+                elif dictTemp["nom"].startswith("T") :
                     nom = "mercredis_nov_dec"
-                elif dictTemp["nom"].startswith("N") : 
+                elif dictTemp["nom"].startswith("N") :
                     nom = "mercredis_janv_fev"
                     annee += 1
                 else :
@@ -554,8 +335,11 @@ class Dialog(wx.Dialog):
                 listePeriodesDetail.append( {"code" : nom + "_%d" % annee, "annee" : annee, "label" : label, "date_debut" : date_debut_temp, "date_fin" : date_fin_temp, "vacs" : False, "grandesVacs" : False} )
             index += 1
 
+        # Récupération des tranches de QF
+        liste_tranches_qf = None
+
         # Récupération des tranches de QF des tarifs
-        if regroupement_principal == "qf_tarifs":
+        if dict_options["regroupement_principal"] == "qf_tarifs":
             if len(listeActivites) == 0 : condition = "AND IDactivite IN ()"
             elif len(listeActivites) == 1 : condition = "AND IDactivite IN (%d)" % listeActivites[0]
             else : condition = "AND IDactivite IN %s" % str(tuple(listeActivites))
@@ -574,13 +358,27 @@ class Dialog(wx.Dialog):
                     liste_tranches_qf.sort()
 
         # Récupération des tranches de qf perso
-        if regroupement_principal == "qf_perso":
+        if dict_options["regroupement_principal"] == "qf_perso":
             liste_tranches_qf = []
             temp = 0
             for x in dict_options["tranches_qf_perso"] :
                 liste_tranches_qf.append((temp, x-1))
                 temp = x
             liste_tranches_qf.append((temp, 999999))
+
+        regroupement_principal = dict_options["regroupement_principal"]
+        liste_regroupements = dict_options["regroupement_age"]
+        modePeriodesDetail = dict_options["periodes_detaillees"]
+        jours_scolaires = dict_options["jours_hors_vacances"]
+        jours_vacances = dict_options["jours_vacances"]
+        etats = dict_options["etat_consommations"]
+
+        # Présence méridienne (forfait journalier, en minutes, 0 = désactivé) :
+        # lu via .get() pour qu'un dict_options existant sans ces clés (anciens
+        # profils) conserve exactement son comportement actuel.
+        forfait_presence_midi = dict_options.get("forfait_presence_midi", 0)
+        heure_debut_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_debut_presence_midi", "12:30"))
+        heure_fin_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_fin_presence_midi", "13:30"))
 
         # Recherche des données
         listeRegimesUtilises = []
@@ -623,9 +421,19 @@ class Dialog(wx.Dialog):
         elif len(listeUnitesUtilisees) == 1 : conditionSQL = "AND consommations.IDunite IN (%d)" % listeUnitesUtilisees[0]
         else : conditionSQL = "AND consommations.IDunite IN %s" % str(tuple(listeUnitesUtilisees))
 
+        # Filtre optionnel par groupe (même logique que le filtre par activité) :
+        # aucun groupe fourni -> aucune restriction supplémentaire, comportement
+        # historique inchangé (Apercu() ne fournit jamais ce paramètre).
+        if not listeGroupes :
+            conditionSQL_groupes = ""
+        elif len(listeGroupes) == 1 :
+            conditionSQL_groupes = "AND consommations.IDgroupe = %d" % listeGroupes[0]
+        else :
+            conditionSQL_groupes = "AND consommations.IDgroupe IN %s" % str(tuple(listeGroupes))
+
         req = """SELECT IDconso, consommations.date, consommations.IDindividu, consommations.IDunite, consommations.IDgroupe, consommations.IDactivite, consommations.etiquettes,
         heure_debut, heure_fin, consommations.etat, quantite, consommations.IDevenement, consommations.IDprestation, prestations.temps_facture,
-        comptes_payeurs.IDfamille, activites.nom, groupes.nom, categories_tarifs.nom, 
+        comptes_payeurs.IDfamille, activites.nom, groupes.nom, categories_tarifs.nom,
         familles.IDcaisse, caisses.IDregime, individus.date_naiss
         FROM consommations
         LEFT JOIN individus ON individus.IDindividu = consommations.IDindividu
@@ -639,7 +447,8 @@ class Dialog(wx.Dialog):
         WHERE consommations.date >='%s' AND consommations.date <='%s'
         AND consommations.etat NOT IN ('attente', 'refus')
         %s
-        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL)
+        %s
+        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL, conditionSQL_groupes)
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
 
@@ -653,6 +462,7 @@ class Dialog(wx.Dialog):
         dict_resultats = {}
         listePrestationsTraitees = []
         dict_temps_journalier_individu = {}
+        dict_presence_midi = {}
         dict_stats = {"individus": [], "familles": []}
         for IDconso, date, IDindividu, IDunite, IDgroupe, IDactivite, etiquettes, heure_debut, heure_fin, etat, quantite, IDevenement, IDprestation, temps_facture, IDfamille, nomActivite, nomGroupe, nomCategorie, IDcaisse, IDregime, date_naiss in listeDonnees:
             date = UTILS_Dates.DateEngEnDateDD(date)
@@ -678,27 +488,27 @@ class Dialog(wx.Dialog):
                 if regroupement_principal == "evenement_date": regroupement = IDevenement
                 if regroupement_principal == "categorie_tarif": regroupement = nomCategorie
                 if regroupement_principal == "unite_conso": regroupement = nom_unite_conso
-                if regroupement_principal == "ville_residence": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_VILLE"]
-                if regroupement_principal == "secteur": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_SECTEUR"]
-                if regroupement_principal == "genre": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_SEXE"]
-                if regroupement_principal == "age": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_AGE_INT"]
-                if regroupement_principal == "ville_naissance": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_VILLE_NAISS"]
-                if regroupement_principal == "nom_ecole": regroupement = self.dictInfosIndividus[IDindividu]["SCOLARITE_NOM_ECOLE"]
-                if regroupement_principal == "nom_classe": regroupement = self.dictInfosIndividus[IDindividu]["SCOLARITE_NOM_CLASSE"]
-                if regroupement_principal == "nom_niveau_scolaire": regroupement = self.dictInfosIndividus[IDindividu]["SCOLARITE_NOM_NIVEAU"]
-                if regroupement_principal == "famille": regroupement = self.dictInfosFamilles[IDfamille]["FAMILLE_NOM"]
-                if regroupement_principal == "individu": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_NOM_COMPLET"]
-                if regroupement_principal == "regime": regroupement = self.dictInfosFamilles[IDfamille]["FAMILLE_NOM_REGIME"]
-                if regroupement_principal == "caisse": regroupement = self.dictInfosFamilles[IDfamille]["FAMILLE_NOM_CAISSE"]
-                if regroupement_principal == "categorie_travail": regroupement = self.dictInfosIndividus[IDindividu]["INDIVIDU_CATEGORIE_TRAVAIL"]
-                if regroupement_principal == "categorie_travail_pere": regroupement = self.dictInfosIndividus[IDindividu]["PERE_CATEGORIE_TRAVAIL"]
-                if regroupement_principal == "categorie_travail_mere": regroupement = self.dictInfosIndividus[IDindividu]["MERE_CATEGORIE_TRAVAIL"]
+                if regroupement_principal == "ville_residence": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_VILLE"]
+                if regroupement_principal == "secteur": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_SECTEUR"]
+                if regroupement_principal == "genre": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_SEXE"]
+                if regroupement_principal == "age": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_AGE_INT"]
+                if regroupement_principal == "ville_naissance": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_VILLE_NAISS"]
+                if regroupement_principal == "nom_ecole": regroupement = dictInfosIndividus[IDindividu]["SCOLARITE_NOM_ECOLE"]
+                if regroupement_principal == "nom_classe": regroupement = dictInfosIndividus[IDindividu]["SCOLARITE_NOM_CLASSE"]
+                if regroupement_principal == "nom_niveau_scolaire": regroupement = dictInfosIndividus[IDindividu]["SCOLARITE_NOM_NIVEAU"]
+                if regroupement_principal == "famille": regroupement = dictInfosFamilles[IDfamille]["FAMILLE_NOM"]
+                if regroupement_principal == "individu": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_NOM_COMPLET"]
+                if regroupement_principal == "regime": regroupement = dictInfosFamilles[IDfamille]["FAMILLE_NOM_REGIME"]
+                if regroupement_principal == "caisse": regroupement = dictInfosFamilles[IDfamille]["FAMILLE_NOM_CAISSE"]
+                if regroupement_principal == "categorie_travail": regroupement = dictInfosIndividus[IDindividu]["INDIVIDU_CATEGORIE_TRAVAIL"]
+                if regroupement_principal == "categorie_travail_pere": regroupement = dictInfosIndividus[IDindividu]["PERE_CATEGORIE_TRAVAIL"]
+                if regroupement_principal == "categorie_travail_mere": regroupement = dictInfosIndividus[IDindividu]["MERE_CATEGORIE_TRAVAIL"]
 
                 # QF par tranche de 100
                 if regroupement_principal == "qf_100":
                     regroupement = None
                     qf = GetQF(dictQuotientsFamiliaux, IDfamille, date)
-                    #qf = self.dictInfosFamilles[IDfamille]["FAMILLE_QF_ACTUEL_INT"]
+                    #qf = dictInfosFamilles[IDfamille]["FAMILLE_QF_ACTUEL_INT"]
                     for x in range(0, 10000, 100):
                         min, max = x, x + 99
                         if qf >= min and qf <= max:
@@ -708,7 +518,7 @@ class Dialog(wx.Dialog):
                 if regroupement_principal in ("qf_tarifs", "qf_perso") :
                     regroupement = None
                     qf = GetQF(dictQuotientsFamiliaux, IDfamille, date)
-                    #qf = self.dictInfosFamilles[IDfamille]["FAMILLE_QF_ACTUEL_INT"]
+                    #qf = dictInfosFamilles[IDfamille]["FAMILLE_QF_ACTUEL_INT"]
                     for min, max in liste_tranches_qf:
                         if qf >= min and qf <= max:
                             regroupement = (min, max)
@@ -727,9 +537,9 @@ class Dialog(wx.Dialog):
 
                 # Questionnaires
                 if regroupement_principal.startswith("question_") and "famille" in regroupement_principal:
-                    regroupement = self.dictInfosFamilles[IDfamille]["QUESTION_%s" % regroupement_principal[17:]]
+                    regroupement = dictInfosFamilles[IDfamille]["QUESTION_%s" % regroupement_principal[17:]]
                 if regroupement_principal.startswith("question_") and "individu" in regroupement_principal:
-                    regroupement = self.dictInfosIndividus[IDindividu]["QUESTION_%s" % regroupement_principal[18:]]
+                    regroupement = dictInfosIndividus[IDindividu]["QUESTION_%s" % regroupement_principal[18:]]
 
                 # Formatage des regroupements de type date
                 if type(regroupement) == datetime.date :
@@ -829,13 +639,13 @@ class Dialog(wx.Dialog):
                         # Calcul de la durée
                         valeur = datetime.timedelta(hours=heure_fin.hour, minutes=heure_fin.minute) - datetime.timedelta(hours=heure_debut.hour, minutes=heure_debut.minute)
                         if "day" in str(valeur) :
-                            dlg = wx.MessageDialog(self, _(u"Les horaires de cette consommation sont incorrectes : IDconso=%d | IDindividu=%d | IDfamille=%d | date=%s.") % (IDconso, IDindividu, IDfamille, date), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
-                            dlg.ShowModal()
-                            dlg.Destroy()
-                            return False
+                            raise ErreurCalculEtatGlobal(_(u"Les horaires de cette consommation sont incorrectes : IDconso=%d | IDindividu=%d | IDfamille=%d | date=%s.") % (IDconso, IDindividu, IDfamille, date), titre=_(u"Erreur"))
 
-                        # Si un arrondi est demandé
-                        arrondi = dictCalcul["arrondi"]
+                        # Si un arrondi est demandé -- cf. DecoderArrondi() : accepte
+                        # None, un tuple déjà décodé, ou l'index entier réellement
+                        # stocké en profil par CTRL_Arrondi.GetParametre() (ex. 0 pour
+                        # "Aucun"), avec exactement la même correspondance que le GUI.
+                        arrondi = DecoderArrondi(dictCalcul["arrondi"])
                         if arrondi != None :
                             arrondi_type, arrondi_delta = arrondi
                             valeur = UTILS_Dates.CalculerArrondi(arrondi_type=arrondi_type, arrondi_delta=arrondi_delta, heure_debut=heure_debut, heure_fin=heure_fin)
@@ -872,10 +682,7 @@ class Dialog(wx.Dialog):
                     try :
                         valeur = self.Calcule_formule(formule=dictCalcul["formule"], date=date, debut=heure_debut, fin=heure_fin)
                     except Exception as err:
-                        dlg = wx.MessageDialog(self, six.text_type(err), _(u"Erreur de formule"), wx.OK | wx.ICON_ERROR)
-                        dlg.ShowModal()
-                        dlg.Destroy()
-                        return False
+                        raise ErreurCalculEtatGlobal(six.text_type(err), titre=_(u"Erreur de formule"))
 
                 # Options plafond journalier par individu (valable pour l'ensemble des activités)
                 plafond_journalier_individu = dict_options["plafond_journalier_individu"]
@@ -907,6 +714,31 @@ class Dialog(wx.Dialog):
                 if age == -1 :
                     index_tranche_age = None
 
+                # ----- Présence méridienne : collecte des plages du jour -----
+                # Ne dépend d'aucune unité en particulier (ni "Repas") : on ne
+                # regarde que les horaires de la consommation, s'ils existent.
+                # Une seule clé de regroupement est mémorisée par (individu,
+                # date) -- avec regroupement_principal="aucun" (seul mode
+                # qualifié par ce lot), elle est de toute façon identique pour
+                # toutes les plages de ce jour.
+                if forfait_presence_midi > 0 :
+                    # Même normalisation d'IDregime que "Mémorisation du
+                    # résultat" ci-dessous, pour que le forfait retombe dans
+                    # le même compartiment dict_resultats que les
+                    # consommations de ce jour.
+                    IDregime_jour = IDregime
+                    if dict_options["associer_regime_inconnu"] not in (None, "non", "") and IDregime_jour == None :
+                        IDregime_jour = dict_options["associer_regime_inconnu"]
+                    if not IDregime_jour :
+                        IDregime_jour = 0
+
+                    cle_jour = (IDindividu, date)
+                    if cle_jour not in dict_presence_midi :
+                        dict_presence_midi[cle_jour] = {"chevauche_midi": False, "IDfamille": IDfamille, "cle_regroupement": (regroupement, index_tranche_age, periode, IDregime_jour)}
+                    if heure_debut != None and heure_debut != "" and heure_fin != None and heure_fin != "" :
+                        if heure_debut < heure_fin_presence_midi and heure_fin > heure_debut_presence_midi :
+                            dict_presence_midi[cle_jour]["chevauche_midi"] = True
+
                 # Mémorisation du résultat
                 if valeur != datetime.timedelta(hours=0, minutes=0) or valeur != datetime.timedelta(hours=0, minutes=0) :
                     # Si régime inconnu :
@@ -929,7 +761,410 @@ class Dialog(wx.Dialog):
                     dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
                     dict_resultats[regroupement][index_tranche_age][periode][IDregime] += valeur * quantite
 
+        # ----- Présence méridienne : application du forfait -----
+        # Un seul forfait par (IDindividu, date), quel que soit le nombre de
+        # plages chevauchant la tranche méridienne ce jour-là -- jamais
+        # ventilé par unité, jamais multiplié par une quantité.
+        if forfait_presence_midi > 0 :
+            for (IDindividu_jour, date_jour), dictPresence in dict_presence_midi.items() :
+                if dictPresence["chevauche_midi"] == True :
+                    regroupement, index_tranche_age, periode, IDregime = dictPresence["cle_regroupement"]
+                    IDfamille = dictPresence["IDfamille"]
+
+                    if IDregime not in listeRegimesUtilises :
+                        listeRegimesUtilises.append(IDregime)
+                    if IDindividu_jour not in dict_stats["individus"]:
+                        dict_stats["individus"].append(IDindividu_jour)
+                    if IDfamille not in dict_stats["familles"]:
+                        dict_stats["familles"].append(IDfamille)
+
+                    dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
+                    dict_resultats[regroupement][index_tranche_age][periode][IDregime] += datetime.timedelta(minutes=forfait_presence_midi)
+
         DB.Close()
+
+        return {
+            "dict_resultats": dict_resultats,
+            "dict_stats": dict_stats,
+            "listeRegimesUtilises": listeRegimesUtilises,
+            "listeAnomalies": listeAnomalies,
+            "dictRegimes": dictRegimes,
+            "dictEvenements": dictEvenements,
+            "dictEtiquettes": dictEtiquettes,
+            "listeVacances": listeVacances,
+            "listePeriodesDetail": listePeriodesDetail,
+            "dict_tranches_age": dict_tranches_age,
+            "liste_tranches_qf": liste_tranches_qf,
+        }
+
+
+# ---------------------------------------------------------------------------------------
+
+class CTRL_profil_perso(CTRL_Profil.CTRL):
+    def __init__(self, parent, categorie="", dlg=None):
+        CTRL_Profil.CTRL.__init__(self, parent, categorie=categorie)
+        self.dlg = dlg
+
+    def Envoyer_parametres(self, dictParametres={}):
+        """ Envoi des paramètres du profil sélectionné à la fenêtre """
+        self.dlg.SetParametres(dictParametres)
+
+    def Recevoir_parametres(self):
+        """ Récupération des paramètres pour la sauvegarde du profil """
+        dictParametres = self.dlg.GetParametres()
+        self.Enregistrer(dictParametres)
+
+
+
+
+# ---------------------------------------------------------------------------------------
+
+class Parametres(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent, id=-1, name="panel_parametres", style=wx.TAB_TRAVERSAL)
+        self.parent = parent
+
+        # Période
+        self.staticbox_periode_staticbox = wx.StaticBox(self, -1, _(u"Période de référence"))
+        self.ctrl_periode = CTRL_Grille_periode.CTRL(
+            self,
+            selection_multiple=False,
+            callback_selection=self.OnChoixDate,
+        )
+        self.ctrl_periode.SetMinSize((300, 205))
+        self.SetMinSize((315, -1))
+
+        # Profil
+        self.staticbox_profil_staticbox = wx.StaticBox(self, -1, _(u"Profil de configuration"))
+        self.ctrl_profil = CTRL_profil_perso(self, categorie="etat_global", dlg=self.parent)
+        self.ctrl_profil.SetMinSize((100, -1))
+
+        # Activités
+        self.staticbox_activites_staticbox = wx.StaticBox(self, -1, _(u"Activités"))
+        self.ctrl_activites = CTRL_Selection_activites.CTRL(self)
+
+        self.__set_properties()
+        self.__do_layout()
+
+
+    def __set_properties(self):
+        pass
+
+    def __do_layout(self):
+        grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
+
+        # Période de référence
+        staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
+        staticbox_periode.Add(self.ctrl_periode, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_base.Add(staticbox_periode, 1, wx.RIGHT|wx.EXPAND, 5)
+
+        # Profil
+        staticbox_profil = wx.StaticBoxSizer(self.staticbox_profil_staticbox, wx.VERTICAL)
+        staticbox_profil.Add(self.ctrl_profil, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_base.Add(staticbox_profil, 1, wx.RIGHT|wx.EXPAND, 5)
+
+        # Activités
+        staticbox_activites = wx.StaticBoxSizer(self.staticbox_activites_staticbox, wx.VERTICAL)
+        staticbox_activites.Add(self.ctrl_activites, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_base.Add(staticbox_activites, 1, wx.RIGHT|wx.EXPAND, 5)
+
+        self.SetSizer(grid_sizer_base)
+        grid_sizer_base.Fit(self)
+        grid_sizer_base.AddGrowableRow(2)
+        grid_sizer_base.AddGrowableCol(0)
+
+    def OnBoutonAfficher(self, event):
+        """ Validation des données saisies """
+        # Vérifie date de référence
+        date_reference = self.ctrl_date.GetDate()
+        if self.ctrl_date.FonctionValiderDate() == False or date_reference == None :
+            dlg = wx.MessageDialog(self, _(u"La date de référence ne semble pas valide !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            self.ctrl_date.SetFocus()
+            return False
+
+        # Vérifie les activités sélectionnées
+        if self.radio_groupes.GetValue() == True :
+            listeActivites = self.ctrl_groupes.GetIDcoches()
+        else:
+            listeActivites = self.ctrl_activites.GetIDcoches()
+        if len(listeActivites) == 0 :
+            dlg = wx.MessageDialog(self, _(u"Vous n'avez sélectionné aucune activité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        # Envoi des données
+        self.parent.MAJ(date_reference=date_reference, listeActivites=listeActivites)
+
+        return True
+
+    def GetPeriode(self):
+        liste_periodes = self.ctrl_periode.GetDatesSelections()
+        if len(liste_periodes) != 1:
+            return None, None
+        return liste_periodes[0]
+
+    def OnChoixDate(self):
+        date_debut, date_fin = self.GetPeriode()
+        self.parent.ctrl_parametres.periode = (date_debut, date_fin)
+        self.parent.ctrl_parametres.MAJ()
+
+    def OnCheckActivites(self):
+        date_debut, date_fin = self.GetPeriode()
+        self.parent.ctrl_parametres.periode = (date_debut, date_fin)
+        self.parent.ctrl_parametres.listeActivites = self.ctrl_activites.GetActivites()
+        self.parent.ctrl_parametres.MAJ()
+
+    def GetActivites(self):
+        return self.ctrl_activites.GetActivites()
+
+    def GetNomsActivites(self):
+        listeTemp = self.ctrl_activites.GetLabelActivites()
+        return ", ".join(listeTemp)
+
+    def GetLabelParametres(self):
+        # Label Paramètres
+        date_debut, date_fin = self.GetPeriode()
+        listeParametres = [
+            _(u"Période du %s au %s") % (UTILS_Dates.DateEngFr(str(date_debut)), UTILS_Dates.DateEngFr(str(date_fin))),
+            _(u"Activités : %s") % self.GetNomsActivites(),
+            ]
+        labelParametres = " | ".join(listeParametres)
+        return labelParametres
+
+
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------
+
+class Dialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
+        self.parent = parent
+        self.date_debut = None
+        self.date_fin = None
+
+        # Bandeau
+        intro = _(u"Vous pouvez ici générer l'état global des consommations. C'est ici que vous pouvez notamment extraire des données à destination de la CAF ou de la MSA. Commencez par saisir une période de référence et sélectionnez une ou plusieurs activités. Après avoir renseigné les paramètres de calcul et les options, vous pouvez cliquer sur le bouton de sauvegarde d'un profil pour mémoriser la configuration. Vous pourrez ainsi la réutiliser facilement ultérieurement.")
+        titre = _(u"Etat global des consommations")
+        self.ctrl_bandeau = CTRL_Bandeau.Bandeau(self, titre=titre, texte=intro, hauteurHtml=30, nomImage="Images/32x32/Tableaux.png")
+        self.SetTitle(titre)
+
+        # Panel Paramètres
+        self.panel_parametres = Parametres(self)
+
+        # Paramètres de calcul
+        self.staticbox_parametres_staticbox = wx.StaticBox(self, -1, _(u"Paramètres de calcul"))
+        self.ctrl_parametres = CTRL_Etat_global_parametres.CTRL(self)
+
+        # Options
+        self.staticbox_filtres_staticbox = wx.StaticBox(self, -1, _(u"Options"))
+        self.ctrl_options = CTRL_Etat_global_options.CTRL(self)
+        self.ctrl_options.SetMinSize((-1, 130))
+
+        self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
+        self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Aperçu"), cheminImage="Images/32x32/Apercu.png")
+        self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
+
+        self.__set_properties()
+        self.__do_layout()
+
+        self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_ok)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+
+        # Période par défaut : année civile courante, comportement historique.
+        anneeActuelle = datetime.date.today().year
+        self.panel_parametres.ctrl_periode.SetDictDonnees({
+            "page": 2,
+            "listeSelections": [],
+            "annee": anneeActuelle,
+            "dateDebut": None,
+            "dateFin": None,
+        })
+
+        # Sélectionne profil par défaut
+        self.panel_parametres.ctrl_profil.SetOnDefaut()
+
+
+    def __set_properties(self):
+        self.bouton_ok.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour créer un aperçu des résultats (PDF)")))
+        self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
+        self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer")))
+        self.SetMinSize((1020, 720))
+
+    def __do_layout(self):
+        grid_sizer_base = wx.FlexGridSizer(rows=3, cols=1, vgap=10, hgap=10)
+        grid_sizer_base.Add(self.ctrl_bandeau, 1, wx.EXPAND, 0)
+
+        grid_sizer_contenu = wx.FlexGridSizer(rows=1, cols=2, vgap=5, hgap=5)
+
+        # Panel des paramètres
+        grid_sizer_contenu.Add(self.panel_parametres, 1, wx.EXPAND, 0)
+
+        grid_sizer_droit = wx.FlexGridSizer(rows=2, cols=1, vgap=5, hgap=5)
+
+        # Ctrl des parametres
+        staticbox_parametres = wx.StaticBoxSizer(self.staticbox_parametres_staticbox, wx.VERTICAL)
+        staticbox_parametres.Add(self.ctrl_parametres, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_droit.Add(staticbox_parametres, 1, wx.EXPAND, 5)
+
+        # Ctrl des filtres
+        staticbox_filtres = wx.StaticBoxSizer(self.staticbox_filtres_staticbox, wx.VERTICAL)
+        staticbox_filtres.Add(self.ctrl_options, 1, wx.ALL|wx.EXPAND, 5)
+        grid_sizer_droit.Add(staticbox_filtres, 1, wx.EXPAND, 5)
+
+        grid_sizer_droit.AddGrowableRow(0)
+        grid_sizer_droit.AddGrowableCol(0)
+        grid_sizer_contenu.Add(grid_sizer_droit, 1, wx.EXPAND, 0)
+
+        grid_sizer_contenu.AddGrowableRow(0)
+        grid_sizer_contenu.AddGrowableCol(1)
+        grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
+
+        # Boutons
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
+        grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
+        grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
+        grid_sizer_boutons.Add(self.bouton_ok, 0, 0, 0)
+        grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
+        grid_sizer_boutons.AddGrowableCol(1)
+        grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
+
+        self.SetSizer(grid_sizer_base)
+        grid_sizer_base.Fit(self)
+        grid_sizer_base.AddGrowableRow(1)
+        grid_sizer_base.AddGrowableCol(0)
+        self.Layout()
+        UTILS_Dialogs.AjusteSizePerso(self, __file__)
+        self.CenterOnScreen()
+
+    def OnBoutonFermer(self, event):
+        UTILS_Dialogs.SaveSizePerso(self, __file__)
+        self.EndModal(wx.ID_CANCEL)
+
+    def OnBoutonAide(self, event):
+        from Utils import UTILS_Aide
+        UTILS_Aide.Aide("Etatglobal")
+
+    def OnClose(self, event=None):
+        event.Skip()
+
+    def GetParametres(self):
+        """ Récupération des paramètres """
+        dictParametres = {}
+        dictParametres.update(self.ctrl_options.GetParametres())
+        dictParametres.update(self.ctrl_parametres.GetParametres())
+        return dictParametres
+
+    def SetParametres(self, dictParametres={}):
+        """ Importation des paramètres """
+        self.ctrl_parametres.SetParametres(dictParametres)
+        self.ctrl_options.SetParametres(dictParametres)
+
+    def Apercu(self, event):
+        """ Génération du document PDF """
+
+        # Validation de la période
+        date_debut, date_fin = self.panel_parametres.GetPeriode()
+        if date_debut is None or date_fin is None :
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner une période de référence valide."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        if date_fin < date_debut :
+            dlg = wx.MessageDialog(self, _(u"La date de début de période est supérieure à la date de fin !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        # Validation des activités
+        listeActivites = self.panel_parametres.GetActivites()
+        if len(listeActivites) == 0 :
+            dlg = wx.MessageDialog(self, _(u"Vous devez sélectionner au moins une activité !"), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        # Récupération des méthodes de calcul
+        dictUnites = self.ctrl_parametres.GetDonnees()
+        if dictUnites == False :
+            return False
+
+        # Récupération des options
+        if self.ctrl_options.Validation() == False :
+            return False
+        dict_options = self.ctrl_options.GetParametres()
+
+        modeAffichage = dict_options["format_donnees"]
+        modePeriodesDetail = dict_options["periodes_detaillees"]
+        regroupement_principal = dict_options["regroupement_principal"]
+        liste_regroupements = dict_options["regroupement_age"]
+        jours_scolaires = dict_options["jours_hors_vacances"]
+        jours_vacances = dict_options["jours_vacances"]
+        etats = dict_options["etat_consommations"]
+
+        # Récupération du labelParametres
+        labelParametres = self.panel_parametres.GetLabelParametres()
+
+        # Chargement des informations individuelles
+        if self.date_debut != date_debut :
+
+            # Infos individus et familles
+            self.infosIndividus = UTILS_Infos_individus.Informations(date_reference=date_debut, qf=True, inscriptions=True, messages=False, infosMedicales=False, cotisationsManquantes=False, piecesManquantes=False, questionnaires=True, scolarite=True)
+            self.dictInfosIndividus = self.infosIndividus.GetDictValeurs(mode="individu", ID=None, formatChamp=False)
+            self.dictInfosFamilles = self.infosIndividus.GetDictValeurs(mode="famille", ID=None, formatChamp=False)
+
+        # Mémorisation des paramètres
+        self.date_debut = date_debut
+        self.date_fin = date_fin
+
+        # Vérifie que toutes les familles ont une caisse attribuées
+        if dict_options["afficher_regime_inconnu"] == True :
+            listeFamillesSansCaisses = OL_Liste_regimes.GetFamillesSansCaisse(listeActivites, date_debut, date_fin)
+            if len(listeFamillesSansCaisses) > 0 :
+                listeTemp = []
+                for dictTemp in listeFamillesSansCaisses :
+                    listeTemp.append(dictTemp["titulaires"])
+                messageDetail = u"\n".join(listeTemp)
+                dlg = dialogs.MultiMessageDialog(self, _(u"Attention, le régime d'appartenance n'a pas été renseigné pour les %d familles suivantes :") % len(listeTemp), caption=_(u"Régime d'appartenance"), msg2=messageDetail, style = wx.ICON_EXCLAMATION | wx.OK | wx.CANCEL, btnLabels={wx.ID_OK : _(u"Continuer quand même"), wx.ID_CANCEL : _(u"Annuler")})
+                reponse = dlg.ShowModal()
+                dlg.Destroy()
+                if reponse == wx.ID_CANCEL :
+                    return
+
+        # ----- Calcul métier (extrait, réutilisable, sans rendu, sans wx.Dialog) -----
+        calculateur = CalculateurEtatGlobal()
+        try :
+            resultat = calculateur.CalculerEtatGlobal(
+                date_debut=date_debut,
+                date_fin=date_fin,
+                listeActivites=listeActivites,
+                dictUnites=dictUnites,
+                dict_options=dict_options,
+                dictInfosIndividus=self.dictInfosIndividus,
+                dictInfosFamilles=self.dictInfosFamilles,
+            )
+        except ErreurCalculEtatGlobal as err :
+            dlg = wx.MessageDialog(self, six.text_type(err), err.titre, wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        dict_resultats = resultat["dict_resultats"]
+        dict_stats = resultat["dict_stats"]
+        listeRegimesUtilises = resultat["listeRegimesUtilises"]
+        listeAnomalies = resultat["listeAnomalies"]
+        dictRegimes = resultat["dictRegimes"]
+        dictEvenements = resultat["dictEvenements"]
+        dictEtiquettes = resultat["dictEtiquettes"]
+        listeVacances = resultat["listeVacances"]
+        listePeriodesDetail = resultat["listePeriodesDetail"]
+        dict_tranches_age = resultat["dict_tranches_age"]
+        liste_tranches_qf = resultat["liste_tranches_qf"]
 
         # Affichage d'anomalies
         if len(listeAnomalies) > 0 :

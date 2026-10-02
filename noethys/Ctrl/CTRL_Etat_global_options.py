@@ -131,6 +131,24 @@ class CTRL(CTRL_Propertygrid.CTRL):
         propriete.SetAttribute("obligatoire", True)
         self.Append(propriete)
 
+        # Forfait de présence méridienne
+        propriete = wxpg.IntProperty(label=_(u"Forfait de présence méridienne (en minutes)"), name="forfait_presence_midi", value=0)
+        propriete.SetHelpString(_(u"Saisissez un forfait (en minutes) ajouté une seule fois par individu et par jour dès que sa présence chevauche la tranche méridienne définie ci-dessous (0 = désactivé). Ne dépend d'aucune unité de consommation en particulier."))
+        propriete.SetAttribute("obligatoire", True)
+        self.Append(propriete)
+
+        # Heure de début de la tranche méridienne
+        propriete = wxpg.StringProperty(label=_(u"Heure de début de la présence méridienne"), name="heure_debut_presence_midi", value="12:30")
+        propriete.SetHelpString(_(u"Saisissez l'heure de début (HH:MM) de la tranche méridienne utilisée pour détecter un chevauchement."))
+        propriete.SetAttribute("obligatoire", True)
+        self.Append(propriete)
+
+        # Heure de fin de la tranche méridienne
+        propriete = wxpg.StringProperty(label=_(u"Heure de fin de la présence méridienne"), name="heure_fin_presence_midi", value="13:30")
+        propriete.SetHelpString(_(u"Saisissez l'heure de fin (HH:MM) de la tranche méridienne utilisée pour détecter un chevauchement."))
+        propriete.SetAttribute("obligatoire", True)
+        self.Append(propriete)
+
         # Filtres
         self.Append(wxpg.PropertyCategory(_(u"Filtres")))
 
