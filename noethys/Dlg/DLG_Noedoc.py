@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils.UTILS_Transitions import DialogFondu
 from Ctrl import CTRL_Bouton_image
 import wx.lib.agw.aui as aui
 from wx.lib.floatcanvas import FloatCanvas, GUIMode
@@ -5479,7 +5480,7 @@ class Panel_canvas(wx.Panel):
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-class Dialog(wx.Dialog):
+class Dialog(DialogFondu):
     def __init__(self, parent, IDmodele=None, nom="", observations=u"", IDfond=None, categorie=None, taille_page=(210, 297), size=(800, 600)):
         wx.Dialog.__init__(self, parent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
         self.parent = parent     

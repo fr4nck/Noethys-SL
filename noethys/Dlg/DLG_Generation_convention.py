@@ -30,6 +30,7 @@ from __future__ import annotations
 import datetime
 
 import wx
+from Utils.UTILS_Transitions import DialogFondu
 
 from Utils.UTILS_Traduction import _
 from Ctrl.CTRL_Choix_modele import CTRL_Choice
@@ -78,7 +79,7 @@ class _ZoneConventionScrollable(wx.ScrolledWindow):
         self.GetParent().OnSelection()
 
 
-class Dialog(wx.Dialog):
+class Dialog(DialogFondu):
     def __init__(self, parent, IDfamille=None, date_debut=None, date_fin=None, saison=""):
         wx.Dialog.__init__(self, parent, -1, _(u"G�n�rer une convention"),
                             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
