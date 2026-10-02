@@ -24,6 +24,8 @@ from Ctrl import CTRL_Saisie_date
 from Ctrl import CTRL_Pieces_obligatoires
 from Ctrl import CTRL_Vignettes_documents
 from Utils import UTILS_Dates
+from Utils import UTILS_Quotients_validite
+from Dlg import DLG_Saisie_quotient
 
 
 class Choix_Piece_autre(wx.Choice):
@@ -184,6 +186,14 @@ class Dialog(wx.Dialog):
         self.radio_date_fin_1 = wx.RadioButton(self, -1, _(u"Date :"), style = wx.RB_GROUP)
         self.radio_date_fin_2 = wx.RadioButton(self, -1, _(u"Validité illimitée"))
         self.ctrl_date_fin = CTRL_Saisie_date.Date(self)
+        self.bouton_echeance_qf = wx.Button(self, -1, _(u"Échéance QF : janvier / septembre"))
+        self.check_saisir_quotient = wx.CheckBox(self, -1, _(u"Attestation QF : enregistrer le quotient dans la fiche famille"))
+        self.label_quotient = wx.StaticText(self, -1, _(u"Quotient familial :"))
+        self.ctrl_quotient = wx.TextCtrl(self, -1, "", size=(80, -1))
+        self.ctrl_type_quotient = DLG_Saisie_quotient.CTRL_Type_quotient(self)
+        self.ctrl_quotient.Enable(False)
+        self.ctrl_type_quotient.Enable(False)
+        self.check_saisir_quotient.SetToolTip(_(u"Le montant est obligatoire et les dates ci-dessus sont également enregistrées dans QF/Revenus. Aucun recalcul des factures établies."))
         
         # Pages capturées
         self.sizer_pages_staticbox = wx.StaticBox(self, -1, _(u"Documents associés"))
@@ -222,6 +232,8 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_RADIOBUTTON, self.OnRadioDateFin, self.radio_date_fin_2)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
+        self.Bind(wx.EVT_BUTTON, self.OnEcheanceQF, self.bouton_echeance_qf)
+        self.Bind(wx.EVT_CHECKBOX, self.OnActiverQuotient, self.check_saisir_quotient)
         self.Bind(wx.EVT_TEXT, self.OnDateDebut, self.ctrl_date_debut)
         self.Bind(wx.EVT_CHOICE, self.OnChoixAutres, self.ctrl_pieces_autres)
         self.Bind(wx.EVT_BUTTON, self.ctrl_pages.AjouterPage, self.bouton_ajouter_page)
@@ -252,7 +264,7 @@ class Dialog(wx.Dialog):
         
         grid_sizer_contenu = wx.FlexGridSizer(rows=1, cols=2, vgap=10, hgap=10)
         
-        grid_sizer_gauche = wx.FlexGridSizer(rows=3, cols=1, vgap=10, hgap=10)
+        grid_sizer_gauche = wx.FlexGridSizer(rows=0, cols=1, vgap=10, hgap=10)
         
         sizer_type = wx.StaticBoxSizer(self.sizer_type_staticbox, wx.VERTICAL)
         grid_sizer_3 = wx.FlexGridSizer(rows=6, cols=1, vgap=10, hgap=10)
@@ -293,6 +305,13 @@ class Dialog(wx.Dialog):
         grid_sizer_dates.AddGrowableCol(0)
         grid_sizer_dates.AddGrowableCol(1)
         grid_sizer_gauche.Add(grid_sizer_dates, 1, wx.EXPAND, 10)
+        grid_sizer_gauche.Add(self.bouton_echeance_qf, 0, wx.EXPAND, 0)
+        grid_sizer_gauche.Add(self.check_saisir_quotient, 0, wx.EXPAND, 0)
+        sizer_quotient = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_quotient.Add(self.label_quotient, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        sizer_quotient.Add(self.ctrl_quotient, 0, wx.RIGHT, 5)
+        sizer_quotient.Add(self.ctrl_type_quotient, 1, wx.EXPAND, 0)
+        grid_sizer_gauche.Add(sizer_quotient, 0, wx.EXPAND, 0)
         
         grid_sizer_gauche.AddGrowableRow(0)
         grid_sizer_gauche.AddGrowableCol(0)
@@ -644,10 +663,67 @@ class Dialog(wx.Dialog):
 
         return True
 
+    def OnEcheanceQF(self, event=None):
+        if not self.ctrl_date_debut.FonctionValiderDate():
+            return
+        debut = self.ctrl_date_debut.GetDate()
+        if debut is None:
+            return
+        self.radio_date_fin_1.SetValue(True)
+        self.radio_date_fin_2.SetValue(False)
+        self.OnRadioDateFin(None)
+        self.ctrl_date_fin.SetDate(UTILS_Quotients_validite.DateFinProposee(debut))
+
+    def OnActiverQuotient(self, event=None):
+        actif = self.check_saisir_quotient.GetValue()
+        self.ctrl_quotient.Enable(actif)
+        self.ctrl_type_quotient.Enable(actif and self.ctrl_type_quotient.GetCount() > 0)
+
+    def VerifierSaisieQuotient(self):
+        selection = self.GetSelectionPiece()
+        try:
+            montant_valide = int(self.ctrl_quotient.GetValue()) >= 0
+        except ValueError:
+            montant_valide = False
+        if (selection is None or selection["IDfamille"] is None or
+                not montant_valide or
+                self.ctrl_type_quotient.GetID() is None or
+                not self.radio_date_fin_1.GetValue()):
+            wx.MessageBox(_(u"Pour enregistrer le quotient, sélectionnez une famille et un type de quotient, saisissez son montant et une date de fin."),
+                          _(u"Quotient à compléter"), wx.OK | wx.ICON_EXCLAMATION, self)
+            return False
+        return True
+
+    def SaisirQuotient(self):
+        selection = self.GetSelectionPiece()
+        if selection is None or selection["IDfamille"] is None:
+            wx.MessageBox(_(u"La pièce est enregistrée. Pour saisir le quotient, ouvrez la fiche de la famille concernée."),
+                          _(u"Famille à sélectionner"), wx.OK | wx.ICON_INFORMATION, self)
+            return False
+        dlg = DLG_Saisie_quotient.Dialog(self, IDfamille=selection["IDfamille"])
+        try:
+            dlg.SetDateDebut(self.ctrl_date_debut.GetDate())
+            dlg.SetDateFin(self.ctrl_date_fin.GetDate())
+            dlg.SetTypeQuotient(self.ctrl_type_quotient.GetID())
+            dlg.SetQuotient(int(self.ctrl_quotient.GetValue()))
+            return dlg.ValiderEtEnregistrer()
+        finally:
+            dlg.Destroy()
+
     def OnBoutonOk(self, event):
         """ Bouton Ok """
+        if self.check_saisir_quotient.GetValue() and not self.VerifierSaisieQuotient():
+            return
         if self.Sauvegarde() == False :
             return
+        if self.check_saisir_quotient.GetValue():
+            try:
+                if not self.SaisirQuotient():
+                    return
+            except Exception:
+                wx.MessageBox(_(u"La pièce est enregistrée, mais la saisie du quotient n'a pas pu être terminée. Vérifiez les quotients dans la fiche famille."),
+                              _(u"Quotient à vérifier"), wx.OK | wx.ICON_ERROR, self)
+                return
 
         # Fermeture
         self.EndModal(wx.ID_OK)

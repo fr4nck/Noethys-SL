@@ -254,6 +254,12 @@ class Dialog(wx.Dialog):
         return self.ctrl_observations.GetValue()
 
     def OnBoutonOk(self, event):
+        if self.ValiderEtEnregistrer():
+            self.EndModal(wx.ID_OK)
+        else:
+            return False
+
+    def ValiderEtEnregistrer(self):
         # Période
         date_debut = self.GetDateDebut()
         if self.ctrl_date_debut.FonctionValiderDate() == False or date_debut == None :
@@ -338,8 +344,7 @@ class Dialog(wx.Dialog):
         if not self.Sauvegarde(precedent=precedent):
             return False
 
-        # Fermeture
-        self.EndModal(wx.ID_OK)
+        return True
 
     def Sauvegarde(self, precedent=None):
         donnees = {
