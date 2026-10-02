@@ -4467,13 +4467,15 @@ class MyApp(wx.App):
         frame = MainFrame(None)
         self.SetTopWindow(frame)
         frame.Initialisation()
+        # Update() AUI utilise CallAfter : placer les panneaux avant de montrer la fenêtre.
+        frame._mgr.DoUpdate()
         if splash is not None:
             splash.Hide()
             splash.Destroy()
         frame.Show()
         if getattr(frame, "maximiser_au_demarrage", False):
             frame.Maximize(True)
-        frame._mgr.Update()
+        frame._mgr.DoUpdate()
         frame.Layout()
         # Peindre avant les dialogues et le chargement du fichier réseau.
         frame.Refresh()
