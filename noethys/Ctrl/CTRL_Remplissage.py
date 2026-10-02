@@ -1049,6 +1049,10 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
             self.Thaw()
             # La grille contient plusieurs fenêtres natives (cellules et labels).
             self.ForceRefresh()
+            # Finir le dessin avant les autres lectures réseau (bandeau des présents).
+            for window in (self.GetGridWindow(), self.GetGridRowLabelWindow(),
+                           self.GetGridColLabelWindow(), self.GetGridCornerLabelWindow()):
+                window.Update()
             
     def MAJ_donnees(self):
         if self.dictDonnees != None :
