@@ -120,6 +120,9 @@ class MainFrame(wx.Frame):
 
         theme = UTILS_Interface.GetTheme()
 
+        # Fond clair dès la création, avant le premier rendu des panneaux.
+        self.SetBackgroundColour(wx.Colour(242, 242, 242))
+
         # Icône
         try :
             icon = wx.Icon()
@@ -4467,6 +4470,9 @@ class MyApp(wx.App):
             splash.Hide()
             splash.Destroy()
         frame.Show()
+        # Peindre avant les dialogues et le chargement du fichier réseau.
+        frame.Refresh()
+        frame.Update()
 
         # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
         etat_annonce = frame.Annonce()
