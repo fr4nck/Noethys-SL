@@ -109,9 +109,16 @@ ID_TB_CALCULATRICE = wx.Window.NewControlId()
 ID_TB_UTILISATEUR = wx.Window.NewControlId()
 
 
-def FermerSplashProgressivement(splash):
+def FermerSplashProgressivement(splash, on_finished=None):
     """Efface le logo une fois la fenêtre principale entièrement préparée."""
+    def terminer():
+        if splash:
+            splash.Destroy()
+        if on_finished is not None:
+            on_finished()
+
     if splash is None:
+        terminer()
         return
     niveaux = (230, 205, 180, 155, 130, 105, 80, 55, 30, 0)
 
@@ -120,7 +127,7 @@ def FermerSplashProgressivement(splash):
             if not splash:
                 return
             if index == len(niveaux) or not splash.SetTransparent(niveaux[index]):
-                splash.Destroy()
+                terminer()
                 return
             wx.CallLater(40, attenuer, index + 1)
         except RuntimeError:
@@ -4502,42 +4509,47 @@ class MyApp(wx.App):
         frame._mgr.DoUpdate()
         frame.Layout()
 
-        # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
-        etat_annonce = frame.Annonce()
+        def ouvrir_demarrage():
+            if not frame:
+                return
+            # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
+            etat_annonce = frame.Annonce()
                 
-        # Charge le fichier Exemple si l'utilisateur le souhaite
-        etat_exemple = frame.ChargeFichierExemple()
+            # Charge le fichier Exemple si l'utilisateur le souhaite
+            etat_exemple = frame.ChargeFichierExemple()
         
-        # Charge le dernier fichier
-        fichierOuvert = frame.OuvrirDernierFichier()
+            # Charge le dernier fichier
+            fichierOuvert = False
+            if not frame.userConfig.get("nomFichier"):
+                fichierOuvert = frame.OuvrirDernierFichier()
 
-        # Propose mise à jour immédiate
-        etat_maj = frame.ProposeMAJ()
+            # Propose mise à jour immédiate
+            etat_maj = frame.ProposeMAJ()
 
-        # Après ouverture d'un fichier :
-        if fichierOuvert == True and frame.EstFichierExemple() == False and etat_maj == False :
+            # Après ouverture d'un fichier :
+            if fichierOuvert == True and frame.EstFichierExemple() == False and etat_maj == False :
 
-            # Témoignages
-            temoignages = frame.AnnonceTemoignages()
+                # Témoignages
+                temoignages = frame.AnnonceTemoignages()
 
-            # Financement
-            if temoignages == False :
-                financement = frame.AnnonceFinancement()
+                # Financement
+                if temoignages == False :
+                    financement = frame.AnnonceFinancement()
 
 
-                # Détection d'anomalies
-                if financement == False and CUSTOMIZE.GetValeur("correction_anomalies", "actif", "1") == "1" :
-                    frame.AutodetectionAnomalies()
+                    # Détection d'anomalies
+                    if financement == False and CUSTOMIZE.GetValeur("correction_anomalies", "actif", "1") == "1" :
+                        frame.AutodetectionAnomalies()
 
-        # Démarrage du serveur Connecthys
-        if hasattr(frame, 'ctrl_serveur_portail') == True:
-            frame.ctrl_serveur_portail.StartServeur()
+            # Démarrage du serveur Connecthys
+            if hasattr(frame, 'ctrl_serveur_portail') == True:
+                frame.ctrl_serveur_portail.StartServeur()
 
-        # Démarrage du serveur Nomadhys
-        if hasattr(frame, 'ctrl_serveur_nomade') == True:
-            frame.ctrl_serveur_nomade.StartServeur()
+            # Démarrage du serveur Nomadhys
+            if hasattr(frame, 'ctrl_serveur_nomade') == True:
+                frame.ctrl_serveur_nomade.StartServeur()
 
-        # Tous les chargements initiaux sont terminés : montrer une seule disposition.
+        # Montrer la fenêtre prête avant toute demande de mot de passe.
         frame._mgr.DoUpdate()
         frame.Layout()
         if splash is not None:
@@ -4546,7 +4558,10 @@ class MyApp(wx.App):
         frame.Show()
         frame.Refresh()
         frame.Update()
-        FermerSplashProgressivement(splash)
+        def apres_fondu():
+            wx.CallLater(500, ouvrir_demarrage)
+
+        FermerSplashProgressivement(splash, on_finished=apres_fondu)
 
         print("Temps de chargement ouverture de Noethys = ", time.time() - heure_debut)
         return True
