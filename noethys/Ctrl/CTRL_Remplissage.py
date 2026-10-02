@@ -1036,9 +1036,14 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         self.modeAffichage = mode
 
     def MAJ(self):
+        # Garder le tableau visible pendant les lectures de la base réseau.
+        self.ForceRefresh()
+        for window in (self.GetGridWindow(), self.GetGridRowLabelWindow(),
+                       self.GetGridColLabelWindow(), self.GetGridCornerLabelWindow()):
+            window.Update()
+        self.MAJ_donnees()
         self.Freeze()
         try:
-            self.MAJ_donnees()
             self.MAJ_affichage()
         finally:
             self.Thaw()
