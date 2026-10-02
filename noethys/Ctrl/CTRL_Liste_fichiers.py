@@ -215,7 +215,7 @@ class CTRL(ULC.UltimateListCtrl):
         self.InsertColumn(1, "Column 2") 
         
         for dictFichier in self.listeFichiers :
-            index = self.InsertStringItem(six.MAXSIZE, "")
+            index = self.InsertStringItem(self.GetItemCount(), "")
 
             klass = FirstColumnRenderer(self, titre=dictFichier["titre"], image=dictFichier["image"], description=dictFichier["description"])
             self.SetItemCustomRenderer(index, 0, klass)
