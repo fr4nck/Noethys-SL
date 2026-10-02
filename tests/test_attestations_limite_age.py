@@ -20,7 +20,7 @@ exec(compile(ast.Module(body=methods, type_ignores=[]), str(SOURCE), 'exec'), na
 class LimiteAgeTests(unittest.TestCase):
     def panel(self, debut):
         p = SimpleNamespace(ctrl_date_debut=Mock(), ctrl_date_fin=Mock(), ctrl_dateNaiss=Mock(),
-                            check_dateNaiss=Mock(), parent=Mock(), ctrl_methode=Mock(),
+                            check_dateNaiss=Mock(), check_repas=Mock(), parent=Mock(), ctrl_methode=Mock(),
                             GetActivites=Mock(return_value=[1]), GetModes=Mock(return_value=[1]))
         p.ctrl_date_debut.GetDate.return_value = debut
         p.check_dateNaiss.GetValue.return_value = True

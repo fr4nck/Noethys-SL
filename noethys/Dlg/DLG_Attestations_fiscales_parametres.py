@@ -28,6 +28,7 @@ from Dlg import DLG_Attestations_fiscales_selection
 
 import FonctionsPerso
 from Utils import UTILS_Utilisateurs
+from Utils import UTILS_Attestations_repas
 
 
 
@@ -142,12 +143,21 @@ class Parametres(wx.Panel):
 
         # Actualiser
         self.bouton_actualiser = CTRL_Bouton_image.CTRL(self, texte=_(u"Rafraîchir la liste"), cheminImage="Images/32x32/Actualiser.png")
+        self.check_repas = wx.CheckBox(self, label=_(u"Déduire automatiquement les repas"))
+        self.bouton_repas = wx.Button(self, label=_(u"Prix des repas par période…"))
+        DB = GestionDB.DB()
+        try:
+            self.check_repas.SetValue(bool(UTILS_Attestations_repas.Charger(DB)))
+        finally:
+            DB.Close()
 
         self.__set_properties()
         self.__do_layout()
         
         self.Bind(wx.EVT_BUTTON, self.OnBoutonActualiser, self.bouton_actualiser)
         self.Bind(wx.EVT_CHECKBOX, self.OnCheckAge, self.check_dateNaiss)
+        self.Bind(wx.EVT_BUTTON, self.OnPrixRepas, self.bouton_repas)
+        self.Bind(wx.EVT_CHECKBOX, self.OnRepas, self.check_repas)
         
         # Init Contrôles
         self.OnCheckAge(None)
@@ -159,7 +169,7 @@ class Parametres(wx.Panel):
         self.bouton_actualiser.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour actualiser la liste")))
 
     def __do_layout(self):
-        grid_sizer_base = wx.FlexGridSizer(rows=6, cols=1, vgap=10, hgap=10)
+        grid_sizer_base = wx.FlexGridSizer(rows=0, cols=1, vgap=10, hgap=10)
         
         # Date de référence
         staticbox_periode = wx.StaticBoxSizer(self.staticbox_periode_staticbox, wx.VERTICAL)
@@ -195,6 +205,8 @@ class Parametres(wx.Panel):
         grid_sizer_base.Add(staticbox_modes, 1, wx.RIGHT|wx.EXPAND, 5)
 
         grid_sizer_base.Add(self.bouton_actualiser, 0, wx.EXPAND|wx.RIGHT, 5)
+        grid_sizer_base.Add(self.check_repas, 0, wx.RIGHT, 5)
+        grid_sizer_base.Add(self.bouton_repas, 0, wx.EXPAND|wx.RIGHT, 5)
 
         self.SetSizer(grid_sizer_base)
         grid_sizer_base.Fit(self)
@@ -209,6 +221,27 @@ class Parametres(wx.Panel):
         debut = self.ctrl_date_debut.GetDate()
         if debut is not None:
             self.ctrl_dateNaiss.SetDate(datetime.date(debut.year - 6, 1, 1))
+
+    def OnRepas(self, event=None):
+        self.parent.ctrl_prestations.SetObjects([])
+        self.parent.ctrl_prestations.donnees = []
+
+    def OnPrixRepas(self, event):
+        from Dlg import DLG_Attestations_repas
+        try:
+            dlg = DLG_Attestations_repas.Dialog(self)
+            try:
+                if dlg.ShowModal() == wx.ID_OK:
+                    DB = GestionDB.DB()
+                    try:
+                        self.check_repas.SetValue(bool(UTILS_Attestations_repas.Charger(DB)))
+                    finally:
+                        DB.Close()
+                    self.OnRepas()
+            finally:
+                dlg.Destroy()
+        except Exception as erreur:
+            wx.MessageBox(str(erreur), _(u"Prix des repas à vérifier"), wx.OK | wx.ICON_EXCLAMATION, self)
 
     def OnBoutonActualiser(self, event): 
         # Validation de la période
@@ -283,7 +316,8 @@ class Parametres(wx.Panel):
             self.MAJprestations() 
             del dlgAttente
         except Exception as err :
-            print(err)
+            self.OnRepas()
+            wx.MessageBox(str(err), _(u"Attestations à vérifier"), wx.OK | wx.ICON_EXCLAMATION, self)
             del dlgAttente
     
     def OnCheckActivites(self):
@@ -301,7 +335,13 @@ class Parametres(wx.Panel):
         listeActivites = self.GetActivites() 
         listeModes = self.GetModes()
         methode = self.ctrl_methode.GetValeur()
-        self.parent.ctrl_prestations.MAJ(date_debut, date_fin, dateNaiss, listeActivites, listeModes, methode)
+        self.parent.ctrl_prestations.deduire_repas = self.check_repas.GetValue()
+        try:
+            self.parent.ctrl_prestations.MAJ(date_debut, date_fin, dateNaiss, listeActivites, listeModes, methode)
+        except ValueError as erreur:
+            self.OnRepas()
+            wx.MessageBox(str(erreur), _(u"Repas à vérifier"), wx.OK | wx.ICON_EXCLAMATION, self)
+            return False
     
     def GetActivites(self):
         return self.ctrl_activites.GetActivites() 

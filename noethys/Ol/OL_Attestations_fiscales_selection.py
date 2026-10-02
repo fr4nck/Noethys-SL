@@ -15,6 +15,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import GestionDB
+from Utils import UTILS_Attestations_repas
 import datetime
 import copy
 
@@ -106,10 +107,11 @@ class ListView(FastObjectListView):
                 dictPrestation = copy.deepcopy(dictPrestation) 
                 
                 # Applique les éventuels ajustements
-                montant = dictPrestation["montant"] + ajustement
+                deduction = dictPrestation.get('deduction_repas', FloatToDecimal(0.0))
+                montant, regle, impaye = UTILS_Attestations_repas.Appliquer(
+                    dictPrestation['montant'], dictPrestation['regle'], deduction, ajustement)
                 if montant < FloatToDecimal(0.0) : 
                     montant = FloatToDecimal(0.0)
-                regle = dictPrestation["regle"] + ajustement
                 if regle < FloatToDecimal(0.0) : 
                     regle = FloatToDecimal(0.0)
                 impaye = montant - regle
