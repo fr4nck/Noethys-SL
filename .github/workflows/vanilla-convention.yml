@@ -43,6 +43,11 @@ on:
       - '.github/workflows/vanilla-convention.yml'
       - 'scripts/qualification/compare_test_baseline.py'
       - 'requirements.txt'
+      - 'noethys/Dlg/DLG_AFAS_Actualisation.py'
+      - 'noethys/Dlg/DLG_Etat_global.py'
+      - 'noethys/Utils/UTILS_AFAS*.py'
+      - 'tests/test_noethys_sl_afas*.py'
+      - 'docs/afas/**'
   workflow_dispatch:
 
 permissions:
@@ -103,6 +108,12 @@ jobs:
           tests.test_vanilla_convention_pmsl_activites
           tests.test_vanilla_generation_convention_modeles_ui_contract
           tests.test_vanilla_famille_ajout_contract
+          tests.test_noethys_sl_afas
+          tests.test_noethys_sl_afas_donnees
+          tests.test_noethys_sl_afas_perimetre
+          tests.test_noethys_sl_afas_perimetre_temps_du_midi
+          tests.test_noethys_sl_afas_historique
+          tests.test_noethys_sl_afas_actualisation
 
   compare-baseline:
     name: Comparer les échecs à la baseline RC2 (Linux wx)

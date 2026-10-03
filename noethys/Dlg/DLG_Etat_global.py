@@ -754,8 +754,7 @@ class CalculateurEtatGlobal():
                     # Stats globales
                     if IDindividu not in dict_stats["individus"]:
                         dict_stats["individus"].append(IDindividu)
-                    if IDfamille not in dict_stats["familles"]:
-                        dict_stats["familles"].append(IDfamille)
+                    if IDfamille not in dict_stats["familles"…11 tokens truncated…milles"].append(IDfamille)
 
                     # Mémorisation du résultat
                     dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
@@ -964,12 +963,14 @@ class Dialog(wx.Dialog):
         self.ctrl_options.SetMinSize((-1, 130))
 
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
+        self.bouton_afas = wx.Button(self, label="CAF / AFAS")
         self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Aperçu"), cheminImage="Images/32x32/Apercu.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         self.__set_properties()
         self.__do_layout()
 
+        self.Bind(wx.EVT_BUTTON, self.OnAFAS, self.bouton_afas)
         self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_ok)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
@@ -1025,9 +1026,10 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
 
         # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
+        grid_sizer_boutons.Add(self.bouton_afas, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_ok, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_boutons.AddGrowableCol(1)
@@ -1063,6 +1065,22 @@ class Dialog(wx.Dialog):
         """ Importation des paramètres """
         self.ctrl_parametres.SetParametres(dictParametres)
         self.ctrl_options.SetParametres(dictParametres)
+
+    def OnAFAS(self, event):
+        activites = self.panel_parametres.GetActivites()
+        if not activites:
+            wx.MessageBox("Sélectionnez les activités de l'équipement CAF et configurez leurs unités.",
+                          "CAF / AFAS", wx.OK | wx.ICON_INFORMATION, self)
+            return
+        unites = self.ctrl_parametres.GetDonnees()
+        if unites is False or self.ctrl_options.Validation() is False:
+            return
+        from Dlg import DLG_AFAS_Actualisation
+        dialogue = DLG_AFAS_Actualisation.Dialog(self, activites, unites, self.ctrl_options.GetParametres())
+        try:
+            dialogue.ShowModal()
+        finally:
+            dialogue.Destroy()
 
     def Apercu(self, event):
         """ Génération du document PDF """
