@@ -141,9 +141,11 @@ class ActualisationTests(_BaseAFASDonneesTests):
             CTRL_Profil.SetParametres(IDprofil=99, dictParametres=configuration)
             recharge = CTRL_Profil.GetParametres(IDprofil=99)
             dialogue.groupes.Check(0, False)
+            dialogue.unites = {}
             dialogue.SetConfiguration(recharge)
             self.assertTrue(dialogue.groupes.IsChecked(0))
             self.assertEqual(dialogue.equipement.GetValue(), "Club ados")
+            self.assertEqual(dialogue.Calculer()["lignes"]["heures_reelles"]["realise"], 2)
             dialogue.phase.SetSelection(1)
             dialogue.OnPhase(None)
             self.assertEqual(dialogue.manuels["heures_reelles"].GetValue(), "")

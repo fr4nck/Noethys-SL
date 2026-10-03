@@ -2,6 +2,8 @@
 
 Dans **Consommations → État global**, sélectionner les activités d'un équipement CAF et charger/configurer le profil de calcul du réalisé (coefficients ou temps réels), les états de consommation, les jours scolaires/vacances et les éventuels plafonds. Cliquer sur **CAF / AFAS**.
 
+Pour réutiliser un équipement enregistré, ouvrir directement **CAF / AFAS** et choisir sa configuration ; il n’est pas nécessaire de sélectionner à nouveau les activités dans l’état global.
+
 Créer une configuration **par équipement CAF** (chaque ALSH, le club ados), avec le bouton de sauvegarde situé à côté de « Configuration enregistrée ». Elle mémorise le nom, les activités/groupes, les unités et options de calcul et la méthode. La catégorie de profils AFAS est distincte de celle de l’état global : elle ne modifie pas le profil « Caf - Périscolaire » existant. Les saisies manuelles sont conservées par année et déclaration ; elles ne sont pas reportées automatiquement sur une autre période ou année. Pour mettre à jour les règles de calcul, partir du profil corrigé dans l’état global et enregistrer une nouvelle configuration AFAS.
 
 Choisir la déclaration :

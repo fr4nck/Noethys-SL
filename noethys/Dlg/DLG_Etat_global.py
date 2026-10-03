@@ -1069,12 +1069,10 @@ class Dialog(wx.Dialog):
 
     def OnAFAS(self, event):
         activites = self.panel_parametres.GetActivites()
-        if not activites:
-            wx.MessageBox("Sélectionnez les activités de l'équipement CAF et configurez leurs unités.",
-                          "CAF / AFAS", wx.OK | wx.ICON_INFORMATION, self)
-            return
-        unites = self.ctrl_parametres.GetDonnees()
-        if unites is False or self.ctrl_options.Validation() is False:
+        # Un profil AFAS enregistré doit pouvoir être rechargé même lorsque
+        # l'état global n'a encore aucune activité sélectionnée.
+        unites = self.ctrl_parametres.GetDonnees() if activites else {}
+        if unites is False or (activites and self.ctrl_options.Validation() is False):
             return
         from Dlg import DLG_AFAS_Actualisation
         dialogue = DLG_AFAS_Actualisation.Dialog(self, activites, unites, self.ctrl_options.GetParametres())
