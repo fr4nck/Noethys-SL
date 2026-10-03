@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_noethys_sl_afas_donnees import _BaseAFASDonneesTests
+from Data import DATA_Tables as Tables
 from Utils import UTILS_AFAS
 from Utils import UTILS_AFAS_Actualisation as AFAS
 from Utils import UTILS_AFAS_Donnees
@@ -20,6 +21,8 @@ _APP = None
 class ActualisationTests(_BaseAFASDonneesTests):
     def setUp(self):
         super().setUp()
+        for nom in ("profils", "profils_parametres"):
+            self.base.db.CreationTable(nom, dicoDB=Tables.DB_DATA)
         self.base.inserer("groupes", ["IDgroupe", "IDactivite", "nom"], [(1, 10, "Premier groupe")])
         self._commit()
 
@@ -81,6 +84,22 @@ class ActualisationTests(_BaseAFASDonneesTests):
             self.preparer(dict(zip([c for c, l in AFAS.METRIQUES], [1, 2, 1, 0])))
         self.assertEqual(AFAS.NombrePositif("2,5"), 2.5)
 
+    def test_quatre_declarations_conservent_le_cycle_annuel(self):
+        for i, date in enumerate(("2026-06-30", "2026-07-01", "2026-09-30", "2026-10-01", "2026-12-31"), 1):
+            self._inserer_conso(i, 1, 1, date, "08:00", "09:00")
+        self._commit()
+        for phase, reel, prevision in ((UTILS_AFAS.PHASE_PREVISIONNEL, 0, 10),
+                                      (UTILS_AFAS.PHASE_ACTUALISATION_JUIN, 1, 10),
+                                      (UTILS_AFAS.PHASE_ACTUALISATION_SEPTEMBRE, 3, 10),
+                                      (UTILS_AFAS.PHASE_REEL, 5, 0)):
+            with self.subTest(phase=phase):
+                rapport = AFAS.PreparerActualisation(2026, [(10, 1)], {51: self._unite_reel(51, 10)},
+                    self._options(), methode=UTILS_AFAS.METHODE_MANUEL,
+                    valeurs_manuelles=dict(zip([c for c, l in AFAS.METRIQUES], [10, 0, 0, 0])), phase=phase)
+                self.assertEqual(rapport["lignes"]["heures_reelles"]["realise"], reel)
+                self.assertEqual(rapport["lignes"]["heures_reelles"]["prevision_restant"], prevision)
+                self.assertEqual(rapport["lignes"]["heures_reelles"]["total_actualise"], reel + prevision)
+
     def test_prestation_et_jour_ne_sont_pas_doubles_entre_groupes(self):
         self.base.inserer("groupes", ["IDgroupe", "IDactivite", "nom"], [(2, 10, "Second groupe")])
         self._inserer_prestation(501, "02:00")
@@ -100,6 +119,7 @@ class ActualisationTests(_BaseAFASDonneesTests):
         from Dlg import DLG_AFAS_Actualisation
         global _APP
         _APP = wx.GetApp() or wx.App(False)
+        _APP.SetAssertMode(wx.APP_ASSERT_EXCEPTION)
         self._inserer_conso(1, 1, 1, "2026-09-30", "08:00", "10:00")
         self._commit()
         dialogue = DLG_AFAS_Actualisation.Dialog(None, [10], {51: self._unite_reel(51, 10)}, self._options())
@@ -114,5 +134,24 @@ class ActualisationTests(_BaseAFASDonneesTests):
             self.assertEqual(rapport["lignes"]["heures_reelles"]["realise"], 2)
             self.assertEqual(dialogue.resultats.GetItemCount(), 4)
             self.assertEqual(dialogue.resultats.GetItemText(0, 3), "2.00")
+            dialogue.equipement.SetValue("Club ados")
+            configuration = dialogue.GetConfiguration()
+            from Ctrl import CTRL_Profil
+            self.base.inserer("profils", ["IDprofil", "label", "categorie", "defaut"], [(99, "Club ados", "afas_equipement", 0)])
+            CTRL_Profil.SetParametres(IDprofil=99, dictParametres=configuration)
+            recharge = CTRL_Profil.GetParametres(IDprofil=99)
+            dialogue.groupes.Check(0, False)
+            dialogue.SetConfiguration(recharge)
+            self.assertTrue(dialogue.groupes.IsChecked(0))
+            self.assertEqual(dialogue.equipement.GetValue(), "Club ados")
+            dialogue.phase.SetSelection(1)
+            dialogue.OnPhase(None)
+            self.assertEqual(dialogue.manuels["heures_reelles"].GetValue(), "")
+            dialogue.phase.SetSelection(2)
+            dialogue.OnPhase(None)
+            self.assertEqual(dialogue.manuels["heures_reelles"].GetValue(), "0")
+            dialogue.annee.SetValue(2027)
+            dialogue.OnPhase(None)
+            self.assertEqual(dialogue.manuels["heures_reelles"].GetValue(), "")
         finally:
             dialogue.Destroy()
