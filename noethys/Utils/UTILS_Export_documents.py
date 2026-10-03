@@ -10,6 +10,8 @@
 
 
 import Chemins
+import os
+import re
 from Utils.UTILS_Traduction import _
 import six
 import GestionDB
@@ -132,6 +134,13 @@ def Importer(fichier="", dictDonnees={}, IDfond=None, defaut=0):
     for dictObjet in listeObjets :
         dictObjet["IDmodele"] = IDmodele
 
+        # Réinitialisé à chaque objet : sans cela, un dictObjet sans clé
+        # "image" (fichier .ndc importé/édité en dehors d'Exporter(), qui
+        # inclut aujourd'hui systématiquement cette clé mais ne le
+        # garantit pas pour tout fichier .ndc possible) soit lève
+        # UnboundLocalError au premier objet sans image, soit réutilise à
+        # tort le blob de l'objet précédent pour un objet qui n'en a pas.
+        blob = None
         listeDonnees = []
         for champ, donnee in dictObjet.items() :
             if champ == "image" :
@@ -150,6 +159,186 @@ def Importer(fichier="", dictDonnees={}, IDfond=None, defaut=0):
 
     DB.Close()
     return IDmodele
+
+
+def ImporterModeleExempleIdempotent(fichier=""):
+    """ Importe un modèle .ndc "exemple" fourni avec le produit (voir
+    noethys/Static/ModelesConventionExemples/, docs/recette_conventions/README.md)
+    de façon idempotente : n'importe JAMAIS un doublon.
+
+    Si un modèle portant EXACTEMENT le même nom et la même catégorie que
+    celui du fichier existe déjà, ne fait RIEN et renvoie son IDmodele
+    existant tel quel -- ne modifie jamais son contenu, même s'il diffère
+    du fichier (ce pourrait être une version que l'utilisateur a
+    volontairement modifiée après un premier import). Sinon, importe
+    normalement via Importer() et renvoie le nouvel IDmodele.
+
+    Utilisée UNIQUEMENT pour les modèles d'exemple fournis avec le
+    produit -- jamais pour le bouton "Importer" générique de l'écran
+    Modèles de documents, qui doit continuer à toujours créer un nouveau
+    modèle quel que soit son nom (un utilisateur import du contenu
+    externe explicitement choisi, pas un modèle fourni par Noethys). """
+    if six.PY2:
+        fichier = fichier.encode("utf8")
+    data = UTILS_Json.Lire(fichier)
+
+    DB = GestionDB.DB()
+    nomEchappe = data["nom"].replace("'", "''")
+    categorieEchappee = data["categorie"].replace("'", "''")
+    req = """SELECT IDmodele FROM documents_modeles
+    WHERE nom='%s' AND categorie='%s';""" % (nomEchappe, categorieEchappee)
+    DB.ExecuterReq(req)
+    listeExistants = DB.ResultatReq()
+    DB.Close()
+
+    if len(listeExistants) > 0 :
+        return listeExistants[0][0]
+
+    return Importer(dictDonnees=data)
+
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Récupération d'un modèle fourni enregistré avec un mauvais encodage
+#
+# Avant que UTILS_Json.Lire() ne force encoding="utf-8", un .ndc contenant des
+# octets UTF-8 bruts était lu en cp1252 sous Windows : le mojibake obtenu
+# ("TÃ©l.", "Lâ€™", ...) a été persisté tel quel dans documents_modeles /
+# documents_objets. Rien ici ne répare ni n'écrase ce contenu (il a pu être
+# personnalisé depuis) : on se limite à le détecter et à installer, sur
+# demande explicite, une copie propre d'un modèle fourni.
+
+def _SuiteCaracteresContinuationCp1252():
+    """ Caractères obtenus en décodant en cp1252 les octets de continuation
+    UTF-8 (0x80-0xBF). Les 5 octets non définis en cp1252 sont repris tels
+    quels (comportement latin-1), par prudence. """
+    caracteres = []
+    for octet in range(0x80, 0xC0):
+        try :
+            caracteres.append(bytes([octet]).decode("cp1252"))
+        except UnicodeDecodeError :
+            caracteres.append(chr(octet))
+    return u"".join(caracteres)
+
+# Ã, Â, Å suivis d'un octet de continuation = séquence UTF-8 à 2 octets lue en
+# cp1252 (é -> "Ã©", ° -> "Â°", œ -> "Å“"). Un Ã/Â/Å suivi d'une lettre
+# (CHÂTEAU, ÂGE, SÃO) reste légitime. "â€"/"â‚" couvrent les séquences à
+# 3 octets (’ – — € ...), U+FFFD un décodage déjà remplacé.
+_RE_MOJIBAKE = re.compile(u"[ÂÃÅ][%s]|â€|â‚|�" % re.escape(_SuiteCaracteresContinuationCp1252()))
+
+def TexteSembleMalEncode(texte=u""):
+    """ True si le texte contient une séquence typique d'UTF-8 lu en cp1252. """
+    return bool(texte) and _RE_MOJIBAKE.search(texte) is not None
+
+def GetObjetsMalEncodes(IDmodele=None):
+    """ Noms des objets texte du modèle dont le texte semble mal encodé
+    (mêmes objets que ceux contrôlés par
+    UTILS_Impression_convention._ValideEncodageModele). Lecture seule. """
+    DB = GestionDB.DB()
+    req = """SELECT IDobjet, nom, categorie, texte FROM documents_objets
+    WHERE IDmodele=%d ORDER BY ordre, IDobjet;""" % IDmodele
+    DB.ExecuterReq(req)
+    listeDonnees = DB.ResultatReq()
+    DB.Close()
+    suspects = []
+    for IDobjet, nom, categorie, texte in listeDonnees :
+        if "texte" in (categorie or "") and TexteSembleMalEncode(texte or u""):
+            suspects.append(nom or u"objet #%s" % IDobjet)
+    return suspects
+
+def GetModelesExemplesConvention():
+    """ Modèles Convention fournis avec le produit (dossier embarqué
+    Static/ModelesConventionExemples) : [{"fichier", "nom", "categorie"}]. """
+    repertoire = Chemins.GetStaticPath("ModelesConventionExemples")
+    listeExemples = []
+    if not os.path.isdir(repertoire):
+        return listeExemples
+    for nomFichier in sorted(os.listdir(repertoire)):
+        if not nomFichier.lower().endswith(".ndc"):
+            continue
+        fichier = os.path.join(repertoire, nomFichier)
+        try :
+            data = UTILS_Json.Lire(fichier)
+        except Exception as err :
+            print("Modele d'exemple illisible :", fichier, err)
+            continue
+        listeExemples.append({"fichier": fichier, "nom": data["nom"], "categorie": data["categorie"]})
+    return listeExemples
+
+def _NomImportHistoriqueWindows(nom=u""):
+    """ Nom tel que l'ancien import Windows (UTF-8 lu en cp1252) l'a
+    enregistré. Sert uniquement à RETROUVER l'exemple d'origine d'un
+    modèle corrompu, jamais à modifier un contenu. """
+    try :
+        return nom.encode("utf-8").decode("cp1252")
+    except UnicodeError :
+        return None
+
+def TrouverModeleExempleCorrespondant(IDmodele=None):
+    """ Fichier .ndc fourni dont le modèle IDmodele semble issu (même
+    catégorie, nom identique ou nom tel qu'altéré par l'ancien import
+    Windows), ou None. """
+    DB = GestionDB.DB()
+    DB.ExecuterReq("SELECT nom, categorie FROM documents_modeles WHERE IDmodele=%d;" % IDmodele)
+    listeDonnees = DB.ResultatReq()
+    DB.Close()
+    if len(listeDonnees) == 0 :
+        return None
+    nom, categorie = listeDonnees[0]
+    for exemple in GetModelesExemplesConvention():
+        if exemple["categorie"] != categorie:
+            continue
+        if nom in (exemple["nom"], _NomImportHistoriqueWindows(exemple["nom"])):
+            return exemple["fichier"]
+    return None
+
+def InstallerCopiePropreModeleExemple(fichier=""):
+    """ Installe une copie propre du modèle fourni `fichier`, à côté d'un
+    éventuel modèle existant mal encodé, sans jamais modifier ni supprimer
+    aucun modèle existant.
+
+    Noms essayés dans l'ordre : nom du fichier, puis "<nom> (copie propre)",
+    "<nom> (copie propre 2)", ... Un nom déjà porté par un modèle propre de
+    la même catégorie est réutilisé tel quel (relance sans doublon) ; un nom
+    porté uniquement par des modèles mal encodés est sauté.
+
+    Renvoie (IDmodele, nom, cree). Lève ValueError si le fichier fourni
+    lui-même semble mal encodé (on n'installe jamais une copie "propre"
+    qui ne l'est pas). """
+    if six.PY2:
+        fichier = fichier.encode("utf8")
+    data = UTILS_Json.Lire(fichier)
+
+    objetsSuspects = [dictObjet.get("nom") or u"?" for dictObjet in data["objets"]
+                      if "texte" in (dictObjet.get("categorie") or "")
+                      and TexteSembleMalEncode(dictObjet.get("texte") or u"")]
+    if objetsSuspects or TexteSembleMalEncode(data["nom"]):
+        raise ValueError(_(u"Le modèle fourni semble lui-même mal encodé (%s) : copie non installée.")
+                         % u", ".join(objetsSuspects or [data["nom"]]))
+
+    categorieEchappee = data["categorie"].replace("'", "''")
+    for index in range(0, 100):
+        if index == 0 :
+            nom = data["nom"]
+        elif index == 1 :
+            nom = _(u"%s (copie propre)") % data["nom"]
+        else :
+            nom = _(u"%s (copie propre %d)") % (data["nom"], index)
+
+        DB = GestionDB.DB()
+        req = """SELECT IDmodele FROM documents_modeles
+        WHERE nom='%s' AND categorie='%s' ORDER BY IDmodele;""" % (nom.replace("'", "''"), categorieEchappee)
+        DB.ExecuterReq(req)
+        listeExistants = DB.ResultatReq()
+        DB.Close()
+
+        if len(listeExistants) == 0 :
+            data["nom"] = nom
+            return Importer(dictDonnees=data), nom, True
+        for (IDmodele,) in listeExistants :
+            if len(GetObjetsMalEncodes(IDmodele)) == 0 :
+                return IDmodele, nom, False
+
+    raise ValueError(_(u"Impossible de trouver un nom libre pour la copie propre de « %s ».") % data["nom"])
 
 
 
