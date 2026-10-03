@@ -528,7 +528,19 @@ class Dialog(wx.Dialog):
                 dlg.ShowModal()
                 dlg.Destroy()
                 return
-            RESA.Impression(dictDonnees)
+            choix = wx.SingleChoiceDialog(
+                self, _(u"Présentation du planning :"), _(u"Imprimer le planning"),
+                [_(u"Détail des séances"), _(u"Synthèse : heures et coût par activité")])
+            try:
+                if choix.ShowModal() != wx.ID_OK:
+                    return
+                synthese = choix.GetSelection() == 1
+            finally:
+                choix.Destroy()
+            if synthese:
+                RESA.Impression(dictDonnees, synthese=True)
+            else:
+                RESA.Impression(dictDonnees)
         except Exception as err:
             dlg = wx.MessageDialog(
                 self, _(u"Impossible de générer le planning.\n\n%s") % err,

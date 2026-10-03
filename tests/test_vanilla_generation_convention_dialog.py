@@ -124,7 +124,10 @@ class DialogGenerationConventionTests(unittest.TestCase):
                     date_debut=datetime.date(2026, 8, 1), date_fin=datetime.date(2027, 7, 31),
                 )
                 with unittest.mock.patch("Utils.UTILS_Impression_reservations.GetDonnees") as faux_get, \
-                     unittest.mock.patch("Utils.UTILS_Impression_reservations.Impression") as faux_impression:
+                     unittest.mock.patch("Utils.UTILS_Impression_reservations.Impression") as faux_impression, \
+                     unittest.mock.patch("wx.SingleChoiceDialog") as choix:
+                    choix.return_value.ShowModal.return_value = wx.ID_OK
+                    choix.return_value.GetSelection.return_value = 0
                     faux_get.return_value = {1: {"nom": "x", "prenom": "y", "activites": {}}}
                     dlg.OnBoutonPlanning(None)
                 dlg.Destroy()

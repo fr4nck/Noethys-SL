@@ -795,3 +795,50 @@ def GetIndividusRattaches(IDfamille, DB=None):
     if fermer:
         DB.Close()
     return listeIndividus
+
+
+def ConstruireSyntheseActivites(dictDonnees):
+    """Agrège le planning existant, sans recalculer les tarifs ni écrire en base."""
+    activites, prestations = {}, {}
+    for IDindividu, individu in dictDonnees.items():
+        for IDactivite, activite in individu.get('activites', {}).items():
+            ligne = activites.setdefault(IDactivite, dict(
+                nom=activite.get('nom') or u"", minutes=0, montant=Decimal('0'),
+                heures_incompletes=False, montant_incomplet=False, intervalles={}))
+            for date, donnees in activite.get('dates', {}).items():
+                for consommations in donnees.get('unites', {}).values():
+                    for conso in consommations:
+                        duree = _duree_heures(conso.get('heure_debut'), conso.get('heure_fin'))
+                        if duree is None:
+                            ligne['heures_incompletes'] = True
+                        else:
+                            h, m = (int(v) for v in str(conso['heure_debut']).split(':')[:2])
+                            debut = h * 60 + m
+                            ligne['intervalles'].setdefault((IDindividu, date), []).append(
+                                (debut, debut + int(round(duree * 60))))
+                        prestation = conso.get('prestation')
+                        valeur = _montant_decimal(prestation.get('montant')) if prestation else None
+                        if valeur is None or not valeur.is_finite():
+                            ligne['montant_incomplet'] = True
+                            continue
+                        IDprestation = conso.get('IDprestation')
+                        if IDprestation is None:
+                            ligne['montant_incomplet'] = True
+                            continue
+                        if IDprestation in prestations:
+                            if prestations[IDprestation] != (IDactivite, valeur):
+                                raise ValueError(_(u"Une prestation est partagée entre plusieurs activités ou montants : répartition à vérifier."))
+                            continue
+                        prestations[IDprestation] = (IDactivite, valeur)
+                        ligne['montant'] += valeur
+    for ligne in activites.values():
+        for intervalles in ligne.pop('intervalles').values():
+            fin_courante = -1
+            for debut, fin in sorted(intervalles):
+                ligne['minutes'] += max(0, fin - max(debut, fin_courante))
+                fin_courante = max(fin_courante, fin)
+    lignes = sorted(activites.values(), key=lambda l: l['nom'].casefold())
+    return dict(activites=lignes, minutes=sum(l['minutes'] for l in lignes),
+                montant=sum((l['montant'] for l in lignes), Decimal('0')),
+                heures_incompletes=any(l['heures_incompletes'] for l in lignes),
+                montant_incomplet=any(l['montant_incomplet'] for l in lignes))
