@@ -124,7 +124,7 @@ class CTRL(ULC.UltimateListCtrl):
         self.InsertColumn(0, "Column 1") 
 
         for dictItem in LISTE_ASSISTANTS:
-            index = self.InsertStringItem(six.MAXSIZE, "")
+            index = self.InsertStringItem(self.GetItemCount(), "")
 
             klass = FirstColumnRenderer(self, dictItem)
             self.SetItemCustomRenderer(index, 0, klass)
