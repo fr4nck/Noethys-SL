@@ -125,6 +125,15 @@ class Dialog(wx.Dialog):
         sizer_modele.Add(self.ctrl_modele, 1, wx.EXPAND | wx.RIGHT, 5)
         sizer_modele.Add(self.bouton_modeles, 0)
 
+        self.ctrl_format = wx.Choice(parent_contenu, choices=[_(u"Noedoc → PDF"), _(u"Word → DOCX")])
+        self.ctrl_format.SetSelection(0)
+        self.ctrl_docx = wx.FilePickerCtrl(parent_contenu, message=_(u"Choisir le modèle Word"),
+                                         wildcard="Document Word (*.docx)|*.docx",
+                                         style=wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST | wx.FLP_USE_TEXTCTRL)
+        self.ctrl_docx.Enable(False)
+        self.ctrl_docx.SetToolTip(_(u"Modèle Word contenant les mêmes mots-clés {CODE} que Noedoc."))
+        self.Bind(wx.EVT_CHOICE, self.OnFormatDocument, self.ctrl_format)
+
         # --- Période ------------------------------------------------------
         label_periode = wx.StaticText(parent_contenu, -1, _(u"Période concernée :"))
         self.ctrl_date_debut = MyDatePickerCtrl(parent_contenu)
@@ -233,7 +242,9 @@ class Dialog(wx.Dialog):
 
         sizer_contenu = wx.BoxSizer(wx.VERTICAL)
         for label, ctrl in (
+            (wx.StaticText(parent_contenu, -1, _(u"Format du document :")), self.ctrl_format),
             (label_modele, sizer_modele),
+            (wx.StaticText(parent_contenu, -1, _(u"Modèle Word (.docx) :")), self.ctrl_docx),
             (label_periode, sizer_periode),
             (label_saison, self.ctrl_saison),
             (label_representant, self.ctrl_representant_nom_complet),
@@ -288,6 +299,17 @@ class Dialog(wx.Dialog):
     # ------------------------------------------------------------------
     # Gestion des modèles Convention / Noedoc
     # ------------------------------------------------------------------
+
+    def OnFormatDocument(self, event):
+        word = self.ctrl_format.GetSelection() == 1
+        self.ctrl_modele.Enable(not word)
+        self.bouton_modeles.Enable(not word)
+        self.ctrl_docx.Enable(word)
+
+    def GetModeleWord(self):
+        if self.ctrl_format.GetSelection() == 1:
+            return self.ctrl_docx.GetPath()
+        return None
 
     def RafraichirModeles(self, IDmodele=None, selectionPremier=False):
         self.ctrl_modele.MAJ()
@@ -560,6 +582,14 @@ class Dialog(wx.Dialog):
         UTILS_Impression_convention._ValideEncodageModele. Dans ce cas, le
         dialogue reste ouvert (saisies conservées) et propose d'installer
         une copie propre d'un modèle fourni. """
+        if hasattr(self, "ctrl_format") and self.ctrl_format.GetSelection() == 1:
+            import os
+            path = self.GetModeleWord()
+            if not path or not path.lower().endswith(".docx") or not os.path.isfile(path):
+                self._Informer(_(u"Choisissez un modèle Word au format .docx."), erreur=True)
+                return
+            self.EndModal(wx.ID_OK)
+            return
         IDmodele = self.GetIDmodele()
         if IDmodele is not None:
             from Utils import UTILS_Export_documents

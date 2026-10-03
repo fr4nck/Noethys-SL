@@ -698,6 +698,7 @@ class Dialog(wx.Dialog):
         if dlg.ShowModal() != wx.ID_OK :
             dlg.Destroy()
             return
+        modele_word = dlg.GetModeleWord()
         IDmodele = dlg.GetIDmodele()
         date_debut = dlg.GetDateDebut()
         date_fin = dlg.GetDateFin()
@@ -705,7 +706,7 @@ class Dialog(wx.Dialog):
         overrides = dlg.GetOverrides()
         dlg.Destroy()
 
-        if IDmodele is None :
+        if IDmodele is None and not modele_word :
             dlg = wx.MessageDialog(
                 self, _(u"Aucun modèle de convention n'est disponible. Créez-en un depuis Paramétrage > Modèles de documents."),
                 _(u"Convention"), wx.OK | wx.ICON_EXCLAMATION,
@@ -714,12 +715,19 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
             return
 
-        from Utils import UTILS_Impression_convention
-        resultat = UTILS_Impression_convention.Impression(
-            IDfamille=self.IDfamille, IDmodele=IDmodele,
-            date_debut=date_debut, date_fin=date_fin, saison=saison,
-            overrides=overrides,
-        )
+        if modele_word:
+            from Utils import UTILS_Convention_docx
+            resultat = UTILS_Convention_docx.Impression(
+                IDfamille=self.IDfamille, modele=modele_word,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides)
+        else:
+            from Utils import UTILS_Impression_convention
+            resultat = UTILS_Impression_convention.Impression(
+                IDfamille=self.IDfamille, IDmodele=IDmodele,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides,
+            )
 
         if resultat :
             try :
