@@ -18,7 +18,10 @@ import unittest
 def run(root, output):
     root = Path(root).resolve()
     os.chdir(root)
-    sys.path[:0] = [str(root / 'tests'), str(root), str(root / 'noethys')]
+    # Chemins inserts every application subdirectory at index 2. Keep the
+    # package root first so ObjectListView is imported as a package, not its
+    # same-named implementation file. Apply the same bootstrap to both refs.
+    sys.path[:0] = [str(root / 'noethys'), str(root / 'tests'), str(root)]
 
     class Result(unittest.TextTestResult):
         def __init__(self, *args, **kwargs):
