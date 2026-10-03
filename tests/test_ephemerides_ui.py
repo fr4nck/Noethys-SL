@@ -48,7 +48,7 @@ class EphemeridesUI(unittest.TestCase):
         self.assertTrue(self.panel.detail.IsEnabled())
         self.assertEqual(self.panel.book.GetPageCount(), 3)
         texts = [child.GetLabel() for child in self.panel.GetChildren() if isinstance(child, wx.StaticText)]
-        self.assertTrue(any('Source préfectorale indisponible' in text for text in texts))
+        self.assertTrue(any('Source préfectorale indisponible' in ' '.join(text.split()) for text in texts))
         self.frame.SetSize((460, 650))
         self.frame.Show()
         _APP.Yield()
@@ -88,11 +88,8 @@ class EphemeridesUI(unittest.TestCase):
         self.assertIn('Météo indisponible', self.panel.weather.GetLabel())
 
     def test_school_dates_do_not_replace_noethys_sunday_dates(self):
-        real_date = dt.date
-        with patch.object(ui.dt, 'date') as date:
-            date.today.return_value = real_date(2026, 10, 3)
-            date.fromisoformat.side_effect = real_date.fromisoformat
-            self.publish()
+        self.publish()
+        self.panel.render_calendar(self.result, today=dt.date(2026, 10, 3))
         text = self.panel.vacation.GetLabel()
         self.assertIn('17/10/2026', text)
         self.assertIn('18/10/2026', text)

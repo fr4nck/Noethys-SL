@@ -29,7 +29,9 @@ def DateDDEnDateFR(date):
 
 
 def link(parent, label, url):
-    return wx.adv.HyperlinkCtrl(parent, label=label, url=url)
+    control = wx.adv.HyperlinkCtrl(parent, label=label if len(label) <= 46 else label[:43] + '…', url=url)
+    control.SetToolTip(label + '\n' + url)
+    return control
 
 
 def section(parent, title):
@@ -168,14 +170,16 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._timer = wx.Timer(self)
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.base = wx.BoxSizer(wx.VERTICAL)
-        header = wx.BoxSizer(wx.HORIZONTAL)
+        header = wx.BoxSizer(wx.VERTICAL)
         self.title = wx.StaticText(self, label=DateDDEnDateFR(dt.date.today()))
         self.title.SetFont(self.title.GetFont().Bold())
-        header.Add(self.title, 1, wx.ALIGN_CENTER_VERTICAL)
+        header.Add(self.title, 0, wx.EXPAND)
         settings = wx.Button(self, label='Réglages…')
         refresh = wx.Button(self, label='Actualiser')
-        header.Add(settings, 0, wx.LEFT, 6)
-        header.Add(refresh, 0, wx.LEFT, 6)
+        toolbar = wx.BoxSizer(wx.HORIZONTAL)
+        toolbar.Add(settings)
+        toolbar.Add(refresh, 0, wx.LEFT, 6)
+        header.Add(toolbar, 0, wx.TOP, 6)
         self.base.Add(header, 0, wx.EXPAND | wx.ALL, 10)
         self.place = wx.StaticText(self, label='Localisation de l’organisateur')
         self.base.Add(self.place, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
@@ -308,7 +312,12 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         else:
             result['alert_error'] = 'Choisir la source de votre préfecture dans les réglages.'
         result['checked'] = dt.datetime.now().strftime('%d/%m/%Y %H:%M')
-        wx.CallAfter(self._publish, generation, result)
+        if self._alive:
+            try:
+                wx.CallAfter(self._publish, generation, result)
+            except RuntimeError:
+                # L’application peut avoir quitté entre le contrôle et le post.
+                pass
 
     def _publish(self, generation, result):
         if not self._alive or generation != self._generation or not self._active:
@@ -346,8 +355,8 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.Layout()
         self.SetupScrolling(scroll_x=False)
 
-    def render_calendar(self, result):
-        today = dt.date.today()
+    def render_calendar(self, result, today=None):
+        today = today or dt.date.today()
         zone = self._settings.get('zone') or school.GetZoneDepuisCodePostal(self._settings.get('postcode'))
         period = school.GetProchainePeriode(zone, today)
         if period:
