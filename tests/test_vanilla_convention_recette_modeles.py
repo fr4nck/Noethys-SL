@@ -45,6 +45,20 @@ def _lire_nombre_de_pages(chemin_pdf):
 
 
 class RecetteModelesConventionTests(unittest.TestCase):
+    def test_tarif_des_exemples_ne_double_pas_le_symbole_euro(self):
+        from Dlg import DLG_Noedoc
+
+        for nom in ("modele_convention_associative.ndc", "modele_convention_scolaire.ndc"):
+            with self.subTest(modele=nom), creer_base_association_simple() as base:
+                with RedirectionGestionDB(base.chemin):
+                    IDmodele = UTILS_Export_documents.Importer(fichier=str(MODELES_DIR / nom))
+                    modele = DLG_Noedoc.ModeleDoc(IDmodele=IDmodele)
+                    textes = [modele.GetValeur(objet, {"{CONVENTION_TARIF_HORAIRE}": 20.0})
+                              for objet in modele.listeObjets if "texte" in objet.categorie]
+                rendu = "\n".join(textes)
+                self.assertIn("20.00 € par heure", rendu)
+                self.assertNotIn("€ €", rendu)
+
     def test_aucune_donnee_pmsl_dans_les_fichiers_commites(self):
         interdits = ("PMSL", "Providence", "SALMON", "ESTIER", "Groupama", "La Guerche", "Atout Sports")
         for nom in ("modele_convention_associative.ndc", "modele_convention_scolaire.ndc"):

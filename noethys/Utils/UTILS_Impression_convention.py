@@ -364,7 +364,10 @@ def GenererPDF(IDmodele, dictChamps, nomDoc=None, afficherDoc=True):
     )
     suivantes = _GabaritConvention(
         cadre_suivantes, modeleDoc, dictRendu, objetsFlottants,
-        nom="convention_suivantes", dessiner_objets_modele=False,
+        nom="convention_suivantes",
+        # Les anciens modèles répètent leurs objets fixes sur chaque page.
+        # Seul un cadre explicite réserve la mise en page à la première page.
+        dessiner_objets_modele=modeleDoc.FindObjet("cadre_pages_suivantes") is None,
     )
     doc.addPageTemplates([premiere, suivantes])
     doc.build(story)

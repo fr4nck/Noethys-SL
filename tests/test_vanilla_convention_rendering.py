@@ -79,6 +79,44 @@ class GenerationPDFConventionTests(unittest.TestCase):
     """ Premier jalon : fiche Famille -> choix modele "convention" ->
     periode -> prereplissage -> PDF via Noedoc, sur donnees fictives. """
 
+    def test_objets_fixes_repetes_sauf_cadre_suivant_explicite(self):
+        from Dlg import DLG_Noedoc
+
+        for cadre_suivant in (False, True):
+            with self.subTest(cadre_suivant=cadre_suivant):
+                objets = [
+                    {"nom": "Cadre principal", "categorie": "special", "champ": "cadre_principal",
+                     "ordre": 0, "x": 13, "y": 20, "largeur": 182, "hauteur": 250},
+                    {"nom": "En-tête fixe", "categorie": "bloc_texte", "ordre": 1,
+                     "x": 13, "y": 5, "largeur": 182, "texte": "EN-TETE TEMOIN"},
+                    {"nom": "Corps", "categorie": "bloc_texte", "ordre": 2,
+                     "x": 13, "y": 20, "largeur": 182,
+                     "texte": "\n\n".join(["Contenu fictif pour vérifier la pagination. " * 30] * 15)},
+                ]
+                if cadre_suivant:
+                    objets.append({"nom": "Cadre suivant", "categorie": "special",
+                                   "champ": "cadre_pages_suivantes", "ordre": 3,
+                                   "x": 13, "y": 10, "largeur": 182, "hauteur": 270})
+                with creer_base_association_simple() as base, tempfile.TemporaryDirectory() as dossier:
+                    IDmodele = inserer_modele_document(base, "Convention multipage", "convention", objets)
+                    pages_entete = []
+                    dessiner = DLG_Noedoc.DessineObjetPDF
+
+                    def enregistrer(objet, canvas, **kwargs):
+                        if objet.nom == "En-tête fixe":
+                            pages_entete.append(canvas.getPageNumber())
+                        return dessiner(objet, canvas, **kwargs)
+
+                    chemin = str(Path(dossier) / "convention.pdf")
+                    with RedirectionGestionDB(base.chemin), unittest.mock.patch.object(
+                            DLG_Noedoc, "DessineObjetPDF", side_effect=enregistrer):
+                        UIC.GenererPDF(IDmodele, {}, nomDoc=chemin, afficherDoc=False)
+                    import re
+                    pages = len(re.findall(rb"/Type\s*/Page(?!s)", Path(chemin).read_bytes()))
+                    self.assertGreater(pages, 1)
+                    attendu = [1] if cadre_suivant else list(range(1, pages + 1))
+                    self.assertEqual(pages_entete, attendu)
+
     def test_pipeline_complet_association_produit_un_pdf_valide(self):
         with creer_base_association_simple() as base:
             IDmodele = inserer_modele_convention_fictif(base)
