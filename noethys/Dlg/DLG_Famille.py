@@ -659,16 +659,7 @@ class Dialog(wx.Dialog):
 
     def MenuGenererDevis(self, event):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_devis", "creer") == False : return
-        # Récupération du IDcompte_payeur
-        IDcompte_payeur = self.GetIDcomptePayeur()
-        # Vérification de la ventilation
-        from Dlg import DLG_Verification_ventilation
-        tracks = DLG_Verification_ventilation.Verification(IDcompte_payeur)
-        if len(tracks) > 0 :
-            dlg = wx.MessageDialog(self, _(u"Un ou plusieurs règlements sont encore à ventiler.\n\nVous devez obligatoirement effectuer cela avant d'éditer un devis..."), _(u"Ventilation"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
+        # Un devis chiffre les prestations ; il ne nécessite pas de ventiler les règlements.
         # Ouverture de la facturation
         from Dlg import DLG_Impression_devis
         dlg = DLG_Impression_devis.Dialog(self, IDfamille=self.IDfamille)
