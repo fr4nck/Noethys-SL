@@ -67,6 +67,8 @@ def GetAge(date_naiss=None):
 class CTRL(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
+        # AUI affichera ce panneau une fois sa position et sa taille établies.
+        self.Hide()
         self.dateJour = datetime.date.today()
         self.dictOrganisateur = None
         

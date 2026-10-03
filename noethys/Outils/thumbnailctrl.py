@@ -639,7 +639,7 @@ class Thumb(object):
                     self._captionbreaks.append(pos)
                     beg = pos
               
-                pos = beg + width/16
+                pos = beg + width//16
                 end = 0
 
             if pos < len(self._caption) and self._caption[pos] in [" ", "-", ",", ".", "_"]:
