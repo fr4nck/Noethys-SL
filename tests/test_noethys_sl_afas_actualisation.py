@@ -14,6 +14,9 @@ from Utils import UTILS_AFAS_Actualisation as AFAS
 from Utils import UTILS_AFAS_Donnees
 
 
+_APP = None
+
+
 class ActualisationTests(_BaseAFASDonneesTests):
     def setUp(self):
         super().setUp()
@@ -95,7 +98,8 @@ class ActualisationTests(_BaseAFASDonneesTests):
     def test_dialogue_calcule_la_selection_reelle(self):
         import wx
         from Dlg import DLG_AFAS_Actualisation
-        app = wx.GetApp() or wx.App(False)
+        global _APP
+        _APP = wx.GetApp() or wx.App(False)
         self._inserer_conso(1, 1, 1, "2026-09-30", "08:00", "10:00")
         self._commit()
         dialogue = DLG_AFAS_Actualisation.Dialog(None, [10], {51: self._unite_reel(51, 10)}, self._options())
