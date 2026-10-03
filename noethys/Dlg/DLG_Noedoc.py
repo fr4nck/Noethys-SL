@@ -1183,7 +1183,7 @@ def GetCodesBarresQuestionnaires(type="individu"):
 NOM_APPLICATION = _(u"Noedoc")
 
 # Couleurs
-COULEUR_ZONE_TRAVAIL = (100, 200, 0)
+COULEUR_ZONE_TRAVAIL = (232, 235, 239)
 COULEUR_FOND_PAGE = (255, 255, 255)
 EPAISSEUR_OMBRE = 2
 COULEUR_OMBRE_PAGE = (0, 0, 0)
@@ -1420,7 +1420,7 @@ class Panel_infos(wx.Panel):
         """ Affichage des coords de la souris et autre infos """
         wx.Panel.__init__(self, parent, id=-1, size=(-1, 15), style=wx.TAB_TRAVERSAL)
         self.parent = parent
-        self.SetBackgroundColour((213, 252, 186))
+        self.SetBackgroundColour((232, 235, 239))
         self.ctrl_coords = wx.StaticText(self, -1, u"", (10, 1))
         self.ctrl_info = wx.StaticText(self, -1, u"", (140, 1))
         
@@ -2041,11 +2041,15 @@ class Proprietes_position(wx.Panel):
         staticbox.Fit(self)
 
     def OnChoixX(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             self.canvas.DeplacerObjet(self.objet, newPosition=numpy.array([self.GetX(), self.GetY() ]))
             self.objet.dirty = True
 
     def OnChoixY(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             self.canvas.DeplacerObjet(self.objet, newPosition=numpy.array([self.GetX() , self.GetY() ]))
             self.objet.dirty = True
@@ -2148,6 +2152,8 @@ class Proprietes_taille(wx.Panel):
         staticbox.Fit(self)
 
     def OnChoixLargeur(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur, hauteur = self.GetLargeur(), self.GetHauteur()
             if self.objet.verrouillageProportions == True :
@@ -2157,6 +2163,8 @@ class Proprietes_taille(wx.Panel):
             self.objet.dirty = True
 
     def OnChoixHauteur(self, event): 
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur, hauteur = self.GetLargeur(), self.GetHauteur()
             if self.objet.verrouillageProportions == True :
@@ -2269,6 +2277,8 @@ class Proprietes_largeur(wx.Panel):
             self.OnChoixLargeur(None)
 
     def OnChoixLargeur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             largeur = self.GetLargeur()
             self.MAJtailleObjet(largeur)
@@ -2387,6 +2397,8 @@ class Proprietes_trait(wx.Panel):
         self.ctrl_epaisseur.Enable(etat)
         
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         couleur  = self.ctrl_couleur.GetColour() 
         self.objet.LineColor = couleur
         self.MAJtrait() 
@@ -2398,6 +2410,8 @@ class Proprietes_trait(wx.Panel):
         self.ctrl_couleur.SetColour(couleur)
     
     def OnSelectStyle(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         style  = self.ctrl_style.GetValeur() 
         self.objet.LineStyle = style
         self.MAJtrait() 
@@ -2505,6 +2519,8 @@ class Proprietes_remplissage(wx.Panel):
         self.ctrl_style.Enable(etat)
 
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         couleur  = self.ctrl_couleur.GetColour()
         self.couleurActive = couleur
         self.objet.FillColor = couleur
@@ -2517,6 +2533,8 @@ class Proprietes_remplissage(wx.Panel):
         self.ctrl_couleur.SetColour(couleur)
 
     def OnSelectStyle(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         style  = self.ctrl_style.GetValeur()
         self.objet.FillStyle = style
         self.MAJremplissage()
@@ -2752,10 +2770,14 @@ class Proprietes_texte(wx.Panel):
         self.stopEvent = False
         
         self.staticbox_staticbox = wx.StaticBox(self, -1, _(u"Texte"))
-##        self.label_police = wx.StaticText(self, -1, _(u"Police :"))
-##        self.ctrl_police = wx.FontPickerCtrl(self, style=wx.FNTP_FONTDESC_AS_LABEL)
+        self.label_police = wx.StaticText(self, -1, _(u"Police :"))
+        self.ctrl_police = wx.FontPickerCtrl(self, style=wx.FNTP_FONTDESC_AS_LABEL)
+        self.label_alignement = wx.StaticText(self, -1, _(u"Alignement :"))
+        self.ctrl_alignement = wx.Choice(self, choices=[_(u"Gauche"), _(u"Centré"), _(u"Droite"), _(u"Justifié")])
+        self.alignements = ["left", "center", "right", "justify"]
+        self.Bind(wx.EVT_CHOICE, self.OnAlignement, self.ctrl_alignement)
         
-        self.label_taille = wx.StaticText(self, -1, _(u"Police :"))
+        self.label_taille = wx.StaticText(self, -1, _(u"Taille :"))
         self.ctrl_taille = wx.SpinCtrl(self, -1, u"", size=(40, -1), min=1, max=300)
         
         self.ctrl_couleur = csel.ColourSelect(self, -1, u"", (0, 0, 0), size=(-1, self.ctrl_taille.GetSize()[1]+4))
@@ -2767,7 +2789,7 @@ class Proprietes_texte(wx.Panel):
         
         # Binds
         self.Bind(csel.EVT_COLOURSELECT, self.OnSelectCouleur, self.ctrl_couleur)
-##        self.Bind(wx.EVT_FONTPICKER_CHANGED, self.OnSelectPolice, self.ctrl_police)
+        self.Bind(wx.EVT_FONTPICKER_CHANGED, self.OnSelectPolice, self.ctrl_police)
         self.Bind(wx.EVT_SPINCTRL, self.OnChangeTaille, self.ctrl_taille)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnChangeGras, self.ctrl_gras)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnChangeItalique, self.ctrl_italique)
@@ -2777,12 +2799,11 @@ class Proprietes_texte(wx.Panel):
         staticbox = wx.StaticBoxSizer(self.staticbox_staticbox, wx.VERTICAL)
         grid_sizer_base = wx.FlexGridSizer(rows=3, cols=2, vgap=5, hgap=5)
         
-##        grid_sizer_base.Add(self.label_police, 1, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
-##        grid_sizer_L2 = wx.FlexGridSizer(rows=1, cols=5, vgap=5, hgap=5)
-##        grid_sizer_L2.Add(self.ctrl_police, 1, wx.EXPAND, 0)
-##        grid_sizer_L2.AddGrowableCol(0)
-##        grid_sizer_base.Add(grid_sizer_L2, 1, wx.EXPAND, 5)
-        
+        grid_sizer_base.Add(self.label_police, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_police, 1, wx.EXPAND, 0)
+        grid_sizer_base.Add(self.label_alignement, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_base.Add(self.ctrl_alignement, 1, wx.EXPAND, 0)
+
         grid_sizer_base.Add(self.label_taille, 1, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_L2 = wx.FlexGridSizer(rows=1, cols=7, vgap=2, hgap=2)
         grid_sizer_L2.Add(self.ctrl_taille, 0, wx.EXPAND, 0)
@@ -2801,6 +2822,8 @@ class Proprietes_texte(wx.Panel):
         staticbox.Fit(self)
                     
     def OnSelectCouleur(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             couleur  = self.ctrl_couleur.GetColour() 
             self.couleurActive = couleur
@@ -2808,10 +2831,21 @@ class Proprietes_texte(wx.Panel):
             self.objet.SetColor(self.objet.Color)
             self.canvas.canvas.Draw(True)
     
+    def OnAlignement(self, event):
+        if not self.stopEvent and self.objet is not None and hasattr(self.objet, "Alignment"):
+            self.canvas.MemoriserEtat()
+            self.objet.Alignment = self.alignements[self.ctrl_alignement.GetSelection()]
+            self.objet.LayoutText()
+            self.objet.dirty = True
+            self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
+            self.canvas.canvas.Draw(True)
+
     def GetCouleur(self):
         return self.ctrl_couleur.GetColour()
     
     def OnSelectPolice(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         if self.stopEvent == False :
             font = self.ctrl_police.GetSelectedFont()
             self.objet.FaceName =  font.GetFaceName()
@@ -2819,9 +2853,9 @@ class Proprietes_texte(wx.Panel):
             self.objet.Style =  font.GetStyle()
             self.objet.Underlined =  font.GetUnderlined()
             self.objet.Weight =  font.GetWeight()
-            self.objet.Size = font.GetPointSize()
+            self.objet.SetTaillePolicePDF(font.GetPointSize())
+            self.ctrl_taille.SetValue(font.GetPointSize())
             self.objet.Font = font
-            self.objet.SetFont(self.objet.Size, self.objet.Family, self.objet.Style, self.objet.Weight, self.objet.Underlined, self.objet.FaceName)
             self.objet.LayoutText()
             self.canvas.Selection(self.objet, forceDraw=False)
             self.canvas.canvas.Draw(True)
@@ -2842,7 +2876,11 @@ class Proprietes_texte(wx.Panel):
         self.objet = objet
         if objet == None :
             return
-##        self.SetPolice(objet.Font) 
+        font = wx.Font(int(objet.taillePolicePDF), objet.Family, objet.Style, objet.Weight, objet.Underlined, objet.FaceName)
+        self.SetPolice(font)
+        self.ctrl_alignement.Enable(hasattr(objet, "Alignment"))
+        alignment = getattr(objet, "Alignment", "left")
+        self.ctrl_alignement.SetSelection(self.alignements.index(alignment) if alignment in self.alignements else 0) 
         self.SetCouleur(objet.Color)
         self.SetTaillePolice(objet.taillePolicePDF)
         self.InitBoutonsStyle()
@@ -2856,17 +2894,21 @@ class Proprietes_texte(wx.Panel):
         self.stopEvent = False
 
     def OnChangeTaille(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         taille = self.GetTaillePolice() 
         self.objet.SetTaillePolicePDF(taille)
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
         self.canvas.canvas.Draw(True)
     
     def InitBoutonsStyle(self):
-        if self.objet.Weight == wx.BOLD : self.ctrl_gras.SetValue(True)
-        if self.objet.Style == wx.ITALIC : self.ctrl_italique.SetValue(True)
-        if self.objet.Underlined == True : self.ctrl_souligne.SetValue(True)
+        self.ctrl_gras.SetValue(self.objet.Weight == wx.BOLD)
+        self.ctrl_italique.SetValue(self.objet.Style == wx.ITALIC)
+        self.ctrl_souligne.SetValue(bool(self.objet.Underlined))
         
     def OnChangeGras(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetGras(self.ctrl_gras.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2879,6 +2921,8 @@ class Proprietes_texte(wx.Panel):
             self.objet.Weight = wx.NORMAL
         
     def OnChangeItalique(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetItalique(self.ctrl_italique.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2891,6 +2935,8 @@ class Proprietes_texte(wx.Panel):
             self.objet.Style = wx.NORMAL
 
     def OnChangeSouligne(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.SetSouligne(self.ctrl_souligne.GetValue())
         self.objet.LayoutText()
         self.canvas.Selection(self.objet, forceDraw=False, MAJpanel_proprietes=False)
@@ -2983,6 +3029,8 @@ class Proprietes_codebarres(wx.Panel):
         self.stopEvent = False
 
     def OnChangeNorme(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.objet.norme = self.GetNorme()
 
     def GetAfficheNumero(self):
@@ -2994,6 +3042,8 @@ class Proprietes_codebarres(wx.Panel):
         self.stopEvent = False
 
     def OnChangeAfficheNumero(self, event):
+        if not getattr(self, "stopEvent", False) and getattr(self, "objet", None) is not None:
+            self.canvas.MemoriserEtat()
         self.objet.afficheNumero = self.GetAfficheNumero()
 
 # -------------------------------------------------------------------------------------------------------------------------------
@@ -3376,6 +3426,52 @@ class MovingScaledTextBox(FloatCanvas.ScaledTextBox, MovingObjectMixin):
         self.proprietes = ["nom", "position", "largeur", "trait", "texte", "interactive"]
         self.SetTexte(self.String)
         
+    def _Draw(self, dc, WorldToPixel, ScaleWorldToPixel, HTdc=None):
+        FloatCanvas.ScaledTextBox._Draw(self, dc, WorldToPixel, ScaleWorldToPixel, HTdc)
+        if getattr(self, "show_editor_bounds", False):
+            xy, wh = self.GetBoxRect()
+            xy = WorldToPixel(xy)
+            wh = ScaleWorldToPixel(wh) * (1, -1)
+            pen, brush = dc.GetPen(), dc.GetBrush()
+            dc.SetPen(wx.Pen(wx.Colour(170, 178, 188), 1, wx.PENSTYLE_DOT))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.DrawRectangle(int(xy[0]), int(xy[1]), max(1, int(wh[0])), max(1, int(wh[1])))
+            dc.SetPen(pen)
+            dc.SetBrush(brush)
+
+    def WrapToWidth(self):
+        dc = wx.MemoryDC(wx.Bitmap(1, 1))
+        self.SetFont(self.LayoutFontSize, self.Family, self.Style, self.Weight, self.Underlined, self.FaceName)
+        dc.SetFont(self.Font)
+        width = max(1, (self.Width - 2 * self.PadSize) * self.LayoutFontSize / self.Size)
+        lines = []
+        self._paragraph_end_lines = set()
+        for paragraph in self.Strings:
+            wrapped = wordwrap(paragraph, width, dc, breakLongWords=True).split("\n")
+            lines.extend(wrapped)
+            self._paragraph_end_lines.add(len(lines) - 1)
+        self.Strings = lines
+
+    def LayoutText(self):
+        alignment = self.Alignment
+        if alignment == "justify":
+            self.Alignment = "left"
+        try:
+            FloatCanvas.ScaledTextBox.LayoutText(self)
+        finally:
+            self.Alignment = alignment
+        if alignment == "justify" and self.Width:
+            dc = wx.MemoryDC(wx.Bitmap(1, 1))
+            dc.SetFont(self.Font)
+            offset = 0
+            scale = float(self.Size) / self.LayoutFontSize
+            for index, line in enumerate(self.Strings):
+                count = len(line.split(" "))
+                if count > 1 and index not in self._paragraph_end_lines:
+                    extra = max(0, self.Width - 2 * self.PadSize - dc.GetTextExtent(line)[0] * scale)
+                    self.Points[offset:offset + count, 0] += numpy.arange(count) * extra / (count - 1)
+                offset += count
+
     def GetTexte(self):
         return self.texte
     
@@ -3583,6 +3679,8 @@ class Panel_canvas(wx.Panel):
         # Variables
         self.Moving = False
         self.dictSelection = None
+        self._undo = []
+        self._redo = []
         self.resizing = False
         self.startResizing = None
         self.lastPosition = None
@@ -3605,12 +3703,60 @@ class Panel_canvas(wx.Panel):
         self.canvas.Bind(wx.EVT_KEY_UP, self.OnKeyUp ) 
         self.canvas.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow ) 
     
+    @staticmethod
+    def _CopieEtat(value):
+        if isinstance(value, numpy.ndarray):
+            return value.copy()
+        if isinstance(value, dict):
+            return {k: Panel_canvas._CopieEtat(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [Panel_canvas._CopieEtat(v) for v in value]
+        return value
+
+    def _Etat(self):
+        return [(o, self._CopieEtat(o.__dict__)) for o in self.canvas._ForeDrawList if hasattr(o, "categorie")]
+
+    def MemoriserEtat(self):
+        if self.mode == "edition":
+            self._undo.append(self._Etat())
+            self._undo = self._undo[-50:]
+            self._redo.clear()
+
+    def Annuler(self, refaire=False):
+        source, destination = (self._redo, self._undo) if refaire else (self._undo, self._redo)
+        if not source:
+            return
+        destination.append(self._Etat())
+        etat = source.pop()
+        keys = ("XY", "Points", "WH", "Width", "Size", "FaceName", "Family", "Style", "Weight", "Underlined", "Alignment", "String", "texte", "nom", "Color", "LineColor", "LineWidth", "BackgroundColor", "PadSize", "LineSpacing", "taillePolicePDF", "largeurTexte")
+        def signature(state):
+            return [(id(o), repr([attrs.get(key) for key in keys])) for o, attrs in state]
+        current = signature(destination[-1])
+        while signature(etat) == current and source:
+            etat = source.pop()
+        self.Deselection(forceDraw=False)
+        for objet in list(self.canvas._ForeDrawList):
+            if hasattr(objet, "categorie"):
+                self.canvas.RemoveObject(objet)
+        for objet, attrs in etat:
+            objet.__dict__.clear()
+            objet.__dict__.update(self._CopieEtat(attrs))
+            objet.dirty = True
+            self.canvas.AddObject(objet)
+        self.canvas.BoundingBoxDirty = True
+        self.canvas.Draw(True)
+
+    def AjusterPage(self):
+        """Cadre la feuille, même si un objet déborde hors de la page."""
+        if self.canvas and getattr(self, "page", None):
+            self.canvas.ZoomToBB(self.page.BoundingBox)
+
     def Init_canvas(self):
         if self.taille_page != None :
             self.Init_page()
             self.Init_fond()
             self.Init_grille()
-            self.canvas.ZoomToBB()
+            self.AjusterPage()
     
     def Reinit_canvas(self):
         self.canvas.RemoveObject(self.page)
@@ -3657,6 +3803,8 @@ class Panel_canvas(wx.Panel):
     def AjouterObjet(self, objet):
         """ Ajoute un objet dans le canvas """
         objet.dirty = True
+        if objet.categorie == "bloc_texte":
+            objet.show_editor_bounds = self.mode == "edition"
 
         # Insertion des objets de fond
         if objet.InForeground == False:
@@ -3782,6 +3930,7 @@ class Panel_canvas(wx.Panel):
         self.ActiveTooltip(actif=False)
 
     def OnDClickObjet(self, objet):
+        self.MemoriserEtat()
         """ Modifier texte sur double-clic """
         if self.mode == "edition":
             dlg = DLG_Saisie_texte_doc.Dialog(self, texte=objet.GetTexte(), listeChamps=self.infosCategorie.champs)
@@ -3837,6 +3986,7 @@ class Panel_canvas(wx.Panel):
         pass
 
     def OnClicGaucheObjet(self, objet):
+        self.MemoriserEtat()
         """ Clic gauche sur un objet """
         if self.drawing_polyline != None :
             self.OnLeftDownCanvas(objet)
@@ -3877,6 +4027,7 @@ class Panel_canvas(wx.Panel):
             self.MenuContextuel(objet)
 
     def OnClicPoignee(self, objet):
+        self.MemoriserEtat()
         if self.drawing_polyline != None :
             self.OnLeftDownCanvas(objet)
             return
@@ -3906,6 +4057,7 @@ class Panel_canvas(wx.Panel):
             menu.Destroy()
 
     def OnMenu_supprimer_point(self, event):
+        self.MemoriserEtat()
         """ Supprimer le point sélectionné """
         objet = self.dictSelection["objet"]
         if len(objet.Points) == 2 :
@@ -3939,6 +4091,7 @@ class Panel_canvas(wx.Panel):
         menu.Destroy()
 
     def OnMenu_ajouter_point(self, event):
+        self.MemoriserEtat()
         """ Ajouter un point sur le polygone """
         objet = self.dictSelection["objet"]
         x, y = self.coords
@@ -4079,6 +4232,7 @@ class Panel_canvas(wx.Panel):
             if codeTouche == 317 : self.DeplacerObjet(objet, "bas")
     
     def DeplacerObjet(self, objet, sens=None, newPosition=None):
+        self.MemoriserEtat()
         """ Déplacement d'un objet avec les touches """
         # Déplacement selon un sens
         if sens != None :
@@ -4386,11 +4540,13 @@ class Panel_canvas(wx.Panel):
         menu.Destroy()
     
     def OnMenu_rotationGauche(self, event):
+        self.MemoriserEtat()
         objet = self.dictSelection["objet"]
         objet.Rotation(False)
         self.Selection(objet, forceDraw=True)
 
     def OnMenu_rotationDroite(self, event):
+        self.MemoriserEtat()
         objet = self.dictSelection["objet"]
         objet.Rotation(True)
         self.Selection(objet, forceDraw=True)
@@ -4400,6 +4556,7 @@ class Panel_canvas(wx.Panel):
         self.OnDClickObjet(objet)
         
     def OnMenu_arriereplan(self, event):
+        self.MemoriserEtat()
         """ Mettre objet à l'arrière-plan """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4408,6 +4565,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
         
     def OnMenu_avantplan(self, event):
+        self.MemoriserEtat()
         """ Mettre objet à l'avant-plan """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4417,6 +4575,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def OnMenu_reculer(self, event):
+        self.MemoriserEtat()
         """ Reculer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4427,6 +4586,7 @@ class Panel_canvas(wx.Panel):
             self.canvas.Draw(True)
 
     def OnMenu_avancer(self, event):
+        self.MemoriserEtat()
         """ Avancer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4437,6 +4597,7 @@ class Panel_canvas(wx.Panel):
             self.canvas.Draw(True)
 
     def OnMenu_dupliquer(self, event):
+        self.MemoriserEtat()
         """ Dupliquer l'objet """
 ##        objet = self.dictSelection["objet"]
 ##        self.Deselection(forceDraw=False)
@@ -4447,6 +4608,7 @@ class Panel_canvas(wx.Panel):
 ##        self.Selection(newObjet, forceDraw=True)
 
     def OnMenu_supprimer(self, event):
+        self.MemoriserEtat()
         """ Supprimer l'objet """
         objet = self.dictSelection["objet"]
         objet.dirty = True
@@ -4484,7 +4646,7 @@ class Panel_canvas(wx.Panel):
     def GetPhotoPage(self):
         """ Prend une photo de la page """
         self.Deselection(forceDraw=False)
-        self.canvas.ZoomToBB()
+        self.AjusterPage()
         self.Cache_grille()
         objetPage = self.page.ObjectList[2]
         BB = objetPage.BoundingBox
@@ -4534,10 +4696,11 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetMode(GUIMode.GUIZoomIn())
 
     def OnOutil_ajuster(self, Event):
-        self.canvas.ZoomToBB()
+        self.AjusterPage()
         self.canvas.SetFocus()
 
     def OnOutil_rectangle(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un rectangle """
         taille = (100, 60)
 
@@ -4555,6 +4718,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_ligne(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ligne """
         longueurLigne = 100
         # Recherche le centre de l'objet
@@ -4570,6 +4734,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_cercle(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ellipse """
         taille = (80, 80)
         # Recherche le centre de l'objet
@@ -4585,6 +4750,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_polygone(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un polygone """
         taille = (90, 80)
         # Recherche le centre de l'objet
@@ -4601,6 +4767,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_polyline(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un polyline """
         # Prépare la saisie des points
         self.afficheStatusBarPerso(info=_(u"Cliquez pour ajouter des points puis double-cliquez pour finaliser le polygone"))
@@ -4631,6 +4798,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.Draw(True)
 
     def OnOutil_image(self, event):
+        self.MemoriserEtat()
         self.OnDropDownImage(None)
 
     def OnDropDownImage(self, event):
@@ -4693,6 +4861,7 @@ class Panel_canvas(wx.Panel):
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_image_charger(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une image """
         # Sélection d'une image
         self.repCourant = os.getcwd()
@@ -4772,6 +4941,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_image_logo(self, event):
+        self.MemoriserEtat()
         """ Importer le logo de l'organisateur """
         img, exists = GetLogo_organisateur()
         if 'phoenix' in wx.PlatformInfo:
@@ -4796,6 +4966,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_image_photo(self, event):
+        self.MemoriserEtat()
         bmp = wx.Bitmap(Chemins.GetStaticPath("Images/128x128/Femme.png"), wx.BITMAP_TYPE_ANY)
 
         # Conversion de la taille px en mm
@@ -4813,6 +4984,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_codebarres(self, event):
+        self.MemoriserEtat()
         self.OnDropDownBarcode(None)
 
     def OnDropDownBarcode(self, event):
@@ -4848,6 +5020,7 @@ class Panel_canvas(wx.Panel):
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_inserer_barcode(self, event):
+        self.MemoriserEtat()
         index = event.GetId() - 10000
         nom, exemple, champ = self.infosCategorie.codesbarres[index]
         nom = _(u"Code-barres - %s") % nom
@@ -4878,6 +5051,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_texteLigne(self, event):
+        self.MemoriserEtat()
         """ Insertion d'une ligne de texte """
         dlg = DLG_Saisie_texte_doc.Dialog(self, texte=u"", listeChamps=self.infosCategorie.champs)
         if dlg.ShowModal() == wx.ID_OK:
@@ -4908,6 +5082,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_texteBloc(self, event):
+        self.MemoriserEtat()
         """ Insertion d'un bloc de texte """
         if self.infosCategorie != None :
             listeChamps = self.infosCategorie.champs
@@ -4928,7 +5103,7 @@ class Panel_canvas(wx.Panel):
         font = wx.Font(tailleFont, wx.SWISS, wx.NORMAL, wx.NORMAL, False, "Arial")
 
         # Insertion
-        objet = AjouterBlocTexte(texte, (0, 0), taillePolicePDF=tailleFont, font=font)
+        objet = AjouterBlocTexte(texte, (0, 0), taillePolicePDF=tailleFont, font=font, largeurTexte=max(20, self.taille_page[0] - 40))
         self.AjouterObjet(objet)
 
         # Centrer
@@ -4945,6 +5120,7 @@ class Panel_canvas(wx.Panel):
         self.canvas.SetFocus()
 
     def OnOutil_special(self, event):
+        self.MemoriserEtat()
         self.OnDropDownSpecial(None)
 
     def OnDropDownSpecial(self, event):
@@ -4993,6 +5169,7 @@ class Panel_canvas(wx.Panel):
             tb.SetToolSticky(event.GetId(), False)
 
     def OnOutil_inserer_special(self, event):
+        self.MemoriserEtat()
         index = event.GetId() - 20000
         dictSpecial = self.infosCategorie.speciaux[index]
         self.AjouterSpecial(dictSpecial)
@@ -5082,7 +5259,7 @@ class Panel_canvas(wx.Panel):
             return listeObjets
 
         if ResetBB == True :
-            self.canvas.ZoomToBB()
+            self.AjusterPage()
         self.SetFocus()
 
     def Sauvegarde(self):
@@ -5425,7 +5602,26 @@ class Dialog(wx.Dialog):
         UTILS_Dialogs.AjusteSizePerso(self, __file__)
         self.CenterOnScreen()
         self.ctrl_canvas.OnOutil_ajuster(None)
+        self.ctrl_canvas._undo.clear()
+        self.ctrl_canvas._redo.clear()
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnHistorique)
+        self.Bind(wx.EVT_SHOW, self.OnAffichageInitial)
 
+    def OnHistorique(self, event):
+        if event.ControlDown() and event.GetKeyCode() in (ord("Z"), ord("Y")):
+            focus = wx.Window.FindFocus()
+            if isinstance(focus, wx.TextCtrl):
+                event.Skip()
+                return
+            self.ctrl_canvas.Annuler(refaire=event.GetKeyCode() == ord("Y") or event.ShiftDown())
+            return
+        event.Skip()
+
+    def OnAffichageInitial(self, event):
+        if event.IsShown():
+            self.Unbind(wx.EVT_SHOW, handler=self.OnAffichageInitial)
+            wx.CallAfter(self.ctrl_canvas.AjusterPage)
+        event.Skip()
 
     def MakeToolBar1(self):
         tbar = aui.AuiToolBar(self, -1, wx.DefaultPosition, wx.DefaultSize, agwStyle=aui.AUI_TB_DEFAULT_STYLE | aui.AUI_TB_OVERFLOW)
@@ -5843,6 +6039,8 @@ def ImportationObjets(IDmodele=None, InForeground=True):
         
         if objet["categorie"] in ("ligne_texte", "bloc_texte") and objet.get("nomPolice"):
             objetCanvas.FaceName = objet["nomPolice"]
+            objetCanvas.LayoutText()
+            objetCanvas.CalcBoundingBox()
 
         listeObjetsCanvas.append(objetCanvas)
 
