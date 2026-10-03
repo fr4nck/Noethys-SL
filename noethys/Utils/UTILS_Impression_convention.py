@@ -70,35 +70,48 @@ import FonctionsPerso
 from Utils.UTILS_Traduction import _
 from Dlg import DLG_Noedoc
 from Utils import UTILS_Convention_champs
+from Utils import UTILS_Export_documents
 
 from reportlab.platypus.doctemplate import BaseDocTemplate, PageTemplate
 from reportlab.platypus.frames import Frame
-from reportlab.platypus import Paragraph, KeepTogether
+from reportlab.platypus import Paragraph, KeepTogether, PageBreak, Spacer, Image as PlatypusImage
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.lib.units import mm as mmPDF
+from reportlab.pdfbase import pdfmetrics
+import io
 
 
 TAILLE_PAGE = A4
 
 
 def _PoliceReportLab(objet):
-    """ Traduit Weight/Style de l'objet Noedoc en nom de police ReportLab.
-
-    Reproduit exactement la même règle que la fonction GetPolice interne
-    (non exportée) de Dlg.DLG_Noedoc.DessineObjetPDF : ce n'est pas un
-    nouveau style, c'est la même correspondance déjà utilisée par le
-    moteur générique pour dessiner les objets à position fixe. """
-    police = "Arial"
-    if objet.Weight == wx.BOLD:
-        police = "Arial-Bold"
-    if objet.Style == wx.ITALIC:
-        police = "Arial-Oblique"
+    """Respecte la face Noedoc si elle est réellement enregistrée."""
+    face = (getattr(objet, "FaceName", None) or u"").strip()
+    if face.lower() in ("arial", "arial regular"):
+        face = "Arial"
+    enregistrees = set(pdfmetrics.getRegisteredFontNames())
+    if face not in enregistrees:
+        face = "Arial"
+    if face == "Arial":
+        if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD:
+            return "Arial-BoldOblique"
+        if objet.Weight == wx.BOLD:
+            return "Arial-Bold"
+        if objet.Style == wx.ITALIC:
+            return "Arial-Oblique"
+        return "Arial"
+    suffixe = u""
     if objet.Style == wx.ITALIC and objet.Weight == wx.BOLD:
-        police = "Arial-BoldOblique"
-    return police
+        suffixe = "-BoldOblique"
+    elif objet.Weight == wx.BOLD:
+        suffixe = "-Bold"
+    elif objet.Style == wx.ITALIC:
+        suffixe = "-Oblique"
+    candidate = face + suffixe if suffixe else face
+    return candidate if candidate in enregistrees else face
 
 
 ALIGNEMENTS_REPORTLAB = {
@@ -176,40 +189,87 @@ def _SepareObjetsFixesEtFlottants(modeleDoc):
     if cadre_principal is None:
         raise ValueError(_(u"Le modèle choisi n'a pas de cadre principal."))
     cadre = modeleDoc.GetCoordsObjet(cadre_principal)
-
-    # modeleDoc.listeObjets est déjà trié par "ordre" (ImportationObjets
-    # exécute "ORDER BY ordre") : on ne retrie donc pas nous-mêmes.
-    objetsFlottants = [
-        objet for objet in modeleDoc.listeObjets
-        if "texte" in objet.categorie and _ObjetDansCadre(modeleDoc, objet, cadre)
-    ]
+    objetsFlottants = []
+    for objet in modeleDoc.listeObjets:
+        if objet is cadre_principal or objet.champ == "cadre_pages_suivantes":
+            continue
+        if objet.categorie == "special" and objet.champ in ("saut_page", "espace_vertical"):
+            objetsFlottants.append(objet)
+            continue
+        if (objet.categorie == "image"
+                and objet.champ == "convention_flow_image"
+                and _ObjetDansCadre(modeleDoc, objet, cadre)):
+            objetsFlottants.append(objet)
+            continue
+        if "texte" in objet.categorie and _ObjetDansCadre(modeleDoc, objet, cadre):
+            objetsFlottants.append(objet)
     return cadre, objetsFlottants
 
 
+def _GetCadrePagesSuivantes(modeleDoc, cadre_principal):
+    objet = modeleDoc.FindObjet("cadre_pages_suivantes")
+    return cadre_principal if objet is None else modeleDoc.GetCoordsObjet(objet)
+
+
+def _ValideEncodageModele(modeleDoc):
+    # Détecteur partagé avec la récupération par copie propre
+    # (UTILS_Export_documents.GetObjetsMalEncodes) : ce qui bloque ici est
+    # exactement ce que DLG_Generation_convention propose de récupérer.
+    suspects = []
+    for objet in modeleDoc.listeObjets:
+        if "texte" not in objet.categorie:
+            continue
+        texte = objet.GetTexte() or u""
+        if UTILS_Export_documents.TexteSembleMalEncode(texte):
+            suspects.append(objet.nom or u"objet #%s" % getattr(objet, "IDobjet", u"?"))
+    if suspects:
+        raise ValueError(_(
+            u"Le texte du modèle semble déjà mal encodé (UTF-8/mojibake) dans : %s. "
+            u"Corrigez ou réimportez ce modèle avant de générer la convention."
+        ) % u", ".join(suspects))
+
+
+def _ImagePlatypus(modeleDoc, objet):
+    fichier = io.BytesIO()
+    image_wx = objet.Image
+    if isinstance(image_wx, wx.Bitmap):
+        image_wx = image_wx.ConvertToImage()
+    image_wx.SaveFile(fichier, wx.BITMAP_TYPE_PNG)
+    fichier.seek(0)
+    _x, _y, largeur, hauteur = modeleDoc.GetCoordsObjet(objet)
+    image = PlatypusImage(fichier, width=largeur, height=hauteur)
+    image.hAlign = "CENTER"
+    image._noethys_source = fichier
+    return image
+
+
 def _ConstruitStory(modeleDoc, objetsFlottants, dictChamps):
-    """ Résout chaque bloc de texte du modèle (mêmes mécanismes {CHAMP}
-    et [[SI ...]] que partout ailleurs dans Noethys, via
-    ModeleDoc.GetValeur) et le transforme en paragraphes ReportLab
-    flottants, avec les propriétés visuelles réellement définies sur
-    chaque objet (voir _StyleReportLab).
-
-    Le dernier objet flottant réellement rendu (typiquement le bloc de
-    clôture/signatures d'un modèle) est maintenu groupé (KeepTogether) :
-    sans cela, un bloc final court peut se retrouver seul en haut d'une
-    page presque vide alors qu'il aurait pu tenir avec la fin du bloc
-    précédent. Seule la fin du document est concernée, par position dans
-    le modèle (le dernier objet), jamais par une règle liée à un modèle
-    particulier : les objets précédents continuent de s'écouler
-    librement sur plusieurs pages, un long article n'est jamais rendu
-    "insécable". """
-    objetsAvecTexte = []
+    _ValideEncodageModele(modeleDoc)
+    textes_rendus = []
     for objet in objetsFlottants:
-        texte = modeleDoc.GetValeur(objet, dictChamps)
-        if texte:
-            objetsAvecTexte.append((objet, texte))
-
+        if "texte" in objet.categorie:
+            texte = modeleDoc.GetValeur(objet, dictChamps)
+            if texte:
+                textes_rendus.append(objet)
+    dernier_texte = textes_rendus[-1] if textes_rendus else None
+    dernier_element = objetsFlottants[-1] if objetsFlottants else None
     story = []
-    for index, (objet, texte) in enumerate(objetsAvecTexte):
+    for objet in objetsFlottants:
+        if objet.categorie == "special" and objet.champ == "saut_page":
+            story.append(PageBreak())
+            continue
+        if objet.categorie == "special" and objet.champ == "espace_vertical":
+            _x, _y, _largeur, hauteur = modeleDoc.GetCoordsObjet(objet)
+            story.append(Spacer(0, hauteur))
+            continue
+        if objet.categorie == "image":
+            story.append(_ImagePlatypus(modeleDoc, objet))
+            continue
+        if "texte" not in objet.categorie:
+            continue
+        texte = modeleDoc.GetValeur(objet, dictChamps)
+        if not texte:
+            continue
         style = _StyleReportLab(objet)
         groupeObjet = []
         for paragraphe in texte.split(u"\n\n"):
@@ -220,39 +280,52 @@ def _ConstruitStory(modeleDoc, objetsFlottants, dictChamps):
                 groupeObjet.append(Paragraph(texte_html, style))
         if not groupeObjet:
             continue
-        if index == len(objetsAvecTexte) - 1:
+        if objet is dernier_texte and objet is dernier_element:
             story.append(KeepTogether(groupeObjet))
         else:
             story.extend(groupeObjet)
     return story
 
 
-def _DessineObjetsFixes(canvas, modeleDoc, dictChamps, objetsFlottants):
+def _DessineObjetsFixes(canvas, modeleDoc, dictChamps, objetsFlottants, dessiner_objets_modele=True):
     canvas.saveState()
     modeleDoc.DessineFond(canvas, dictChamps=dictChamps)
-    modeleDoc.DessineFormes(canvas)
-    modeleDoc.DessineImages(canvas, dictChamps=dictChamps)
-    modeleDoc.DessineCodesBarres(canvas, dictChamps=dictChamps)
-    ensembleFlottants = set(id(o) for o in objetsFlottants)
-    for objet in modeleDoc.listeObjets:
-        if "texte" in objet.categorie and id(objet) not in ensembleFlottants:
+    if dessiner_objets_modele:
+        ensembleFlottants = set(id(o) for o in objetsFlottants)
+        for objet in modeleDoc.listeObjets:
+            if id(objet) in ensembleFlottants:
+                continue
+            if objet.champ in ("cadre_principal", "cadre_pages_suivantes"):
+                continue
+            if objet.categorie == "special":
+                continue
             valeur = modeleDoc.GetValeur(objet, dictChamps)
+            if valeur is False:
+                continue
             DLG_Noedoc.DessineObjetPDF(objet, canvas, valeur=valeur)
     canvas.restoreState()
 
 
 class _GabaritConvention(PageTemplate):
-    def __init__(self, cadre, modeleDoc, dictChamps, objetsFlottants):
+    def __init__(self, cadre, modeleDoc, dictChamps, objetsFlottants,
+                 nom="convention", dessiner_objets_modele=True,
+                 autoNextPageTemplate=None):
         x, y, largeur, hauteur = cadre
-        frame = Frame(x, y, largeur, hauteur, id="F1",
-                       leftPadding=0, topPadding=0, rightPadding=0, bottomPadding=0)
+        frame = Frame(x, y, largeur, hauteur, id="F_%s" % nom,
+                      leftPadding=0, topPadding=0, rightPadding=0, bottomPadding=0)
         self._modeleDoc = modeleDoc
         self._dictChamps = dictChamps
         self._objetsFlottants = objetsFlottants
-        PageTemplate.__init__(self, "convention", [frame], self._DessinePage)
-
+        self._dessiner_objets_modele = dessiner_objets_modele
+        PageTemplate.__init__(
+            self, nom, [frame], self._DessinePage,
+            autoNextPageTemplate=autoNextPageTemplate,
+        )
     def _DessinePage(self, canvas, doc):
-        _DessineObjetsFixes(canvas, self._modeleDoc, self._dictChamps, self._objetsFlottants)
+        _DessineObjetsFixes(
+            canvas, self._modeleDoc, self._dictChamps, self._objetsFlottants,
+            dessiner_objets_modele=self._dessiner_objets_modele,
+        )
 
 
 def GenererPDF(IDmodele, dictChamps, nomDoc=None, afficherDoc=True):
@@ -275,15 +348,25 @@ def GenererPDF(IDmodele, dictChamps, nomDoc=None, afficherDoc=True):
     dictRendu.update(dictChamps)
 
     cadre, objetsFlottants = _SepareObjetsFixesEtFlottants(modeleDoc)
+    cadre_suivantes = _GetCadrePagesSuivantes(modeleDoc, cadre)
     story = _ConstruitStory(modeleDoc, objetsFlottants, dictRendu)
     if not story:
-        raise ValueError(_(u"Le modèle choisi ne contient aucun texte dans son cadre principal."))
+        raise ValueError(_(u"Le modèle choisi ne contient aucun contenu dans son cadre principal."))
 
     if nomDoc is None:
         nomDoc = FonctionsPerso.GenerationNomDoc("CONVENTION", "pdf")
 
     doc = BaseDocTemplate(nomDoc, pagesize=TAILLE_PAGE)
-    doc.addPageTemplates([_GabaritConvention(cadre, modeleDoc, dictRendu, objetsFlottants)])
+    premiere = _GabaritConvention(
+        cadre, modeleDoc, dictRendu, objetsFlottants,
+        nom="convention_premiere", dessiner_objets_modele=True,
+        autoNextPageTemplate="convention_suivantes",
+    )
+    suivantes = _GabaritConvention(
+        cadre_suivantes, modeleDoc, dictRendu, objetsFlottants,
+        nom="convention_suivantes", dessiner_objets_modele=False,
+    )
+    doc.addPageTemplates([premiere, suivantes])
     doc.build(story)
 
     if afficherDoc:

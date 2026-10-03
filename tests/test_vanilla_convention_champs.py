@@ -95,6 +95,41 @@ class GetRepresentantTests(unittest.TestCase):
         self.assertEqual(r["prenom"], "Éléonore")
 
 
+class GetActivitesConventionTests(unittest.TestCase):
+    def test_une_activite(self):
+        donnees = _dict_donnees_simple(
+            nom_activite="Badminton loisirs",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Badminton loisirs")
+
+    def test_plusieurs_activites_ordre_stable(self):
+        donnees = _dict_donnees_simple(
+            IDactivite=20, nom_activite="Yoga",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        donnees[2] = _dict_donnees_simple(
+            IDactivite=10, nom_activite="Athlétisme",
+            seances=[("2026-09-03", "09:00", "10:00", 20.0)],
+        )[1]
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Athlétisme, Yoga")
+
+    def test_doublons_supprimes(self):
+        donnees = _dict_donnees_simple(
+            IDactivite=10, nom_activite="Gymnastique",
+            seances=[("2026-09-02", "09:00", "10:00", 20.0)],
+        )
+        donnees[2] = _dict_donnees_simple(
+            IDactivite=11, nom_activite="Gymnastique",
+            seances=[("2026-09-03", "09:00", "10:00", 20.0)],
+        )[1]
+        self.assertEqual(CC.GetActivitesConvention(donnees), "Gymnastique")
+
+    def test_aucune_activite_reellement_presente(self):
+        donnees = _dict_donnees_simple(nom_activite="Nom sans séance", seances=[])
+        self.assertEqual(CC.GetActivitesConvention(donnees), "")
+
+
 class DetecterTarifsTests(unittest.TestCase):
     def test_taux_unique_quand_toutes_les_activites_concordent(self):
         dictDonnees = _dict_donnees_simple(seances=[
@@ -212,10 +247,16 @@ class GetChampsConventionIntegrationTests(unittest.TestCase):
                 informations=FauxInformations({"{NBRE_REPRESENTANTS_RATTACHES}": 0}),
             )
         self.assertEqual(champs["{CONVENTION_SAISON}"], "2026-2027")
+        self.assertEqual(champs["{CONVENTION_ACTIVITES}"], "Encadrement sportif adultes, Encadrement sportif enfants")
         self.assertEqual(champs["{CONVENTION_PLANNING_NBRE_SEANCES}"], 6)
         self.assertAlmostEqual(champs["{CONVENTION_PLANNING_TOTAL_MONTANT}"], 217.5)
         self.assertEqual(champs["{CONVENTION_TARIF_ADULTE}"], 36.5)
         self.assertEqual(champs["{CONVENTION_TARIF_ENFANT}"], 24.0)
+        self.assertIn("consommation #", champs["{CONVENTION_TARIF_ADULTE_PROVENANCE}"])
+        self.assertIn("prestation #", champs["{CONVENTION_TARIF_ADULTE_PROVENANCE}"])
+        self.assertIn("36,50 €/h", champs["{CONVENTION_TARIF_ADULTE_PROVENANCE}"])
+        self.assertIn("consommation #", champs["{CONVENTION_TARIF_ENFANT_PROVENANCE}"])
+        self.assertIn("24,00 €/h", champs["{CONVENTION_TARIF_ENFANT_PROVENANCE}"])
         # La clé reste presente (vide) plutot qu'absente : c'est ce qui
         # permet au moteur [[SI {CHAMP}=->...]] de detecter "vide" dans
         # le modele .ndc (une cle absente ne declenche aucune des deux
@@ -344,6 +385,51 @@ class GetChampsConventionOverridesTests(unittest.TestCase):
             base.db.ExecuterReq("SELECT IDprestation, label, montant FROM prestations ORDER BY IDprestation;")
             apres = base.db.ResultatReq()
         self.assertEqual(avant, apres)
+
+
+class PeriodeAdresseTarifRecetteTests(unittest.TestCase):
+    def test_periode_par_defaut_vient_des_seances_et_pas_du_jour_courant(self):
+        import datetime
+        with creer_base_association_simple() as base:
+            debut, fin = CC.GetPeriodeParDefaut(
+                1, date_reference=datetime.date(2026, 9, 10), DB=base.db,
+            )
+        self.assertEqual(str(debut), "2026-09-02")
+        self.assertEqual(str(fin), "2026-09-21")
+
+    def test_adresse_ne_duplique_pas_cp_ville_deja_inclus_dans_la_rue(self):
+        adresse = CC.ComposerAdresseConvention(
+            "1, Place Saint Martin - 35130 MOUTIERS", "35130", "MOUTIERS"
+        )
+        self.assertEqual(adresse, "1, Place Saint Martin\n35130 MOUTIERS")
+        self.assertEqual(adresse.count("35130 MOUTIERS"), 1)
+
+    def test_creneaux_compacts_ne_repetent_pas_les_dates_de_seances(self):
+        donnees = _dict_donnees_simple(
+            nom="ATOUT SPORTS", prenom="Badminton enfants",
+            nom_activite="Encadrement enfants",
+            seances=[
+                ("2026-09-02", "17:30", "19:00", 36.0),
+                ("2026-09-09", "17:30", "19:00", 36.0),
+            ],
+        )
+        resume = CC.GetResumePlanning(donnees)
+        self.assertIn("Mercredi de 17h30 à 19h00", resume["creneaux"])
+        self.assertNotIn("02/09/2026", resume["creneaux"])
+
+    def test_provenance_tarifs_adulte_enfant_est_explicite(self):
+        with creer_base_association_simple() as base:
+            champs, _ = CC.GetChampsConvention(
+                IDfamille=1, date_debut="2026-09-01", date_fin="2026-09-30",
+                listeIDindividus=[2, 3], DB=base.db,
+                informations=FauxInformations({"{NBRE_REPRESENTANTS_RATTACHES}": 0}),
+            )
+        self.assertEqual(champs["{CONVENTION_TARIF_ADULTE}"], 36.5)
+        self.assertEqual(champs["{CONVENTION_TARIF_ENFANT}"], 24.0)
+        self.assertIn("36,50 € / 1h00 = 36,50 €/h", champs["{CONVENTION_TARIF_ADULTE_PROVENANCE}"])
+        self.assertIn("36,00 € / 1h30 = 24,00 €/h", champs["{CONVENTION_TARIF_ENFANT_PROVENANCE}"])
+        self.assertEqual(champs["{CONVENTION_TARIF_ADULTE_AFFICHE}"], "36,50 €")
+        self.assertEqual(champs["{CONVENTION_TARIF_ENFANT_AFFICHE}"], "24,00 €")
 
 
 if __name__ == "__main__":
