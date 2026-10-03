@@ -754,7 +754,8 @@ class CalculateurEtatGlobal():
                     # Stats globales
                     if IDindividu not in dict_stats["individus"]:
                         dict_stats["individus"].append(IDindividu)
-                    if IDfamille not in dict_stats["familles"…11 tokens truncated…milles"].append(IDfamille)
+                    if IDfamille not in dict_stats["familles"]:
+                        dict_stats["familles"].append(IDfamille)
 
                     # Mémorisation du résultat
                     dict_resultats = UTILS_Divers.DictionnaireImbrique(dictionnaire=dict_resultats, cles=[regroupement, index_tranche_age, periode, IDregime], valeur=datetime.timedelta(hours=0, minutes=0))
