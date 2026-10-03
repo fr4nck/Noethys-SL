@@ -65,6 +65,12 @@ class CategorieConventionTests(unittest.TestCase):
             "{CONVENTION_TARIF_HORAIRE}",
             "{CONVENTION_TARIF_ADULTE}",
             "{CONVENTION_TARIF_ENFANT}",
+            "{CONVENTION_TARIF_ADULTE_AFFICHE}",
+            "{CONVENTION_TARIF_ENFANT_AFFICHE}",
+            "{CONVENTION_TARIF_ADULTE_PROVENANCE}",
+            "{CONVENTION_TARIF_ENFANT_PROVENANCE}",
+            "{CONVENTION_PLANNING_CRENEAUX}",
+            "{CONVENTION_ADRESSE_STRUCTURE}",
         ):
             self.assertIn(attendu, codes_champs)
 
@@ -73,6 +79,14 @@ class CategorieConventionTests(unittest.TestCase):
         cadres = [s for s in infos.speciaux if s["champ"] == "cadre_principal"]
         self.assertEqual(len(cadres), 1)
         self.assertTrue(cadres[0]["obligatoire"])
+
+    def test_convention_expose_les_controles_de_pagination_noedoc(self):
+        infos = DLG_Noedoc.Convention()
+        speciaux = {s["champ"]: s for s in infos.speciaux}
+        self.assertIn("cadre_pages_suivantes", speciaux)
+        self.assertIn("saut_page", speciaux)
+        self.assertIn("espace_vertical", speciaux)
+        self.assertFalse(speciaux["cadre_pages_suivantes"]["obligatoire"])
 
     def test_anciens_champs_representant_rattache_restent_inchanges(self):
         """L'ancien mecanisme {REPRESENTANT_RATTACHE_x_*} (utilise par un

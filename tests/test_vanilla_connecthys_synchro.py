@@ -18,7 +18,9 @@ identifié.
 from __future__ import annotations
 
 import datetime
+import importlib
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -27,8 +29,14 @@ NOETHYS_DIR = Path(__file__).resolve().parents[1] / "noethys"
 if str(NOETHYS_DIR) not in sys.path:
     sys.path.insert(0, str(NOETHYS_DIR))
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
 from Ctrl import CTRL_Portail_serveur  # noqa: E402
 from Utils import UTILS_Portail_synchro  # noqa: E402
+
+from _fixtures_noethys_db import BaseTest, RedirectionGestionDB  # noqa: E402
 
 
 class FauxLog:
@@ -276,6 +284,179 @@ class VersionEnvoyeeAConnecthysTests(unittest.TestCase):
         # apparaître, sous aucune forme, dans l'URL envoyée au serveur.
         self.assertNotIn("0.1.0", url_envoyee)
         self.assertNotIn("rc", url_envoyee.lower())
+
+
+class ChargeModuleModelsTests(unittest.TestCase):
+    """ Recette réelle Noethys SL 0.1.0 RC1 : l'upload Noethys -> Connecthys
+    échouait systématiquement avec "Échec de l'envoi des données :
+    attempted relative import with no known parent package". Preuve
+    directe (reproduite ci-dessous, pas supposée) : l'ancien mécanisme
+    (sys.path.append(chemin) + importlib.import_module("models")) charge
+    le fichier téléchargé comme un module NU, sans __package__ -- tout
+    import relatif (from . import x) qu'il contiendrait échoue alors avec
+    exactement ce message. Le models.py réellement téléchargé lors de la
+    recette (deux tentatives, fichiers identiques) ne contient lui-même
+    aucun import relatif littéral et charge sans erreur avec l'ancien
+    mécanisme : la cause exacte de l'échec en recette n'a donc pas pu être
+    confirmée ligne par ligne sans accès au processus de production en
+    échec (voir le rapport). Ce qui EST prouvé avec certitude : le
+    mécanisme actuel est structurellement incompatible avec tout models.py
+    (ou tout module qu'il importe) utilisant un import relatif -- un cas
+    représentatif du Connecthys actuel ou futur. ChargeModuleModels()
+    élimine cette classe de défaut à la racine. """
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+        self.chemin = self._tmpdir.name
+        self.synchro = UTILS_Portail_synchro.Synchro.__new__(UTILS_Portail_synchro.Synchro)
+
+    def _ecrire(self, nom, contenu):
+        (Path(self.chemin) / nom).write_text(contenu, encoding="utf-8")
+
+    def test_cas_a_models_autonome(self):
+        """ CAS A : un models.py historique autonome (aucun import relatif,
+        Connecthys d'avant ce changement de structure) continue de charger
+        sans erreur. """
+        self._ecrire("models.py", "VALEUR = 42\n")
+        models = self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self.assertEqual(models.VALEUR, 42)
+
+    def test_cas_b_models_avec_import_relatif(self):
+        """ CAS B : un models.py représentatif du Connecthys actuel, qui
+        importe un module frère via un import relatif, charge désormais
+        sans erreur -- exactement le cas qui levait auparavant "attempted
+        relative import with no known parent package". """
+        self._ecrire("sibling.py", "VALEUR_SIBLING = 42\n")
+        self._ecrire("models.py", "from . import sibling\nVALEUR = sibling.VALEUR_SIBLING\n")
+        models = self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self.assertEqual(models.VALEUR, 42)
+
+    def test_ancien_mecanisme_echoue_reellement_sur_cas_b(self):
+        """ Preuve directe avant/après, sur le MÊME fichier CAS B : l'ancien
+        mécanisme (sys.path.append + importlib.import_module("models"),
+        sans contexte de package) échoue bien avec le message exact
+        constaté en recette -- reproductible à la demande, pas une
+        hypothèse. """
+        self._ecrire("sibling.py", "VALEUR_SIBLING = 42\n")
+        self._ecrire("models.py", "from . import sibling\nVALEUR = sibling.VALEUR_SIBLING\n")
+        if "models" in sys.modules :
+            del sys.modules["models"]
+        sys.path.append(self.chemin)
+        try :
+            with self.assertRaises(ImportError) as ctx :
+                importlib.import_module("models")
+            self.assertIn("attempted relative import", str(ctx.exception))
+        finally :
+            sys.path.remove(self.chemin)
+            sys.modules.pop("models", None)
+
+    def test_cas_c_fichier_absent_leve_une_exception_propre(self):
+        """ CAS C : une erreur réelle pendant le chargement (fichier absent
+        après téléchargement, ex. coupure réseau) lève une exception
+        propre et catchable -- jamais un plantage opaque. """
+        with self.assertRaises(ImportError) :
+            self.synchro.ChargeModuleModels(self.chemin, "models.py")
+
+    def test_cas_c_erreur_de_syntaxe_leve_proprement(self):
+        """ CAS C (variante) : un models.py réellement invalide lève une
+        exception propre plutôt qu'un plantage muet. """
+        self._ecrire("models.py", "def incomplet(\n")
+        with self.assertRaises(SyntaxError) :
+            self.synchro.ChargeModuleModels(self.chemin, "models.py")
+
+    def test_cas_d_deux_chargements_successifs_aucune_contamination(self):
+        """ CAS D : deux synchronisations successives (même répertoire
+        temporaire que Noethys réutilise pour tout le processus, cf.
+        UTILS_Fichiers.GetRepTemp basé sur le PID) ne se contaminent
+        jamais : chaque appel obtient un module distinct reflétant son
+        propre contenu, et rien ne persiste dans sys.modules après coup. """
+        self._ecrire("models.py", "VALEUR = 1\n")
+        m1 = self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self._ecrire("models.py", "VALEUR = 2\n")
+        m2 = self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self.assertIsNot(m1, m2)
+        self.assertEqual(m1.VALEUR, 1)
+        self.assertEqual(m2.VALEUR, 2)
+        self.assertFalse(any("noethys_connecthys_sync_" in cle for cle in sys.modules))
+
+    def test_jamais_de_module_models_nu_dans_sys_modules(self):
+        """ Contrairement à l'ancien mécanisme, aucun "models" nu n'apparaît
+        jamais dans sys.modules : impossible qu'une synchronisation
+        contamine un import "models" fait ailleurs dans Noethys. """
+        self._ecrire("models.py", "VALEUR = 1\n")
+        self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self.assertNotIn("models", sys.modules)
+
+    def test_sys_path_jamais_pollue(self):
+        """ Contrairement à l'ancien mécanisme (sys.path.append jamais
+        retiré, pollution permanente pour la durée du processus), le
+        répertoire téléchargé n'est jamais ajouté à sys.path. """
+        avant = list(sys.path)
+        self._ecrire("models.py", "VALEUR = 1\n")
+        self.synchro.ChargeModuleModels(self.chemin, "models.py")
+        self.assertEqual(sys.path, avant)
+
+
+class UploadDataEchecChargementModelsTests(unittest.TestCase):
+    """ Un échec du chargement de models.py à l'intérieur de Upload_data()
+    doit fermer proprement la connexion SSH/SFTP (jamais la laisser
+    ouverte -- défaut réel constaté : aucun try/except n'entourait cette
+    étape, contrairement à toutes les autres étapes d'Upload_data()) et
+    journaliser un message précis, pas seulement l'enveloppe générique
+    "Échec de l'envoi des données". """
+
+    def _synchro_ssh(self, log):
+        return UTILS_Portail_synchro.Synchro(
+            dict_parametres={
+                "accept_all_cert": False,
+                "hebergement_type": 2,
+                "client_rechercher_updates": False,
+            },
+            log=log,
+        )
+
+    def test_deconnexion_appelee_et_message_precis_si_chargement_echoue(self):
+        log = FauxLog()
+        synchro = self._synchro_ssh(log)
+        faux_ftp = mock.Mock()
+        base = BaseTest()
+        with RedirectionGestionDB(base.chemin) :
+            # Upload_data() lit last_synchro via UTILS_Parametres, qui
+            # appelle en interne GestionDB.DB() sans argument injectable :
+            # nécessite une vraie base ouverte sur un runner CI propre
+            # (sans fichier Noethys local), comme les autres tests de ce
+            # fichier qui exercent Upload_data()/Synchro_totale() pour de
+            # vrai.
+            with mock.patch.object(synchro, "Connexion", return_value=(faux_ftp, None)), \
+                 mock.patch.object(synchro, "Upload_config", return_value=True), \
+                 mock.patch.object(synchro, "TelechargeFichier", return_value=(r"C:\chemin\inexistant", "models.py")) :
+                resultat = synchro.Upload_data()
+
+        self.assertFalse(resultat)
+        faux_ftp.close.assert_called_once()
+        self.assertTrue(any(u"Échec du chargement du modèle Connecthys" in m for m in log.logs))
+        self.assertFalse(any(u"Échec de l'envoi des données" in m for m in log.logs))
+
+    def test_synchro_totale_revient_a_pret_si_chargement_models_echoue(self):
+        """ Même échec, observé au niveau Synchro_totale() : le panneau doit
+        revenir à "Client de synchronisation prêt", exactement comme pour
+        toute autre étape en échec (non-régression du correctif de
+        robustesse précédent). """
+        log = FauxLog()
+        synchro = self._synchro_ssh(log)
+        synchro.Download_data = lambda full_synchro=False : True
+        faux_ftp = mock.Mock()
+        base = BaseTest()
+        with RedirectionGestionDB(base.chemin) :
+            with mock.patch.object(synchro, "Connexion", return_value=(faux_ftp, None)), \
+                 mock.patch.object(synchro, "Upload_config", return_value=True), \
+                 mock.patch.object(synchro, "TelechargeFichier", return_value=(r"C:\chemin\inexistant", "models.py")) :
+                resultat = synchro.Synchro_totale()
+
+        self.assertFalse(resultat)
+        self.assertIn(u"Client de synchronisation prêt", log.logs)
+        faux_ftp.close.assert_called_once()
 
 
 if __name__ == "__main__":

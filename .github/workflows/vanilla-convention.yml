@@ -11,6 +11,22 @@ on:
       - 'noethys/Utils/UTILS_Convention_champs.py'
       - 'noethys/Utils/UTILS_Impression_reservations.py'
       - 'noethys/Utils/UTILS_Json.py'
+      - 'noethys/Static/ModelesConventionExemples/**'
+      - 'noethys/Utils/UTILS_Convention_docx.py'
+      - 'noethys/Utils/UTILS_Convention_modeles.py'
+      - 'noethys/Utils/UTILS_Export_documents.py'
+      - 'noethys/Utils/UTILS_Transitions.py'
+      - 'tests/test_convention_docx.py'
+      - 'tests/test_devis_sans_ventilation.py'
+      - 'tests/test_planning_synthese_activites.py'
+      - 'tests/test_noedoc_texte_ui.py'
+      - 'tests/test_transitions_dialog.py'
+      - 'tests/test_vanilla_convention_modeles_gestion.py'
+      - 'tests/test_vanilla_convention_modele_persistance.py'
+      - 'tests/test_vanilla_convention_recuperation_mojibake.py'
+      - 'tests/test_vanilla_convention_pmsl_activites.py'
+      - 'tests/test_vanilla_generation_convention_modeles_ui_contract.py'
+      - 'tests/test_vanilla_famille_ajout_contract.py'
       - 'tests/_fixtures_noethys_db.py'
       - 'tests/test_vanilla_convention_category.py'
       - 'tests/test_vanilla_convention_champs.py'
@@ -25,6 +41,7 @@ on:
       - 'tests/test_vanilla_reservations_extraction.py'
       - 'docs/recette_conventions/**'
       - '.github/workflows/vanilla-convention.yml'
+      - 'scripts/qualification/compare_test_baseline.py'
       - 'requirements.txt'
   workflow_dispatch:
 
@@ -75,3 +92,55 @@ jobs:
           tests.test_vanilla_convention_recette_modeles
           tests.test_vanilla_generation_convention_dialog
           tests.test_vanilla_reservations_extraction
+          tests.test_convention_docx
+          tests.test_devis_sans_ventilation
+          tests.test_planning_synthese_activites
+          tests.test_noedoc_texte_ui
+          tests.test_transitions_dialog
+          tests.test_vanilla_convention_modeles_gestion
+          tests.test_vanilla_convention_modele_persistance
+          tests.test_vanilla_convention_recuperation_mojibake
+          tests.test_vanilla_convention_pmsl_activites
+          tests.test_vanilla_generation_convention_modeles_ui_contract
+          tests.test_vanilla_famille_ajout_contract
+
+  compare-baseline:
+    name: Comparer les échecs à la baseline RC2 (Linux wx)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Préparer Python 3.12 et wx 4.2.1
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-wxgtk4.0 python3-venv xvfb libmariadb-dev pkg-config
+          /usr/bin/python3 -m venv --system-site-packages /tmp/noethys-qualification
+          python - <<'PY'
+          from pathlib import Path
+          excluded = {'comtypes', 'pyttsx', 'numpy'}
+          requirements = [line for line in Path('requirements.txt').read_text().splitlines()
+                          if line.strip() and line.strip() not in excluded]
+          Path('/tmp/noethys-requirements.txt').write_text('\n'.join(requirements + ['numpy<2', 'pytest']))
+          PY
+          /tmp/noethys-qualification/bin/python -m pip install -r /tmp/noethys-requirements.txt
+      - name: Exécuter les deux suites et comparer les causes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p qualification-results
+          base="${BASE_SHA:-cd07d210d12682505a719f2439b56b8c168e15b9}"
+          git worktree add --detach /tmp/noethys-baseline "$base"
+          runner="$PWD/scripts/qualification/compare_test_baseline.py"
+          results="$PWD/qualification-results"
+          xvfb-run -a /tmp/noethys-qualification/bin/python "$runner" run --root /tmp/noethys-baseline --output "$results/baseline.json" > "$results/baseline.log" 2>&1
+          xvfb-run -a /tmp/noethys-qualification/bin/python "$runner" run --root "$PWD" --output "$results/head.json" > "$results/head.log" 2>&1
+          /tmp/noethys-qualification/bin/python "$runner" compare --before "$results/baseline.json" --after "$results/head.json" --output "$results/comparison.json"
+      - name: Conserver les résultats et les traces des deux suites
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qualification-rc2-baseline-${{ github.run_id }}
+          path: qualification-results/

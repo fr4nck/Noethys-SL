@@ -149,7 +149,9 @@ def GetDonnees(listeIDindividus=[], date_debut=None, date_fin=None, DB=None):
     return dictDonnees
 
 
-def Impression(dictDonnees={}, nomDoc=FonctionsPerso.GenerationNomDoc("RESERVATIONS", "pdf"), afficherDoc=True):
+def Impression(dictDonnees={}, nomDoc=FonctionsPerso.GenerationNomDoc("RESERVATIONS", "pdf"), afficherDoc=True, synthese=False):
+    if synthese:
+        return ImpressionSynthese(dictDonnees, nomDoc, afficherDoc)
     # Création du PDF
     from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate, NextPageTemplate
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
@@ -442,3 +444,53 @@ def Impression(dictDonnees={}, nomDoc=FonctionsPerso.GenerationNomDoc("RESERVATI
         FonctionsPerso.LanceFichierExterne(nomDoc)
 
     return dictChampsFusion
+
+def ImpressionSynthese(dictDonnees, nomDoc, afficherDoc=True):
+    """Récapitulatif des heures et montants, sans détail des tarifs des séances."""
+    from xml.sax.saxutils import escape
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from Utils import UTILS_Convention_champs as CC
+
+    resume = CC.ConstruireSyntheseActivites(dictDonnees)
+    styles = getSampleStyleSheet()
+    def texte(valeur):
+        return Paragraph(escape(str(valeur)), styles['BodyText'])
+    def heures(minutes, incomplet):
+        valeur = CC.FormateDureeHeures(minutes)
+        return valeur + (_(u" (incomplet)") if incomplet else u"")
+    def montant(valeur, incomplet):
+        valeur = (u"%.2f %s" % (valeur, SYMBOLE)).replace('.', ',')
+        return valeur + (_(u" (incomplet)") if incomplet else u"")
+    story = [Paragraph(_(u"Planning — synthèse par activité"), styles['Title']),
+             texte(UTILS_Organisateur.GetNom()), Spacer(0, 16)]
+    personnes = [u" ".join(p for p in (d.get('nom'), d.get('prenom')) if p)
+                 for d in dictDonnees.values()]
+    story.extend([texte(u" / ".join(personnes)), Spacer(0, 12)])
+    tableau = [[texte(_(u"Activité")), texte(_(u"Volume horaire")), texte(_(u"Coût total"))]]
+    for ligne in resume['activites']:
+        tableau.append([texte(ligne['nom']),
+                        texte(heures(ligne['minutes'], ligne['heures_incompletes'])),
+                        texte(montant(ligne['montant'], ligne['montant_incomplet']))])
+    tableau.append([texte(_(u"TOTAL")),
+                    texte(heures(resume['minutes'], resume['heures_incompletes'])),
+                    texte(montant(resume['montant'], resume['montant_incomplet']))])
+    table = Table(tableau, colWidths=[280, 115, 115], repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E4E8EC')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EEF1F4')),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#B8BEC5')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(table)
+    if resume['heures_incompletes'] or resume['montant_incomplet']:
+        story.extend([Spacer(0, 12), texte(_(u"Les totaux signalés incomplets excluent les horaires ou montants non renseignés."))])
+    SimpleDocTemplate(nomDoc, pagesize=A4, leftMargin=40, rightMargin=40,
+                      topMargin=35, bottomMargin=35).build(story)
+    if afficherDoc:
+        FonctionsPerso.LanceFichierExterne(nomDoc)
+    return {'{SOLDE}': montant(resume['montant'], resume['montant_incomplet'])}

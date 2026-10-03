@@ -292,8 +292,6 @@ class Dialog(wx.Dialog):
         self.__set_properties()
         self.__do_layout()
         
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonAjouterIndividu, self.bouton_ajouter)
-
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOptions, self.bouton_options)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOutils, self.bouton_outils)
@@ -661,16 +659,7 @@ class Dialog(wx.Dialog):
 
     def MenuGenererDevis(self, event):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_devis", "creer") == False : return
-        # Récupération du IDcompte_payeur
-        IDcompte_payeur = self.GetIDcomptePayeur()
-        # Vérification de la ventilation
-        from Dlg import DLG_Verification_ventilation
-        tracks = DLG_Verification_ventilation.Verification(IDcompte_payeur)
-        if len(tracks) > 0 :
-            dlg = wx.MessageDialog(self, _(u"Un ou plusieurs règlements sont encore à ventiler.\n\nVous devez obligatoirement effectuer cela avant d'éditer un devis..."), _(u"Ventilation"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
+        # Un devis chiffre les prestations ; il ne nécessite pas de ventiler les règlements.
         # Ouverture de la facturation
         from Dlg import DLG_Impression_devis
         dlg = DLG_Impression_devis.Dialog(self, IDfamille=self.IDfamille)
@@ -700,6 +689,7 @@ class Dialog(wx.Dialog):
         if dlg.ShowModal() != wx.ID_OK :
             dlg.Destroy()
             return
+        modele_word = dlg.GetModeleWord()
         IDmodele = dlg.GetIDmodele()
         date_debut = dlg.GetDateDebut()
         date_fin = dlg.GetDateFin()
@@ -707,7 +697,7 @@ class Dialog(wx.Dialog):
         overrides = dlg.GetOverrides()
         dlg.Destroy()
 
-        if IDmodele is None :
+        if IDmodele is None and not modele_word :
             dlg = wx.MessageDialog(
                 self, _(u"Aucun modèle de convention n'est disponible. Créez-en un depuis Paramétrage > Modèles de documents."),
                 _(u"Convention"), wx.OK | wx.ICON_EXCLAMATION,
@@ -716,12 +706,19 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
             return
 
-        from Utils import UTILS_Impression_convention
-        resultat = UTILS_Impression_convention.Impression(
-            IDfamille=self.IDfamille, IDmodele=IDmodele,
-            date_debut=date_debut, date_fin=date_fin, saison=saison,
-            overrides=overrides,
-        )
+        if modele_word:
+            from Utils import UTILS_Convention_docx
+            resultat = UTILS_Convention_docx.Impression(
+                IDfamille=self.IDfamille, modele=modele_word,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides)
+        else:
+            from Utils import UTILS_Impression_convention
+            resultat = UTILS_Impression_convention.Impression(
+                IDfamille=self.IDfamille, IDmodele=IDmodele,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides,
+            )
 
         if resultat :
             try :
@@ -941,22 +938,6 @@ class Dialog(wx.Dialog):
 ##            # Ferme la fenêtre
 ##            self.Destroy()
     
-    def OnBoutonAjouterIndividu(self, event):
-        """ Créer ou rattacher un individu """
-        IDindividu = 5
-        IDcategorie = 2
-        titulaire = 0
-        # Enregistrement du rattachement
-        DB = GestionDB.DB()
-        listeDonnees = [
-            ("IDindividu", IDindividu),
-            ("IDfamille", self.IDfamille),
-            ("IDcategorie", IDcategorie),
-            ("titulaire", titulaire),
-            ]
-        IDrattachement = DB.ReqInsert("rattachements", listeDonnees)
-        DB.Close()
-
     def MenuEditionEtiquettes(self, event):
         from Dlg import DLG_Impression_etiquettes
         dlg = DLG_Impression_etiquettes.Dialog(self, IDfamille=self.IDfamille)
