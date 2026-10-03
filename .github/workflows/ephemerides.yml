@@ -1,0 +1,90 @@
+name: RC2 - Éphémérides
+
+on:
+  pull_request:
+    paths:
+      - 'noethys/Ctrl/CTRL_Ephemeride.py'
+      - 'noethys/Utils/UTILS_Ephemerides.py'
+      - 'noethys/Utils/UTILS_VacancesScolaires.py'
+      - 'noethys/Noethys.py'
+      - 'tests/test_ephemerides*.py'
+      - 'docs/ephemerides/**'
+      - '.github/workflows/ephemerides.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Éphémérides sous Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Préparer les dépendances Vanilla
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-vanilla-ci.txt -Encoding UTF8
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-vanilla-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+
+      - name: Compiler les sources
+        run: python -m compileall -q noethys tests
+
+      - name: Vérifier wxPython sous Windows
+        run: python -c "import wx; app=wx.App(False); print(wx.version()); app.Destroy()"
+
+      - name: Tester les données et les vrais contrôles wx
+        run: python -m unittest discover -s tests -p "test_ephemerides*.py" -v
+
+  compare-baseline:
+    name: Comparer les échecs à la baseline RC2 (Linux wx)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Préparer Python 3.12 et wx 4.2.1
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-wxgtk4.0 python3-venv xvfb libmariadb-dev pkg-config
+          /usr/bin/python3 -m venv --system-site-packages /tmp/noethys-qualification
+          python - <<'PY'
+          from pathlib import Path
+          excluded = {'comtypes', 'pyttsx', 'numpy'}
+          requirements = [line for line in Path('requirements.txt').read_text().splitlines()
+                          if line.strip() and line.strip() not in excluded]
+          Path('/tmp/noethys-requirements.txt').write_text('\n'.join(requirements + ['numpy<2', 'pytest']))
+          PY
+          /tmp/noethys-qualification/bin/python -m pip install -r /tmp/noethys-requirements.txt
+      - name: Exécuter les deux suites et comparer les causes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p qualification-results
+          base="${BASE_SHA:-04c22e7dd30cbf81338292febd65b935ec25a48b}"
+          git worktree add --detach /tmp/noethys-baseline "$base"
+          runner="$PWD/scripts/qualification/compare_test_baseline.py"
+          results="$PWD/qualification-results"
+          xvfb-run -a /tmp/noethys-qualification/bin/python "$runner" run --root /tmp/noethys-baseline --output "$results/baseline.json" > "$results/baseline.log" 2>&1
+          xvfb-run -a /tmp/noethys-qualification/bin/python "$runner" run --root "$PWD" --output "$results/head.json" > "$results/head.log" 2>&1
+          /tmp/noethys-qualification/bin/python "$runner" compare --before "$results/baseline.json" --after "$results/head.json" --output "$results/comparison.json"
+      - name: Conserver les résultats et les traces des deux suites
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qualification-rc2-baseline-${{ github.run_id }}
+          path: qualification-results/
