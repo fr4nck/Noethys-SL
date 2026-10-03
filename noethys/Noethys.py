@@ -477,8 +477,8 @@ class MainFrame(wx.Frame):
         # Panneau Ephéméride
         if CUSTOMIZE.GetValeur("ephemeride", "actif", "1") == "1" :
             self.ctrl_ephemeride = CTRL_Ephemeride.CTRL(self)
-            self._mgr.AddPane(self.ctrl_ephemeride, aui.AuiPaneInfo().Name("ephemeride").Caption(_(u"Ephéméride")).
-                          Top().Layer(0).Row(1).Position(0).CloseButton(True).MaximizeButton(True).MinimizeButton(True).MinSize((-1, 100)).BestSize((-1, 100)) )
+            self._mgr.AddPane(self.ctrl_ephemeride, aui.AuiPaneInfo().Name("ephemeride").Caption(_(u"Éphémérides")).
+                          Top().Layer(0).Row(1).Position(0).CloseButton(True).MaximizeButton(True).MinimizeButton(True).MinSize((-1, 100)).BestSize((-1, 280)) )
 
         # Panneau Serveur Nomadhys
         if UTILS_Config.GetParametre("synchro_serveur_activer", defaut=False) == True :
