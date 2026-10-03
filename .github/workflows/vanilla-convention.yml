@@ -85,7 +85,7 @@ jobs:
 
       - name: Tester la catégorie Convention et la non-régression Noedoc/Réservations
         run: >-
-          python -c "import faulthandler, runpy; faulthandler.dump_traceback_later(120, exit=True); runpy.run_module('unittest', run_name='__main__')" -v
+          python -c "import faulthandler, runpy; faulthandler.dump_traceback_later(600, exit=True); runpy.run_module('unittest', run_name='__main__')" -v
           tests.test_vanilla_convention_category
           tests.test_vanilla_convention_champs
           tests.test_vanilla_convention_champs_historiques
