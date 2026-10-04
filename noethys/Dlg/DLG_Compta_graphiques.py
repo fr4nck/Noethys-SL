@@ -324,19 +324,14 @@ class CTRL_Graphique(wx.Panel):
         listeLabels = []
         listeCouleurs = []
         
-        montantTotal = 0.0
-        for IDcategorie, dictTemp in dictDonnees.items() :
-            montantTotal += dictTemp["montant"]
-            
         index = 1
         for IDcategorie, dictTemp in dictDonnees.items() :
             listeValeurs.append(dictTemp["montant"])
             label = dictTemp["nom"]
             if self.afficher_valeurs == True :
-                label += u"\n%.2f %s" % (float(montant), SYMBOLE)
+                label += u"\n%.2f %s" % (float(dictTemp["montant"]), SYMBOLE)
             listeLabels.append(label)            
             
-            couleur = 1.0 * montant / montantTotal
             couleur = matplotlib.cm.hsv(index * 0.1)
             listeCouleurs.append(couleur)
             
