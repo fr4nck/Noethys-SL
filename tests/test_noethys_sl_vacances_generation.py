@@ -55,6 +55,9 @@ class TestVacancesGeneration(unittest.TestCase):
             datetime.date(2026, 11, 1),
         )
         self.assertTrue(
+            module.EstEnVacancesGeneration(datetime.date(2026, 10, 31), vacances)
+        )
+        self.assertTrue(
             module.EstEnVacancesGeneration(datetime.date(2026, 11, 1), vacances)
         )
         self.assertFalse(
