@@ -36,21 +36,33 @@ from Ctrl.CTRL_Choix_modele import CTRL_Choice
 from Ctrl.CTRL_Grille_periode import MyDatePickerCtrl
 
 
-def _CalculerTailleDialogue(taille_contenu, taille_boutons, taille_ecran):
-    """Calcule une taille initiale bornée par la zone de travail écran.
+def _CalculerTailleDialogue(taille_contenu, taille_boutons, taille_ecran, taille_naturelle=None):
+    """Calcule la taille initiale depuis la taille naturelle du dialogue.
 
-    Les valeurs sont exprimées en unités wx (donc déjà adaptées au DPI).
-    Le contenu central peut dépasser cette hauteur : il est alors
-    scrollable, tandis que la barre de boutons reste toujours hors scroll.
+    Tant que la taille naturelle tient dans la zone de travail de l'écran,
+    elle est conservée telle quelle. Le scroll n'intervient qu'en repli :
+    si la hauteur naturelle dépasse l'écran, elle est bornée à 88 % de la
+    work area. Toutes les valeurs restent exprimées en unités wx afin de
+    conserver le comportement DPI/scaling de la plateforme.
     """
     largeur_ecran, hauteur_ecran = (int(taille_ecran[0]), int(taille_ecran[1]))
-    largeur_max = max(320, largeur_ecran - 40)
-    hauteur_max = max(280, hauteur_ecran - 40)
-    largeur_min = min(620, largeur_max)
-    hauteur_min = min(480, hauteur_max)
-    largeur = max(largeur_min, int(taille_contenu[0]) + 30, int(taille_boutons[0]) + 30)
-    hauteur = max(hauteur_min, int(taille_contenu[1]) + int(taille_boutons[1]) + 30)
-    return min(largeur, largeur_max), min(hauteur, hauteur_max)
+    if taille_naturelle is None:
+        # Repli utilisé notamment par les tests unitaires : l'appelant réel
+        # fournit ci-dessous la taille calculée par ComputeFittingWindowSize(),
+        # qui tient compte des décorations de la fenêtre.
+        largeur_naturelle = max(int(taille_contenu[0]), int(taille_boutons[0])) + 30
+        hauteur_naturelle = int(taille_contenu[1]) + int(taille_boutons[1]) + 30
+    else:
+        largeur_naturelle = int(taille_naturelle[0])
+        hauteur_naturelle = int(taille_naturelle[1])
+
+    largeur = largeur_naturelle
+    hauteur = hauteur_naturelle
+    if largeur > largeur_ecran:
+        largeur = max(1, int(largeur_ecran * 0.95))
+    if hauteur > hauteur_ecran:
+        hauteur = max(1, int(hauteur_ecran * 0.88))
+    return largeur, hauteur
 
 
 class _ZoneConventionScrollable(wx.ScrolledWindow):
@@ -89,6 +101,12 @@ class Dialog(wx.Dialog):
         # --- Modèle -----------------------------------------------------
         label_modele = wx.StaticText(parent_contenu, -1, _(u"Modèle de convention :"))
         self.ctrl_modele = CTRL_Choice(parent_contenu, categorie="convention")
+        # CTRL_Choice conserve en priorité le modèle marqué par défaut. Si
+        # des modèles existent mais qu'aucun n'est marqué "defaut", wx peut
+        # laisser le Choice sans sélection initiale : garder alors le premier
+        # modèle visible, comme avant la reconstruction responsive du layout.
+        if self.ctrl_modele.GetID() is None and self.ctrl_modele.GetCount() > 0:
+            self.ctrl_modele.SetSelection(0)
 
         # --- Période ------------------------------------------------------
         label_periode = wx.StaticText(parent_contenu, -1, _(u"Période concernée :"))
@@ -220,13 +238,24 @@ class Dialog(wx.Dialog):
         sizer_general.Add(sizer_bas, 0, wx.ALL | wx.EXPAND, 10)
         self.SetSizer(sizer_general)
 
+        # Pour la taille d'ouverture, demander d'abord au ScrolledWindow de
+        # réserver la place de tout son contenu. ComputeFittingWindowSize()
+        # donne alors la vraie taille naturelle de la fenêtre, décorations
+        # comprises. On libère ensuite cette contrainte : si l'utilisateur
+        # réduit la fenêtre (ou si l'écran est trop petit), le scroll reprend
+        # immédiatement son rôle et les boutons restent hors de la zone.
+        taille_contenu = sizer_contenu.CalcMin()
+        self.zone_contenu.SetMinSize(taille_contenu)
+        taille_naturelle = sizer_general.ComputeFittingWindowSize(self)
+        self.zone_contenu.SetMinSize(wx.DefaultSize)
+
         index_ecran = wx.Display.GetFromWindow(self)
         if index_ecran != wx.NOT_FOUND:
             zone_ecran = wx.Display(index_ecran).GetClientArea()
         else:
             zone_ecran = wx.GetClientDisplayRect()
         taille = _CalculerTailleDialogue(
-            sizer_contenu.CalcMin(), sizer_bas.CalcMin(), zone_ecran.GetSize()
+            taille_contenu, sizer_bas.CalcMin(), zone_ecran.GetSize(), taille_naturelle
         )
         self.SetSize(taille)
         self.SetMinSize((min(520, taille[0]), min(380, taille[1])))
