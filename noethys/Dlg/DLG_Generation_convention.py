@@ -100,6 +100,17 @@ class Dialog(wx.Dialog):
 
         # --- Modèle -----------------------------------------------------
         label_modele = wx.StaticText(parent_contenu, -1, _(u"Modèle de convention :"))
+        # Une installation neuve doit être immédiatement exploitable : si
+        # aucun modèle Convention n'existe, installe idempotemment les
+        # exemples embarqués (associatifs + scolaire). Aucun modèle existant
+        # n'est jamais écrasé par ce chemin.
+        try:
+            from Utils import UTILS_Convention_modeles
+            UTILS_Convention_modeles.AssurerModelesDisponibles()
+        except Exception:
+            # Le bouton de gestion permet de retenter explicitement ; ne pas
+            # rendre tout le dialogue inutilisable sur une erreur de ressource.
+            pass
         self.ctrl_modele = CTRL_Choice(parent_contenu, categorie="convention")
         # CTRL_Choice conserve en priorité le modèle marqué par défaut. Si
         # des modèles existent mais qu'aucun n'est marqué "defaut", wx peut
@@ -107,6 +118,12 @@ class Dialog(wx.Dialog):
         # modèle visible, comme avant la reconstruction responsive du layout.
         if self.ctrl_modele.GetID() is None and self.ctrl_modele.GetCount() > 0:
             self.ctrl_modele.SetSelection(0)
+        self.bouton_modeles = wx.Button(parent_contenu, -1, _(u"Gérer les modèles..."))
+        self.bouton_modeles.SetToolTip(wx.ToolTip(
+            _(u"Modifier, dupliquer, renommer, supprimer ou installer les modèles Noedoc de convention.")))
+        sizer_modele = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_modele.Add(self.ctrl_modele, 1, wx.EXPAND | wx.RIGHT, 5)
+        sizer_modele.Add(self.bouton_modeles, 0)
 
         # --- Période ------------------------------------------------------
         label_periode = wx.StaticText(parent_contenu, -1, _(u"Période concernée :"))
@@ -187,6 +204,7 @@ class Dialog(wx.Dialog):
         self.bouton_ok.SetDefault()
         self.bouton_annuler = wx.Button(self, wx.ID_CANCEL, _(u"Annuler"))
 
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonModeles, self.bouton_modeles)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonPlanning, self.bouton_planning)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
 
@@ -215,7 +233,7 @@ class Dialog(wx.Dialog):
 
         sizer_contenu = wx.BoxSizer(wx.VERTICAL)
         for label, ctrl in (
-            (label_modele, self.ctrl_modele),
+            (label_modele, sizer_modele),
             (label_periode, sizer_periode),
             (label_saison, self.ctrl_saison),
             (label_representant, self.ctrl_representant_nom_complet),
@@ -266,6 +284,161 @@ class Dialog(wx.Dialog):
         # Préremplissage initial des valeurs automatiques (représentant,
         # tarif) pour la période sélectionnée par défaut.
         self.RecalculerValeursAutomatiques()
+
+    # ------------------------------------------------------------------
+    # Gestion des modèles Convention / Noedoc
+    # ------------------------------------------------------------------
+
+    def RafraichirModeles(self, IDmodele=None, selectionPremier=False):
+        self.ctrl_modele.MAJ()
+        if IDmodele is not None:
+            self.ctrl_modele.SetID(IDmodele)
+        if selectionPremier and self.ctrl_modele.GetSelection() == wx.NOT_FOUND and self.ctrl_modele.GetCount() > 0:
+            self.ctrl_modele.SetSelection(0)
+
+    def OnBoutonModeles(self, event):
+        IDmodele = self.GetIDmodele()
+        menu = wx.Menu()
+        ID_MODIFIER = wx.Window.NewControlId()
+        ID_DUPLIQUER = wx.Window.NewControlId()
+        ID_RENOMMER = wx.Window.NewControlId()
+        ID_DEFAUT = wx.Window.NewControlId()
+        ID_SUPPRIMER = wx.Window.NewControlId()
+        ID_INSTALLER = wx.Window.NewControlId()
+
+        menu.Append(ID_MODIFIER, _(u"Modifier dans Noedoc..."))
+        menu.Append(ID_DUPLIQUER, _(u"Dupliquer..."))
+        menu.Append(ID_RENOMMER, _(u"Renommer..."))
+        menu.Append(ID_DEFAUT, _(u"Définir comme modèle par défaut"))
+        menu.Append(ID_SUPPRIMER, _(u"Supprimer..."))
+        menu.AppendSeparator()
+        menu.Append(ID_INSTALLER, _(u"Installer les modèles d'exemple"))
+
+        for identifiant in (ID_MODIFIER, ID_DUPLIQUER, ID_RENOMMER, ID_DEFAUT, ID_SUPPRIMER):
+            menu.Enable(identifiant, IDmodele is not None)
+
+        self.Bind(wx.EVT_MENU, self.OnModifierModele, id=ID_MODIFIER)
+        self.Bind(wx.EVT_MENU, self.OnDupliquerModele, id=ID_DUPLIQUER)
+        self.Bind(wx.EVT_MENU, self.OnRenommerModele, id=ID_RENOMMER)
+        self.Bind(wx.EVT_MENU, self.OnDefinirModeleDefaut, id=ID_DEFAUT)
+        self.Bind(wx.EVT_MENU, self.OnSupprimerModele, id=ID_SUPPRIMER)
+        self.Bind(wx.EVT_MENU, self.OnInstallerModelesExemples, id=ID_INSTALLER)
+        self.PopupMenu(menu, self.bouton_modeles.GetPosition())
+        menu.Destroy()
+
+    def OnModifierModele(self, event=None):
+        IDmodele = self.GetIDmodele()
+        if IDmodele is None:
+            return
+        from Utils import UTILS_Convention_modeles
+        from Dlg import DLG_Noedoc
+        infos = UTILS_Convention_modeles.GetModele(IDmodele)
+        if infos is None:
+            self._Informer(_(u"Le modèle sélectionné n'existe plus."), erreur=True)
+            self.RafraichirModeles(selectionPremier=True)
+            return
+        largeur = infos["largeur"] or 210
+        hauteur = infos["hauteur"] or 297
+        dlg = DLG_Noedoc.Dialog(
+            self,
+            IDmodele=IDmodele,
+            nom=infos["nom"],
+            observations=infos["observations"],
+            IDfond=infos["IDfond"],
+            categorie="convention",
+            taille_page=(largeur, hauteur),
+        )
+        dlg.ShowModal()
+        IDfinal = dlg.GetIDmodele()
+        dlg.Destroy()
+        self.RafraichirModeles(IDmodele=IDfinal or IDmodele, selectionPremier=True)
+
+    def OnDupliquerModele(self, event=None):
+        IDmodele = self.GetIDmodele()
+        if IDmodele is None:
+            return
+        nomActuel = self.ctrl_modele.GetStringSelection()
+        dlg = wx.TextEntryDialog(
+            self, _(u"Nom de la copie :"), _(u"Dupliquer le modèle"),
+            _(u"Copie de %s") % nomActuel,
+        )
+        if dlg.ShowModal() != wx.ID_OK:
+            dlg.Destroy()
+            return
+        nom = dlg.GetValue()
+        dlg.Destroy()
+        try:
+            from Utils import UTILS_Convention_modeles
+            newID = UTILS_Convention_modeles.DupliquerModele(IDmodele, nom)
+            self.RafraichirModeles(IDmodele=newID, selectionPremier=True)
+        except Exception as err:
+            self._Informer(_(u"Le modèle n'a pas pu être dupliqué.\n\n%s") % err, erreur=True)
+
+    def OnRenommerModele(self, event=None):
+        IDmodele = self.GetIDmodele()
+        if IDmodele is None:
+            return
+        dlg = wx.TextEntryDialog(
+            self, _(u"Nouveau nom du modèle :"), _(u"Renommer le modèle"),
+            self.ctrl_modele.GetStringSelection(),
+        )
+        if dlg.ShowModal() != wx.ID_OK:
+            dlg.Destroy()
+            return
+        nom = dlg.GetValue()
+        dlg.Destroy()
+        try:
+            from Utils import UTILS_Convention_modeles
+            UTILS_Convention_modeles.RenommerModele(IDmodele, nom)
+            self.RafraichirModeles(IDmodele=IDmodele, selectionPremier=True)
+        except Exception as err:
+            self._Informer(_(u"Le modèle n'a pas pu être renommé.\n\n%s") % err, erreur=True)
+
+    def OnDefinirModeleDefaut(self, event=None):
+        IDmodele = self.GetIDmodele()
+        if IDmodele is None:
+            return
+        try:
+            from Utils import UTILS_Convention_modeles
+            UTILS_Convention_modeles.DefinirModeleDefaut(IDmodele)
+            self.RafraichirModeles(IDmodele=IDmodele, selectionPremier=True)
+        except Exception as err:
+            self._Informer(_(u"Le modèle par défaut n'a pas pu être enregistré.\n\n%s") % err, erreur=True)
+
+    def OnSupprimerModele(self, event=None):
+        IDmodele = self.GetIDmodele()
+        if IDmodele is None:
+            return
+        nom = self.ctrl_modele.GetStringSelection()
+        dlg = wx.MessageDialog(
+            self,
+            _(u"Supprimer définitivement le modèle « %s » et tous ses objets ?") % nom,
+            _(u"Supprimer le modèle"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+        )
+        confirmer = dlg.ShowModal() == wx.ID_YES
+        dlg.Destroy()
+        if not confirmer:
+            return
+        try:
+            from Utils import UTILS_Convention_modeles
+            UTILS_Convention_modeles.SupprimerModele(IDmodele)
+            self.RafraichirModeles(selectionPremier=True)
+        except Exception as err:
+            self._Informer(_(u"Le modèle n'a pas pu être supprimé.\n\n%s") % err, erreur=True)
+
+    def OnInstallerModelesExemples(self, event=None):
+        IDselection = self.GetIDmodele()
+        try:
+            from Utils import UTILS_Convention_modeles
+            IDs = UTILS_Convention_modeles.InstallerModelesExemples()
+            self.RafraichirModeles(IDmodele=IDselection, selectionPremier=True)
+            self._Informer(
+                _(u"Les modèles d'exemple embarqués sont disponibles, y compris le modèle scolaire.\n\n"
+                  u"Un modèle déjà présent n'a pas été écrasé.")
+            )
+        except Exception as err:
+            self._Informer(_(u"Les modèles d'exemple n'ont pas pu être installés.\n\n%s") % err, erreur=True)
 
     # ------------------------------------------------------------------
     # Rafraîchissement des valeurs automatiques (représentant, tarif)
@@ -432,8 +605,8 @@ class Dialog(wx.Dialog):
         else:
             debut = _(u"Le modèle propre « %s », déjà installé, a été sélectionné.") % nomCopie
         self._Informer(debut + u"\n\n" + _(
-            u"Le modèle d'origine « %s » n'a pas été modifié : vous pouvez le supprimer vous-même "
-            u"depuis Paramétrage > Modèles de documents si vous n'en avez plus besoin.\n\n"
+            u"Le modèle d'origine « %s » n'a pas été modifié : vous pouvez désormais le gérer "
+            u"directement avec le bouton « Gérer les modèles... ».\n\n"
             u"Vérifiez les informations puis cliquez à nouveau sur « Générer la convention »."
         ) % nomModele)
 
