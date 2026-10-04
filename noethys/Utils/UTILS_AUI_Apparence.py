@@ -44,10 +44,21 @@ COULEUR_FOND_CLAIRE = wx.Colour(240, 240, 240)
 COULEUR_TEXTE_LEGENDE = wx.Colour(30, 30, 30)
 
 
-class NoethysSLAuiManager(aui.AuiManager):
-    """AuiManager local de Noethys SL wx avec deux garde-fous AGW 4.2.5.
+def _FenetreEncoreVivante(fenetre):
+    """Indique si l'objet wx sous-jacent est encore utilisable."""
+    if fenetre is None:
+        return False
+    try:
+        fenetre.IsShown()
+    except RuntimeError:
+        return False
+    return True
 
-    AGW 4.2.5 laisse les docking guides visibles si la capture souris est
+
+class NoethysSLAuiManager(aui.AuiManager):
+    """AuiManager local de Noethys SL wx avec des garde-fous AGW.
+
+    AGW laisse les docking guides visibles si la capture souris est
     perdue pendant un drag, et peut désynchroniser l'état d'un pane minimisé
     de sa barre automatique <name>_min lors d'un changement de perspective
     ou d'une maximisation d'un autre pane.
@@ -57,9 +68,13 @@ class NoethysSLAuiManager(aui.AuiManager):
     """
 
     def OnCaptureLost(self, event):
-        """Annule le drag comme AGW puis masque toujours ses guides."""
+        """Annule le drag puis masque uniquement les guides encore vivants."""
         aui.AuiManager.OnCaptureLost(self, event)
-        aui.ShowDockingGuides(self._guides, False)
+        guides_vivants = [
+            guide for guide in self._guides
+            if _FenetreEncoreVivante(guide.host)
+        ]
+        aui.ShowDockingGuides(guides_vivants, False)
         self._action_window = None
 
     def RestoreManagedMinimizedPane(self, pane_info):
@@ -82,9 +97,29 @@ class NoethysSLAuiManager(aui.AuiManager):
     def LoadPerspective(self, layout, update=True, restorecaption=False,
                         restoreminimize=False):
         """Nettoie les minimisations actives avant de laisser AGW recharger."""
+        # Conserver les toolbars automatiques avant restauration.
+        # AGW les detache mais ne detruit pas leur wx.Window, ce qui
+        # accumule des AuiToolBar orphelines au fil des perspectives.
+        toolbars_a_detruire = [
+            pane.window
+            for pane in list(self.GetAllPanes())
+            if pane.IsToolbar()
+            and pane.window is not None
+            and isinstance(pane.window, aui.AuiToolBar)
+            and pane.name.endswith("_min")
+            and pane.IsDestroyOnClose()
+        ]
+
         for pane in list(self.GetAllPanes()):
             if not pane.IsToolbar() and pane.IsMinimized():
                 self.RestoreManagedMinimizedPane(pane)
+
+        for toolbar in toolbars_a_detruire:
+            try:
+                toolbar.Destroy()
+            except RuntimeError:
+                # Une version future d'AGW peut deja l'avoir detruite.
+                pass
 
         return aui.AuiManager.LoadPerspective(
             self,
@@ -113,13 +148,25 @@ class NoethysSLAuiManager(aui.AuiManager):
                 pane.Minimize()
 
     def MinimizePane(self, pane_info, mgrUpdate=True):
-        """Écarte proprement une éventuelle barre automatique orpheline."""
+        """Nettoie une barre orpheline puis laisse AGW minimiser le pane."""
         if not pane_info.IsToolbar() and not pane_info.IsMinimized():
             toolbar = self.GetPane(pane_info.name + "_min")
             if toolbar.IsOk():
                 self.ClosePane(toolbar)
 
-        return aui.AuiManager.MinimizePane(self, pane_info, mgrUpdate=mgrUpdate)
+        resultat = aui.AuiManager.MinimizePane(
+            self,
+            pane_info,
+            mgrUpdate=mgrUpdate,
+        )
+
+        if not pane_info.IsToolbar():
+            pane_min = self.GetPane(pane_info.name + "_min")
+            if pane_min.IsOk() and isinstance(pane_min.window, aui.AuiToolBar):
+                pane_min.window.SetArtProvider(NoethysSLToolBarArt())
+                pane_min.window.Refresh()
+
+        return resultat
 
 
 class NoethysSLDockArt(aui.AuiDefaultDockArt):
