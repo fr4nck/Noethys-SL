@@ -292,8 +292,6 @@ class Dialog(wx.Dialog):
         self.__set_properties()
         self.__do_layout()
         
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonAjouterIndividu, self.bouton_ajouter)
-
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOptions, self.bouton_options)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOutils, self.bouton_outils)
@@ -941,22 +939,6 @@ class Dialog(wx.Dialog):
 ##            # Ferme la fenêtre
 ##            self.Destroy()
     
-    def OnBoutonAjouterIndividu(self, event):
-        """ Créer ou rattacher un individu """
-        IDindividu = 5
-        IDcategorie = 2
-        titulaire = 0
-        # Enregistrement du rattachement
-        DB = GestionDB.DB()
-        listeDonnees = [
-            ("IDindividu", IDindividu),
-            ("IDfamille", self.IDfamille),
-            ("IDcategorie", IDcategorie),
-            ("titulaire", titulaire),
-            ]
-        IDrattachement = DB.ReqInsert("rattachements", listeDonnees)
-        DB.Close()
-
     def MenuEditionEtiquettes(self, event):
         from Dlg import DLG_Impression_etiquettes
         dlg = DLG_Impression_etiquettes.Dialog(self, IDfamille=self.IDfamille)
