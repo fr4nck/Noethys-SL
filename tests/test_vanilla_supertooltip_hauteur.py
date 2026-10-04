@@ -64,15 +64,31 @@ class SuperToolTipHauteurTests(unittest.TestCase):
         self.frame = wx.Frame(None)
         self.addCleanup(self.frame.Destroy)
 
-    def test_onpaint_peut_renvoyer_une_hauteur_flottante(self):
-        """Caractérise la cause racine, dans la bibliothèque wx.lib.agw
-        (non modifiée ici) : ne doit pas disparaître si le correctif
-        Noethys venait à être retiré par erreur -- sert de garde-fou pour
-        que le prochain test reste pertinent."""
+    def test_calculatebestsize_tolere_une_hauteur_flottante(self):
+        """Le correctif Noethys reste compatible avec les anciennes versions
+        de wxPython dont OnPaint() pouvait renvoyer des coordonnees flottantes.
+
+        wxPython 4.3.x renvoie desormais des entiers dans ce scenario. On
+        simule donc explicitement l'ancien comportement afin de verifier que
+        la couche de compatibilite Noethys conserve des dimensions entieres.
+        """
         tipFrame = _creer_tooltip_multiligne(self.frame)
         self.addCleanup(tipFrame.Destroy)
-        _largeur, hauteur = tipFrame.OnPaint(None)
-        self.assertIsInstance(hauteur, float)
+
+        largeur_reelle, hauteur_reelle = tipFrame.OnPaint(None)
+        ancien_onpaint = tipFrame.OnPaint
+
+        def onpaint_flottant(event):
+            return float(largeur_reelle), float(hauteur_reelle)
+
+        tipFrame.OnPaint = onpaint_flottant
+        self.addCleanup(setattr, tipFrame, "OnPaint", ancien_onpaint)
+
+        tipFrame.CalculateBestSize()
+
+        taille = tipFrame.GetSize()
+        self.assertEqual(taille.GetWidth(), int(largeur_reelle))
+        self.assertEqual(taille.GetHeight(), int(hauteur_reelle))
 
     def test_calculatebestsize_utilise_des_coordonnees_entieres(self):
         """Le correctif (Utils/UTILS_Adaptations.py) doit garantir une
