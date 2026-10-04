@@ -247,7 +247,7 @@ class GetChampsConventionIntegrationTests(unittest.TestCase):
                 informations=FauxInformations({"{NBRE_REPRESENTANTS_RATTACHES}": 0}),
             )
         self.assertEqual(champs["{CONVENTION_SAISON}"], "2026-2027")
-        self.assertEqual(champs["{CONVENTION_ACTIVITES}"], "Encadrement adultes, Encadrement enfants")
+        self.assertEqual(champs["{CONVENTION_ACTIVITES}"], "Encadrement sportif adultes, Encadrement sportif enfants")
         self.assertEqual(champs["{CONVENTION_PLANNING_NBRE_SEANCES}"], 6)
         self.assertAlmostEqual(champs["{CONVENTION_PLANNING_TOTAL_MONTANT}"], 217.5)
         self.assertEqual(champs["{CONVENTION_TARIF_ADULTE}"], 36.5)
