@@ -2363,6 +2363,7 @@ class Dialog(wx.Dialog):
                                         if dictColonnePerso["donnee_code"] == None :
                                             donnee = ""
                                         else :
+                                            donnee = ""
                                             try :
                                                 if dictColonnePerso["donnee_code"] == "aucun": donnee = ""
                                                 if dictColonnePerso["donnee_code"] == "ville_residence": donnee = dictInfosIndividus[IDindividu]["INDIVIDU_VILLE"]
