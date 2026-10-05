@@ -32,10 +32,12 @@ class DialogFonduTests(unittest.TestCase):
             self.assertFalse(dlg._Alpha(200))
         dlg.Destroy()
 
-    def test_dialogues_convention_et_noedoc_utilisent_le_fondu(self):
+    def test_dialogues_convention_noedoc_et_identification_utilisent_le_fondu(self):
         from Dlg import DLG_Generation_convention, DLG_Noedoc
+        from Ctrl import CTRL_Identification
         self.assertTrue(issubclass(DLG_Generation_convention.Dialog, DialogFondu))
         self.assertTrue(issubclass(DLG_Noedoc.Dialog, DialogFondu))
+        self.assertTrue(issubclass(CTRL_Identification.Dialog, DialogFondu))
 
 
 if __name__ == "__main__":
