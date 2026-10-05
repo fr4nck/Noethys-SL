@@ -23,6 +23,7 @@ from Ctrl.CTRL_ObjectListView import ObjectListView, FastObjectListView, ColumnD
 from Ctrl.CTRL_ObjectListView import EVT_CELL_EDIT_STARTING, EVT_CELL_EDIT_FINISHING
 
 from Utils import UTILS_Config
+from Utils import UTILS_Attestations_repas
 SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 
 from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
@@ -53,6 +54,7 @@ class Track(object):
         if self.nombre_impaye == 0 : self.impaye_str = u""
         
         self.ajustement = ""
+        self.repas_str = u"%.2f %s" % (sum(p.get('deduction_repas', 0) for p in self.listePrestations), SYMBOLE)
         
 
 
@@ -130,6 +132,18 @@ class ListView(FastObjectListView):
         ;""" % (conditionActivites, condition, conditionDateNaiss)
         DB.ExecuterReq(req)
         listePrestations = DB.ResultatReq()  
+        deductions = {}
+        if getattr(self, 'deduire_repas', False):
+            try:
+                regles = UTILS_Attestations_repas.Charger(DB)
+                if not regles:
+                    raise ValueError('Renseignez les réservations repas et leurs périodes de prix avant de déduire les repas.')
+                deductions = UTILS_Attestations_repas.Calculer(DB, listePrestations, regles)
+                for prestation in listePrestations:
+                    UTILS_Attestations_repas.Appliquer(prestation[4], dictVentilation.get(prestation[0], 0), deductions.get(prestation[0], 0))
+            except Exception:
+                DB.Close()
+                raise
         DB.Close()
 
         dictPrestations = {}
@@ -170,7 +184,8 @@ class ListView(FastObjectListView):
                 dictPrestations[key]["prestations"].append({
                     "IDprestation" : IDprestation, "IDcompte_payeur" : IDcompte_payeur, "IDfamille" : IDfamille, 
                     "IDindividu" : IDindividu, "nom" : nom, "prenom" : prenom, "date_naiss" : date_naiss, "IDcivilite" : IDcivilite,
-                    "montant" : montant, "regle" : regle, "impaye" : impaye})
+                    "montant" : montant, "regle" : regle, "impaye" : impaye,
+                    "deduction_repas": deductions.get(IDprestation, FloatToDecimal(0.0))})
         
         # Regroupement des prestations par key
         listeListeView = []
@@ -198,7 +213,8 @@ class ListView(FastObjectListView):
         
         liste_Colonnes = [
             ColumnDefn(_(u"Prestation"), 'left', 190, "label", typeDonnee="texte", isEditable=False),
-            ColumnDefn(_(u"Ajustement"), "center", 80, "ajustement", typeDonnee="texte", isEditable=True), 
+            ColumnDefn(_(u"Ajustement"), "center", 80, "ajustement", typeDonnee="texte", isEditable=True),
+            ColumnDefn(_(u"Repas déduits"), "right", 100, "repas_str", typeDonnee="texte"),
             ColumnDefn(_(u"Activité"), "left", 90, "nomActivite", typeDonnee="texte", isEditable=False), 
             ColumnDefn(_(u"Total"), "left", 110, "total_str", typeDonnee="texte", isEditable=False),
             ColumnDefn(_(u"Réglé"), "left", 110, "regle_str", typeDonnee="texte", isEditable=False),
