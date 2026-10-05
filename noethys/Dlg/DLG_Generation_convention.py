@@ -21,13 +21,15 @@ consommations, individus, familles).
 
 Un bouton "Imprimer le planning" permet, depuis le même écran, de
 générer le Planning séparé (moteur Réservations historique, inchangé)
-pour la même famille et la même période : Convention et Planning
-restent deux fichiers PDF distincts, aucune fusion n'est faite ici.
+pour la même famille et la même période : Convention et Planning restent
+deux fichiers distincts. La Convention peut être produite en PDF depuis
+Noedoc ou en document Word modifiable depuis un modèle ``.docx``.
 """
 
 from __future__ import annotations
 
 import datetime
+import os
 
 import wx
 
@@ -98,8 +100,17 @@ class Dialog(wx.Dialog):
         self.zone_contenu = _ZoneConventionScrollable(self)
         parent_contenu = self.zone_contenu
 
+        # --- Format de sortie ------------------------------------------
+        label_format = wx.StaticText(parent_contenu, -1, _(u"Format de la convention :"))
+        self.ctrl_format = wx.RadioBox(
+            parent_contenu, -1, u"", choices=(
+                _(u"PDF (modèle Noedoc)"),
+                _(u"Word modifiable (.docx)"),
+            ), majorDimension=1, style=wx.RA_SPECIFY_ROWS,
+        )
+
         # --- Modèle -----------------------------------------------------
-        label_modele = wx.StaticText(parent_contenu, -1, _(u"Modèle de convention :"))
+        label_modele = wx.StaticText(parent_contenu, -1, _(u"Modèle PDF Noedoc :"))
         # Une installation neuve doit être immédiatement exploitable : si
         # aucun modèle Convention n'existe, installe idempotemment les
         # exemples embarqués (associatifs + scolaire). Aucun modèle existant
@@ -124,6 +135,24 @@ class Dialog(wx.Dialog):
         sizer_modele = wx.BoxSizer(wx.HORIZONTAL)
         sizer_modele.Add(self.ctrl_modele, 1, wx.EXPAND | wx.RIGHT, 5)
         sizer_modele.Add(self.bouton_modeles, 0)
+
+        label_modele_docx = wx.StaticText(parent_contenu, -1, _(u"Modèle Word :"))
+        try:
+            from Utils import UTILS_Config
+            modele_docx_initial = UTILS_Config.GetParametre("convention_modele_docx", u"") or u""
+        except Exception:
+            modele_docx_initial = u""
+        self.ctrl_modele_docx = wx.FilePickerCtrl(
+            parent_contenu, -1, path=modele_docx_initial,
+            message=_(u"Choisissez un modèle Word de convention"),
+            wildcard=_(u"Documents Word (*.docx)|*.docx"),
+            style=wx.FLP_OPEN | wx.FLP_FILE_MUST_EXIST | wx.FLP_USE_TEXTCTRL,
+        )
+        self.ctrl_modele_docx.SetToolTip(wx.ToolTip(_(
+            u"Placez dans le document Word les mêmes champs que dans Noedoc, "
+            u"par exemple {FAMILLE_NOM}, {CONVENTION_SAISON} ou "
+            u"{CONVENTION_PLANNING_DETAIL}."
+        )))
 
         # --- Période ------------------------------------------------------
         label_periode = wx.StaticText(parent_contenu, -1, _(u"Période concernée :"))
@@ -207,6 +236,8 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonModeles, self.bouton_modeles)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonPlanning, self.bouton_planning)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
+        self.Bind(wx.EVT_RADIOBOX, self.OnFormatSortie, self.ctrl_format)
+        self.Bind(wx.EVT_FILEPICKER_CHANGED, self.OnModeleDocxChoisi, self.ctrl_modele_docx)
 
         # --- Mise en page ------------------------------------------------
         sizer_periode_ligne = wx.BoxSizer(wx.HORIZONTAL)
@@ -233,7 +264,9 @@ class Dialog(wx.Dialog):
 
         sizer_contenu = wx.BoxSizer(wx.VERTICAL)
         for label, ctrl in (
+            (label_format, self.ctrl_format),
             (label_modele, sizer_modele),
+            (label_modele_docx, self.ctrl_modele_docx),
             (label_periode, sizer_periode),
             (label_saison, self.ctrl_saison),
             (label_representant, self.ctrl_representant_nom_complet),
@@ -283,7 +316,23 @@ class Dialog(wx.Dialog):
 
         # Préremplissage initial des valeurs automatiques (représentant,
         # tarif) pour la période sélectionnée par défaut.
+        self.MajFormatSortie()
         self.RecalculerValeursAutomatiques()
+
+    def OnFormatSortie(self, event=None):
+        self.MajFormatSortie()
+
+    def OnModeleDocxChoisi(self, event=None):
+        if self.ctrl_modele_docx.GetPath():
+            self.ctrl_format.SetSelection(1)
+        self.MajFormatSortie()
+
+    def MajFormatSortie(self):
+        """Active uniquement les contrôles du moteur choisi."""
+        word = self.GetFormatSortie() == "docx"
+        self.ctrl_modele.Enable(not word)
+        self.bouton_modeles.Enable(not word)
+        self.ctrl_modele_docx.Enable(word)
 
     # ------------------------------------------------------------------
     # Gestion des modèles Convention / Noedoc
@@ -548,6 +597,22 @@ class Dialog(wx.Dialog):
         UTILS_Impression_convention._ValideEncodageModele. Dans ce cas, le
         dialogue reste ouvert (saisies conservées) et propose d'installer
         une copie propre d'un modèle fourni. """
+        if self.GetFormatSortie() == "docx":
+            modele_docx = self.GetModeleDocx()
+            if not modele_docx or not os.path.isfile(modele_docx):
+                self._Informer(_(u"Choisissez un modèle Word .docx existant."), erreur=True)
+                return
+            if not modele_docx.lower().endswith(".docx"):
+                self._Informer(_(u"Le modèle Word doit être au format .docx."), erreur=True)
+                return
+            try:
+                from Utils import UTILS_Config
+                UTILS_Config.SetParametre("convention_modele_docx", modele_docx)
+            except Exception:
+                pass
+            self.EndModal(wx.ID_OK)
+            return
+
         IDmodele = self.GetIDmodele()
         if IDmodele is not None:
             from Utils import UTILS_Export_documents
@@ -632,6 +697,12 @@ class Dialog(wx.Dialog):
     def GetIDmodele(self):
         return self.ctrl_modele.GetID()
 
+    def GetFormatSortie(self):
+        return "docx" if self.ctrl_format.GetSelection() == 1 else "pdf"
+
+    def GetModeleDocx(self):
+        return self.ctrl_modele_docx.GetPath().strip()
+
     def GetDateDebut(self):
         return self.ctrl_date_debut.GetDate()
 
@@ -647,7 +718,7 @@ class Dialog(wx.Dialog):
         exactement ce qui est affiché dans le dialogue (valeur
         automatique non touchée, ou correction manuelle de
         l'utilisateur) : jamais écrit dans Noethys, seulement utilisé
-        pour la génération de ce PDF. """
+        pour la génération du document. """
         overrides = {
             "{CONVENTION_REPRESENTANT_NOM_COMPLET}": self.ctrl_representant_nom_complet.GetValue().strip(),
             "{CONVENTION_REPRESENTANT_FONCTION}": self.ctrl_representant_fonction.GetValue().strip(),

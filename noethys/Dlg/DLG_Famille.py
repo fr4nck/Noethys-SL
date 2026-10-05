@@ -686,7 +686,7 @@ class Dialog(wx.Dialog):
         catégorie "convention" choisi par l'utilisateur et de la période
         sélectionnée. Aucune donnée n'est requise au préalable dans un
         questionnaire : ce qui n'est pas déterminable automatiquement
-        reste simplement vide dans le PDF généré. """
+        reste simplement vide dans le document généré. """
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_devis", "creer") == False :
             return
 
@@ -699,13 +699,15 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
             return
         IDmodele = dlg.GetIDmodele()
+        format_sortie = dlg.GetFormatSortie()
+        modele_docx = dlg.GetModeleDocx()
         date_debut = dlg.GetDateDebut()
         date_fin = dlg.GetDateFin()
         saison = dlg.GetSaison()
         overrides = dlg.GetOverrides()
         dlg.Destroy()
 
-        if IDmodele is None :
+        if format_sortie == "pdf" and IDmodele is None :
             dlg = wx.MessageDialog(
                 self, _(u"Aucun modèle de convention n'est disponible. Créez-en un depuis Paramétrage > Modèles de documents."),
                 _(u"Convention"), wx.OK | wx.ICON_EXCLAMATION,
@@ -714,12 +716,20 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
             return
 
-        from Utils import UTILS_Impression_convention
-        resultat = UTILS_Impression_convention.Impression(
-            IDfamille=self.IDfamille, IDmodele=IDmodele,
-            date_debut=date_debut, date_fin=date_fin, saison=saison,
-            overrides=overrides,
-        )
+        if format_sortie == "docx" :
+            from Utils import UTILS_Convention_docx
+            resultat = UTILS_Convention_docx.Impression(
+                IDfamille=self.IDfamille, modele=modele_docx,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides,
+            )
+        else :
+            from Utils import UTILS_Impression_convention
+            resultat = UTILS_Impression_convention.Impression(
+                IDfamille=self.IDfamille, IDmodele=IDmodele,
+                date_debut=date_debut, date_fin=date_fin, saison=saison,
+                overrides=overrides,
+            )
 
         if resultat :
             try :

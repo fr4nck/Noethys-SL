@@ -37,6 +37,22 @@ from Dlg import DLG_Generation_convention  # noqa: E402
 
 
 class DialogGenerationConventionTests(unittest.TestCase):
+    def test_dialog_permet_de_choisir_un_modele_word(self):
+        with creer_base_association_simple() as base:
+            with RedirectionGestionDB(base.chemin):
+                dlg = DLG_Generation_convention.Dialog(None, IDfamille=1)
+                self.assertEqual(dlg.GetFormatSortie(), "pdf")
+                dlg.ctrl_format.SetSelection(1)
+                dlg.OnFormatSortie()
+                dlg.ctrl_modele_docx.SetPath(r"C:\Modeles\convention.docx")
+                self.assertEqual(dlg.GetFormatSortie(), "docx")
+                self.assertEqual(
+                    dlg.GetModeleDocx(), r"C:\Modeles\convention.docx"
+                )
+                self.assertTrue(dlg.ctrl_modele_docx.IsEnabled())
+                self.assertFalse(dlg.ctrl_modele.IsEnabled())
+                dlg.Destroy()
+
     def test_taille_initiale_est_bornee_par_la_zone_ecran(self):
         taille = DLG_Generation_convention._CalculerTailleDialogue(
             (760, 1200), (460, 55), (1366, 768)

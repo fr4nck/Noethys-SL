@@ -23,12 +23,16 @@ class ConventionContractTests(unittest.TestCase):
         self.assertIn("DLG_Generation_convention", source)
         self.assertIn("UTILS_Impression_convention.Impression(", source)
         self.assertIn("IDmodele=IDmodele", source)
+        self.assertIn("UTILS_Convention_docx.Impression(", source)
+        self.assertIn("modele=modele_docx", source)
 
     def test_generation_dialog_lets_user_choose_model_and_period(self):
         source = DLG_GENERATION.read_text(encoding="utf-8")
         self.assertIn('categorie="convention"', source)
         self.assertIn("CTRL_Choice", source)
         self.assertIn("MyDatePickerCtrl", source)
+        self.assertIn("wx.FilePickerCtrl", source)
+        self.assertIn("Word modifiable (.docx)", source)
 
     def test_generation_dialog_exposes_manual_fields_and_planning_button(self):
         """ Dernier jalon : ce qui est annoncé comme "manuel" dans le
