@@ -57,6 +57,39 @@ def _dict_donnees_simple(nom="STRUCTURE", prenom="Groupe", IDactivite=10, nom_ac
     }
 
 
+class FauxDBLieu:
+    def __init__(self, lignes):
+        self.lignes = lignes
+        self.requete = None
+
+    def ExecuterReq(self, requete):
+        self.requete = requete
+
+    def ResultatReq(self):
+        return list(self.lignes)
+
+
+class GetLieuInterventionTests(unittest.TestCase):
+    def test_adresse_propre_unique_devient_lieu_par_defaut(self):
+        db = FauxDBLieu([(None, "Salle des sports", "35130", "MOUTIERS")])
+        self.assertEqual(
+            CC.GetLieuInterventionParDefaut([2], DB=db),
+            "Salle des sports\n35130 MOUTIERS",
+        )
+
+    def test_adresse_heritee_n_est_pas_confondue_avec_lieu_de_pratique(self):
+        db = FauxDBLieu([(1, "1 place de la mairie", "35130", "MOUTIERS")])
+        self.assertEqual(CC.GetLieuInterventionParDefaut([2], DB=db), "")
+
+    def test_plusieurs_lieux_propres_restent_manuel(self):
+        db = FauxDBLieu([
+            (None, "Stade", "35130", "VILLE"),
+            (None, "Dojo", "35130", "VILLE"),
+        ])
+        self.assertEqual(CC.GetLieuInterventionParDefaut([20, 21], DB=db), "")
+
+
+
 class GetRepresentantTests(unittest.TestCase):
     def test_ignore_lentree_institutionnelle_sans_prenom(self):
         infos = FauxInformations({
@@ -172,6 +205,18 @@ class DetecterTarifsTests(unittest.TestCase):
         avant = copy.deepcopy(dictDonnees)
         CC.DetecterTarifs(dictDonnees)
         self.assertEqual(dictDonnees, avant)
+
+
+class GetPremiereSeanceTests(unittest.TestCase):
+    def test_premiere_seance_vient_du_planning_reel(self):
+        donnees = _dict_donnees_simple(seances=[
+            ("2026-09-16", "09:00", "10:00", 20.0),
+            ("2026-09-02", "09:00", "10:00", 20.0),
+        ])
+        self.assertEqual(CC.GetPremiereSeance(donnees), "02/09/2026")
+
+    def test_planning_vide(self):
+        self.assertEqual(CC.GetPremiereSeance({}), "")
 
 
 class GetResumePlanningTests(unittest.TestCase):
