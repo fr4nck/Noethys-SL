@@ -29,6 +29,10 @@ FIXTURE = _charger_module(
     "tests/test_noe_062_session_actual_inbox.py",
     "test_noe_062_session_actual_inbox_fixture",
 )
+ATTENDANCE_FIXTURE = _charger_module(
+    "tests/test_noe_062_session_attendance_inbox.py",
+    "test_noe_062_session_attendance_inbox_fixture",
+)
 
 
 SECRET_A = b"a" * 32
@@ -55,6 +59,26 @@ def livraison(payload=None, secret=SECRET_A, key_id=KEY_ID, **overrides):
         ),
         "correlation_id": payload["actual_uuid"],
         "occurred_at": "2026-09-04T10:46:00Z",
+        "key_id": key_id,
+        "payload": payload,
+    }
+    envelope.update(overrides)
+    return {"envelope": envelope, "signature": _signer(envelope, secret)}
+
+
+def livraison_attendance(payload=None, secret=SECRET_A, key_id=KEY_ID, **overrides):
+    payload = payload or ATTENDANCE_FIXTURE.payload()
+    envelope = {
+        "envelope_version": "inter-domain-delivery/1",
+        "source_domain": "operations_portal",
+        "target_domain": "activity_users",
+        "contract_version": "session-attendance/1",
+        "event_type": "session_attendance_changed",
+        "idempotence_key": ATTENDANCE_FIXTURE.idempotence(
+            payload["operation_id"]
+        ),
+        "correlation_id": payload["operation_id"],
+        "occurred_at": "2026-09-19T09:00:00Z",
         "key_id": key_id,
         "payload": payload,
     }
@@ -137,6 +161,64 @@ class Noe062InterDomainDeliveryTests(unittest.TestCase):
             self.assertEqual(0, db.cursor.fetchone()[0])
             db.cursor.execute("SELECT statut FROM interventions WHERE uid=?", (FIXTURE.SESSION_UID,))
             self.assertEqual("planifiee", db.cursor.fetchone()[0])
+        finally:
+            db.Close()
+
+
+    def test_pointage_valide_est_applique_puis_rejoue_et_acke(self):
+        db = ATTENDANCE_FIXTURE._db_pret()
+        try:
+            signed = livraison_attendance()
+            first = DELIVERY.RecevoirLivraisonSignee(
+                db,
+                signed,
+                {KEY_ID: SECRET_A},
+                date_reception="2026-09-19 09:00:01",
+            )
+            second = DELIVERY.RecevoirLivraisonSignee(
+                db,
+                signed,
+                {KEY_ID: SECRET_A},
+                date_reception="2026-09-19 09:00:02",
+            )
+            self.assertEqual("accepted", first["status"])
+            self.assertEqual("replayed", second["status"])
+            self.assertEqual(
+                ATTENDANCE_FIXTURE.OPERATION_UUID,
+                first["correlation_id"],
+            )
+            db.cursor.execute(
+                "SELECT IDindividu,etat FROM consommations WHERE IDgroupe=3 ORDER BY IDindividu"
+            )
+            self.assertEqual(
+                [(42, "present"), (43, "absenti"), (44, "absentj")],
+                db.cursor.fetchall(),
+            )
+            db.cursor.execute(
+                "SELECT COUNT(*) FROM interventions_attendance_inbox"
+            )
+            self.assertEqual(1, db.cursor.fetchone()[0])
+        finally:
+            db.Close()
+
+    def test_pointage_correlation_incoherente_est_rejete_sans_ecriture(self):
+        db = ATTENDANCE_FIXTURE._db_pret()
+        try:
+            signed = livraison_attendance(
+                correlation_id="cccccccc-cccc-cccc-cccc-cccccccccccc"
+            )
+            receipt = DELIVERY.RecevoirLivraisonSignee(
+                db,
+                signed,
+                {KEY_ID: SECRET_A},
+                date_reception="2026-09-19 09:00:01",
+            )
+            self.assertEqual("rejected", receipt["status"])
+            self.assertIn("correlation_id", receipt["detail"])
+            db.cursor.execute(
+                "SELECT COUNT(*) FROM interventions_attendance_inbox"
+            )
+            self.assertEqual(0, db.cursor.fetchone()[0])
         finally:
             db.Close()
 

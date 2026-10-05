@@ -17,6 +17,7 @@ import json
 import re
 
 from Utils import UTILS_Interventions_Actual_Inbox
+from Utils import UTILS_Interventions_Attendance_Inbox
 
 
 ENVELOPE_VERSION = "inter-domain-delivery/1"
@@ -24,6 +25,12 @@ SOURCE_DOMAIN = "operations_portal"
 TARGET_DOMAIN = "activity_users"
 CONTRACT_VERSION = "session-actual/1"
 EVENT_TYPE = "session_actual_validated"
+ATTENDANCE_CONTRACT_VERSION = "session-attendance/1"
+ATTENDANCE_EVENT_TYPE = "session_attendance_changed"
+SUPPORTED_CONTRACTS = (
+    (CONTRACT_VERSION, EVENT_TYPE),
+    (ATTENDANCE_CONTRACT_VERSION, ATTENDANCE_EVENT_TYPE),
+)
 ACK_STATUSES = ("accepted", "replayed", "rejected", "retryable")
 
 
@@ -129,10 +136,8 @@ def VerifierEnveloppe(livraison, keyring, target_domain=TARGET_DOMAIN, source_do
         raise DeliveryEnvelopeError("contract_version incohérente avec le payload")
     if payload.get("event_type") != event_type:
         raise DeliveryEnvelopeError("event_type incohérent avec le payload")
-    if contract_version != CONTRACT_VERSION:
-        raise DeliveryEnvelopeError("contrat métier non supporté")
-    if event_type != EVENT_TYPE:
-        raise DeliveryEnvelopeError("type d'événement non supporté")
+    if (contract_version, event_type) not in SUPPORTED_CONTRACTS:
+        raise DeliveryEnvelopeError("contrat métier ou type d'événement non supporté")
 
     if not isinstance(keyring, dict) or key_id not in keyring:
         raise DeliveryEnvelopeError("key_id inconnu")
@@ -190,15 +195,33 @@ def RecevoirLivraisonSignee(db, livraison, keyring, date_reception=None):
                 pass
         return ConstruireAccuse("rejected", idempotence_key, correlation_id, str(error))
 
-    gestionnaire = UTILS_Interventions_Actual_Inbox.GestionnaireInboxRealise(db)
+    contract = (
+        envelope.get("contract_version"),
+        envelope.get("event_type"),
+    )
+    if contract == (CONTRACT_VERSION, EVENT_TYPE):
+        gestionnaire = UTILS_Interventions_Actual_Inbox.GestionnaireInboxRealise(db)
+        erreur_metier = UTILS_Interventions_Actual_Inbox.ActualInboxError
+        correlation_payload = envelope["payload"].get("actual_uuid")
+        libelle_resultat = "réalisé"
+    elif contract == (ATTENDANCE_CONTRACT_VERSION, ATTENDANCE_EVENT_TYPE):
+        gestionnaire = UTILS_Interventions_Attendance_Inbox.GestionnaireInboxAttendance(db)
+        erreur_metier = UTILS_Interventions_Attendance_Inbox.AttendanceInboxError
+        correlation_payload = envelope["payload"].get("operation_id")
+        libelle_resultat = "pointage"
+    else:
+        raise RuntimeError("contrat vérifié sans consommateur")
+
     try:
+        if str(correlation_payload or "").strip() != envelope["correlation_id"]:
+            raise erreur_metier("correlation_id incohérente avec le payload")
         resultat = gestionnaire.AppliquerMessage(
             envelope["payload"],
             envelope["idempotence_key"],
             source_domain=envelope["source_domain"],
             date_reception=date_reception,
         )
-    except UTILS_Interventions_Actual_Inbox.ActualInboxError as error:
+    except erreur_metier as error:
         return ConstruireAccuse(
             "rejected",
             envelope["idempotence_key"],
@@ -211,7 +234,7 @@ def RecevoirLivraisonSignee(db, livraison, keyring, date_reception=None):
     elif resultat.get("applique") is True:
         status = "accepted"
     else:
-        raise RuntimeError("résultat du consommateur de réalisé indéterminé")
+        raise RuntimeError("résultat du consommateur de %s indéterminé" % libelle_resultat)
     return ConstruireAccuse(
         status,
         envelope["idempotence_key"],
