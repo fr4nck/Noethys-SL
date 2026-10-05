@@ -161,6 +161,8 @@ class WeatherDetails(wx.Dialog):
 class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
     def __init__(self, parent):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        # AUI positionne ce panneau avant de l'afficher : évite le flash au démarrage.
+        self.Hide()
         self._generation = 0
         self._alive = True
         self._active = True
