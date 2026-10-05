@@ -997,7 +997,7 @@
             "afficheNumero": null,
             "IDdonnee": null,
             "champ": null,
-            "texte": "{ORGANISATEUR_NOM} s’engage à encadrer les séances en période scolaire sur les créneaux suivants pour la période du {CONVENTION_DATE_DEBUT} au {CONVENTION_DATE_FIN} :\n\nActivité(s) encadrée(s) : {CONVENTION_ACTIVITES}\n\n{CONVENTION_PLANNING_CRENEAUX}",
+            "texte": "{ORGANISATEUR_NOM} s’engage à encadrer les séances en période scolaire sur les créneaux suivants pour la période du {CONVENTION_DATE_DEBUT} au {CONVENTION_DATE_FIN} :\n\n[[SI {CONVENTION_LIEU_INTERVENTION}<>->Lieu principal d’intervention : {CONVENTION_LIEU_INTERVENTION}\n]][[SI {CONVENTION_PREMIERE_SEANCE}<>->Première séance prévue : {CONVENTION_PREMIERE_SEANCE}\n]]\nActivité(s) encadrée(s) : {CONVENTION_ACTIVITES}\n\n{CONVENTION_PLANNING_CRENEAUX}",
             "largeur": null,
             "hauteur": null,
             "nom": "Article 2 corps",
