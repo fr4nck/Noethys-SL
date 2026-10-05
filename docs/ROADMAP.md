@@ -53,7 +53,7 @@ Il ne reste pas de chantier technique caché obligatoire. Le **seul suivi opéra
 2. lancer la CI en mode manuel `complete` sur le même SHA ;
 3. exécuter `scripts/rc_db_preflight.py` sur une **copie** d'une base Noethys réellement utilisée ;
 4. effectuer le parcours métier de `NOE-030-RECETTE-BASE-EXISTANTE.md` ;
-5. valider visuellement l'interface Windows selon `CI-WINDOWS-AUDIT.md` ;
+5. valider visuellement l'interface Windows selon `RC-CHECKLIST.md` et `WXPYTHON_UI_RULES.md` ;
 6. corriger uniquement les anomalies réellement observées ;
 7. déclencher le workflow `Release Candidate` depuis `master` ;
 8. relire la release GitHub créée en brouillon avant publication.
@@ -118,8 +118,7 @@ La consolidation a été fusionnée via PR #78. Elle clôt le chantier génériq
 
 - [`DESIGN_SYSTEM_UI_UX.md`](DESIGN_SYSTEM_UI_UX.md) ;
 - [`WXPYTHON_UI_RULES.md`](WXPYTHON_UI_RULES.md) ;
-- [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) ;
-- [`CI-WINDOWS-AUDIT.md`](CI-WINDOWS-AUDIT.md).
+- [`RC-CHECKLIST.md`](RC-CHECKLIST.md).
 
 ### Règles de travail
 

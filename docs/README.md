@@ -1,8 +1,19 @@
-# Documentation du fork Upgrade Noethys
+# Documentation Noethys — Upgrade et Vanilla
 
 > Index consolidé au 14 septembre 2026.
 
-Le dossier `docs/` contient désormais principalement des documents vivants. Les anciens audits et plans devenus obsolètes ont été retirés : l'historique Git et les PR conservent leur provenance sans encombrer la documentation courante.
+Le dossier `docs/` contient principalement des documents vivants. Les anciens audits et plans devenus obsolètes ont été retirés : l'historique Git et les PR conservent leur provenance sans encombrer la documentation courante.
+
+Les fichiers Markdown de ce dossier restent la source documentaire. MkDocs fournit une vue navigable et recherchable de ce même corpus.
+
+## Périmètre des lignes produit
+
+Le dépôt porte deux lignes distinctes :
+
+- **Upgrade** — branche `master`, modernisée avec Python 3, wxPython Phoenix, CI/packaging modernes et évolutions UI/UX ou métier décidées ;
+- **Vanilla** — branche `maintenance/vanilla`, destinée à maintenir la version historique sans introduire les modernisations d'Upgrade.
+
+La frontière canonique entre ces deux lignes est documentée dans [`governance/PROJECT_STRATEGY.md`](governance/PROJECT_STRATEGY.md).
 
 ## Ordre de lecture recommandé
 
@@ -33,6 +44,7 @@ Le dossier `docs/` contient désormais principalement des documents vivants. Les
 - [`NOE-041-MODE-PORTABLE.md`](NOE-041-MODE-PORTABLE.md) — mode portable et isolation des données/configurations.
 - [`NOE-032-SAUVEGARDE-RESTAURATION.md`](NOE-032-SAUVEGARDE-RESTAURATION.md) — invariants et limites des sauvegardes/restaurations.
 - [`HARDENING_BUG_PROVENANCE.md`](HARDENING_BUG_PROVENANCE.md) — règles de provenance et durcissement des corrections.
+- [`CONTRIBUTING_DOCS.md`](CONTRIBUTING_DOCS.md) — contribution, prévisualisation locale et publication de la documentation.
 
 ### UI/UX
 
@@ -67,3 +79,14 @@ Lorsqu'une conversation produit une décision durable :
 - éviter de créer un document concurrent lorsqu'un document existant peut porter l'information.
 
 Ainsi, aucune conversation ChatGPT n'a besoin d'être conservée comme archive du projet.
+
+## Publication MkDocs
+
+La documentation publiée est construite depuis ce dossier. Pour la prévisualiser localement :
+
+```bash
+python -m pip install -r requirements-docs.txt
+mkdocs serve
+```
+
+Le premier lot publie `master` uniquement. Le multi-version pourra être ajouté ultérieurement lorsqu'un besoin de publication simultanée de plusieurs versions sera établi.

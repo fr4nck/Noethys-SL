@@ -1,0 +1,68 @@
+site_name: Documentation Noethys
+site_description: Documentation du fork Noethys — lignes Upgrade et Vanilla
+site_url: https://fr4nck.github.io/Noethys/
+repo_url: https://github.com/fr4nck/Noethys
+repo_name: fr4nck/Noethys
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Accueil: README.md
+  - Utiliser Noethys:
+      - Guide utilisateur Upgrade: USER-GUIDE-UPGRADE.md
+      - Sauvegarde et restauration: NOE-032-SAUVEGARDE-RESTAURATION.md
+      - Mode portable: NOE-041-MODE-PORTABLE.md
+  - Comprendre Noethys:
+      - État du projet: PROJECT_STATE.md
+      - Architecture tiers, prestations et planning: ARCHITECTURE-TIERS-PRESTATIONS-PLANNING.md
+      - Cotisation et prestation: NOE-003-COTISATION-PRESTATION.md
+      - Commandes de repas et points de livraison: COMMANDES_REPAS_POINTS_LIVRAISON.md
+      - Architecture du module mail: MAIL_MODULE_ARCHITECTURE.md
+  - Développer:
+      - Environnement et règles techniques: DEVELOPMENT.md
+      - Règles wxPython: WXPYTHON_UI_RULES.md
+      - Durcissement et provenance des bugs: HARDENING_BUG_PROVENANCE.md
+      - Audit SQL strict: SQL-STRICT-AUDIT.md
+      - Packaging Windows 11: PACKAGING-WINDOWS11.md
+      - Lot packaging Windows: NOE-040-WINDOWS-PACKAGING.md
+      - Contribuer à la documentation: CONTRIBUTING_DOCS.md
+  - UI / UX:
+      - Design system: DESIGN_SYSTEM_UI_UX.md
+  - Qualification et stabilisation:
+      - Checklist Release Candidate: RC-CHECKLIST.md
+      - Recette sur base existante: RECETTE-BASE-EXISTANTE.md
+      - Stabilisation Vanilla: VANILLA_STABILISATION.md
+      - Backlog bugs upstream: UPSTREAM-BUG-BACKLOG.md
+  - Gouvernance:
+      - Stratégie du projet: governance/PROJECT_STRATEGY.md
+      - Décisions: governance/DECISIONS.md
+      - Roadmap de gouvernance: governance/ROADMAP.md
+      - ADR — UI Vanilla historique: adr/ADR-001-vanilla-ui-historique.md
+  - Pilotage et historique:
+      - Roadmap Upgrade: ROADMAP.md
+      - Backlog Noe-xxx: NOE-BACKLOG.md
+      - Historique Upgrade: UPGRADE-HISTORY.md
+      - Décisions consolidées: PROJECT_DECISIONS_CHATGPT.md
