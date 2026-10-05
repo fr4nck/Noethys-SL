@@ -96,6 +96,8 @@ class RecetteModelesConventionTests(unittest.TestCase):
         self.assertEqual(len(bandeaux), 6)
         self.assertTrue(all(o.get("couleurFond") == "(215, 215, 215)" for o in bandeaux))
         self.assertEqual(data["categorie"], "convention")
+        self.assertIn("{CONVENTION_LIEU_INTERVENTION}", texte)
+        self.assertIn("{CONVENTION_PREMIERE_SEANCE}", texte)
 
     def test_modele_associatif_s_importe_et_se_genere(self):
         chemin_ndc = MODELES_DIR / "modele_convention_associative.ndc"
