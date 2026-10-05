@@ -123,6 +123,44 @@ def ComposerAdresseConvention(rue=None, cp=None, ville=None):
     return u"\n".join(lignes)
 
 
+def GetLieuInterventionParDefaut(listeIDindividus, DB=None):
+    """Retourne l'adresse propre commune aux sections/individus sélectionnés.
+
+    Une adresse héritée via adresse_auto n'est volontairement pas utilisée :
+    elle correspond généralement à l'adresse administrative de la structure et
+    pas nécessairement au lieu de pratique. Si plusieurs adresses propres
+    différentes sont présentes (cas scolaire multi-sites), aucun lieu n'est
+    inventé et le générateur laisse la saisie libre.
+    """
+    ids = sorted({int(ID) for ID in (listeIDindividus or []) if ID is not None})
+    if not ids:
+        return u""
+    fermer = DB is None
+    if DB is None:
+        import GestionDB
+        DB = GestionDB.DB()
+    try:
+        DB.ExecuterReq(
+            """SELECT adresse_auto, rue_resid, cp_resid, ville_resid
+            FROM individus
+            WHERE IDindividu IN (%s)
+            ORDER BY IDindividu;""" % ", ".join(str(ID) for ID in ids)
+        )
+        adresses = set()
+        for adresse_auto, rue, cp, ville in DB.ResultatReq():
+            if adresse_auto not in (None, 0, ""):
+                continue
+            adresse = ComposerAdresseConvention(rue, cp, ville)
+            if adresse:
+                adresses.add(adresse)
+        if len(adresses) == 1:
+            return next(iter(adresses))
+        return u""
+    finally:
+        if fermer:
+            DB.Close()
+
+
 # ---------------------------------------------------------------------------
 # Représentant : réutilise le mécanisme historique {REPRESENTANT_RATTACHE_x_*}
 # ---------------------------------------------------------------------------
@@ -397,6 +435,18 @@ def _formate_date_fr(date):
 
 def FormateDureeHeures(minutes):
     return u"%dh%02d" % (minutes // 60, minutes % 60)
+
+
+def GetPremiereSeance(dictDonnees):
+    """Retourne la première date de séance réellement présente au planning."""
+    dates = []
+    for _IDactivite, date, _conso in _iter_consommations(dictDonnees):
+        d = _date_simple(date)
+        if d is not None:
+            dates.append(d)
+    if not dates:
+        return u""
+    return _formate_date_fr(min(dates))
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +735,8 @@ def GetChampsConvention(
         "{CONVENTION_DATE_FIN}": u"",
         "{CONVENTION_DATE_SIGNATURE}": u"",
         "{CONVENTION_LIEU_SIGNATURE}": u"",
+        "{CONVENTION_LIEU_INTERVENTION}": u"",
+        "{CONVENTION_PREMIERE_SEANCE}": u"",
         "{CONVENTION_TARIF_HORAIRE}": u"",
         "{CONVENTION_TARIF_ADULTE}": u"",
         "{CONVENTION_TARIF_ENFANT}": u"",
@@ -700,6 +752,9 @@ def GetChampsConvention(
 
     champs["{CONVENTION_ADRESSE_STRUCTURE}"] = ComposerAdresseConvention(
         champs.get("{FAMILLE_RUE}"), champs.get("{FAMILLE_CP}"), champs.get("{FAMILLE_VILLE}")
+    )
+    champs["{CONVENTION_LIEU_INTERVENTION}"] = GetLieuInterventionParDefaut(
+        listeIDindividus, DB=DB
     )
 
     representant = GetRepresentant(IDfamille, informations=informations)
@@ -718,6 +773,7 @@ def GetChampsConvention(
     champs["{CONVENTION_ACTIVITES}"] = GetActivitesConvention(dictDonnees)
 
     resume = GetResumePlanning(dictDonnees)
+    champs["{CONVENTION_PREMIERE_SEANCE}"] = GetPremiereSeance(dictDonnees)
     champs["{CONVENTION_PLANNING_DETAIL}"] = resume["detail"]
     champs["{CONVENTION_PLANNING_CRENEAUX}"] = resume["creneaux"]
     champs["{CONVENTION_PLANNING_NBRE_SEANCES}"] = resume["nbre_seances"]
