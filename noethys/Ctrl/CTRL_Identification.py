@@ -12,6 +12,7 @@
 import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
+from Utils.UTILS_Transitions import DialogFondu
 import wx
 from Ctrl import CTRL_Bouton_image
 import datetime
@@ -107,9 +108,9 @@ class MyFrame(wx.Frame):
 
 # --------------------------- DLG de saisie de mot de passe ----------------------------
 
-class Dialog(wx.Dialog):
+class Dialog(DialogFondu):
     def __init__(self, parent, id=-1, title=_(u"Identification"), listeUtilisateurs=[], nomFichier=None):
-        wx.Dialog.__init__(self, parent, id, title, name="DLG_mdp")
+        DialogFondu.__init__(self, parent, id, title, name="DLG_mdp")
         self.parent = parent
         self.listeUtilisateurs = listeUtilisateurs
         self.nomFichier = nomFichier
