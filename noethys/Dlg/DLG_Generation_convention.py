@@ -92,6 +92,7 @@ class Dialog(DialogFondu):
         self._auto_tarif = u""
         self._auto_tarif_adulte = u""
         self._auto_tarif_enfant = u""
+        self._auto_lieu_intervention = u""
 
         # Les champs sont placés dans une zone centrale scrollable. La
         # barre de boutons reste directement dans le dialogue afin d'être
@@ -176,6 +177,13 @@ class Dialog(DialogFondu):
         label_fonction = wx.StaticText(parent_contenu, -1, _(u"Fonction (facultatif) :"))
         self.ctrl_representant_fonction = wx.TextCtrl(parent_contenu, -1, u"")
 
+        # --- Lieu d'intervention --------------------------------------
+        label_lieu_intervention = wx.StaticText(parent_contenu, -1, _(u"Lieu d'intervention :"))
+        self.ctrl_lieu_intervention = wx.TextCtrl(parent_contenu, -1, u"")
+        self.ctrl_lieu_intervention.SetToolTip(wx.ToolTip(
+            _(u"Prérempli depuis l'adresse propre de la section lorsque celle-ci est distincte de l'adresse administrative. "
+              u"Pour une école ou un planning multi-sites, saisissez ici le lieu principal ou laissez vide si les lieux varient.")))
+
         # --- Signature ------------------------------------------------
         label_date_signature = wx.StaticText(parent_contenu, -1, _(u"Date et lieu de signature :"))
         self.ctrl_date_signature = MyDatePickerCtrl(parent_contenu)
@@ -250,6 +258,7 @@ class Dialog(DialogFondu):
             (label_saison, self.ctrl_saison),
             (label_representant, self.ctrl_representant_nom_complet),
             (label_fonction, self.ctrl_representant_fonction),
+            (label_lieu_intervention, self.ctrl_lieu_intervention),
             (label_date_signature, sizer_signature),
             (label_tarifs, sizer_tarifs),
         ):
@@ -503,6 +512,12 @@ class Dialog(DialogFondu):
             self.ctrl_representant_nom_complet.SetValue(nouveau_representant)
         self._auto_representant = nouveau_representant
 
+        nouveau_lieu = champs.get("{CONVENTION_LIEU_INTERVENTION}") or u""
+        valeurActuelle = self.ctrl_lieu_intervention.GetValue().strip()
+        if valeurActuelle in (u"", self._auto_lieu_intervention):
+            self.ctrl_lieu_intervention.SetValue(nouveau_lieu)
+        self._auto_lieu_intervention = nouveau_lieu
+
         def MajTarif(ctrl, attribut, code):
             tarif = champs.get(code)
             nouveau = (u"%.2f" % tarif) if isinstance(tarif, (int, float)) else u""
@@ -694,6 +709,7 @@ class Dialog(DialogFondu):
         overrides = {
             "{CONVENTION_REPRESENTANT_NOM_COMPLET}": self.ctrl_representant_nom_complet.GetValue().strip(),
             "{CONVENTION_REPRESENTANT_FONCTION}": self.ctrl_representant_fonction.GetValue().strip(),
+            "{CONVENTION_LIEU_INTERVENTION}": self.ctrl_lieu_intervention.GetValue().strip(),
             "{CONVENTION_DATE_SIGNATURE}": self.ctrl_date_signature.GetDate().strftime("%d/%m/%Y"),
             "{CONVENTION_LIEU_SIGNATURE}": self.ctrl_lieu_signature.GetValue().strip(),
         }
