@@ -17,6 +17,7 @@ from urllib import request as urllib_request
 from urllib.parse import urlparse
 
 from Utils import UTILS_Interdomain_Delivery
+from Utils import UTILS_Interdomain_Secrets
 
 
 MAILBOX_VERSION = "inter-domain-mailbox-pull/1"
@@ -160,6 +161,25 @@ class TransportMailboxHTTP(object):
         if status not in UTILS_Interdomain_Delivery.ACK_STATUSES:
             raise MailboxTransportError("statut d'acquittement distant invalide")
         return result
+
+
+def ConstruireClientDepuisCoffre(base_url, key_ids, provider=None, timeout=20, opener=None):
+    """Construit transport + keyring sans faire transiter les secrets par Config.json.
+
+    ``base_url`` et ``key_ids`` sont des métadonnées non sensibles. Bearer et
+    matière HMAC sont chargés uniquement via le ``SecretProvider``.
+    """
+    provider = provider or UTILS_Interdomain_Secrets.DefaultSecretProvider()
+    try:
+        bearer, keyring = UTILS_Interdomain_Secrets.ChargerSecretsMailbox(provider, key_ids)
+    except UTILS_Interdomain_Secrets.SecretProviderError as error:
+        raise MailboxPullError("chargement des secrets mailbox impossible: %s" % error) from error
+    return TransportMailboxHTTP(
+        base_url,
+        bearer,
+        timeout=timeout,
+        opener=opener,
+    ), keyring
 
 
 def SynchroniserMailbox(db, transport, keyring, limit=20, date_reception=None):
