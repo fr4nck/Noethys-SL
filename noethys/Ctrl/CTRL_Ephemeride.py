@@ -444,6 +444,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         if not self._alive or not self._active or (self._busy and database == getattr(self, '_database', None)):
             return
         self._database = database
+        signature = (database, self._current_user_id())
+        if signature != self._layout_signature:
+            self._layout = self._load_layout(database)
+            self._layout_signature = signature
+            self._apply_layout()
         self.title.SetLabel(DateDDEnDateFR(dt.date.today()))
         self._key = 'ephemerides:' + hashlib.sha256(database.encode('utf-8')).hexdigest()
         saved = copy.deepcopy(UTILS_Config.GetParametre(self._key, {}))
@@ -451,10 +456,13 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         generation = self._generation
         self._busy = True
         self._timer.Start(30 * 60 * 1000)
-        threading.Thread(target=self._load, args=(generation, saved, force, database), daemon=True).start()
+        layout = copy.deepcopy(self._layout)
+        threading.Thread(target=self._load, args=(generation, saved, force, database, layout), daemon=True).start()
 
-    def _load(self, generation, saved, force, database):
-        result = dict(settings=saved.get('settings', {}), weather_error='', alert_error='', rows=[], bulletins=[])
+    def _load(self, generation, saved, force, database, layout):
+        layout = data.normalize_dashboard_layout(layout)
+        result = dict(settings=saved.get('settings', {}), cache=copy.deepcopy(saved.get('cache', {})),
+                      weather_error='', alert_error='', rows=[], bulletins=[])
         try:
             if not database:
                 raise ValueError('Aucune base ouverte')
@@ -480,35 +488,38 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
             result['db_error'] = str(error)
             result['planning'] = []
             settings = result['settings']
-        try:
-            lat, lon = (data.coordinates(settings['latitude'], settings['longitude']) if settings.get('latitude')
-                        else data.geocode(settings.get('city', ''), settings.get('postcode', '')))
-            settings['latitude'], settings['longitude'] = str(lat), str(lon)
-            key = json.dumps([lat, lon, dt.date.today().isoformat()])
-            old = saved.get('cache', {})
-            if not force and data.cache_valid(old, key):
-                cache = old
-            else:
-                try:
-                    payload = json.loads(data.read_url(data.weather_url(lat, lon)))
-                    data.aggregate_weather(payload)
-                    cache = dict(key=key, payload=payload, fetched=dt.datetime.now(dt.timezone.utc).isoformat())
-                except Exception:
-                    if old.get('key') != key:
-                        raise
-                    cache = old
-                    result['weather_error'] = 'Actualisation impossible · données en cache à vérifier'
-            result['cache'] = cache
-            result['rows'] = data.aggregate_weather(cache['payload'])
-        except Exception as error:
-            result['weather_error'] = 'Météo indisponible : ' + str(error)
-        if settings.get('prefecture'):
+        if layout['blocks']['weather']['visible']:
             try:
-                result['bulletins'] = data.fetch_bulletins(settings['prefecture'])
+                lat, lon = (data.coordinates(settings['latitude'], settings['longitude']) if settings.get('latitude')
+                            else data.geocode(settings.get('city', ''), settings.get('postcode', '')))
+                settings['latitude'], settings['longitude'] = str(lat), str(lon)
+                key = json.dumps([lat, lon, dt.date.today().isoformat()])
+                old = result.get('cache', {})
+                if not force and data.cache_valid(old, key):
+                    cache = old
+                else:
+                    try:
+                        payload = json.loads(data.read_url(data.weather_url(lat, lon)))
+                        data.aggregate_weather(payload)
+                        cache = dict(key=key, payload=payload, fetched=dt.datetime.now(dt.timezone.utc).isoformat())
+                    except Exception:
+                        if old.get('key') != key:
+                            raise
+                        cache = old
+                        result['weather_error'] = 'Actualisation impossible · données en cache à vérifier'
+                result['cache'] = cache
+                result['rows'] = data.aggregate_weather(cache['payload'])
             except Exception as error:
-                result['alert_error'] = 'Source préfectorale indisponible : ' + str(error)
-        else:
-            result['alert_error'] = 'Choisir la source de votre préfecture dans les réglages.'
+                result['weather_error'] = 'Météo indisponible : ' + str(error)
+
+        if layout['blocks']['alerts']['visible']:
+            if settings.get('prefecture'):
+                try:
+                    result['bulletins'] = data.fetch_bulletins(settings['prefecture'])
+                except Exception as error:
+                    result['alert_error'] = 'Source préfectorale indisponible : ' + str(error)
+            else:
+                result['alert_error'] = 'Choisir la source de votre préfecture dans les réglages.'
         result['checked'] = dt.datetime.now().strftime('%d/%m/%Y %H:%M')
         if self._alive:
             try:
@@ -536,18 +547,19 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         if result['weather_error']:
             self._weather_text += '\n' + result['weather_error']
         self.weather.SetLabel(self._weather_text)
-        self.weather.Wrap(max(180, self.GetClientSize().width - 48))
+        self.weather.Wrap(self._column_text_width())
         self.detail.Enable(bool(rows))
         self.alert_content.Clear(delete_windows=True)
         notice = result['alert_error'] or ('Aucun bulletin correspondant publié ces 7 derniers jours. Cela ne garantit pas l’absence de vigilance.'
                                            if not result['bulletins'] else 'Vérifier dans chaque source la validité et le territoire concernés.')
-        text = wx.StaticText(self, label=notice + '\nConsultation : ' + result['checked'])
-        text.Wrap(max(180, self.GetClientSize().width - 48))
+        alert_parent = self.block_panels['alerts']
+        text = wx.StaticText(alert_parent, label=notice + '\nConsultation : ' + result['checked'])
+        text.Wrap(self._column_text_width())
         self.alert_content.Add(text, 0, wx.EXPAND)
         for bulletin in result['bulletins']:
-            self.alert_content.Add(link(self, bulletin['date'] + ' · ' + bulletin['title'], bulletin['source']), 0, wx.TOP, 5)
+            self.alert_content.Add(link(alert_parent, bulletin['date'] + ' · ' + bulletin['title'], bulletin['source']), 0, wx.TOP, 5)
         if self._settings.get('prefecture'):
-            self.alert_content.Add(link(self, 'Ouvrir la source préfectorale', self._settings['prefecture']), 0, wx.TOP, 5)
+            self.alert_content.Add(link(alert_parent, 'Ouvrir la source préfectorale', self._settings['prefecture']), 0, wx.TOP, 5)
         self.render_calendar(result)
         self.render_events()
         self.Layout()
@@ -576,7 +588,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         if result.get('db_error'):
             text += '\nCalendrier de la base indisponible : ' + result['db_error']
         self.vacation.SetLabel(text)
-        self.vacation.Wrap(max(180, self.GetClientSize().width - 40))
+        self.vacation.Wrap(self._column_text_width())
 
     def render_events(self):
         events = data.upcoming_events(self._settings.get('events', []), self._settings.get('territories', ''))
@@ -597,13 +609,40 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
 
     def OnSettings(self, event):
         if self._busy:
-            wx.MessageBox('Le chargement est en cours. Les réglages seront disponibles dans quelques secondes.', 'Éphémérides', wx.OK, self)
+            wx.MessageBox("Le chargement est en cours. Les réglages seront disponibles dans quelques secondes.",
+                          "Aujourd’hui", wx.OK, self)
             return
-        dialog = Settings(self, self._settings)
+        dialog = Settings(self, self._settings, self._layout)
         try:
             if dialog.ShowModal() == wx.ID_OK:
-                UTILS_Config.SetParametre(self._key, dict(settings=dialog.values()))
-                self.Initialisation(force=True)
+                old_layout = data.normalize_dashboard_layout(self._layout)
+                new_layout = dialog.layout_values()
+                new_settings = dialog.values()
+                settings_changed = new_settings != self._settings
+                needs_data = (
+                    settings_changed or
+                    (new_layout['blocks']['weather']['visible'] and not old_layout['blocks']['weather']['visible']) or
+                    (new_layout['blocks']['alerts']['visible'] and not old_layout['blocks']['alerts']['visible'])
+                )
+
+                saved = copy.deepcopy(UTILS_Config.GetParametre(self._key, {}))
+                saved['settings'] = new_settings
+                UTILS_Config.SetParametre(self._key, saved)
+
+                persisted = self._save_layout(new_layout)
+                self._layout = new_layout
+                self._layout_signature = (
+                    str(UTILS_Config.GetParametre('nomFichier', '') or ''),
+                    self._current_user_id())
+                self._apply_layout()
+
+                if not persisted and self._current_user_id() is not None:
+                    wx.MessageBox(
+                        "La disposition est appliquée pour cette session mais n’a pas pu être enregistrée dans la base.",
+                        "Aujourd’hui", wx.OK | wx.ICON_WARNING, self)
+
+                if needs_data:
+                    self.Initialisation(force=settings_changed)
         finally:
             dialog.Destroy()
 
