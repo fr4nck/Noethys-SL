@@ -70,18 +70,60 @@ def coordinates(latitude, longitude):
     return lat, lon
 
 
-def geocode(city, postcode):
-    """Ne pas choisir un homonyme si le code postal ne concorde pas."""
-    if not city or not postcode:
-        raise ValueError('Renseigner la ville et le code postal de l’organisateur, ou les coordonnées GPS')
+def _normalize_place(value):
+    """Normalise un nom de commune sans confondre accents, espaces et tirets."""
+    value = ''.join(c for c in unicodedata.normalize('NFD', str(value).lower())
+                    if not unicodedata.combining(c))
+    return ' '.join(''.join(c if c.isalnum() else ' ' for c in value).split())
+
+
+def _geocode_fr(city, postcode):
+    """Résout d'abord une commune française par son code postal officiel."""
+    url = 'https://geo.api.gouv.fr/communes?' + urlencode(dict(
+        codePostal=str(postcode), fields='nom,centre,codesPostaux',
+        format='json', geometry='centre'))
+    candidates = json.loads(read_url(url))
+    if not isinstance(candidates, list):
+        raise ValueError('Réponse de localisation française invalide')
+    wanted = _normalize_place(city)
+    matching = [item for item in candidates if _normalize_place(item.get('nom', '')) == wanted]
+    if not matching and len(candidates) == 1:
+        matching = candidates
+    if len(matching) != 1:
+        raise ValueError('Commune introuvable ou ambiguë pour ce code postal')
+    centre = matching[0].get('centre') or {}
+    coords = centre.get('coordinates') or []
+    if len(coords) != 2:
+        raise ValueError('Coordonnées de la commune indisponibles')
+    lon, lat = coords
+    return coordinates(lat, lon)
+
+
+def _geocode_open_meteo(city, postcode):
+    """Repli : géocodage Open-Meteo avec concordance explicite du code postal."""
     url = 'https://geocoding-api.open-meteo.com/v1/search?' + urlencode(
         dict(name=city, count=100, language='fr', countryCode='FR'))
     candidates = json.loads(read_url(url)).get('results', [])
     matching = [item for item in candidates if item.get('country_code') == 'FR'
                 and str(postcode) in [str(cp) for cp in item.get('postcodes', [])]]
     if len(matching) != 1:
-        raise ValueError('Localisation ambiguë : renseigner latitude et longitude dans les réglages')
+        raise ValueError('Localisation ambiguë')
     return coordinates(matching[0]['latitude'], matching[0]['longitude'])
+
+
+def geocode(city, postcode):
+    """Localise sans deviner : référentiel français, puis repli Open-Meteo."""
+    if not city or not postcode:
+        raise ValueError('Renseigner la ville et le code postal de l’organisateur, ou les coordonnées GPS')
+    try:
+        return _geocode_fr(city, postcode)
+    except Exception as first_error:
+        try:
+            return _geocode_open_meteo(city, postcode)
+        except Exception:
+            raise ValueError(
+                'Localisation impossible pour %s %s : renseigner latitude et longitude dans les réglages'
+                % (postcode, city)) from first_error
 
 
 def weather_url(lat, lon):
