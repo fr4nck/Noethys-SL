@@ -1,6 +1,14 @@
-# Éphémérides de l'accueil RC2
+# Aujourd’hui — panneau d’accueil RC2
 
-L'horloge est remplacée par un panneau natif clair, défilable. Le nom de la pane AUI reste `ephemeride` : les perspectives existantes sont conservées.
+L'horloge est remplacée par un panneau natif clair, défilable. Son titre visible est **Aujourd’hui**. Le nom interne de la pane AUI reste `ephemeride` : les perspectives existantes sont conservées.
+
+## Affichage personnel
+
+Le tableau de bord peut utiliser de **1 à 4 colonnes**. Chaque utilisateur choisit les blocs qu'il veut afficher, leur colonne et leur ordre : Météo, Infos officielles, Vacances scolaires et Événements.
+
+La disposition est enregistrée dans la base Noethys pour l'`IDutilisateur` connecté, sans migration SQL, via la table historique `parametres`. Elle suit donc l'utilisateur lorsqu'il se connecte à la même base depuis un autre poste. Un utilisateur sans préférence retrouve la disposition par défaut en 3 colonnes : météo à gauche, informations officielles puis vacances au centre, événements à droite.
+
+Les sources et données communes (localisation, préfecture, agenda, événements saisis) restent distinctes de cette préférence d'affichage. Masquer Météo ou Infos officielles évite également leurs appels réseau tant que le bloc reste masqué.
 
 ## Météo
 
@@ -26,7 +34,10 @@ Les événements locaux sont **saisis après consultation de leur source**, pas 
 
 ## Recette
 
-- Ouvrir l'accueil et rétrécir/agrandir la pane : défilement vertical, boutons accessibles.
+- Ouvrir l'accueil et vérifier le titre **Aujourd’hui** ; le nom AUI interne reste `ephemeride`.
+- Tester 1, 2, 3 puis 4 colonnes ; déplacer chaque bloc d'une colonne à l'autre, modifier son ordre et le masquer.
+- Se déconnecter/reconnecter avec deux identifiants différents : chacun doit retrouver sa propre disposition ; vérifier aussi depuis un second poste si disponible.
+- Rétrécir/agrandir la pane : défilement vertical, boutons accessibles, textes correctement repliés dans la largeur de leur colonne.
 - Vérifier météo sur trois jours, détail 7 puis 10 jours et attribution.
 - Couper le réseau : cache daté ou message d'indisponibilité ; aucune fausse absence d'alerte.
 - Choisir ville/GPS, zone et source préfectorale ; fermer et rouvrir Noethys.
