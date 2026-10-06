@@ -75,6 +75,15 @@ class EphemeridesTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 data.geocode('Rennes', '35240')
 
+    def test_geocode_fr_accepts_hyphens_accents_and_persists_safe_coordinates(self):
+        payload = [dict(nom='La Guerche-de-Bretagne',
+                        codesPostaux=['35130'],
+                        centre={'coordinates': [-1.229722, 47.941389]})]
+        with patch.object(data, 'read_url', return_value=json.dumps(payload).encode()) as read:
+            self.assertEqual(data.geocode('LA GUERCHE DE BRETAGNE', '35130'),
+                             (47.941389, -1.229722))
+            self.assertIn('geo.api.gouv.fr/communes?', read.call_args.args[0])
+
     def test_cache_is_scoped_and_expires(self):
         now = dt.datetime(2026, 10, 3, tzinfo=dt.timezone.utc)
         cache = dict(key='site-a', fetched=(now - dt.timedelta(minutes=29)).isoformat())
