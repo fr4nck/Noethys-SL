@@ -16,12 +16,19 @@ import wx.lib.scrolledpanel
 
 import GestionDB
 from Utils import UTILS_Config
+from Utils import UTILS_Parametres
 from Utils import UTILS_Ephemerides as data
 from Utils import UTILS_VacancesScolaires as school
 
 JOURS = ('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche')
 MOIS = ('janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
         'septembre', 'octobre', 'novembre', 'décembre')
+BLOCK_LABELS = {
+    'weather': 'Météo',
+    'alerts': 'Infos officielles',
+    'vacations': 'Vacances scolaires',
+    'events': 'Événements',
+}
 
 
 def DateDDEnDateFR(date):
@@ -39,45 +46,112 @@ def section(parent, title):
 
 
 class Settings(wx.Dialog):
-    def __init__(self, parent, settings):
-        super().__init__(parent, title='Réglages des éphémérides', style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+    def __init__(self, parent, settings, layout):
+        super().__init__(parent, title="Réglages d’Aujourd’hui",
+                         style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.events = copy.deepcopy(settings.get('events', []))
         self.fields = {}
+        self.layout = data.normalize_dashboard_layout(layout)
+        self.layout_controls = {}
+
         base = wx.BoxSizer(wx.VERTICAL)
-        grid = wx.FlexGridSizer(cols=2, vgap=6, hgap=10)
-        grid.AddGrowableCol(1)
+        book = wx.Notebook(self)
+
+        # Affichage personnel -------------------------------------------------
+        display = wx.Panel(book)
+        display_sizer = wx.BoxSizer(wx.VERTICAL)
+        display_sizer.Add(wx.StaticText(
+            display,
+            label="Cet affichage est mémorisé pour l’identifiant utilisateur connecté et suit la base Noethys."
+        ), 0, wx.EXPAND | wx.ALL, 10)
+
+        line = wx.BoxSizer(wx.HORIZONTAL)
+        line.Add(wx.StaticText(display, label='Nombre de colonnes'), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        self.columns = wx.Choice(display, choices=['1', '2', '3', '4'])
+        self.columns.SetSelection(self.layout['columns'] - 1)
+        line.Add(self.columns)
+        display_sizer.Add(line, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        grid = wx.FlexGridSizer(cols=4, vgap=6, hgap=10)
+        grid.Add(wx.StaticText(display, label='Bloc'))
+        grid.Add(wx.StaticText(display, label='Afficher'))
+        grid.Add(wx.StaticText(display, label='Colonne'))
+        grid.Add(wx.StaticText(display, label='Ordre'))
+        for key in data.DASHBOARD_BLOCKS:
+            block = self.layout['blocks'][key]
+            grid.Add(wx.StaticText(display, label=BLOCK_LABELS[key]), 0, wx.ALIGN_CENTER_VERTICAL)
+            visible = wx.CheckBox(display)
+            visible.SetValue(block['visible'])
+            column = wx.SpinCtrl(display, min=1, max=4, initial=block['column'], size=(70, -1))
+            order = wx.SpinCtrl(display, min=1, max=20, initial=block['order'], size=(70, -1))
+            self.layout_controls[key] = (visible, column, order)
+            grid.Add(visible, 0, wx.ALIGN_CENTER_VERTICAL)
+            grid.Add(column, 0)
+            grid.Add(order, 0)
+        display_sizer.Add(grid, 0, wx.EXPAND | wx.ALL, 10)
+        display_sizer.Add(wx.StaticText(
+            display,
+            label="Chaque bloc visible peut être placé dans la colonne choisie. L’ordre départage les blocs d’une même colonne."
+        ), 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        display.SetSizer(display_sizer)
+        book.AddPage(display, 'Mon affichage')
+
+        # Sources et contenu commun ------------------------------------------
+        sources = wx.Panel(book)
+        sources_sizer = wx.BoxSizer(wx.VERTICAL)
+        source_grid = wx.FlexGridSizer(cols=2, vgap=6, hgap=10)
+        source_grid.AddGrowableCol(1)
         for key, label in (('city', 'Ville'), ('postcode', 'Code postal'), ('latitude', 'Latitude (facultatif)'),
                            ('longitude', 'Longitude (facultatif)'), ('prefecture', 'Source préfectorale HTTPS (.gouv.fr)'),
                            ('agenda', 'Agenda local HTTPS'), ('territories', 'Territoires à afficher (séparés par des virgules)')):
-            grid.Add(wx.StaticText(self, label=label), 0, wx.ALIGN_CENTER_VERTICAL)
-            control = wx.TextCtrl(self, value=str(settings.get(key, '')))
+            source_grid.Add(wx.StaticText(sources, label=label), 0, wx.ALIGN_CENTER_VERTICAL)
+            control = wx.TextCtrl(sources, value=str(settings.get(key, '')))
             self.fields[key] = control
-            grid.Add(control, 1, wx.EXPAND)
-        grid.Add(wx.StaticText(self, label='Zone scolaire'))
-        self.zone = wx.Choice(self, choices=['Automatique', 'A', 'B', 'C'])
+            source_grid.Add(control, 1, wx.EXPAND)
+        source_grid.Add(wx.StaticText(sources, label='Zone scolaire'))
+        self.zone = wx.Choice(sources, choices=['Automatique', 'A', 'B', 'C'])
         self.zone.SetStringSelection(settings.get('zone', '') or 'Automatique')
-        grid.Add(self.zone)
-        base.Add(grid, 0, wx.EXPAND | wx.ALL, 12)
-        base.Add(wx.StaticText(self, label='Événements : vérifier la date et la source avant de les ajouter.'), 0, wx.LEFT | wx.RIGHT, 12)
-        self.list = wx.ListBox(self)
-        base.Add(self.list, 1, wx.EXPAND | wx.ALL, 12)
+        source_grid.Add(self.zone)
+        sources_sizer.Add(source_grid, 0, wx.EXPAND | wx.ALL, 12)
+        sources_sizer.Add(wx.StaticText(
+            sources, label='Événements : vérifier la date et la source avant de les ajouter.'
+        ), 0, wx.LEFT | wx.RIGHT, 12)
+        self.list = wx.ListBox(sources)
+        sources_sizer.Add(self.list, 1, wx.EXPAND | wx.ALL, 12)
         buttons = wx.BoxSizer(wx.HORIZONTAL)
-        add = wx.Button(self, label='Ajouter…')
-        remove = wx.Button(self, label='Retirer')
+        add = wx.Button(sources, label='Ajouter…')
+        remove = wx.Button(sources, label='Retirer')
         buttons.Add(add)
         buttons.Add(remove, 0, wx.LEFT, 8)
-        base.Add(buttons, 0, wx.LEFT | wx.RIGHT, 12)
+        sources_sizer.Add(buttons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        sources.SetSizer(sources_sizer)
+        book.AddPage(sources, 'Sources et contenu')
+
+        base.Add(book, 1, wx.EXPAND | wx.ALL, 8)
         base.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 12)
         self.SetSizer(base)
-        self.SetMinSize((640, 480))
-        self.SetSize((700, 550))
+        self.SetMinSize((680, 520))
+        self.SetSize((760, 610))
         self.refresh_events()
+        self._sync_columns()
+
         add.Bind(wx.EVT_BUTTON, self.add_event)
         remove.Bind(wx.EVT_BUTTON, self.remove_event)
+        self.columns.Bind(wx.EVT_CHOICE, self._sync_columns)
         self.Bind(wx.EVT_BUTTON, self.accept, id=wx.ID_OK)
 
+    def _sync_columns(self, event=None):
+        maximum = self.columns.GetSelection() + 1
+        for visible, column, order in self.layout_controls.values():
+            column.SetMax(maximum)
+            if column.GetValue() > maximum:
+                column.SetValue(maximum)
+        if event:
+            event.Skip()
+
     def refresh_events(self):
-        self.list.Set(['%s · %s · %s · %s' % (e['date'], e['kind'], e['title'], e.get('territory', '')) for e in self.events])
+        self.list.Set(['%s · %s · %s · %s' % (e['date'], e['kind'], e['title'], e.get('territory', ''))
+                       for e in self.events])
 
     def remove_event(self, event):
         index = self.list.GetSelection()
@@ -118,6 +192,19 @@ class Settings(wx.Dialog):
         result['zone'] = '' if self.zone.GetSelection() == 0 else self.zone.GetStringSelection()
         result['events'] = self.events
         return result
+
+    def layout_values(self):
+        blocks = {}
+        for key, (visible, column, order) in self.layout_controls.items():
+            blocks[key] = {
+                'visible': visible.GetValue(),
+                'column': column.GetValue(),
+                'order': order.GetValue(),
+            }
+        return data.normalize_dashboard_layout({
+            'columns': self.columns.GetSelection() + 1,
+            'blocks': blocks,
+        })
 
     def accept(self, event):
         values = self.values()
