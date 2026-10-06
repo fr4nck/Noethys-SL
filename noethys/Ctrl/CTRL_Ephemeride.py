@@ -256,8 +256,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._busy = False
         self._result = {}
         self._settings = {}
+        self._layout = data.normalize_dashboard_layout()
+        self._layout_signature = None
         self._timer = wx.Timer(self)
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
+
         self.base = wx.BoxSizer(wx.VERTICAL)
         header = wx.BoxSizer(wx.VERTICAL)
         self.title = wx.StaticText(self, label=DateDDEnDateFR(dt.date.today()))
@@ -270,24 +273,42 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         toolbar.Add(refresh, 0, wx.LEFT, 6)
         header.Add(toolbar, 0, wx.TOP, 6)
         self.base.Add(header, 0, wx.EXPAND | wx.ALL, 10)
+
         self.place = wx.StaticText(self, label='Localisation de l’organisateur')
         self.base.Add(self.place, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        self.weather_box = section(self, 'Météo · matin et après-midi')
-        self.weather = wx.StaticText(self, label='Chargement…')
-        self.weather_box.Add(self.weather, 0, wx.EXPAND | wx.ALL, 8)
-        self.detail = wx.Button(self, label='Voir les prévisions sur 7 ou 10 jours…')
+
+        self.block_panels = {}
+
+        weather_panel = wx.Panel(self)
+        weather_box = section(weather_panel, 'Météo · matin et après-midi')
+        self.weather = wx.StaticText(weather_panel, label='Chargement…')
+        weather_box.Add(self.weather, 0, wx.EXPAND | wx.ALL, 8)
+        self.detail = wx.Button(weather_panel, label='Voir les prévisions sur 7 ou 10 jours…')
         self.detail.Enable(False)
-        self.weather_box.Add(self.detail, 0, wx.ALL, 6)
-        self.weather_box.Add(link(self, 'Source : Open-Meteo', data.WEATHER_SOURCE), 0, wx.ALL, 6)
-        self.base.Add(self.weather_box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        self.alert_box = section(self, 'Préfecture · bulletins récents à vérifier')
+        weather_box.Add(self.detail, 0, wx.ALL, 6)
+        weather_box.Add(link(weather_panel, 'Source : Open-Meteo', data.WEATHER_SOURCE), 0, wx.ALL, 6)
+        weather_panel.SetSizer(weather_box)
+        self.block_panels['weather'] = weather_panel
+
+        alert_panel = wx.Panel(self)
+        alert_box = section(alert_panel, 'Infos officielles · bulletins récents à vérifier')
         self.alert_content = wx.BoxSizer(wx.VERTICAL)
-        self.alert_box.Add(self.alert_content, 0, wx.EXPAND | wx.ALL, 8)
-        self.base.Add(self.alert_box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        self.vacation = wx.StaticText(self, label='Vacances scolaires : chargement…')
-        self.base.Add(self.vacation, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        self.base.Add(link(self, 'Calendrier scolaire officiel 2026–2027', data.SCHOOL_SOURCE), 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        self.book = wx.Notebook(self)
+        alert_box.Add(self.alert_content, 0, wx.EXPAND | wx.ALL, 8)
+        alert_panel.SetSizer(alert_box)
+        self.block_panels['alerts'] = alert_panel
+
+        vacation_panel = wx.Panel(self)
+        vacation_box = section(vacation_panel, 'Vacances scolaires')
+        self.vacation = wx.StaticText(vacation_panel, label='Chargement…')
+        vacation_box.Add(self.vacation, 0, wx.EXPAND | wx.ALL, 8)
+        vacation_box.Add(link(vacation_panel, 'Calendrier scolaire officiel 2026–2027', data.SCHOOL_SOURCE),
+                         0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        vacation_panel.SetSizer(vacation_box)
+        self.block_panels['vacations'] = vacation_panel
+
+        events_panel = wx.Panel(self)
+        events_box = section(events_panel, 'Événements à venir')
+        self.book = wx.Notebook(events_panel)
         self.pages = {}
         for kind in data.KINDS:
             page = wx.Panel(self.book)
@@ -295,15 +316,106 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
             page.SetSizer(sizer)
             self.book.AddPage(page, kind)
             self.pages[kind] = (page, sizer)
-        self.base.Add(self.book, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        events_box.Add(self.book, 1, wx.EXPAND | wx.ALL, 6)
+        events_panel.SetSizer(events_box)
+        self.block_panels['events'] = events_panel
+
+        self.dashboard = wx.BoxSizer(wx.HORIZONTAL)
+        self.base.Add(self.dashboard, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         self.SetSizer(self.base)
+        self._apply_layout()
         self.SetupScrolling(scroll_x=False)
+
         settings.Bind(wx.EVT_BUTTON, self.OnSettings)
         refresh.Bind(wx.EVT_BUTTON, lambda event: self.Initialisation(force=True))
         self.detail.Bind(wx.EVT_BUTTON, self.OnDetails)
         self.Bind(wx.EVT_TIMER, lambda event: self.Initialisation(), self._timer)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroy)
         self.Bind(wx.EVT_SIZE, self.OnSize)
+
+    def _current_user_id(self):
+        try:
+            top = wx.GetTopLevelParent(self)
+            user = getattr(top, 'dictUtilisateur', None) or {}
+            value = user.get('IDutilisateur')
+            return int(value) if value is not None else None
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    def _load_layout(self, database):
+        layout = data.normalize_dashboard_layout()
+        user_id = self._current_user_id()
+        if not database or user_id is None:
+            return layout
+        try:
+            raw = UTILS_Parametres.Parametres(
+                mode='get', categorie='accueil_aujourdhui',
+                nom='utilisateur_%s' % user_id, valeur='', nomFichier=database)
+            if raw:
+                layout = json.loads(raw)
+        except Exception:
+            # Une préférence personnelle illisible ne doit jamais bloquer l'accueil.
+            return data.normalize_dashboard_layout()
+        return data.normalize_dashboard_layout(layout)
+
+    def _save_layout(self, layout):
+        database = str(UTILS_Config.GetParametre('nomFichier', '') or '')
+        user_id = self._current_user_id()
+        if not database or user_id is None:
+            return False
+        layout = data.normalize_dashboard_layout(layout)
+        payload = json.dumps(layout, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+        try:
+            UTILS_Parametres.Parametres(
+                mode='set', categorie='accueil_aujourdhui',
+                nom='utilisateur_%s' % user_id, valeur=payload, nomFichier=database)
+            return True
+        except Exception:
+            return False
+
+    def _apply_layout(self):
+        self._layout = data.normalize_dashboard_layout(self._layout)
+        self.dashboard.Clear(delete_windows=False)
+        for panel in self.block_panels.values():
+            panel.Hide()
+        columns = []
+        for index in range(self._layout['columns']):
+            column = wx.BoxSizer(wx.VERTICAL)
+            border = wx.LEFT if index else 0
+            self.dashboard.Add(column, 1, wx.EXPAND | border, 8 if index else 0)
+            columns.append(column)
+        for index, keys in enumerate(data.dashboard_columns(self._layout)):
+            for key in keys:
+                panel = self.block_panels[key]
+                panel.Show()
+                columns[index].Add(panel, 0, wx.EXPAND | wx.BOTTOM, 8)
+        self._wrap_contents()
+        self.Layout()
+        if self._alive:
+            self.SetupScrolling(scroll_x=False)
+
+    def _column_text_width(self):
+        columns = max(1, self._layout.get('columns', 1))
+        available = max(220, self.GetClientSize().width - 20 - (columns - 1) * 8)
+        return max(160, available // columns - 30)
+
+    def _wrap_contents(self):
+        width = self._column_text_width()
+        if hasattr(self, '_weather_text'):
+            self.weather.SetLabel(self._weather_text)
+        self.weather.Wrap(width)
+        self.vacation.Wrap(width)
+        for item in self.alert_content.GetChildren():
+            control = item.GetWindow()
+            if isinstance(control, wx.StaticText):
+                control.Wrap(width)
+
+    def OnUserChanged(self):
+        """Recharge uniquement la disposition personnelle lors d'un changement d'identifiant."""
+        database = str(UTILS_Config.GetParametre('nomFichier', '') or '')
+        self._layout = self._load_layout(database)
+        self._layout_signature = (database, self._current_user_id())
+        self._apply_layout()
 
     def OnDestroy(self, event):
         if event.GetEventObject() is self:
@@ -313,10 +425,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         event.Skip()
 
     def OnSize(self, event):
-        # Repartir du texte original : Wrap ne sait pas défaire ses retours.
-        if hasattr(self, '_weather_text'):
-            self.weather.SetLabel(self._weather_text)
-            self.weather.Wrap(max(180, self.GetClientSize().width - 48))
+        self._wrap_contents()
         event.Skip()
 
     def StartTicker(self):
