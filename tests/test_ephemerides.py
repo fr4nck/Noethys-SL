@@ -84,6 +84,31 @@ class EphemeridesTests(unittest.TestCase):
                              (47.941389, -1.229722))
             self.assertIn('geo.api.gouv.fr/communes?', read.call_args.args[0])
 
+    def test_dashboard_layout_defaults_and_custom_columns(self):
+        layout = data.normalize_dashboard_layout()
+        self.assertEqual(layout['columns'], 3)
+        self.assertEqual(data.dashboard_columns(layout), [['weather'], ['alerts', 'vacations'], ['events']])
+
+        custom = data.normalize_dashboard_layout({
+            'columns': 2,
+            'blocks': {
+                'weather': {'visible': True, 'column': 2, 'order': 2},
+                'alerts': {'visible': False, 'column': 1, 'order': 1},
+                'vacations': {'visible': True, 'column': 1, 'order': 1},
+                'events': {'visible': True, 'column': 2, 'order': 1},
+            },
+        })
+        self.assertEqual(data.dashboard_columns(custom), [['vacations'], ['events', 'weather']])
+
+    def test_dashboard_layout_is_bounded_and_completed(self):
+        layout = data.normalize_dashboard_layout({
+            'columns': 99,
+            'blocks': {'weather': {'column': 12, 'order': 0, 'visible': False}},
+        })
+        self.assertEqual(layout['columns'], 4)
+        self.assertEqual(layout['blocks']['weather'], {'visible': False, 'column': 4, 'order': 1})
+        self.assertIn('events', layout['blocks'])
+
     def test_cache_is_scoped_and_expires(self):
         now = dt.datetime(2026, 10, 3, tzinfo=dt.timezone.utc)
         cache = dict(key='site-a', fetched=(now - dt.timedelta(minutes=29)).isoformat())
