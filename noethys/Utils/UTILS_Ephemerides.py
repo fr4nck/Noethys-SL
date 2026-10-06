@@ -22,6 +22,58 @@ FIELDS = ('temperature_2m', 'precipitation', 'precipitation_probability',
           'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'weather_code')
 PERIODS = (('Matin · 6–12 h', 6, 12), ('Après-midi · 12–18 h', 12, 18))
 KINDS = ('Officiel', 'Local', 'Insolite')
+
+DASHBOARD_BLOCKS = ('weather', 'alerts', 'vacations', 'events')
+DEFAULT_DASHBOARD_LAYOUT = {
+    'columns': 3,
+    'blocks': {
+        'weather': {'visible': True, 'column': 1, 'order': 1},
+        'alerts': {'visible': True, 'column': 2, 'order': 1},
+        'vacations': {'visible': True, 'column': 2, 'order': 2},
+        'events': {'visible': True, 'column': 3, 'order': 1},
+    },
+}
+
+
+def normalize_dashboard_layout(layout=None):
+    """Retourne une disposition personnelle bornée et complète, sans modifier l'entrée."""
+    source = layout if isinstance(layout, dict) else {}
+    try:
+        columns = int(source.get('columns', DEFAULT_DASHBOARD_LAYOUT['columns']))
+    except (TypeError, ValueError):
+        columns = DEFAULT_DASHBOARD_LAYOUT['columns']
+    columns = min(4, max(1, columns))
+    source_blocks = source.get('blocks', {}) if isinstance(source.get('blocks', {}), dict) else {}
+    blocks = {}
+    for key in DASHBOARD_BLOCKS:
+        default = DEFAULT_DASHBOARD_LAYOUT['blocks'][key]
+        value = source_blocks.get(key, {}) if isinstance(source_blocks.get(key, {}), dict) else {}
+        try:
+            column = int(value.get('column', default['column']))
+        except (TypeError, ValueError):
+            column = default['column']
+        try:
+            order = int(value.get('order', default['order']))
+        except (TypeError, ValueError):
+            order = default['order']
+        blocks[key] = {
+            'visible': bool(value.get('visible', default['visible'])),
+            'column': min(columns, max(1, column)),
+            'order': max(1, order),
+        }
+    return {'columns': columns, 'blocks': blocks}
+
+
+def dashboard_columns(layout=None):
+    """Liste ordonnée des blocs visibles pour chaque colonne."""
+    layout = normalize_dashboard_layout(layout)
+    result = [[] for _ in range(layout['columns'])]
+    for index, key in enumerate(DASHBOARD_BLOCKS):
+        block = layout['blocks'][key]
+        if block['visible']:
+            result[block['column'] - 1].append((block['order'], index, key))
+    return [[key for _, _, key in sorted(column)] for column in result]
+
 # Catalogue volontairement court : chaque entrée renvoie à son organisateur.
 CATALOGUE = [
     dict(title='Journée mondiale des enseignants', kind='Officiel', month=10, day=5,
