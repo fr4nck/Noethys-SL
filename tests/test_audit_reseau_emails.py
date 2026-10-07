@@ -565,9 +565,9 @@ class MailjetTests(unittest.TestCase):
         p2 = connexion.send.create.call_args_list[1].kwargs["data"]
         self.assertEqual(p1, p2)
 
-    def test_reponse_inattendue_message_derreur_opaque(self):
-        """Réponse HTTP 200 sans clé 'Messages' : l'erreur affichée est
-        "'Messages'" (KeyError), la réponse brute est imprimée sur stdout."""
+    def test_reponse_inattendue_message_derreur_lisible(self):
+        """CORRIGÉ (MAILJET-ERR-01, rail 1) : réponse HTTP 200 sans clé
+        'Messages' -> motif Mailjet affiché au lieu de "'Messages'"."""
         m = self._mailjet()
         rep = mock.MagicMock()
         rep.status_code = 200
@@ -575,9 +575,9 @@ class MailjetTests(unittest.TestCase):
         m.connection = mock.MagicMock()
         m.connection.send.create.return_value = rep
         with mock.patch("builtins.print"):
-            with self.assertRaises(Exception) as ctx:
+            with self.assertRaises(UTILS_Envoi_email.ErreurMailjet) as ctx:
                 m.Envoyer(_BaseSMTP.message())
-        self.assertEqual(str(ctx.exception), "'Messages'")
+        self.assertEqual(str(ctx.exception), u"Mailjet n'a pas accepté le message : x")
 
     def test_anomalie_parametres_contenant_egal_egal_font_planter(self):
         with self.assertRaises(ValueError):
@@ -618,31 +618,17 @@ class SecretDansExceptionHttpTests(unittest.TestCase):
 # 6. État local après envoi
 # ---------------------------------------------------------------------------
 class EtatLocalTests(unittest.TestCase):
-    def test_anomalie_dlg_mailer_listeanomalies_jamais_alimentee(self):
-        """EMAIL-07 : DLG_Saisie_reglement.py:1229 juge le succès sur
-        dlg2.listeAnomalies, que DLG_Mailer n'alimente jamais."""
-        source = (NOETHYS_DIR / "Dlg" / "DLG_Mailer.py").read_text(encoding="utf-8")
-        arbre = ast.parse(source)
-        affectations = []
-        for noeud in ast.walk(arbre):
-            cibles = []
-            if isinstance(noeud, ast.Assign):
-                cibles = noeud.targets
-            elif isinstance(noeud, (ast.AugAssign, ast.AnnAssign)):
-                cibles = [noeud.target]
-            for c in cibles:
-                if isinstance(c, ast.Attribute) and c.attr == "listeAnomalies":
-                    affectations.append(noeud.lineno)
-        self.assertEqual(affectations, [107])
-        self.assertNotIn("listeAnomalies.append", source)
-        self.assertNotIn("listeAnomalies.extend", source)
+    def test_recu_reglement_juge_sur_liste_succes(self):
+        """CORRIGÉ (EMAIL-07, rail 1) : DLG_Saisie_reglement juge le succès sur
+        DLG_Mailer.listeSucces pour le destinataire concerné, et non plus sur
+        listeAnomalies (jamais alimentée par le Mailer)."""
         appelant = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_reglement.py").read_text(encoding="utf-8")
-        self.assertIn("if len(dlg2.listeAnomalies) == 0 :", appelant)
+        self.assertNotIn("if len(dlg2.listeAnomalies) == 0 :", appelant)
+        self.assertIn("succes = RecuAccepte(dlg2.listeSucces, adresse)", appelant)
 
-    def test_anomalie_historique_sql_casse_sur_apostrophe(self):
-        """EMAIL-08 : MemorisationHistorique() (DLG_Mailer.py:745-749)
-        formate l'adresse dans le SQL : une adresse valide contenant une
-        apostrophe casse la requête APRÈS un envoi réussi."""
+    def test_historique_sql_supporte_l_apostrophe(self):
+        """CORRIGÉ (EMAIL-08, rail 1) : une adresse valide contenant une
+        apostrophe ne casse plus la requête de l'historique."""
         from Dlg import DLG_Mailer
         requetes = []
 
@@ -661,8 +647,8 @@ class EtatLocalTests(unittest.TestCase):
         conn = sqlite3.connect(":memory:")
         conn.execute("CREATE TABLE individus (IDindividu INTEGER, mail TEXT, travail_mail TEXT)")
         conn.execute("CREATE TABLE rattachements (IDindividu INTEGER, IDfamille INTEGER)")
-        with self.assertRaises(sqlite3.OperationalError):
-            conn.execute(requetes[0])
+        conn.execute("INSERT INTO individus VALUES (1, 'o''brien@example.org', NULL)")
+        self.assertEqual(conn.execute(requetes[0]).fetchall(), [(1, None)])
 
     def test_anomalie_pieces_communes_ajoutees_a_la_liste_du_destinataire(self):
         """EMAIL-09 : DLG_Mailer.Envoyer() (lignes 612-613) fait
@@ -679,15 +665,19 @@ class EtatLocalTests(unittest.TestCase):
             listePieces.extend(["commune.pdf"])
         self.assertEqual(track_pieces, ["perso.pdf", "commune.pdf", "commune.pdf"])
 
-    def test_anomalie_portail_recu_declare_envoye_sans_tester_le_resultat(self):
-        """EMAIL-10 : DLG_Saisie_portail_demande.py:1221-1223 : la réponse
-        Connecthys 'Reçu de règlement envoyé par Email.' est fixée quel que
-        soit le résultat d'EnvoiEmailFamille()."""
+    def test_portail_recu_non_envoye_reste_en_attente(self):
+        """CORRIGÉ (EMAIL-10, rail 1) : même contrat que Traitement_factures :
+        si EnvoiEmailFamille() échoue, Traitement_recus renvoie False (la
+        demande reste 'attente') au lieu de répondre 'Reçu de règlement envoyé
+        par Email.'. Contrat Connecthys inchangé : etat/reponse ne sont
+        transmis qu'au syncup suivant, avec les mêmes valeurs possibles."""
         source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_portail_demande.py").read_text(encoding="utf-8")
         bloc = ('resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, '
-                'nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track)\n'
-                '                reponse = _(u"Reçu de règlement envoyé par Email.")')
-        self.assertIn(bloc, source)
+                'nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track)\n')
+        i = source.index(bloc)
+        suite = source[i:i + 900]
+        self.assertIn("if resultat == False :", suite)
+        self.assertLess(suite.index("return False"), suite.index(u'reponse = _(u"Reçu de règlement envoyé par Email.")'))
 
 
 if __name__ == "__main__":

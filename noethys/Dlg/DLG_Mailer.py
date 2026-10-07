@@ -15,6 +15,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import six
+import inspect
 import re
 import traceback
 import copy
@@ -504,7 +505,8 @@ class Dialog(wx.Dialog):
                 if self.afficher_confirmation_envoi:
                     dlg = wx.MessageDialog(
                         self,
-                        _(u"L'Email a été envoyé avec succès !"),
+                        _(u"L'Email a été accepté par %s pour envoi.\n\nNoethys ne vérifie pas sa remise effective au destinataire.")
+                        % getattr(messagerie, "LIBELLE_SERVICE", _(u"le serveur de messagerie")),
                         _(u"Fin de l'envoi"),
                         wx.OK | wx.ICON_INFORMATION,
                     )
@@ -688,7 +690,7 @@ class Dialog(wx.Dialog):
 
             if self.listeSucces:
                 message = liste_messages[0]
-                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet)
+                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet, message=message)
             return bool(self.listeSucces)
 
         dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=parent_progress)
@@ -709,8 +711,20 @@ class Dialog(wx.Dialog):
             dlgErreur.Destroy()
             return False
 
-        # Envoi des messages
-        self.listeSucces = messagerie.Envoyer_lot(messages=liste_messages, dlg_progress=dlg_progress, afficher_confirmation_envoi=self.afficher_confirmation_envoi)
+        # Envoi des messages. L'historique est écrit au fil de l'eau, dès
+        # qu'un message est accepté par le serveur d'envoi : une interruption
+        # du lot (arrêt, fermeture, plantage) ne fait plus perdre la trace des
+        # messages déjà acceptés.
+        def MemoriserSucces(message):
+            self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet, message=message)
+        rappel_disponible = "callback_succes" in inspect.signature(messagerie.Envoyer_lot).parameters
+        if rappel_disponible :
+            self.listeSucces = messagerie.Envoyer_lot(messages=liste_messages, dlg_progress=dlg_progress, afficher_confirmation_envoi=self.afficher_confirmation_envoi, callback_succes=MemoriserSucces)
+        else :
+            # Moteur sans rappel par message : historique en fin de lot (comportement d'origine)
+            self.listeSucces = messagerie.Envoyer_lot(messages=liste_messages, dlg_progress=dlg_progress, afficher_confirmation_envoi=self.afficher_confirmation_envoi)
+            for message in (self.listeSucces or []) :
+                MemoriserSucces(message)
 
         # Fermeture messagerie
         try :
@@ -736,25 +750,29 @@ class Dialog(wx.Dialog):
         # Suppression des images temporaires incluses dans le message
         handler.DeleteTemporaryImages()
 
-        # Mémorisation dans l'historique
-        if self.listeSucces != False:
-            for message in self.listeSucces :
-                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet)
-
-    def MemorisationHistorique(self, adresse="", sujet=""):
+    def MemorisationHistorique(self, adresse="", sujet="", message=None):
+        # Apostrophe doublée : une adresse valide comme o'brien@... ne doit
+        # pas casser la requête après un envoi accepté.
+        adresse_sql = (adresse or u"").replace("'", "''")
         DB = GestionDB.DB()
         req = """SELECT individus.IDindividu, rattachements.IDfamille
         FROM individus
         LEFT JOIN rattachements ON rattachements.IDindividu = individus.IDindividu
-        WHERE (mail='%s' OR travail_mail='%s'); """ % (adresse, adresse)
+        WHERE (mail='%s' OR travail_mail='%s'); """ % (adresse_sql, adresse_sql)
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
+        action = _(u"Envoi de l'Email '%s'") % sujet
+        # Identifiant Mailjet conservé : il permet de retrouver le message
+        # dans l'historique Mailjet (accepté ne veut pas dire remis).
+        identifiants = [six.text_type(mid) for email, uuid, mid in getattr(message, "mailjet_ids", []) or [] if mid]
+        if identifiants :
+            action += _(u" (accepté par Mailjet, MessageID %s)") % u", ".join(identifiants)
         for IDindividu, IDfamille in listeDonnees :
             UTILS_Historique.InsertActions([{
                 "IDindividu" : IDindividu,
                 "IDfamille" : IDfamille,
                 "IDcategorie" : 33,
-                "action" : _(u"Envoi de l'Email '%s'") % sujet,
+                "action" : action,
                 },])
         DB.Close()
 

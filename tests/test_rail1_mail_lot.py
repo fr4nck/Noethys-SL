@@ -3,12 +3,13 @@
 historique (MAIL-HIST-01), erreurs Mailjet (MAILJET-ERR-01).
 
 Aucun email réel : la connexion Mailjet est une doublure, les dialogues wx
-sont remplacés. Les tests 'test_caracterisation_*' figent le comportement
-AVANT correction.
+sont remplacés. Les défauts caractérisés au commit 96b6ea7 (arrêt sans
+bilan, succès après 'Réessayer' listé en échec, erreurs Mailjet opaques,
+historique écrit en fin de lot, libellé « envoyé avec succès ») sont ici
+vérifiés comme corrigés.
 """
 from __future__ import annotations
 
-import inspect
 import sys
 import unittest
 from pathlib import Path
@@ -160,77 +161,191 @@ class _Base(unittest.TestCase):
 
 
 class ArretApresErreurTests(_Base):
-    """MAIL-FAM-02 : 'Arrêter' après une erreur."""
+    """MAIL-FAM-02 : 'Arrêter' après une erreur -> bilan en trois catégories."""
 
     def _messages(self):
         return [message("a@example.org"), message("b@example.org"), message("c@example.org")]
 
-    def test_caracterisation_mailjet_arreter_sans_compte_rendu(self):
+    def _verifier_bilan(self, m, d, msgs):
+        self.assertEqual(m.dernier_bilan["acceptes"], [msgs[0]])
+        self.assertEqual([x for x, e in m.dernier_bilan["echecs"]], [msgs[1]])
+        self.assertEqual(m.dernier_bilan["non_tentes"], [msgs[2]])
+        cr = d.comptes_rendus()
+        self.assertEqual(len(cr), 1)
+        self.assertIn(u"1 en échec, 1 non tenté(s)", cr[0]["introduction"])
+        self.assertIn(u"En échec :\n- b@example.org : ", cr[0]["detail"])
+        self.assertIn(u"Non tentés (envoi arrêté) :\n- c@example.org", cr[0]["detail"])
+        self.assertIn(u"- a@example.org", cr[0]["detail"])
+
+    def test_mailjet_arreter_produit_un_bilan(self):
         msgs = self._messages()
         m = self.mailjet([succes_mailjet("a@example.org"), RuntimeError("panne")])
         succes, d = self.lancer(m, msgs, [3])
         self.assertEqual(succes, [msgs[0]])
-        self.assertEqual(d.comptes_rendus(), [])   # aucun bilan : c@ jamais tenté, non signalé
+        self.assertEqual(m.connection.send.create.call_count, 2)   # c@ jamais tenté
+        self._verifier_bilan(m, d, msgs)
+        self.assertIn(u"accepté(s) par Mailjet", d.comptes_rendus()[0]["introduction"])
 
-    def test_caracterisation_smtp_arreter_sans_compte_rendu(self):
+    def test_smtp_arreter_produit_un_bilan(self):
         msgs = self._messages()
         m = self.smtp([1, RuntimeError("panne")])
         succes, d = self.lancer(m, msgs, [3])
         self.assertEqual(succes, [msgs[0]])
-        self.assertEqual(d.comptes_rendus(), [])
+        self._verifier_bilan(m, d, msgs)
 
-    def test_caracterisation_reessayer_puis_succes_reste_compte_en_echec(self):
+    def test_reessayer_puis_succes_n_est_plus_compte_en_echec(self):
         msgs = self._messages()[:2]
         m = self.mailjet([RuntimeError("panne"), succes_mailjet("a@example.org"), succes_mailjet("b@example.org")])
         succes, d = self.lancer(m, msgs, [0])
         self.assertEqual(succes, msgs)
-        texte = d.texte_comptes_rendus()
-        self.assertIn(u"a@example.org : panne", texte)   # signalé en échec alors qu'il a été accepté
+        self.assertEqual(m.dernier_bilan["echecs"], [])
+        self.assertNotIn(u"panne", d.texte_comptes_rendus())
+
+    def test_continuer_liste_les_echecs_sans_non_tentes(self):
+        msgs = self._messages()
+        m = self.mailjet([succes_mailjet("a@example.org"), RuntimeError("panne"), succes_mailjet("c@example.org")])
+        succes, d = self.lancer(m, msgs, [1])
+        self.assertEqual(succes, [msgs[0], msgs[2]])
+        self.assertEqual(m.dernier_bilan["non_tentes"], [])
+        self.assertIn(u"2 Email(s) accepté(s) par Mailjet, 1 en échec, 0 non tenté(s).", d.texte_comptes_rendus())
+
+
+class HistoriqueAuFilDeLEauTests(_Base):
+    """MAIL-HIST-01 : rappel par message accepté, avant la suite du lot."""
+
+    def test_rappel_appele_des_l_acceptation_meme_si_le_lot_est_arrete(self):
+        msgs = [message("a@example.org"), message("b@example.org"), message("c@example.org")]
+        m = self.mailjet([succes_mailjet("a@example.org"), RuntimeError("panne")])
+        vus = []
+        d = Dialogues([3])
+        with mock.patch.object(UTILS_Envoi_email.DLG_Messagebox, "Dialog", d.Messagebox), \
+                mock.patch.object(UTILS_Envoi_email.wx, "MessageDialog", d.MessageDialog), \
+                mock.patch("builtins.print"):
+            m.Envoyer_lot(messages=msgs, callback_succes=vus.append)
+        self.assertEqual(vus, [msgs[0]])
+
+    def test_rappel_smtp_et_erreur_du_rappel_n_interrompt_pas_le_lot(self):
+        msgs = [message("a@example.org"), message("b@example.org")]
+        m = self.smtp([1, 1])
+
+        def rappel(msg):
+            raise RuntimeError("base indisponible")
+        d = Dialogues([])
+        with mock.patch.object(UTILS_Envoi_email.DLG_Messagebox, "Dialog", d.Messagebox), \
+                mock.patch.object(UTILS_Envoi_email.wx, "MessageDialog", d.MessageDialog), \
+                mock.patch("builtins.print"):
+            succes = m.Envoyer_lot(messages=msgs, afficher_confirmation_envoi=False, callback_succes=rappel)
+        self.assertEqual(succes, msgs)
+
+    def test_dlg_mailer_branche_le_rappel_et_ne_reecrit_plus_en_fin_de_lot(self):
+        source = (NOETHYS_DIR / "Dlg" / "DLG_Mailer.py").read_text(encoding="utf-8")
+        self.assertIn("callback_succes=MemoriserSucces", source)
+        self.assertNotIn("        if self.listeSucces != False:\n            for message in self.listeSucces :", source)
+
+    def test_historique_apostrophe_et_identifiant_mailjet(self):
+        from Dlg import DLG_Mailer
+        requetes, actions = [], []
+
+        class FausseDB(object):
+            def ExecuterReq(self, req):
+                requetes.append(req)
+
+            def ResultatReq(self):
+                return [(5, 50)]
+
+            def Close(self):
+                pass
+        msg = message("o'brien@example.org")
+        msg.mailjet_ids = [("o'brien@example.org", "uuid-1", 1001)]
+        with mock.patch.object(DLG_Mailer.GestionDB, "DB", FausseDB), \
+                mock.patch.object(DLG_Mailer.UTILS_Historique, "InsertActions", side_effect=actions.extend):
+            DLG_Mailer.Dialog.MemorisationHistorique(object(), "o'brien@example.org", u"Facture", message=msg)
+        import sqlite3
+        conn = sqlite3.connect(":memory:")
+        conn.execute("CREATE TABLE individus (IDindividu INTEGER, mail TEXT, travail_mail TEXT)")
+        conn.execute("CREATE TABLE rattachements (IDindividu INTEGER, IDfamille INTEGER)")
+        conn.execute(requetes[0])   # plus d'erreur SQL
+        self.assertEqual(actions[0]["action"], u"Envoi de l'Email 'Facture' (accepté par Mailjet, MessageID 1001)")
 
 
 class ErreursMailjetTests(_Base):
-    """MAILJET-ERR-01 : ce que l'utilisateur voit."""
+    """MAILJET-ERR-01 : motif utile, sans secret."""
 
     def _erreur_affichee(self, reponse):
         m = self.mailjet([reponse])
         succes, d = self.lancer(m, [message("a@example.org")], [1])
         self.assertEqual(succes, [])
-        return d.erreurs()[0]["detail"]
+        detail = d.erreurs()[0]["detail"]
+        for secret in (CLE_FACTICE, SECRET_FACTICE, "Authorization", "Basic "):
+            self.assertNotIn(secret, detail)
+        return detail
 
-    def test_caracterisation_status_error(self):
+    def test_status_error_affiche_le_motif_mailjet(self):
         detail = self._erreur_affichee(reponse_mailjet({"Messages": [{"Status": "error", "Errors": [
             {"ErrorCode": "mj-0013", "StatusCode": 400, "ErrorMessage": "\"x\" is an invalid email address.",
              "ErrorRelatedTo": ["To[0].Email"]}]}]}, status=400))
-        self.assertEqual(detail, u"error")
+        self.assertEqual(detail, u"Mailjet a refusé le message (HTTP 400) : \"x\" is an invalid email address. [mj-0013] (To[0].Email)")
 
-    def test_caracterisation_messages_absent(self):
+    def test_erreur_globale_401(self):
         detail = self._erreur_affichee(reponse_mailjet({"ErrorIdentifier": "x", "StatusCode": 401,
                                                          "ErrorMessage": "API key authentication/authorization failure."},
                                                         status=401))
-        self.assertEqual(detail, u"'Messages'")
+        self.assertEqual(detail, u"Mailjet a refusé le message (HTTP 401) : API key authentication/authorization failure.")
 
-    def test_caracterisation_reponse_non_json(self):
-        detail = self._erreur_affichee(reponse_mailjet(status=502, json_erreur=ValueError("Expecting value: line 1 column 1 (char 0)")))
-        self.assertIn(u"Expecting value", detail)
+    def test_reponse_non_json_5xx(self):
+        detail = self._erreur_affichee(reponse_mailjet(status=502, json_erreur=ValueError("Expecting value")))
+        self.assertEqual(detail, u"Mailjet a refusé le message (HTTP 502) : <html>Bad Gateway</html>")
 
+    def test_reponse_200_inattendue(self):
+        detail = self._erreur_affichee(reponse_mailjet({"Foo": 1}, status=200))
+        self.assertEqual(detail, u"Mailjet n'a pas accepté le message : réponse inattendue de Mailjet")
 
-class HistoriqueTests(unittest.TestCase):
-    """MAIL-HIST-01 : l'historique est écrit après le lot entier."""
+    def test_exception_de_la_bibliotheque_reste_lisible(self):
+        """mailjet-rest >= 1.9 lève lui-même ValidationError('Payload validation
+        failed: ...') sur un 4xx : le texte est affiché tel quel."""
+        detail = self._erreur_affichee(RuntimeError("Payload validation failed: \"x\" is an invalid email address."))
+        self.assertIn(u"invalid email address", detail)
 
-    def test_caracterisation_pas_de_rappel_par_message(self):
-        for classe in (UTILS_Envoi_email.SmtpV2, UTILS_Envoi_email.Mailjet):
-            params = inspect.signature(classe.Envoyer_lot).parameters
-            self.assertNotIn("callback_succes", params)
-        source = (NOETHYS_DIR / "Dlg" / "DLG_Mailer.py").read_text(encoding="utf-8")
-        self.assertIn("        if self.listeSucces != False:\n            for message in self.listeSucces :\n"
-                      "                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet)", source)
+    def test_journal_ne_contient_ni_secret_ni_payload(self):
+        m = self.mailjet([reponse_mailjet({"Messages": [{"Status": "error", "Errors": [{"ErrorMessage": "refus"}]}]}, status=400)])
+        imprime = []
+        with mock.patch("builtins.print", side_effect=lambda *a, **k: imprime.append(u" ".join(str(x) for x in a))):
+            with self.assertRaises(UTILS_Envoi_email.ErreurMailjet):
+                m.Envoyer(message("a@example.org"))
+        journal = u"\n".join(imprime)
+        self.assertIn(u"refus", journal)
+        for interdit in (CLE_FACTICE, SECRET_FACTICE, u"Bonjour", u"Base64Content"):
+            self.assertNotIn(interdit, journal)
+
+    def test_identifiants_mailjet_conserves_sur_le_message(self):
+        m = self.mailjet([succes_mailjet("a@example.org", uuid="uuid-9", mid=9009)])
+        msg = message("a@example.org")
+        self.assertEqual(m.Envoyer(msg), u"success")
+        self.assertEqual(msg.mailjet_ids, [("a@example.org", "uuid-9", 9009)])
 
 
 class LibellesTests(_Base):
-    def test_caracterisation_confirmation_affirme_envoye(self):
+    """Accepté par le service d'envoi != remis au destinataire."""
+
+    def test_confirmation_mailjet_dit_accepte_et_pas_remis(self):
         m = self.mailjet([succes_mailjet("a@example.org")])
         succes, d = self.lancer(m, [message("a@example.org")], [])
-        self.assertIn(u"L'Email a été envoyé avec succès !", d.texte_comptes_rendus())
+        texte = d.texte_comptes_rendus()
+        self.assertIn(u"L'Email a été accepté par Mailjet pour envoi.", texte)
+        self.assertIn(u"ne vérifie pas leur remise effective", texte)
+        self.assertNotIn(u"envoyé avec succès", texte)
+
+    def test_confirmation_smtp(self):
+        m = self.smtp([1, 1])
+        succes, d = self.lancer(m, [message("a@example.org"), message("b@example.org")], [])
+        self.assertIn(u"Les 2 Emails ont été acceptés par le serveur de messagerie pour envoi.", d.texte_comptes_rendus())
+
+    def test_plus_de_libelle_envoye_avec_succes_dans_les_parcours_email(self):
+        for chemin in ("Dlg/DLG_Mailer.py", "Utils/UTILS_Envoi_email.py", "Dlg/DLG_Saisie_portail_demande.py"):
+            source = (NOETHYS_DIR / chemin).read_text(encoding="utf-8")
+            lignes = [l for l in source.splitlines() if u"envoyé avec succès" in l or u"envoyés avec succès" in l]
+            lignes = [l for l in lignes if not l.lstrip().startswith("#")]
+            self.assertEqual(lignes, [], chemin)
 
 
 if __name__ == "__main__":
