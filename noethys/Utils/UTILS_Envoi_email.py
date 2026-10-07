@@ -100,7 +100,7 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
 
     if len(dlg.listeSucces) > 0 :
         resultat = True
-        if log : log.EcritLog(_(u"L'Email a été envoyé avec succès."))
+        if log : log.EcritLog(_(u"L'Email a été accepté par le serveur d'envoi."))
     else :
         resultat = False
         if log : log.EcritLog(_(u"L'email n'a pas été envoyé."))
@@ -547,6 +547,11 @@ class Base_messagerie():
                 self.dict_parametres[nom] = valeur
 
 
+    # Libellé du service qui ACCEPTE le message : un succès signifie
+    # uniquement que ce service l'a accepté pour envoi, jamais qu'il a été
+    # remis au destinataire (Noethys ne suit pas la distribution).
+    LIBELLE_SERVICE = _(u"le serveur de messagerie")
+
     def Connecter(self):
         pass
 
@@ -557,7 +562,17 @@ class Base_messagerie():
         pass
 
 
-
+def _NotifierSucces(callback_succes, message):
+    """Appelle callback_succes(message) juste après l'acceptation d'un message
+    (historique au fil de l'eau). Une erreur du rappel est journalisée mais
+    n'interrompt jamais le lot : le message est déjà accepté."""
+    if callback_succes is None:
+        return
+    try:
+        callback_succes(message)
+    except Exception as err:
+        print(("Erreur lors de la mémorisation d'un envoi : %s" % _TexteUtf8(err)))
+        traceback.print_exc(file=sys.stdout)
 
 
 class SmtpV1(Base_messagerie):
@@ -672,8 +687,9 @@ class SmtpV2(Base_messagerie):
     def Fermer(self):
         self.connection.close()
 
-    def Envoyer_lot(self, messages=[], dlg_progress=None, afficher_confirmation_envoi=True):
-        """ Envoi des messages par lot """
+    def Envoyer_lot(self, messages=[], dlg_progress=None, afficher_confirmation_envoi=True, callback_succes=None):
+        """ Envoi des messages par lot. callback_succes(message) est appelé
+        dès qu'un message est accepté (historique au fil de l'eau). """
         # Si envoi par lot activé
         nbre_mails_lot = self.dict_parametres.get("nbre_mails", None)
         duree_pause = self.dict_parametres.get("duree_pause", None)
@@ -702,6 +718,8 @@ class SmtpV2(Base_messagerie):
                 try:
                     self.Envoyer(message)
                     listeSucces.append(message)
+                    _RetirerAnomalies(listeAnomalies, message)
+                    _NotifierSucces(callback_succes, message)
                 except smtplib.SMTPServerDisconnected:
                     erreur = "deconnexion"
                 except Exception as err:
@@ -714,6 +732,8 @@ class SmtpV2(Base_messagerie):
                         self.Connecter()
                         self.Envoyer(message)
                         listeSucces.append(message)
+                        _RetirerAnomalies(listeAnomalies, message)
+                        _NotifierSucces(callback_succes, message)
                         erreur = None
                     except Exception as err:
                         traceback.print_exc(file=sys.stdout)
@@ -752,6 +772,7 @@ class SmtpV2(Base_messagerie):
                         if reponse == 2:
                             ne_pas_signaler_erreurs = True
                         if reponse == 3:
+                            _AfficherCompteRendu(self, messages, listeSucces, listeAnomalies, messages[index:], afficher_confirmation_envoi)
                             return listeSucces
                 break
 
@@ -773,31 +794,8 @@ class SmtpV2(Base_messagerie):
             dlg_progress.Update(index, _(u"Fin de l'envoi."))
             dlg_progress.Destroy()
 
-        # Si tous les Emails envoyés avec succès
-        if len(listeAnomalies) == 0 and afficher_confirmation_envoi == True:
-            if len(listeSucces) == 1:
-                message = _(u"L'Email a été envoyé avec succès !")
-            else:
-                message = _(u"Les %d Emails ont été envoyés avec succès !") % len(listeSucces)
-            dlg = wx.MessageDialog(None, message, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-
-        # Si Anomalies
-        if len(listeAnomalies) > 0 and len(messages) > 1:
-            if len(listeSucces) > 0:
-                intro = _(u"%d Email(s) ont été envoyés avec succès mais les %d envois suivants ont échoué :") % (
-                len(listeSucces), len(listeAnomalies))
-            else:
-                intro = _(u"Tous les envois ont lamentablement échoué :")
-            lignes = []
-            for message, erreur in listeAnomalies:
-                adresse = message.GetLabelDestinataires()
-                lignes.append(u"- %s : %s" % (_TexteUtf8(adresse), _TexteUtf8(erreur)))
-            dlg = DLG_Messagebox.Dialog(None, titre=_(u"Compte-rendu de l'envoi"), introduction=intro,
-                                        detail="\n".join(lignes), icone=wx.ICON_INFORMATION, boutons=[_(u"Ok"), ])
-            dlg.ShowModal()
-            dlg.Destroy()
+        # Bilan : acceptés / en échec / non tentés
+        _AfficherCompteRendu(self, messages, listeSucces, listeAnomalies, [], afficher_confirmation_envoi)
 
         return listeSucces
 
@@ -1160,8 +1158,9 @@ class Mailjet(Base_messagerie):
     def Fermer(self):
         self.connection.close()
 
-    def Envoyer_lot(self, messages=[], dlg_progress=None, afficher_confirmation_envoi=True):
-        """ Envoi des messages par lot """
+    def Envoyer_lot(self, messages=[], dlg_progress=None, afficher_confirmation_envoi=True, callback_succes=None):
+        """ Envoi des messages par lot. callback_succes(message) est appelé
+        dès qu'un message est accepté par Mailjet (historique au fil de l'eau). """
         index = 1
         total = len(messages)
         listeAnomalies = []
@@ -1238,6 +1237,7 @@ class Mailjet(Base_messagerie):
                     accepte = True
                     listeSucces.append(message)
                     _RetirerAnomalies(listeAnomalies, message)
+                    _NotifierSucces(callback_succes, message)
 
                     # 4. Succès.
                     dlg_progress.Update(
