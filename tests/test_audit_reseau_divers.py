@@ -210,47 +210,47 @@ class EphemeridesChargement(unittest.TestCase):
 
 
 class ContexteTLSGlobal(unittest.TestCase):
-    """NET-01 : le monkeypatch Connecthys de ssl._create_default_https_context
-    (UTILS_Portail_synchro.Synchro.__init__, accept_all_cert=True) s'applique
-    aux appels urllib des autres modules."""
+    """NET-01 / X-03 CORRIGÉ (rail 1) : l'option Connecthys accept_all_cert
+    ne modifie plus ssl._create_default_https_context ; les appels urllib des
+    autres modules (Aujourd'hui, vacances, enregistrement...) restent
+    vérifiés, quelle que soit la version de Python et l'ordre des appels."""
 
     SCRIPT = textwrap.dedent("""
         import sys, ssl
         sys.path.insert(0, %(noethys)r)
-        from Utils import UTILS_Ephemerides as eph
         from urllib.request import urlopen
-        avant = %(avant)s
-        if avant:
+        if %(avant)s:
             try:
                 urlopen("https://127.0.0.1/", timeout=2)
             except Exception:
                 pass
+        from Utils import UTILS_Portail_synchro as U
+        U.Synchro(dict_parametres={"accept_all_cert": True})
         compteur = []
-        def non_verifie(*a, **k):
-            compteur.append(1)
-            return ssl._create_unverified_context(*a, **k)
-        ssl._create_default_https_context = non_verifie   # comme UTILS_Portail_synchro.py:102
+        reel = ssl._create_default_https_context
+        def espion(*a, **k):
+            compteur.append(reel is ssl._create_unverified_context)
+            return reel(*a, **k)
+        ssl._create_default_https_context = espion
+        from Utils import UTILS_Ephemerides as eph
         try:
             eph.read_url("https://127.0.0.1/")
         except Exception:
             pass
-        print(len(compteur))
+        print("NON_VERIFIE" if any(compteur) else "VERIFIE")
     """)
 
     def _lancer(self, executable, avant):
         script = self.SCRIPT % {"noethys": str(NOETHYS), "avant": "True" if avant else "False"}
         sortie = subprocess.run([executable, "-c", script], capture_output=True, text=True, timeout=60)
         self.assertEqual(sortie.returncode, 0, sortie.stderr)
-        return int(sortie.stdout.strip().splitlines()[-1])
+        return sortie.stdout.strip().splitlines()[-1]
 
-    def test_patch_avant_le_premier_urlopen_neutralise_tls_pour_ephemerides(self):
-        self.assertGreaterEqual(self._lancer(sys.executable, avant=False), 1)
+    def test_ephemerides_restent_verifiees_apres_synchro_permissive(self):
+        self.assertEqual(self._lancer(sys.executable, avant=False), "VERIFIE")
 
-    @unittest.skipUnless(shutil.which("python3.11") or shutil.which("python3.10"),
-                         "Python 3.10/3.11 (version du build Windows) absent")
-    def test_python_3_10_3_11_patch_tardif_neutralise_aussi_tls(self):
-        exe = shutil.which("python3.10") or shutil.which("python3.11")
-        self.assertGreaterEqual(self._lancer(exe, avant=True), 1)
+    def test_ordre_des_appels_sans_effet(self):
+        self.assertEqual(self._lancer(sys.executable, avant=True), "VERIFIE")
 
 
 # ---------------------------------------------------------------------------

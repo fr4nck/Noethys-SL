@@ -358,11 +358,12 @@ class ConnecthysTests(unittest.TestCase):
         self.assertIn('print("URL syncdown =", url)', source)
         self.assertIn('"syncdown/%d/%d" % (int(secret), last)', source)
 
-    def test_sec09_accept_all_cert_desactive_tls_pour_tout_le_processus_et_ne_revient_pas(self):
+    def test_sec09_accept_all_cert_ne_touche_plus_le_contexte_tls_global(self):
+        """CORRIGÉ (X-03, rail 1)."""
+        avant = ssl._create_default_https_context
         self.P.Synchro(dict_parametres={"accept_all_cert": True})
-        self.assertIs(ssl._create_default_https_context, ssl._create_unverified_context)
-        self.P.Synchro(dict_parametres={"accept_all_cert": False})
-        self.assertIs(ssl._create_default_https_context, ssl._create_unverified_context)
+        self.assertIs(ssl._create_default_https_context, avant)
+        self.assertIsNot(ssl._create_default_https_context, ssl._create_unverified_context)
 
     def test_sec10_config_py_avec_secrets_reste_dans_temp(self):
         source = inspect.getsource(self.P.Synchro.Upload_config)

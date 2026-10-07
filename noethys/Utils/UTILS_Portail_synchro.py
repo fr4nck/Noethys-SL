@@ -85,6 +85,24 @@ if platform.system() != 'Linux' :
     patch_crypto_be_discovery()
 
 
+
+def ContexteSSLConnecthys(dict_parametres={}):
+    """ Contexte SSL des requêtes HTTP vers Connecthys : None (vérification
+    standard du certificat) sauf si l'option accept_all_cert est cochée, où
+    un contexte non vérifié est renvoyé pour CES SEULES requêtes. """
+    if dict_parametres.get("accept_all_cert", False) == True :
+        import ssl
+        return ssl._create_unverified_context()
+    return None
+
+
+def UrlopenConnecthys(req, contexte_ssl=None):
+    """ urlopen() vers Connecthys : appel strictement identique à
+    l'historique sans l'option accept_all_cert, contexte local sinon. """
+    if contexte_ssl is None :
+        return urlopen(req)
+    return urlopen(req, context=contexte_ssl)
+
 class Synchro():
     def __init__(self, dict_parametres=None, log=None):
         # Récupération des données de config du portail si besoin
@@ -97,9 +115,11 @@ class Synchro():
         self.num_etape = 0
         self.nbre_etapes = 25
 
-        if self.dict_parametres["accept_all_cert"] == True :
-            import ssl
-            ssl._create_default_https_context = ssl._create_unverified_context
+        # Option historique "accepter tous les certificats" : elle ne
+        # s'applique plus qu'aux requêtes HTTP vers Connecthys (contexte SSL
+        # local), et ne désactive plus la vérification TLS pour tout le
+        # reste de Noethys. Requêtes, réponses et URL inchangées.
+        self.contexte_ssl = ContexteSSLConnecthys(self.dict_parametres)
 
 
     def Pulse_gauge(self, num=None):
@@ -1588,7 +1608,7 @@ class Synchro():
             print("URL syncup =", url)
 
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
 
         except Exception as err :
@@ -1684,7 +1704,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             liste_actions = json.loads(page)
 
@@ -1845,7 +1865,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1880,7 +1900,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1914,7 +1934,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1948,7 +1968,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
