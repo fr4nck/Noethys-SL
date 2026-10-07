@@ -8,6 +8,91 @@
 
 ---
 
+## Mise à jour : Rail réseau 1 (branche `fix/rc2-network-stopgate-1`)
+
+> Corrections locales « stop-gate », non fusionnées dans la RC2, en attente de contre-qualification.
+> Contrat Connecthys : [`CONTRAT_CONNECTHYS.md`](CONTRAT_CONNECTHYS.md). Diagnostic Mailjet : [`DIAGNOSTIC_MAILJET.md`](DIAGNOSTIC_MAILJET.md).
+> Aucun changement protocolaire Connecthys. Chaque correctif a d'abord été caractérisé, puis son test a été inversé.
+
+### Tableau de restitution
+
+| ID | Statut avant | Preuve | Correction | Test après | Commit | Compatibilité Connecthys | Risque résiduel |
+|---|---|---|---|---|---|---|---|
+| MAIL-FAM-01 | Nouveau, CONFIRMÉ | `test_rail1_mail_familles.py` (f8aad6a) | `ResoudreAdresseConfiguree()` commune aux factures, rappels, reçus et avis de dépôt : motif affiché au lieu d'une disparition silencieuse. Les rappels acceptent désormais l'adresse libre. PDF absent signalé. | 25 tests verts | 54f7c62 | Sans objet | Un membre **détaché** de la famille n'est plus destinataire : changement voulu, à valider métier. |
+| MAIL-FAM-02 | Nouveau, CONFIRMÉ | `test_rail1_mail_lot.py` (96b6ea7) | Compte rendu acceptés / en échec / non tentés après « Arrêter ». Un succès après « Réessayer » n'est plus listé en échec. | verts | 2c54bcc | Sans objet | — |
+| MAILJET-ERR-01 | Nouveau, CONFIRMÉ | idem | `ErreurMailjet` : `ErrorMessage`, code, champ et statut HTTP, sans secret ni payload. Journal sans JSON brut. | verts | 2c54bcc | Sans objet | Avec mailjet-rest ≥ 1.9, les 4xx sont déjà levés par la bibliothèque (texte lisible conservé). |
+| MAIL-HIST-01 | Nouveau, CONFIRMÉ | idem | Historique écrit dès l'acceptation (`callback_succes`). MessageID Mailjet conservé. Apostrophe gérée (EMAIL-08). Repli d'origine pour un moteur sans rappel. | verts | 2c54bcc | Sans objet | Une adresse non rattachée à un individu n'est toujours pas historisée (existant). |
+| EMAIL-07 | P1 CONFIRMÉ | audit phase 1 | `RecuAccepte(listeSucces, adresse)` | `test_rail1_recu_reglement.py` | 31ddc74 | Sans objet | Le cas « incertain » SMTP est encore compté comme succès après reconnexion (EMAIL-03, rail 2). |
+| EMAIL-10 | P1 CONFIRMÉ | audit phase 1 | Contrat établi (section O du contrat) : `False`, la demande reste « attente », comme pour les factures. | `test_rail1_portail_recu.py` (le test échoue sur l'ancien code) | 4436c67 | **Prouvée** : valeurs existantes, jamais transmises telles quelles | — |
+| X-03 | P1 CONFIRMÉ | audit phase 1 | Contexte SSL local à Connecthys ; `urlopen(req)` d'origine conservé sans l'option. | audit inversés (divers, secrets, connecthys) | d25d21e | **Prouvée** | — |
+| CNX-10 | P1 CONFIRMÉ | audit phase 1 | 3 essais de 30 s, message final, plus de plantage sur `dlgprogress` absent | `test_essais_bornes_si_taille_inconnue` | 3753b13 | **Prouvée** (même URL et archive) | Si GitHub n'envoie pas `Content-Length` : échec explicite au lieu d'une boucle infinie. **À qualifier en réseau réel.** |
+| CNX-14 | P1 CONFIRMÉ (appel) | audit phase 1 | `wx.CallAfter`, panneau détruit ignoré | `test_maj_bouton_execute_sur_le_thread_wx` (vrai `wx.App`) | 00f6c6e | **Prouvée** (aucun échange modifié) | La requête de comptage s'exécute désormais sur le thread UI (requête courte, déjà le cas ailleurs). |
+| NOM-02 | P0 CONFIRMÉ | audit phase 1 | Liste blanche du nom et de la taille, `realpath`, refus avant ouverture | tests inversés et étendus | b44772c | Sans objet (format Nomadhys vérifié) | — |
+| NOM-03 | P0 CONFIRMÉ → **requalifié P1** | audit phase 1 + code Nomadhys | Suppression distante seulement après un `.dat` exploitable ; quarantaine `.echec` ; compte rendu ; `DELE` intercepté | `test_echec_dechiffrement_conserve_distant_et_local`, `test_reprise_…` | aa03f97 | Sans objet | Requalification : Nomadhys ne purge ses actions qu'après archivage par Noethys ; la perte n'était donc définitive que si la tablette était réinitialisée. |
+| NOM-04 | P1 CONFIRMÉ | audit phase 1 | Aucune suppression avant succès ; écriture atomique du `.dat` | tests inversés | aa03f97 | Sans objet | Absence de MAC (SEC-07) : un fichier altéré mais dézippable reste accepté (rail 2). |
+| X-01 | P0 CONFIRMÉ | audit phase 1 | Ancien format refusé pour **toutes les entrées réseau** (pièces Connecthys, Nomadhys). Conservé pour la restauration locale. | `test_rail1_format_chiffrement.py` | 0c23750 | **Prouvée** (pièces SV2 depuis 2021 ; Noethys Python 3 n'écrit que du SV2) | La restauration d'une sauvegarde piégée reste possible (action locale volontaire, rail 2). |
+| CNX-16 | P0 À PROUVER | code serveur Connecthys 1.1.0 | — | — | — | — | **RÉFUTÉ** : `syncup` ne fait qu'un `UPDATE` des actions par `ref_unique` (section B du contrat). |
+| CNX-03 | P0 CONFIRMÉ | — | **Non modifié** (consigne) | — | — | Rôle documenté (section K) | Ouvert : empreintes SHA-256 proposées pour le rail 2. |
+| REPORTLAB-5 | Nouveau, CONFIRMÉ | `test_rail1_reportlab5.py` (b805b6d) | Import inutilisé `ShowBoundaryValue` retiré (rappels, reçus, cotisations, relevés), comme #409 | verts | a05efe8 | Sans objet | `reportlab` non épinglé dans `requirements.txt`. |
+
+### Nouveaux constats et requalifications
+
+- **Rappels par email : adresse libre toujours ignorée** (`DLG_Rappels_email.py`, absence de branche `else`). Une famille configurée avec une adresse saisie à la main ne recevait jamais ses rappels, sans avertissement. CONFIRMÉ par test et corrigé (MAIL-FAM-01).
+- **ReportLab 5** : les impressions rappel, reçu, cotisation et relevé ne s'importaient plus, donc ne pouvaient plus être générées ni envoyées. CONFIRMÉ et corrigé.
+- **Mailjet « accepté » ≠ « distribué »** : les libellés « envoyé avec succès » des parcours email sont remplacés par « accepté par Mailjet / le serveur de messagerie… Noethys ne vérifie pas sa remise effective ». Aucun suivi de distribution n'est revendiqué.
+- **Relances Mailjet** (point 14) :
+  - Le code Noethys ne relance jamais automatiquement : seulement via « Réessayer ».
+  - `mailjet_rest` 1.9.0 relance lui-même (urllib3, `total=3`, **POST inclus**, sur 429 et 5xx) et ajoute un en-tête `Idempotency-Key` égal à l'empreinte du payload. Que Mailjet le prenne en compte n'est **pas prouvé**.
+  - La version installée dépend du build, car `mailjet-rest` n'est pas épinglé.
+  - Ne pas transposer la solution SMTP : à étudier au rail 2.
+- **Contrat Nomadhys** : la tablette supprime son fichier dès l'envoi TCP, mais conserve ses actions jusqu'à lire `nomade_archivage`. Le contrat effectif est donc « au moins une fois, avec accusé différé par l'archivage ». NOM-05 est récupérable.
+- **Tests préexistants** : 36 échecs identiques avant et après le rail 1 (profil Noethys absent, tests non maintenus). Les 36 tests Mailjet historiques passent avant et après lorsque `UTILS_Parametres` est neutralisé.
+
+### Restitution
+
+**CORRIGÉ ET PROUVÉ** : MAIL-FAM-01, MAIL-FAM-02, MAILJET-ERR-01, MAIL-HIST-01, EMAIL-07, EMAIL-08, EMAIL-10, X-03, CNX-10, CNX-14, NOM-02, NOM-03, NOM-04, X-01 (entrées réseau), REPORTLAB-5, NOM-10 (en partie).
+
+**COMPATIBILITÉ CONNECTHYS PROUVÉE** (lecture du serveur et tests) : X-03, CNX-10, CNX-14, EMAIL-10, X-01 (pièces). Aucune requête, réponse, aucun format, jeton, fichier échangé ou séquence n'a été modifié.
+
+**ENCORE OUVERT** :
+- emails : EMAIL-03 (SMTP incertain et doublon), EMAIL-04 (Mailjet incertain) ;
+- Connecthys : CNX-03 (`models.py`), CNX-07 (timeouts de synchro), CNX-08/09 (déduplication) ;
+- sécurité des échanges : X-02 (clé SSH), X-04 (FTP clair), X-06 (jeton) ;
+- Nomadhys : NOM-01 (authentification) ;
+- bases et secrets : DB-05/06 (transactions), SEC-14 ;
+- reste du rapport : SMS (X-08) et P2/P3 non traités.
+
+**BLOQUÉ PAR COMPATIBILITÉ CONNECTHYS** : X-06. Une authentification HMAC demande une version serveur qui l'accepte.
+
+**À QUALIFIER SOUS WINDOWS** (Python 3.10, wxPython 4.2.5, ReportLab et mailjet-rest du build) :
+- envoi de factures, rappels et reçus par email, Mailjet et SMTP : compte rendu et historique ;
+- synchro Connecthys avec et sans `accept_all_cert` ;
+- installation Connecthys hors ligne et en ligne (`Content-Length`) ;
+- bouton Connecthys pendant une synchro, et fermeture de Noethys pendant une synchro ;
+- serveur Nomadhys avec une vraie tablette (nom refusé, fichier tronqué) ;
+- réception FTP Nomadhys avec un mauvais mot de passe puis reprise ;
+- pièce Connecthys chiffrée.
+
+### Proposition : Rail réseau 2 (non commencé)
+
+1. **Emails** :
+   - SMTP « résultat incertain » : plus de renvoi automatique après DATA, Message-ID stable, statut « incertain » affiché ;
+   - Mailjet : étudier l'`Idempotency-Key` et les relances de `mailjet_rest`, épingler la version, timeout explicite ;
+   - suivi de distribution Mailjet (option B : `GET /message/{MessageID}` à la demande ; option A : webhook via Connecthys).
+2. **Connecthys** :
+   - déduplication locale par `ref_unique` (index unique + insertion conditionnelle) et verrou de synchro partagé ;
+   - timeouts de synchro, avec une marge pour les imports longs ;
+   - empreintes SHA-256 de `models.py` ;
+   - clé SSH épinglée ; FTPS ou SFTP ;
+   - authentification HMAC, en évolution conjointe avec le serveur ;
+   - `config.py` temporaire supprimé et en 0600.
+3. **Nomadhys** : authentification du serveur TCP, chiffrement obligatoire, protocole d'accusé applicatif (en tenant compte du contrat d'archivage), MAC sur les fichiers.
+4. **Format de chiffrement** : migration vers AES-GCM avec dérivation de clé (PBKDF2), en coordination avec Connecthys et Nomadhys. Confirmation avant de restaurer une sauvegarde à l'ancien format.
+5. **MySQL** : transactions et rollback (règlement et ventilation, facturation), numéro de facture unique, timeouts, TLS requis.
+6. **CI** : exécuter les tests réseau et `tests/test_rail1_*` sur la RC2 (Linux sous Xvfb), avec une base de test.
+
+---
+
 ## 1–4. Identification
 
 | Élément | Valeur |
