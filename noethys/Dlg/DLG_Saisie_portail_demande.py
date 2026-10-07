@@ -1614,7 +1614,16 @@ class Traitement():
         # Décryptage du fichier
         from Utils import UTILS_Cryptage_fichier
         cryptage_mdp = synchro.dict_parametres["secret_key"][:10]
-        UTILS_Cryptage_fichier.DecrypterFichier(chemin_fichier, chemin_fichier, cryptage_mdp)
+        try :
+            UTILS_Cryptage_fichier.DecrypterFichier(chemin_fichier, chemin_fichier, cryptage_mdp, autoriser_ancien_format=False)
+        except Exception as err :
+            # Même issue qu'un téléchargement impossible : la demande reste
+            # en attente. Aucun contenu reçu n'est jamais désérialisé.
+            self.EcritLog(_(u"La pièce reçue ne peut pas être déchiffrée : %s") % err)
+            dlg = wx.MessageDialog(self.parent, _(u"La pièce reçue ne peut pas être déchiffrée !\n\n%s") % err, "Erreur", wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return {"etat": False}
 
         # Ouverture de la DLG
         from Dlg import DLG_Saisie_piece

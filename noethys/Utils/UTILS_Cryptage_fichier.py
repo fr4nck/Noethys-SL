@@ -148,7 +148,18 @@ def cryptFile2(filename_in, filename_out, key):
 # 		fo.write(dec)
 
 
-def DecrypterFichier(fichierCrypte="", fichierDecrypte="", motdepasse=""):
+class FormatChiffrementRefuse(ValueError):
+	""" Fichier reçu qui n'est pas au format SV2 alors que l'ancien format
+	(désérialisé par pickle, donc capable d'exécuter du code) est refusé. """
+	pass
+
+
+def DecrypterFichier(fichierCrypte="", fichierDecrypte="", motdepasse="", autoriser_ancien_format=True):
+	""" autoriser_ancien_format=False pour tout fichier reçu du réseau
+	(pièces Connecthys, fichiers Nomadhys) : Connecthys (pièces, depuis 2021)
+	 et Nomadhys (depuis la version Python 3 de 2020) n'émettent que du SV2,
+	et Noethys sous Python 3 n'écrit lui-même que du SV2. L'ancien format
+	reste lisible pour la restauration volontaire d'anciennes sauvegardes. """
 	# Formatage du mot de passe
 	motdepasse = hashPassword_MD5(motdepasse)
 	if six.PY3:
@@ -164,7 +175,9 @@ def DecrypterFichier(fichierCrypte="", fichierDecrypte="", motdepasse=""):
 		contenu = contenu[3:]
 		dec = decrypt2(contenu, motdepasse)
 	else:
-		# Ancienne version
+		# Ancienne version (pickle) : jamais pour un contenu reçu du réseau
+		if not autoriser_ancien_format:
+			raise FormatChiffrementRefuse(u"Format de fichier chiffré non reconnu : seul le format SV2 est accepté pour un fichier reçu.")
 		with open(fichierCrypte, 'rb') as fo:
 			if six.PY2:
 				contenu2 = pickle.load(fo)
