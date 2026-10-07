@@ -25,7 +25,6 @@ MOIS = ('janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août
         'septembre', 'octobre', 'novembre', 'décembre')
 BLOCK_LABELS = {
     'weather': 'Météo',
-    'alerts': 'Infos officielles',
     'vacations': 'Vacances scolaires',
     'events': 'Événements',
 }
@@ -102,7 +101,7 @@ class Settings(wx.Dialog):
         source_grid = wx.FlexGridSizer(cols=2, vgap=6, hgap=10)
         source_grid.AddGrowableCol(1)
         for key, label in (('city', 'Ville'), ('postcode', 'Code postal'), ('latitude', 'Latitude (facultatif)'),
-                           ('longitude', 'Longitude (facultatif)'), ('prefecture', 'Source préfectorale HTTPS (.gouv.fr)'),
+                           ('longitude', 'Longitude (facultatif)'),
                            ('agenda', 'Agenda local HTTPS'), ('territories', 'Territoires à afficher (séparés par des virgules)')):
             source_grid.Add(wx.StaticText(sources, label=label), 0, wx.ALIGN_CENTER_VERTICAL)
             control = wx.TextCtrl(sources, value=str(settings.get(key, '')))
@@ -211,8 +210,6 @@ class Settings(wx.Dialog):
         try:
             if values['latitude'] or values['longitude']:
                 data.coordinates(values['latitude'], values['longitude'])
-            if values['prefecture'] and not data.official_url(values['prefecture']):
-                raise ValueError('La source préfectorale doit être une adresse HTTPS .gouv.fr')
             if values['agenda'] and not data.safe_url(values['agenda']):
                 raise ValueError('L’agenda doit être une adresse HTTPS')
         except ValueError as error:
@@ -262,20 +259,9 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
 
         self.base = wx.BoxSizer(wx.VERTICAL)
-        header = wx.BoxSizer(wx.VERTICAL)
         self.title = wx.StaticText(self, label=DateDDEnDateFR(dt.date.today()))
         self.title.SetFont(self.title.GetFont().Bold())
-        header.Add(self.title, 0, wx.EXPAND)
-        settings = wx.Button(self, label='Réglages…')
-        refresh = wx.Button(self, label='Actualiser')
-        toolbar = wx.BoxSizer(wx.HORIZONTAL)
-        toolbar.Add(settings)
-        toolbar.Add(refresh, 0, wx.LEFT, 6)
-        header.Add(toolbar, 0, wx.TOP, 6)
-        self.base.Add(header, 0, wx.EXPAND | wx.ALL, 10)
-
-        self.place = wx.StaticText(self, label='Localisation de l’organisateur')
-        self.base.Add(self.place, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.base.Add(self.title, 0, wx.EXPAND | wx.ALL, 10)
 
         self.block_panels = {}
 
@@ -290,13 +276,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         weather_panel.SetSizer(weather_box)
         self.block_panels['weather'] = weather_panel
 
-        alert_panel = wx.Panel(self)
-        alert_box = section(alert_panel, 'Infos officielles · bulletins récents à vérifier')
-        self.alert_content = wx.BoxSizer(wx.VERTICAL)
-        alert_box.Add(self.alert_content, 0, wx.EXPAND | wx.ALL, 8)
-        alert_panel.SetSizer(alert_box)
-        self.block_panels['alerts'] = alert_panel
-
         vacation_panel = wx.Panel(self)
         vacation_box = section(vacation_panel, 'Vacances scolaires')
         self.vacation = wx.StaticText(vacation_panel, label='Chargement…')
@@ -308,15 +287,8 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
 
         events_panel = wx.Panel(self)
         events_box = section(events_panel, 'Événements à venir')
-        self.book = wx.Notebook(events_panel)
-        self.pages = {}
-        for kind in data.KINDS:
-            page = wx.Panel(self.book)
-            sizer = wx.BoxSizer(wx.VERTICAL)
-            page.SetSizer(sizer)
-            self.book.AddPage(page, kind)
-            self.pages[kind] = (page, sizer)
-        events_box.Add(self.book, 1, wx.EXPAND | wx.ALL, 6)
+        self.events_content = wx.BoxSizer(wx.VERTICAL)
+        events_box.Add(self.events_content, 1, wx.EXPAND | wx.ALL, 6)
         events_panel.SetSizer(events_box)
         self.block_panels['events'] = events_panel
 
@@ -326,8 +298,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._apply_layout()
         self.SetupScrolling(scroll_x=False)
 
-        settings.Bind(wx.EVT_BUTTON, self.OnSettings)
-        refresh.Bind(wx.EVT_BUTTON, lambda event: self.Initialisation(force=True))
         self.detail.Bind(wx.EVT_BUTTON, self.OnDetails)
         self.Bind(wx.EVT_TIMER, lambda event: self.Initialisation(), self._timer)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroy)
@@ -405,10 +375,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
             self.weather.SetLabel(self._weather_text)
         self.weather.Wrap(width)
         self.vacation.Wrap(width)
-        for item in self.alert_content.GetChildren():
-            control = item.GetWindow()
-            if isinstance(control, wx.StaticText):
-                control.Wrap(width)
 
     def OnUserChanged(self):
         """Recharge uniquement la disposition personnelle lors d'un changement d'identifiant."""
@@ -462,7 +428,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
     def _load(self, generation, saved, force, database, layout):
         layout = data.normalize_dashboard_layout(layout)
         result = dict(settings=saved.get('settings', {}), cache=copy.deepcopy(saved.get('cache', {})),
-                      weather_error='', alert_error='', rows=[], bulletins=[])
+                      weather_error='', rows=[])
         try:
             if not database:
                 raise ValueError('Aucune base ouverte')
@@ -478,7 +444,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
                 db.Close()
             cp, city, gps = organiser[0] if organiser else ('', '', '')
             settings = dict(city=city or '', postcode=str(cp or ''), latitude='', longitude='', zone='',
-                            prefecture=data.PREFECTURE_35 if str(cp).startswith('35') else '',
                             agenda=data.AGENDA_35 if str(cp).startswith('35') else '', territories='', events=[])
             if gps and ';' in gps:
                 settings['latitude'], settings['longitude'] = gps.split(';', 1)
@@ -512,14 +477,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
             except Exception as error:
                 result['weather_error'] = 'Météo indisponible : ' + str(error)
 
-        if layout['blocks']['alerts']['visible']:
-            if settings.get('prefecture'):
-                try:
-                    result['bulletins'] = data.fetch_bulletins(settings['prefecture'])
-                except Exception as error:
-                    result['alert_error'] = 'Source préfectorale indisponible : ' + str(error)
-            else:
-                result['alert_error'] = 'Choisir la source de votre préfecture dans les réglages.'
         result['checked'] = dt.datetime.now().strftime('%d/%m/%Y %H:%M')
         if self._alive:
             try:
@@ -536,7 +493,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._settings = result['settings']
         saved = dict(settings=self._settings, cache=result.get('cache', {}))
         UTILS_Config.SetParametre(self._key, saved)
-        self.place.SetLabel('%s %s' % (self._settings.get('city', ''), self._settings.get('postcode', '')))
         rows = result['rows']
         dates = sorted({row['date'] for row in rows})[:3]
         stamp = result.get('cache', {}).get('fetched', '')
@@ -549,17 +505,6 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.weather.SetLabel(self._weather_text)
         self.weather.Wrap(self._column_text_width())
         self.detail.Enable(bool(rows))
-        self.alert_content.Clear(delete_windows=True)
-        notice = result['alert_error'] or ('Aucun bulletin correspondant publié ces 7 derniers jours. Cela ne garantit pas l’absence de vigilance.'
-                                           if not result['bulletins'] else 'Vérifier dans chaque source la validité et le territoire concernés.')
-        alert_parent = self.block_panels['alerts']
-        text = wx.StaticText(alert_parent, label=notice + '\nConsultation : ' + result['checked'])
-        text.Wrap(self._column_text_width())
-        self.alert_content.Add(text, 0, wx.EXPAND)
-        for bulletin in result['bulletins']:
-            self.alert_content.Add(link(alert_parent, bulletin['date'] + ' · ' + bulletin['title'], bulletin['source']), 0, wx.TOP, 5)
-        if self._settings.get('prefecture'):
-            self.alert_content.Add(link(alert_parent, 'Ouvrir la source préfectorale', self._settings['prefecture']), 0, wx.TOP, 5)
         self.render_calendar(result)
         self.render_events()
         self.Layout()
@@ -591,21 +536,46 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.vacation.Wrap(self._column_text_width())
 
     def render_events(self):
-        events = data.upcoming_events(self._settings.get('events', []), self._settings.get('territories', ''))
-        for kind, (page, sizer) in self.pages.items():
-            sizer.Clear(delete_windows=True)
-            selected = [item for item in events if item['kind'] == kind]
-            notice = ('Dates vérifiées auprès des organismes · 30 prochains jours' if kind != 'Local'
-                      else 'Événements saisis après vérification · 30 prochains jours')
-            sizer.Add(wx.StaticText(page, label=notice), 0, wx.ALL, 8)
-            for item in selected[:10]:
-                sizer.Add(link(page, '%s · %s %s' % (item['date'], item['title'], item.get('territory', '')), item['source']), 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
-            if not selected:
-                sizer.Add(wx.StaticText(page, label='Aucun événement renseigné pour cette période et ce territoire.'), 0, wx.ALL, 8)
-            if kind == 'Local' and data.safe_url(self._settings.get('agenda', '')):
-                sizer.Add(link(page, 'Consulter l’agenda local et ajouter les dates utiles dans les réglages', self._settings['agenda']), 0, wx.ALL, 8)
-            page.Layout()
-        self.book.SetMinSize((-1, max(150, max(page.GetSizer().GetMinSize().height for page, _ in self.pages.values()) + 35)))
+        parent = self.block_panels['events']
+        self.events_content.Clear(delete_windows=True)
+
+        public_events = [
+            item for item in data.upcoming_events([], today=dt.date.today(), days=370)
+            if item['kind'] in ('Officiel', 'Insolite')
+        ][:10]
+        for item in public_events:
+            try:
+                date_label = dt.date.fromisoformat(item['date']).strftime('%d/%m/%Y')
+            except (TypeError, ValueError):
+                date_label = item['date']
+            self.events_content.Add(
+                link(parent, '%s · %s · %s' % (date_label, item['title'], item['kind']), item['source']),
+                0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6,
+            )
+        if not public_events:
+            self.events_content.Add(wx.StaticText(parent, label='Aucune date officielle ou insolite renseignée.'), 0, wx.ALL, 6)
+
+        local_events = [
+            item for item in data.upcoming_events(
+                self._settings.get('events', []),
+                self._settings.get('territories', ''),
+                today=dt.date.today(),
+                days=30,
+            )
+            if item['kind'] == 'Local'
+        ]
+        if local_events:
+            local_title = wx.StaticText(parent, label='Local')
+            local_title.SetFont(local_title.GetFont().Bold())
+            self.events_content.Add(local_title, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.BOTTOM, 6)
+            for item in local_events[:5]:
+                territory = (' · ' + item['territory']) if item.get('territory') else ''
+                self.events_content.Add(
+                    link(parent, '%s · %s%s' % (item['date'], item['title'], territory), item['source']),
+                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6,
+                )
+        if data.safe_url(self._settings.get('agenda', '')):
+            self.events_content.Add(link(parent, 'Agenda local', self._settings['agenda']), 0, wx.LEFT | wx.RIGHT | wx.TOP, 6)
 
     def OnSettings(self, event):
         if self._busy:
@@ -621,8 +591,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
                 settings_changed = new_settings != self._settings
                 needs_data = (
                     settings_changed or
-                    (new_layout['blocks']['weather']['visible'] and not old_layout['blocks']['weather']['visible']) or
-                    (new_layout['blocks']['alerts']['visible'] and not old_layout['blocks']['alerts']['visible'])
+                    (new_layout['blocks']['weather']['visible'] and not old_layout['blocks']['weather']['visible'])
                 )
 
                 saved = copy.deepcopy(UTILS_Config.GetParametre(self._key, {}))
