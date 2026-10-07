@@ -662,12 +662,26 @@ class Dialog(wx.Dialog):
         # leur moteur historique afin de ne pas modifier leur sémantique RC2.
         if len(liste_messages) == 1 and self.IsShownOnScreen():
             try:
-                messagerie = UTILS_Envoi_email.Messagerie(
-                    backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
-                    utilisateur=dictExp["utilisateur"], motdepasse=dictExp["motdepasse"],
-                    email_exp=dictExp["adresse"], nom_exp=dictExp["nom_adresse"],
-                    timeout=20, use_tls=dictExp["startTLS"], parametres=dictExp["parametres"],
-                )
+                try:
+                    messagerie = UTILS_Envoi_email.Messagerie(
+                        backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
+                        utilisateur=dictExp["utilisateur"], motdepasse=dictExp["motdepasse"],
+                        email_exp=dictExp["adresse"], nom_exp=dictExp["nom_adresse"],
+                        timeout=20, use_tls=dictExp["startTLS"], parametres=dictExp["parametres"],
+                    )
+                except Exception as err:
+                    self.listeSucces = []
+                    dlg_erreur = DLG_Messagebox.Dialog(
+                        self, titre=_(u"Erreur"),
+                        introduction=_(u"La messagerie ne peut pas être initialisée :"),
+                        detail=_FormateErreurMessagerie(err),
+                        conclusion=_(u"Vérifiez les paramètres de votre adresse d'expédition."),
+                        icone=wx.ICON_ERROR, boutons=[_(u"Ok"),],
+                    )
+                    dlg_erreur.ShowModal()
+                    dlg_erreur.Destroy()
+                    return False
+
                 self._EnvoyerMessageUnique(messagerie, liste_messages[0], parent_progress)
             finally:
                 handler.DeleteTemporaryImages()
