@@ -87,13 +87,12 @@ class EphemeridesTests(unittest.TestCase):
     def test_dashboard_layout_defaults_and_custom_columns(self):
         layout = data.normalize_dashboard_layout()
         self.assertEqual(layout['columns'], 3)
-        self.assertEqual(data.dashboard_columns(layout), [['weather'], ['alerts', 'vacations'], ['events']])
+        self.assertEqual(data.dashboard_columns(layout), [['weather'], ['vacations'], ['events']])
 
         custom = data.normalize_dashboard_layout({
             'columns': 2,
             'blocks': {
                 'weather': {'visible': True, 'column': 2, 'order': 2},
-                'alerts': {'visible': False, 'column': 1, 'order': 1},
                 'vacations': {'visible': True, 'column': 1, 'order': 1},
                 'events': {'visible': True, 'column': 2, 'order': 1},
             },
@@ -108,6 +107,28 @@ class EphemeridesTests(unittest.TestCase):
         self.assertEqual(layout['columns'], 4)
         self.assertEqual(layout['blocks']['weather'], {'visible': False, 'column': 4, 'order': 1})
         self.assertIn('events', layout['blocks'])
+
+    def test_public_events_expose_at_least_ten_upcoming_dates(self):
+        events = [
+            item for item in data.upcoming_events([], today=dt.date(2026, 10, 7), days=370)
+            if item['kind'] in ('Officiel', 'Insolite')
+        ]
+        self.assertGreaterEqual(len(events), 10)
+        self.assertEqual(events, sorted(events, key=lambda item: (item['date'], item['title'])))
+
+    def test_dashboard_ui_is_consultative_and_settings_live_in_menu(self):
+        source = CTRL.read_text(encoding="utf-8")
+        self.assertNotIn("label='Réglages…'", source)
+        self.assertNotIn("label='Actualiser'", source)
+        self.assertNotIn("self.place =", source)
+        self.assertNotIn("Infos officielles", source)
+        self.assertNotIn("wx.Notebook(events_panel)", source)
+        self.assertIn("self.events_content = wx.BoxSizer(wx.VERTICAL)", source)
+        self.assertIn("self._timer.Start(30 * 60 * 1000)", source)
+
+        noethys = NOETHYS.read_text(encoding="utf-8")
+        self.assertIn('label" : _(u"Personnaliser Aujourd’hui…")', noethys)
+        self.assertIn("self.ctrl_ephemeride.OnSettings(event)", noethys)
 
     def test_cache_is_scoped_and_expires(self):
         now = dt.datetime(2026, 10, 3, tzinfo=dt.timezone.utc)
