@@ -615,12 +615,14 @@ class Dialog(wx.Dialog):
     
     def EnvoyerAvisDepots(self):
         """ Envoi des avis de dépôt par Email aux familles """                        
+        from Utils import UTILS_Envoi_email
         # Recherche des adresses des individus
         DB = GestionDB.DB()
         req = """SELECT individus.IDindividu, mail, travail_mail
         FROM individus;"""
         DB.ExecuterReq(req)
         listeAdressesIndividus = DB.ResultatReq()
+        rattachements = UTILS_Envoi_email.GetRattachementsFamilles(DB)
         DB.Close() 
         dictAdressesIndividus = {}
         for IDindividu, mail, travail_mail in listeAdressesIndividus :
@@ -635,13 +637,9 @@ class Dialog(wx.Dialog):
             if track.email_depots != None and track.inclus == True :
                 
                 # Recherche de l'adresse d'envoi
-                IDindividu, categorie, adresse = track.email_depots.split(";")
-                if IDindividu != "" :
-                    try :
-                        if int(IDindividu) in dictAdressesIndividus :
-                            adresse = dictAdressesIndividus[int(IDindividu)][categorie]
-                    except :
-                        adresse = u""
+                # Adresse non résolue -> None : la ligne apparaît avec une
+                # adresse inconnue dans la sélection (jamais d'adresse vide).
+                adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(track.email_depots, dictAdressesIndividus, track.IDfamille, rattachements)
                 
                 # Noms des titulaires de la famille
                 nomTitulaires = dictTitulaires[track.IDfamille]["titulairesSansCivilite"]
