@@ -169,11 +169,12 @@ class Dialog(wx.Dialog):
         FROM individus;"""
         DB.ExecuterReq(req)
         listeAdressesIndividus = DB.ResultatReq()
-        DB.Close() 
+        rattachements = UTILS_Envoi_email.GetRattachementsFamilles(DB)
+        DB.Close()
         dictAdressesIndividus = {}
         for IDindividu, mail, travail_mail in listeAdressesIndividus :
             dictAdressesIndividus[IDindividu] = {"perso" : mail, "travail" : travail_mail}
-                
+
         # Récupération des données adresse + champs + pièces
         listeDonnees = []
         listeAnomalies = []
@@ -182,13 +183,12 @@ class Dialog(wx.Dialog):
             liste_adresses = []
 
             if track.email == True :
-                # Si Famille inscrite à l'envoi par Email :
-                for valeur in track.email_factures.split("##"):
-                    IDindividu, categorie, adresse = valeur.split(";")
-                    if IDindividu != "" :
-                        if int(IDindividu) in dictAdressesIndividus :
-                            adresse = dictAdressesIndividus[int(IDindividu)][categorie]
-                            liste_adresses.append(adresse)
+                # Si Famille inscrite à l'envoi par Email : une adresse
+                # configurée non résolue n'est jamais écartée en silence.
+                for valeur in (track.email_factures or u"").split("##"):
+                    adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(valeur, dictAdressesIndividus, track.IDfamille, rattachements)
+                    if adresse == None :
+                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, motif))
                     else :
                         liste_adresses.append(adresse)
 
@@ -209,13 +209,15 @@ class Dialog(wx.Dialog):
                         if track.email == False :
                             if track.nomsTitulaires not in listeEnvoiNonDemande :
                                 listeEnvoiNonDemande.append(track.nomsTitulaires)
+                    else :
+                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, _(u"document PDF non généré")))
                 else :
                     listeAnomalies.append(track.nomsTitulaires)
 
         
         # Annonce les anomalies trouvées
         if len(listeAnomalies) > 0 :
-            dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d des familles sélectionnées n'ont pas d'adresse Email :" % len(listeAnomalies),
+            dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d destinataire(s) des familles sélectionnées n'ont pas d'adresse Email utilisable (aucun envoi ne leur sera fait) :" % len(listeAnomalies),
                                         detail=u"".join([u"- %s\n" % nom for nom in listeAnomalies]), conclusion=u"Souhaitez-vous quand même continuer avec les %d autres familles ?" % len(listeDonnees),
                                         icone=wx.ICON_WARNING, boutons=[_(u"Oui"), _(u"Non"), _(u"Annuler")])
             reponse = dlg.ShowModal()

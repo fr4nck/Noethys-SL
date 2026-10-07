@@ -148,6 +148,45 @@ def GetAdresseExp(IDadresse=None):
                    "smtp":smtp, "port":port, "auth" : auth, "startTLS":startTLS, "utilisateur" : utilisateur, "parametres": parametres}
     return dictAdresse
 
+def ResoudreAdresseConfiguree(valeur=u"", dictAdressesIndividus={}, IDfamille=None, rattachements=None):
+    """ Résout une configuration d'envoi par email d'une famille, au format
+    "IDindividu;categorie;adresse" (cf. DLG_Selection_email.GetValeur) :
+    - membre de la famille : "IDindividu;perso|travail;" (adresse vide) ;
+    - adresse libre : ";;adresse".
+
+    Retourne (adresse, None) si une adresse est utilisable, sinon
+    (None, motif) : la famille ne doit alors jamais disparaître du lot sans
+    être signalée. rattachements (ensemble de (IDindividu, IDfamille)) est
+    optionnel : s'il est fourni, un membre qui n'est plus rattaché à la
+    famille est refusé au lieu de recevoir le document de cette famille. """
+    try :
+        IDindividu, categorie, adresse = (valeur or u"").split(";")
+    except ValueError :
+        return None, _(u"configuration d'envoi illisible")
+
+    if IDindividu != "" :
+        try :
+            IDindividu = int(IDindividu)
+        except ValueError :
+            return None, _(u"configuration d'envoi illisible")
+        if IDindividu not in dictAdressesIndividus :
+            return None, _(u"destinataire configuré introuvable")
+        if rattachements is not None and IDfamille is not None and (IDindividu, IDfamille) not in rattachements :
+            return None, _(u"destinataire configuré n'est plus rattaché à la famille")
+        adresse = dictAdressesIndividus[IDindividu].get(categorie, None)
+
+    adresse = (adresse or u"").strip()
+    if adresse == u"" :
+        return None, _(u"adresse email vide")
+    return adresse, None
+
+
+def GetRattachementsFamilles(DB):
+    """ Ensemble des (IDindividu, IDfamille) rattachés, pour ResoudreAdresseConfiguree(). """
+    DB.ExecuterReq("""SELECT IDindividu, IDfamille FROM rattachements;""")
+    return set((IDindividu, IDfamille) for IDindividu, IDfamille in DB.ResultatReq())
+
+
 def GetAdresseFamille(IDfamille=None, choixMultiple=True, muet=False, nomTitulaires=None):
     """ Récupère l'adresse email de la famille """
     # Récupération du nom de la famille
