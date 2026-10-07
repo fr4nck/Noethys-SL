@@ -401,7 +401,9 @@ class DownloadDataTests(_BaseDB):
 
     def test_https_certificat_autosigne(self):
         """Certificat invalide : échec propre si accept_all_cert=False ;
-        accepté (et désactivé pour tout le processus) si True."""
+        accepté pour Connecthys si True (compatibilité conservée), quel que
+        soit l'ordre des appels et la version de Python, SANS désactiver la
+        vérification pour le reste du processus (X-03 corrigé, rail 1)."""
         try:
             certfile = _certificat_autosigne(self.tmp.name)
         except Exception as err:
@@ -419,18 +421,12 @@ class DownloadDataTests(_BaseDB):
                 url = "https://127.0.0.1:%d" % srv.port
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertFalse(self._synchro(url).Download_data())
-                # Processus neuf : accept_all_cert=True AVANT tout urlopen
-                # -> certificat invalide accepté.
-                self.assertEqual(_sous_processus_tls(url, premier_urlopen_verifie=False), "True")
-                # Processus neuf : un urlopen vérifié a déjà eu lieu, puis
-                # accept_all_cert=True. Résultat dépendant de la version de
-                # Python (urllib met en cache le contexte TLS de l'opener
-                # global depuis 3.13 : HTTPSHandler.__init__ appelle
-                # http.client._create_https_context).
-                import inspect, urllib.request
-                cache = "_create_https_context" in inspect.getsource(urllib.request.HTTPSHandler.__init__)
-                attendu = "False" if cache else "True"
-                self.assertEqual(_sous_processus_tls(url, premier_urlopen_verifie=True), attendu)
+                # Processus neuf : accept_all_cert=True -> certificat accepté
+                # pour Connecthys, contexte global intact.
+                self.assertEqual(_sous_processus_tls(url, premier_urlopen_verifie=False), "True GLOBAL_INTACT")
+                # Même résultat après un premier urlopen vérifié (plus de
+                # dépendance au cache de l'opener urllib selon la version).
+                self.assertEqual(_sous_processus_tls(url, premier_urlopen_verifie=True), "True GLOBAL_INTACT")
         finally:
             ssl._create_default_https_context = ctx_defaut
 
@@ -449,7 +445,9 @@ with contextlib.redirect_stdout(io.StringIO()):
         U.Synchro(dict_parametres=dict(p), log=L()).Upgrade_application()
     p["accept_all_cert"] = True
     r = U.Synchro(dict_parametres=p, log=L()).Upgrade_application()
-sys.stderr.write("RESULTAT=%s\n" % r)
+import ssl
+intact = ssl._create_default_https_context is not ssl._create_unverified_context
+sys.stderr.write("RESULTAT=%s %s\n" % (r, "GLOBAL_INTACT" if intact else "GLOBAL_MODIFIE"))
 """
 
 
@@ -535,12 +533,25 @@ class TransportsTests(unittest.TestCase):
     def tearDown(self):
         ssl._create_default_https_context = self._ctx
 
-    def test_accept_all_cert_desactive_tls_pour_tout_le_processus(self):
-        UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro("x", accept_all_cert=True), log=FauxLog())
-        self.assertIs(ssl._create_default_https_context, ssl._create_unverified_context)
-        # Une instance ultérieure avec accept_all_cert=False ne restaure rien
-        UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro("x", accept_all_cert=False), log=FauxLog())
-        self.assertIs(ssl._create_default_https_context, ssl._create_unverified_context)
+    def test_accept_all_cert_reste_local_a_connecthys(self):
+        """X-03 corrigé (rail 1) : l'option ne modifie plus le contexte TLS
+        global ; elle produit un contexte non vérifié propre à Connecthys."""
+        avant = ssl._create_default_https_context
+        s = UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro("x", accept_all_cert=True), log=FauxLog())
+        self.assertIs(ssl._create_default_https_context, avant)
+        self.assertEqual(s.contexte_ssl.verify_mode, ssl.CERT_NONE)
+        s2 = UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro("x", accept_all_cert=False), log=FauxLog())
+        self.assertIsNone(s2.contexte_ssl)
+        self.assertIs(ssl._create_default_https_context, avant)
+
+    def test_urlopen_inchange_sans_l_option(self):
+        """Sans accept_all_cert, l'appel urlopen(req) est strictement celui
+        d'origine (aucun argument ajouté)."""
+        appels = []
+        with mock.patch.object(UTILS_Portail_synchro, "urlopen", side_effect=lambda *a, **k: appels.append((a, k))):
+            UTILS_Portail_synchro.UrlopenConnecthys("REQ", None)
+            UTILS_Portail_synchro.UrlopenConnecthys("REQ", "CTX")
+        self.assertEqual(appels, [(("REQ",), {}), (("REQ",), {"context": "CTX"})])
 
     def _ssh_mock(self):
         client = mock.MagicMock(name="SSHClient")
@@ -732,32 +743,38 @@ class CryptageFichierTests(unittest.TestCase):
 @unittest.skipUnless(IMPORT_OK, "wx indisponible")
 class InstallationTests(unittest.TestCase):
 
-    def test_boucle_infinie_si_taille_inconnue(self):
-        """num_essai n'est jamais incrémenté (l.448-455) : hors ligne ou
-        sans Content-Length, Installer() boucle indéfiniment sur le thread UI."""
+    def test_essais_bornes_si_taille_inconnue(self):
+        """CNX-10 corrigé (rail 1) : hors ligne ou sans Content-Length,
+        Installer() fait 3 essais bornés puis s'arrête avec un message
+        explicite (avant : boucle infinie sur le thread UI). Aucun
+        téléchargement n'est tenté ; URL et archive inchangées."""
         inst = UTILS_Portail_installation.Installer.__new__(UTILS_Portail_installation.Installer)
         inst.parent = FauxLog()
         inst.dict_parametres = {}
         inst.url_telechargement = "http://127.0.0.1:9/master.zip"
-        inst.dlgprogress = None
-        sommeils = []
+        sommeils, messages = [], []
 
-        class Stop(BaseException):
-            pass
+        def faux_dialogue(parent, message, *a, **k):
+            messages.append(message)
+            dlg = mock.MagicMock()
+            dlg.ShowModal.return_value = UTILS_Portail_installation.wx.ID_YES
+            return dlg
 
-        def faux_sleep(n):
-            sommeils.append(n)
-            if len(sommeils) >= 20:
-                raise Stop()
+        taille = mock.MagicMock(return_value=0)
+        with mock.patch.object(UTILS_Portail_installation.wx, "MessageDialog", side_effect=faux_dialogue), \
+                mock.patch.object(UTILS_Portail_installation, "AffichetailleFichier", taille), \
+                mock.patch.object(inst, "Telecharger") as telecharger, \
+                mock.patch.object(UTILS_Portail_installation.time, "sleep", side_effect=sommeils.append):
+            self.assertIs(inst.Installer(), False)
+        self.assertEqual(taille.call_count, 3)
+        self.assertEqual(sommeils, [1, 1, 2])
+        telecharger.assert_not_called()
+        self.assertIn(u"Impossible de trouver le source de Connecthys sur internet", messages[-1])
 
-        dlg = mock.MagicMock()
-        dlg.ShowModal.return_value = UTILS_Portail_installation.wx.ID_YES
-        with mock.patch.object(UTILS_Portail_installation.wx, "MessageDialog", return_value=dlg), \
-                mock.patch.object(UTILS_Portail_installation, "AffichetailleFichier", return_value=0), \
-                mock.patch.object(UTILS_Portail_installation.time, "sleep", side_effect=faux_sleep):
-            with self.assertRaises(Stop):
-                inst.Installer()
-        self.assertEqual(len(sommeils), 20)
+    def test_taille_fichier_avec_timeout(self):
+        with mock.patch.object(UTILS_Portail_installation, "urlopen", side_effect=OSError("timed out")) as u:
+            self.assertEqual(UTILS_Portail_installation.AffichetailleFichier("http://x/master.zip"), 0)
+        self.assertEqual(u.call_args.kwargs.get("timeout"), 30)
 
     def test_dezipper_zip_slip(self):
         inst = UTILS_Portail_installation.Installer.__new__(UTILS_Portail_installation.Installer)
@@ -777,7 +794,7 @@ class InstallationTests(unittest.TestCase):
         self.assertEqual(inst.url_telechargement, "https://github.com/Noethys/Connecthys/archive/master.zip")
         import inspect
         src = inspect.getsource(UTILS_Portail_installation)
-        for motif in ("sha256", "hashlib", "signature", "timeout"):
+        for motif in ("sha256", "hashlib", "signature"):
             self.assertNotIn(motif, src)
 
     def test_arret_local_tue_tout_processus_python_run_py(self):
@@ -812,7 +829,11 @@ class ThreadSynchroTests(unittest.TestCase):
     def test_thread_non_daemon(self):
         self.assertFalse(CTRL_Portail_serveur.Serveur(parent=FauxLog()).daemon)
 
-    def test_maj_bouton_appele_depuis_le_thread_worker(self):
+    def test_maj_bouton_execute_sur_le_thread_wx(self):
+        """CNX-14 corrigé (rail 1) : depuis le worker, MAJ_bouton() est
+        déporté sur le thread wx par wx.CallAfter."""
+        import wx
+        app = wx.GetApp() or wx.App(False)
         threads = []
 
         class Parent(FauxLog):
@@ -831,8 +852,13 @@ class ThreadSynchroTests(unittest.TestCase):
             t = threading.Thread(target=serveur.EffectuerCycle)
             t.start()
             t.join(5)
-        self.assertEqual(len(threads), 1)
-        self.assertIsNot(threads[0], threading.main_thread())
+        self.assertEqual(threads, [])          # rien d'exécuté depuis le worker
+        for _ in range(50):
+            app.ProcessPendingEvents()
+            if threads:
+                break
+            time.sleep(0.02)
+        self.assertEqual(threads, [threading.main_thread()])
 
     def test_panel_maj_bouton_touche_les_widgets_sans_callafter(self):
         import inspect

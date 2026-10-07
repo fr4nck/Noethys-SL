@@ -29,6 +29,14 @@ CUSTOMIZE = UTILS_Customize.Customize()
 class Abort(Exception):
     pass
 
+def AppelerSurThreadUI(fonction, *args, **kwds):
+    """ Exécute fonction sur le thread wx : directement si l'on y est déjà
+    (ou sans wx.App, cas des tests), sinon via wx.CallAfter. """
+    if wx.GetApp() is None or wx.IsMainThread() :
+        return fonction(*args, **kwds)
+    wx.CallAfter(fonction, *args, **kwds)
+
+
 class Serveur(Thread):
     def __init__(self, parent):
         Thread.__init__(self)
@@ -128,7 +136,20 @@ class Serveur(Thread):
             finally:
                 self.synchro_en_cours = False
                 self.parent.SetImage("on")
-                self.parent.MAJ_bouton()
+                # MAJ_bouton() modifie des widgets (libellé, couleur, icône
+                # de la barre des tâches) : il doit s'exécuter sur le thread
+                # wx, comme SetImage/EcritLog/SetGauge (#376).
+                AppelerSurThreadUI(self._MAJ_bouton_si_vivant)
+
+    def _MAJ_bouton_si_vivant(self):
+        """ Exécuté sur le thread wx : ignore un panneau déjà détruit
+        (fermeture de Noethys pendant une synchro). """
+        try :
+            if not self.parent :
+                return
+        except RuntimeError :
+            return
+        self.parent.MAJ_bouton()
 
 
     def abort(self):
