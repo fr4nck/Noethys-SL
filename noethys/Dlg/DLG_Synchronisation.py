@@ -40,46 +40,103 @@ from Ol import OL_Synchronisation_fichiers
 
 
 
-def AnalyserFichier(nomFichier="", tailleFichier=None, typeTransfert=None):
+# Suffixe des fichiers de synchronisation reçus dont l'analyse a échoué :
+# ils sont conservés (jamais supprimés) pour diagnostic ou reprise.
+EXTENSION_QUARANTAINE = ".echec"
+
+
+def MettreEnQuarantaine(cheminFichier=""):
+    """ Renomme un fichier reçu inexploitable en <nom>.echec au lieu de le
+    supprimer. Retourne le nouveau chemin, ou None. """
+    if not os.path.isfile(cheminFichier) :
+        return None
+    destination = cheminFichier + EXTENSION_QUARANTAINE
+    try :
+        if os.path.isfile(destination) :
+            os.remove(destination)
+        os.rename(cheminFichier, destination)
+        return destination
+    except OSError as err :
+        print("Mise en quarantaine impossible :", err)
+        return None
+
+
+def AnalyserFichier(nomFichier="", tailleFichier=None, typeTransfert=None, anomalies=None):
+    """ Contrôle, déchiffre et décompresse un fichier d'actions reçu, puis
+    produit le .dat proposé à l'importation. Retourne True seulement si le
+    .dat exploitable existe. En cas d'échec, rien n'est supprimé : le
+    fichier reçu est mis en quarantaine (.echec) et le motif est ajouté à
+    anomalies (liste de (nomFichier, motif)) si elle est fournie. """
     cheminFichier = UTILS_Fichiers.GetRepSync(nomFichier)
-    listeAnomalies = []
-    
+
+    def Echec(motif, chemin_a_conserver=None):
+        if chemin_a_conserver :
+            MettreEnQuarantaine(chemin_a_conserver)
+        if anomalies is not None :
+            anomalies.append((nomFichier, motif))
+        print("Analyse du fichier de synchronisation %s impossible : %s" % (nomFichier, motif))
+        return False
+
     # Vérification de la taille du fichier
     if tailleFichier != None :
         tailleFinaleFichier = os.path.getsize(cheminFichier)
         if tailleFichier != tailleFinaleFichier :
-            listeAnomalies.append((nomFichier, _(u"Le fichier n'a pas été téléchargé en intégralité (%d/%d)") % (tailleFichier, tailleFinaleFichier)))
-            os.remove(cheminFichier)
-            return False
-        
-    # Décryptage du fichier
+            return Echec(_(u"Le fichier n'a pas été reçu en intégralité (%d/%d octets)") % (tailleFinaleFichier, tailleFichier), cheminFichier)
+
+    # Décryptage du fichier (l'original n'est supprimé qu'après succès)
     if nomFichier.endswith(UTILS_Export_nomade.EXTENSION_CRYPTE) :
         nouveauCheminFichier = cheminFichier.replace(UTILS_Export_nomade.EXTENSION_CRYPTE, UTILS_Export_nomade.EXTENSION_DECRYPTE)
         mdp = base64.b64decode(UTILS_Config.GetParametre("synchro_cryptage_mdp", defaut=""))
         if six.PY3:
             mdp = mdp.decode()
-        resultat = UTILS_Cryptage_fichier.DecrypterFichier(cheminFichier, nouveauCheminFichier, mdp)
-        os.remove(cheminFichier)
+        try :
+            UTILS_Cryptage_fichier.DecrypterFichier(cheminFichier, nouveauCheminFichier, mdp, autoriser_ancien_format=False)
+        except Exception as err :
+            if os.path.isfile(nouveauCheminFichier) :
+                os.remove(nouveauCheminFichier)
+            return Echec(_(u"Déchiffrement impossible : %s") % err, cheminFichier)
     else :
         nouveauCheminFichier = cheminFichier
-        
+
     # Décompression du fichier
     if zipfile.is_zipfile(nouveauCheminFichier) == False :
-        listeAnomalies.append((nomFichier, _(u"Le fichier compressé ne semble pas valide.")))
-        return False        
-    
-    fichierZip = zipfile.ZipFile(nouveauCheminFichier, "r")
-    buffer = fichierZip.read("database.dat")
-    f = open(nouveauCheminFichier.replace(UTILS_Export_nomade.EXTENSION_DECRYPTE, ".dat"), "wb")
-    #print "Ecriture du fichier ", nouveauCheminFichier.replace(UTILS_Export_nomade.EXTENSION_DECRYPTE, ".dat")
-    f.write(buffer)
-    f.close()
-    fichierZip.close()
+        if nouveauCheminFichier != cheminFichier and os.path.isfile(nouveauCheminFichier) :
+            os.remove(nouveauCheminFichier)
+        return Echec(_(u"Le fichier n'est pas exploitable (mot de passe de chiffrement différent ou fichier corrompu)."), cheminFichier)
+
+    cheminDat = nouveauCheminFichier.replace(UTILS_Export_nomade.EXTENSION_DECRYPTE, ".dat")
+    try :
+        fichierZip = zipfile.ZipFile(nouveauCheminFichier, "r")
+        try :
+            buffer = fichierZip.read("database.dat")
+        finally :
+            fichierZip.close()
+        # Écriture atomique : jamais de .dat partiel proposé à l'import
+        with open(cheminDat + ".tmp", "wb") as f :
+            f.write(buffer)
+        os.replace(cheminDat + ".tmp", cheminDat)
+    except Exception as err :
+        if os.path.isfile(cheminDat + ".tmp") :
+            os.remove(cheminDat + ".tmp")
+        if nouveauCheminFichier != cheminFichier and os.path.isfile(nouveauCheminFichier) :
+            os.remove(nouveauCheminFichier)
+        return Echec(_(u"Archive illisible : %s") % err, cheminFichier)
+
+    # Succès : suppression des fichiers intermédiaires seulement maintenant
     os.remove(nouveauCheminFichier)
-        
-    #print "listeAnomalies=", listeAnomalies
-    
+    if nouveauCheminFichier != cheminFichier and os.path.isfile(cheminFichier) :
+        os.remove(cheminFichier)
     return True
+
+
+def MessageAnomaliesReception(anomalies=[], conclusion=u""):
+    """ Texte listant les fichiers reçus non exploitables. """
+    lignes = [u"- %s : %s" % (nom, motif) for nom, motif in anomalies]
+    texte = _(u"%d fichier(s) de synchronisation n'ont pas pu être analysés :\n\n%s") % (len(anomalies), u"\n".join(lignes))
+    texte += u"\n\n" + _(u"Ils sont conservés en quarantaine (extension %s) dans le répertoire de synchronisation.") % EXTENSION_QUARANTAINE
+    if conclusion :
+        texte += u"\n" + conclusion
+    return texte
 
 
 
@@ -702,10 +759,15 @@ class Dialog(wx.Dialog):
             shutil.copyfile(chemin, UTILS_Fichiers.GetRepSync(nomFichier))
             # Analyse du fichier
             dlgAttente = wx.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
-            resultat = AnalyserFichier(nomFichier, typeTransfert="manuel") 
+            anomalies = []
+            resultat = AnalyserFichier(nomFichier, typeTransfert="manuel", anomalies=anomalies)
             del dlgAttente
             if resultat == True :
                 dlg = wx.MessageDialog(self, _(u"Le fichier a été réceptionné avec succès !"), u"Succès", wx.OK | wx.ICON_INFORMATION)
+                dlg.ShowModal()
+                dlg.Destroy()
+            else :
+                dlg = wx.MessageDialog(self, MessageAnomaliesReception(anomalies, _(u"Le fichier d'origine que vous avez sélectionné n'a pas été modifié.")), u"Erreur", wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
                 dlg.Destroy()
 
@@ -750,20 +812,53 @@ class Dialog(wx.Dialog):
         
         del dlgAttente
             
-        # Analyse du fichier
-        ftp = ftplib.FTP(hote, identifiant, mdp)
-        ftp.cwd(repertoire)
+        # Analyse des fichiers. Contrat : téléchargement -> validation ->
+        # déchiffrement -> .dat exploitable, ALORS seulement suppression du
+        # fichier distant. En cas d'échec, le fichier distant est conservé
+        # (reprise possible) et la copie locale est mise en quarantaine.
+        anomalies = []
+        non_supprimes = []
+        try :
+            ftp = ftplib.FTP(hote, identifiant, mdp)
+            ftp.cwd(repertoire)
+        except Exception as err :
+            print(err)
+            ftp = None
 
         for nomFichier, tailleFichier in listeFichiersRecus :
             # Analyse du fichier
             dlgAttente = wx.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
-            resultat = AnalyserFichier(nomFichier=nomFichier, tailleFichier=tailleFichier, typeTransfert="ftp")
+            resultat = AnalyserFichier(nomFichier=nomFichier, tailleFichier=tailleFichier, typeTransfert="ftp", anomalies=anomalies)
             del dlgAttente
-            
-            # Suppression du fichier dans le répertoire FTP
-            ftp.delete(nomFichier) 
-            
-        ftp.quit()
+
+            # Suppression du fichier dans le répertoire FTP uniquement si
+            # l'analyse a produit un fichier exploitable
+            if resultat == True :
+                try :
+                    if ftp is None :
+                        raise IOError(_(u"connexion FTP perdue"))
+                    ftp.delete(nomFichier)
+                except Exception as err :
+                    print(err)
+                    non_supprimes.append(nomFichier)
+
+        if ftp is not None :
+            try :
+                ftp.quit()
+            except Exception as err :
+                print(err)
+
+        # Compte rendu explicite des échecs
+        if anomalies or non_supprimes :
+            texte = u""
+            if anomalies :
+                texte = MessageAnomaliesReception(anomalies, _(u"Ils n'ont pas été supprimés du serveur FTP : la réception pourra être relancée."))
+            if non_supprimes :
+                if texte : texte += u"\n\n"
+                texte += _(u"%d fichier(s) ont été réceptionnés mais n'ont pas pu être supprimés du serveur FTP : ils seront de nouveau proposés lors de la prochaine réception.") % len(non_supprimes)
+            dlg = wx.MessageDialog(self, texte, _(u"Réception FTP"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
         
         # MAJ de la liste des fichiers
         self.ctrl_fichiers.MAJ()

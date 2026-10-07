@@ -7,7 +7,10 @@ fichier de production : les fonctions sont extraites par AST et exécutées
 avec des dépendances factices (pas de wx, pas de Twisted, pas d'Internet,
 ftplib.FTP remplacé par un faux).
 
-Un test qui « passe » ici signifie « l'anomalie décrite est reproduite ».
+Un test qui « passe » ici signifie « l'anomalie décrite est reproduite »,
+SAUF pour les anomalies corrigées au rail 1 (NOM-02, NOM-03, NOM-04, X-01
+côté réception réseau, NOM-10 partiel), dont les tests vérifient désormais
+l'absence du défaut.
 """
 from __future__ import annotations
 
@@ -180,6 +183,7 @@ class BaseSync(unittest.TestCase):
             "UTILS_Export_nomade": types.SimpleNamespace(EXTENSION_CRYPTE=".nsc", EXTENSION_DECRYPTE=".nsd"),
             "UTILS_Cryptage_fichier": self.crypt,
             "FonctionsPerso": types.SimpleNamespace(GetIDfichier=lambda: idfichier),
+            "EXTENSION_QUARANTAINE": ".echec",
         }
 
     def faux_dialog(self):
@@ -250,21 +254,57 @@ class CryptageTests(BaseSync):
 
 class AnalyserFichierTests(BaseSync):
     def analyser(self):
-        return charger(SRC_SYNCHRO, ["AnalyserFichier"], self.espace_synchro())["AnalyserFichier"]
+        return charger(SRC_SYNCHRO, ["MettreEnQuarantaine", "AnalyserFichier"],
+                       self.espace_synchro())["AnalyserFichier"]
 
-    def test_mauvais_mdp_supprime_le_nsc_et_retourne_false(self):
+    def test_mauvais_mdp_conserve_l_original_en_quarantaine(self):
+        """NOM-04 corrigé : l'original n'est plus supprimé, aucun déchet
+        .nsd, motif explicite."""
         nom = "actions_IDF1_20261007120000.nsc"
         open(os.path.join(self.sync, nom), "wb").write(self.nsc_chiffre(nom, MDP_TABLETTE))
-        self.assertFalse(self.analyser()(nom, typeTransfert="manuel"))
-        self.assertFalse(os.path.exists(os.path.join(self.sync, nom)))          # original perdu
-        self.assertTrue(os.path.exists(os.path.join(self.sync, nom[:-4] + ".nsd")))  # déchet
+        anomalies = []
+        self.assertFalse(self.analyser()(nom, typeTransfert="manuel", anomalies=anomalies))
+        self.assertTrue(os.path.exists(os.path.join(self.sync, nom + ".echec")))   # conservé
+        self.assertFalse(os.path.exists(os.path.join(self.sync, nom[:-4] + ".nsd")))
         self.assertFalse(os.path.exists(os.path.join(self.sync, nom[:-4] + ".dat")))
+        self.assertEqual(len(anomalies), 1)
+        self.assertIn(u"mot de passe", anomalies[0][1])
 
-    def test_taille_incorrecte_supprime_le_fichier_local(self):
+    def test_taille_incorrecte_conserve_en_quarantaine(self):
         nom = "actions_IDF1_20261007120000.nsd"
         fabriquer_zip_actions(os.path.join(self.sync, nom))
-        self.assertFalse(self.analyser()(nom, tailleFichier=1, typeTransfert="ftp"))
-        self.assertFalse(os.path.exists(os.path.join(self.sync, nom)))
+        anomalies = []
+        self.assertFalse(self.analyser()(nom, tailleFichier=1, typeTransfert="ftp", anomalies=anomalies))
+        self.assertTrue(os.path.exists(os.path.join(self.sync, nom + ".echec")))
+        self.assertIn(u"intégralité", anomalies[0][1])
+
+    def test_ancien_format_pickle_refuse_en_reception(self):
+        """X-01 corrigé côté réseau : un .nsc sans en-tête SV2 n'est jamais
+        désérialisé (aucun code exécuté), il est mis en quarantaine."""
+        marqueur = "AUDIT_NOMADHYS_PICKLE_RX_%d" % os.getpid()
+        os.environ.pop(marqueur, None)
+
+        class Charge(object):
+            def __reduce__(self):
+                return (exec, ("import os; os.environ[%r] = '1'" % marqueur,))
+
+        nom = "actions_IDF1_20261007120000.nsc"
+        with open(os.path.join(self.sync, nom), "wb") as f:
+            pickle.dump(Charge(), f)
+        try:
+            anomalies = []
+            self.assertFalse(self.analyser()(nom, anomalies=anomalies))
+            self.assertIsNone(os.environ.get(marqueur))
+            self.assertIn(u"SV2", anomalies[0][1])
+            self.assertTrue(os.path.exists(os.path.join(self.sync, nom + ".echec")))
+        finally:
+            os.environ.pop(marqueur, None)
+
+    def test_succes_supprime_les_intermediaires_et_produit_le_dat(self):
+        nom = "actions_IDF1_20261007120000.nsc"
+        open(os.path.join(self.sync, nom), "wb").write(self.nsc_chiffre(nom, MDP_NOETHYS))
+        self.assertTrue(self.analyser()(nom))
+        self.assertEqual(sorted(os.listdir(self.sync)), [nom[:-4] + ".dat"])
 
     def test_nsd_en_clair_accepte_meme_si_cryptage_active(self):
         self.config["synchro_cryptage_activer"] = True
@@ -281,7 +321,7 @@ class AnalyserFichierTests(BaseSync):
 class RecevoirFTPTests(BaseSync):
     def recevoir(self, idfichier="IDF1"):
         espace = self.espace_synchro(idfichier)
-        charger(SRC_SYNCHRO, ["AnalyserFichier"], espace)
+        charger(SRC_SYNCHRO, ["MettreEnQuarantaine", "AnalyserFichier", "MessageAnomaliesReception"], espace)
         charger(SRC_SYNCHRO, ["RecevoirFTP", "On_outils_purger_ftp"], espace, conteneur="Dialog")
         return espace
 
@@ -293,15 +333,31 @@ class RecevoirFTPTests(BaseSync):
             self.assertNotIn("timeout", inst.kwds)
             self.assertEqual(len(inst.args), 3)   # (hote, identifiant, mdp) : ftplib.FTP, pas FTP_TLS
 
-    def test_echec_dechiffrement_puis_suppression_distante_perte_totale(self):
+    def test_echec_dechiffrement_conserve_distant_et_local(self):
+        """NOM-03 corrigé : le fichier distant n'est supprimé qu'après une
+        analyse réussie ; la copie locale est en quarantaine ; message."""
         nom = "actions_IDF1_20261007120000.nsc"
         FauxFTP.fichiers[nom] = self.nsc_chiffre(nom, MDP_TABLETTE)
         espace = self.recevoir()
         espace["RecevoirFTP"](self.faux_dialog())
-        self.assertNotIn(nom, FauxFTP.fichiers)                         # supprimé à distance
-        self.assertFalse(os.path.exists(os.path.join(self.sync, nom)))  # supprimé localement
+        self.assertIn(nom, FauxFTP.fichiers)                                    # conservé à distance
+        self.assertTrue(os.path.exists(os.path.join(self.sync, nom + ".echec")))  # quarantaine locale
         self.assertFalse(os.path.exists(os.path.join(self.sync, nom[:-4] + ".dat")))
-        self.assertEqual(self.wx.messages, [])                          # aucun avertissement
+        self.assertEqual(len(self.wx.messages), 1)
+        self.assertIn(nom, self.wx.messages[0])
+        self.assertIn(u"pourra être relancée", self.wx.messages[0])
+
+    def test_reprise_apres_correction_du_mot_de_passe(self):
+        """Après échec, une nouvelle réception (bon mot de passe) aboutit et
+        supprime alors le fichier distant : aucune perte."""
+        nom = "actions_IDF1_20261007120000.nsc"
+        FauxFTP.fichiers[nom] = self.nsc_chiffre(nom, MDP_TABLETTE)
+        espace = self.recevoir()
+        espace["RecevoirFTP"](self.faux_dialog())
+        self.config["synchro_cryptage_mdp"] = base64.b64encode(MDP_TABLETTE.encode())
+        espace["RecevoirFTP"](self.faux_dialog())
+        self.assertNotIn(nom, FauxFTP.fichiers)
+        self.assertTrue(os.path.exists(os.path.join(self.sync, nom[:-4] + ".dat")))
 
     def test_suppression_distante_avant_tout_import_local(self):
         nom = "actions_IDF1_20261007120000.nsd"
@@ -336,8 +392,8 @@ class RecevoirFTPTests(BaseSync):
         FauxFTP.fichiers[nom] = open(chemin, "rb").read()
         FauxFTP.echec_delete = True
         espace = self.recevoir()
-        with self.assertRaises(EOFError):               # exception non interceptée dans le handler wx
-            espace["RecevoirFTP"](self.faux_dialog())
+        espace["RecevoirFTP"](self.faux_dialog())       # plus d'EOFError non interceptée
+        self.assertIn(u"n'ont pas pu être supprimés du serveur FTP", self.wx.messages[-1])
         dat = os.path.join(self.sync, nom[:-4] + ".dat")
         self.assertTrue(os.path.exists(dat))
         # Simule l'import puis l'archivage local (renommage .dat -> .archive)
@@ -405,6 +461,10 @@ class ServeurTCPTests(BaseSync):
             "AnalyserFichier": lambda *a, **k: self.appels_analyse.append((a, k)),
             "IP_AUTORISEES": ip_autorisees, "IP_INTERDITES": None,
         }
+        charger(SRC_SERVEUR, ["ValiderFichierRecu"], espace)
+        espace["MOTIF_FICHIER_RECU"] = __import__("re").compile(
+            r"\Aactions_[A-Za-z0-9]{1,40}_[0-9]{14}\.(nsc|nsd)\Z")
+        espace["TAILLE_MAX_FICHIER_RECU"] = 500 * 1024 * 1024
         charger(SRC_SERVEUR, ["Echo"], espace)
         proto = espace["Echo"]()
         proto.log = FauxLog()
@@ -423,42 +483,66 @@ class ServeurTCPTests(BaseSync):
         self.assertEqual(proto.generations, [True])
         self.assertFalse(proto.transport.ferme)
 
-    def test_nom_de_fichier_client_permet_l_ecriture_hors_sync(self):
+    def _refuse(self, nom, taille=10):
         proto = self.echo()
-        proto.dataReceived(self.entete("../hors_sync.txt"))
-        proto.dataReceived(b"contenu")
-        proto.dictFichierReception["fichier"].close()
-        self.assertTrue(os.path.exists(os.path.join(self.tmp, "hors_sync.txt")))
+        proto.dataReceived(self.entete(nom, taille))
+        self.assertIsNone(proto.dictFichierReception)
+        self.assertTrue(proto.transport.ferme)
+        self.assertFalse(any(b"pret_pour_reception" in d for d in proto.transport.ecrit))
+        return proto
 
-    def test_nom_absolu_ecrase_un_fichier_arbitraire(self):
+    def test_nom_relatif_hors_sync_refuse(self):
+        """NOM-02 corrigé : nom refusé AVANT toute ouverture de fichier."""
+        self._refuse("../hors_sync.txt")
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "hors_sync.txt")))
+
+    def test_nom_absolu_refuse_et_cible_intacte(self):
         cible = os.path.join(self.tmp, "victime.cfg")
         open(cible, "w").write("contenu original")
-        proto = self.echo()
-        proto.dataReceived(self.entete(cible))       # tronqué dès l'en-tête
-        proto.dictFichierReception["fichier"].close()
-        self.assertEqual(open(cible).read(), "")
+        self._refuse(cible)
+        self.assertEqual(open(cible).read(), "contenu original")
 
-    def test_fin_de_connexion_analyse_sans_controle_de_taille(self):
+    def test_noms_invalides_refuses(self):
+        for nom in ("actions_IDF1_20261007120000.exe", "actions_IDF1_2026.nsd", "data_IDF1.nsd",
+                    "actions_ID/F1_20261007120000.nsd", "actions_IDF1_20261007120000.nsd\n",
+                    "actions_..\\x_20261007120000.nsd", "", None, 12):
+            with self.subTest(nom=nom):
+                self._refuse(nom)
+
+    def test_tailles_invalides_refusees(self):
+        for taille in (0, -1, "10", None, True, 10 ** 12):
+            with self.subTest(taille=taille):
+                self._refuse("actions_IDF1_20261007120000.nsd", taille)
+
+    def test_nom_nomadhys_valide_accepte(self):
+        proto = self.echo()
+        nom = "actions_20150512153045ABC_20261007120000.nsc"
+        proto.dataReceived(self.entete(nom, 10))
+        self.assertIsNotNone(proto.dictFichierReception)
+        proto.dictFichierReception["fichier"].close()
+        self.assertTrue(os.path.exists(os.path.join(self.sync, nom)))
+
+    def test_fin_de_connexion_analyse_avec_controle_de_taille(self):
+        """NOM-05 : la taille annoncée est transmise à l'analyse (un fichier
+        tronqué est mis en quarantaine, jamais importé)."""
         proto = self.echo()
         nom = "actions_IDF1_20261007120000.nsd"
         proto.dataReceived(self.entete(nom, taille=1000000))
         proto.dataReceived(b"PK-tronque")           # coupure B : 10 octets sur 1 000 000
         proto.connectionLost(None)
-        self.assertEqual(self.appels_analyse, [((nom,), {})])   # pas de tailleFichier
+        self.assertEqual(len(self.appels_analyse), 1)
+        args, kwargs = self.appels_analyse[0]
+        self.assertEqual(args, (nom,))
+        self.assertEqual(kwargs["tailleFichier"], 1000000)
 
-    def test_taille_zero_division(self):
+    def test_bloc_de_donnees_json_valide_ecrit_dans_le_fichier(self):
+        """NOM-10 partiel : un morceau de fichier qui est un JSON valide
+        non-objet (b"123") n'est plus pris pour une commande."""
         proto = self.echo()
-        proto.dataReceived(self.entete("actions_IDF1_1.nsd", taille=0))
-        with self.assertRaises(ZeroDivisionError):
-            proto.dataReceived(b"abc")
+        proto.dataReceived(self.entete("actions_IDF1_20261007120000.nsd", taille=100))
+        proto.dataReceived(b"123")
         proto.dictFichierReception["fichier"].close()
-
-    def test_bloc_de_donnees_json_valide_mal_interprete(self):
-        proto = self.echo()
-        proto.dataReceived(self.entete("actions_IDF1_1.nsd", taille=100))
-        with self.assertRaises(TypeError):
-            proto.dataReceived(b"123")              # morceau de fichier = JSON valide
-        proto.dictFichierReception["fichier"].close()
+        self.assertEqual(proto.dictFichierReception["taille_actuelle"], 3)
 
     def test_filtre_ip_par_prefixe(self):
         proto = self.echo()
