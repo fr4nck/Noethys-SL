@@ -26,7 +26,7 @@ SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate, NextPageTemplate
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.platypus.flowables import ParagraphAndImage, Image
-from reportlab.platypus.frames import Frame, ShowBoundaryValue
+from reportlab.platypus.frames import Frame
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, cm, mm
 from reportlab.lib.utils import ImageReader
