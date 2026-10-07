@@ -51,9 +51,14 @@ def GetNbreFichiers(rep="") :
         return fichier
     return len(listdirectory(rep))
 
-def AffichetailleFichier(url):
+# Délai maximal d'une tentative de lecture de la taille de l'archive
+TIMEOUT_TAILLE_FICHIER = 30
+# Nombre maximal de tentatives avant abandon explicite de l'installation
+NBRE_ESSAIS_TAILLE_FICHIER = 3
+
+def AffichetailleFichier(url, timeout=TIMEOUT_TAILLE_FICHIER):
     try :
-        fichier = urlopen(url)
+        fichier = urlopen(url, timeout=timeout)
         tailleFichier = fichier.headers.get('Content-Length', 0)
     except Exception :
         tailleFichier = 0
@@ -367,7 +372,9 @@ class Installer():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            from Utils.UTILS_Portail_synchro import ContexteSSLConnecthys
+            contexte_ssl = ContexteSSLConnecthys(self.dict_parametres)
+            reponse = urlopen(req) if contexte_ssl is None else urlopen(req, context=contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
             version_ancienne = data["version_str"]
@@ -445,13 +452,16 @@ class Installer():
         try :
 
             # Recherche la taille du fichier à télécharger sur Github
+            # (essais bornés : num_essai n'était jamais incrémenté, d'où une
+            # boucle infinie sur le thread wx hors ligne)
             num_essai = 1
             taille_fichier = 0
-            while num_essai < 3 :
+            while num_essai <= NBRE_ESSAIS_TAILLE_FICHIER :
                 taille_fichier = AffichetailleFichier(self.url_telechargement)
                 if taille_fichier > 0 :
                     break
-                else :
+                num_essai += 1
+                if num_essai <= NBRE_ESSAIS_TAILLE_FICHIER :
                     time.sleep(1)
 
             if taille_fichier == 0 :
@@ -470,15 +480,19 @@ class Installer():
             source_repertoire = UTILS_Fichiers.GetRepTemp("Connecthys-master/connecthys")
             self.Upload(source_repertoire)
 
-        except Abort :
+        except Abort as err :
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
-            if self.dlgprogress != None :
+            # dlgprogress n'existe qu'après le début du téléchargement
+            if getattr(self, "dlgprogress", None) != None :
                 self.dlgprogress.Destroy()
                 del self.dlgprogress
 
             time.sleep(2)
-            dlg = wx.MessageDialog(None, _(u"Procédure d'installation interrompue."), "Erreur", wx.OK | wx.ICON_EXCLAMATION)
+            texte = _(u"Procédure d'installation interrompue.")
+            if getattr(err, "value", None) :
+                texte += u"\n\n" + u"%s" % err.value
+            dlg = wx.MessageDialog(None, texte, "Erreur", wx.OK | wx.ICON_EXCLAMATION)
             dlg.Raise()
             dlg.ShowModal()
             dlg.Destroy()
@@ -487,7 +501,7 @@ class Installer():
         except Exception as err :
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
-            if self.dlgprogress != None :
+            if getattr(self, "dlgprogress", None) != None :
                 self.dlgprogress.Destroy()
                 del self.dlgprogress
 
