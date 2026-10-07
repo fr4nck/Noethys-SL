@@ -1183,16 +1183,14 @@ class Dialog(wx.Dialog):
                 for IDindividu, mail, travail_mail in listeAdressesIndividus :
                     dictAdressesIndividus[IDindividu] = {"perso" : mail, "travail" : travail_mail}
             
-                IDindividu, categorie, adresse = email_recus.split(";")
-                if IDindividu != "" :
-                    try :
-                        if int(IDindividu) in dictAdressesIndividus :
-                            adresse = dictAdressesIndividus[int(IDindividu)][categorie]
-                    except :
-                        pass
-                
+                # dictAdressesIndividus ne contient que les membres rattachés
+                # à cette famille : un destinataire supprimé ou détaché est
+                # signalé au lieu d'aboutir à une adresse vide.
+                from Utils import UTILS_Envoi_email
+                adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(email_recus, dictAdressesIndividus)
+
                 if adresse == None :
-                    dlg = wx.MessageDialog(self, _(u"L'adresse Email enregistrée ne semble pas valide. Renseignez une nouvelle adresse valide pour cette famille..."), _(u"Erreur d'adresse Email"), wx.OK | wx.ICON_ERROR)
+                    dlg = wx.MessageDialog(self, _(u"Le reçu n'a pas été envoyé : %s.\n\nRenseignez une nouvelle adresse valide pour cette famille...") % motif, _(u"Erreur d'adresse Email"), wx.OK | wx.ICON_ERROR)
                     dlg.ShowModal()
                     dlg.Destroy()
                     #return False

@@ -6,8 +6,10 @@ Les méthodes réelles (DLG_Factures_email.OnBoutonOk, DLG_Rappels_email.
 OnBoutonOk, DLG_Saisie_reglement / DLG_Saisie_depot) sont exécutées avec des
 doublures (base, impression, dialogues, Mailer) : aucun email n'est envoyé.
 
-CARACTÉRISATION (avant correction) : la famille dont l'individu mémorisé
-n'existe plus disparaît du lot sans figurer dans l'avertissement.
+Avant correction (commit f8aad6a) : la famille dont l'individu mémorisé
+n'existe plus disparaissait du lot sans figurer dans l'avertissement, et les
+rappels ignoraient toujours les adresses libres. Ces tests vérifient
+désormais qu'aucune famille prévue ne disparaît silencieusement.
 """
 from __future__ import annotations
 
@@ -157,33 +159,54 @@ class FacturesDestinataireIntrouvableTests(_BaseLot, _ScenariosCommuns):
     def executer(self, pistes, reponse_avertissement=0):
         return _executer_avec_classe(self, pistes, reponse_avertissement, "UTILS_Facturation", "Facturation")
 
-    def test_caracterisation_individu_supprime_famille_disparait_silencieusement(self):
+    def test_individu_supprime_famille_signalee(self):
         c = self.executer([piste(10, u"Famille A", "1;perso;"),
                            piste(40, u"Famille Fantôme", "99;perso;")])
         self.assertEqual(c.adresses_envoyees(), ["parent.a@example.org"])
-        self.assertNotIn(u"Famille Fantôme", c.familles_signalees())
+        self.assertIn(u"Famille Fantôme (destinataire configuré introuvable)", c.familles_signalees())
+
+    def test_individu_detache_famille_signalee(self):
+        c = self.executer([piste(30, u"Famille C", "3;perso;")], reponse_avertissement=0)
+        self.assertEqual(c.adresses_envoyees(), [])
+        self.assertIn(u"Famille C (destinataire configuré n'est plus rattaché à la famille)", c.familles_signalees())
+
+    def test_une_adresse_resolue_et_une_introuvable(self):
+        c = self.executer([piste(10, u"Famille A", "1;perso;##99;travail;")])
+        self.assertEqual(c.adresses_envoyees(), ["parent.a@example.org"])
+        self.assertIn(u"Famille A (destinataire configuré introuvable)", c.familles_signalees())
+
+    def test_annuler_sur_avertissement_n_ouvre_pas_le_mailer(self):
+        c = self.executer([piste(40, u"Famille Fantôme", "99;perso;")], reponse_avertissement=2)
+        self.assertIsNone(c.donnees_mailer)
 
 
 class RappelsDestinataireIntrouvableTests(_BaseLot, _ScenariosCommuns):
     module = DLG_Rappels_email if IMPORT_ERREUR is None else None
     attr_liste = "ctrl_liste_rappels"
 
-    def test_adresse_libre_est_envoyee(self):
-        """CARACTÉRISATION : contrairement aux factures, les rappels ignorent
-        l'adresse libre (pas de branche else) : la famille est écartée sans
-        avertissement."""
-        c = self.executer([piste(10, u"Famille A", ";;libre@example.org")])
-        self.assertEqual(c.adresses_envoyees(), [])
-        self.assertEqual(c.avertissements, [])
 
     def executer(self, pistes, reponse_avertissement=0):
         return _executer_avec_classe(self, pistes, reponse_avertissement, "UTILS_Rappels", "Facturation")
 
-    def test_caracterisation_individu_supprime_famille_disparait_silencieusement(self):
+    def test_individu_supprime_famille_signalee(self):
         c = self.executer([piste(10, u"Famille A", "1;perso;"),
                            piste(40, u"Famille Fantôme", "99;perso;")])
         self.assertEqual(c.adresses_envoyees(), ["parent.a@example.org"])
-        self.assertNotIn(u"Famille Fantôme", c.familles_signalees())
+        self.assertIn(u"Famille Fantôme (destinataire configuré introuvable)", c.familles_signalees())
+
+    def test_individu_detache_famille_signalee(self):
+        c = self.executer([piste(30, u"Famille C", "3;perso;")], reponse_avertissement=0)
+        self.assertEqual(c.adresses_envoyees(), [])
+        self.assertIn(u"Famille C (destinataire configuré n'est plus rattaché à la famille)", c.familles_signalees())
+
+    def test_une_adresse_resolue_et_une_introuvable(self):
+        c = self.executer([piste(10, u"Famille A", "1;perso;##99;travail;")])
+        self.assertEqual(c.adresses_envoyees(), ["parent.a@example.org"])
+        self.assertIn(u"Famille A (destinataire configuré introuvable)", c.familles_signalees())
+
+    def test_annuler_sur_avertissement_n_ouvre_pas_le_mailer(self):
+        c = self.executer([piste(40, u"Famille Fantôme", "99;perso;")], reponse_avertissement=2)
+        self.assertIsNone(c.donnees_mailer)
 
 
 def _executer_avec_classe(test, pistes, reponse_avertissement, nom_module, nom_classe):
@@ -211,23 +234,68 @@ def _executer_avec_classe(test, pistes, reponse_avertissement, nom_module, nom_c
     return capture
 
 
-class RecuEtDepotSourceTests(unittest.TestCase):
-    """Reçu de règlement et avis de dépôt : lorsque l'individu mémorisé est
-    introuvable, l'adresse retenue est le 3e champ de la configuration, qui
-    vaut "" pour un membre de la famille (DLG_Selection_email.GetValeur)."""
+class ResoudreAdresseConfigureeTests(unittest.TestCase):
+    """Fonction commune aux factures, rappels, reçus et avis de dépôt."""
 
-    def test_caracterisation_recu_adresse_vide_non_detectee(self):
+    def setUp(self):
+        from Utils import UTILS_Envoi_email
+        self.f = UTILS_Envoi_email.ResoudreAdresseConfiguree
+        self.d = {1: {"perso": "a@example.org", "travail": None}, 2: {"perso": " b@example.org ", "travail": ""}}
+
+    def test_membre_resolu(self):
+        self.assertEqual(self.f("1;perso;", self.d), ("a@example.org", None))
+
+    def test_espaces_retires(self):
+        self.assertEqual(self.f("2;perso;", self.d), ("b@example.org", None))
+
+    def test_adresse_libre(self):
+        self.assertEqual(self.f(";;libre@example.org", self.d), ("libre@example.org", None))
+
+    def test_individu_introuvable(self):
+        self.assertEqual(self.f("99;perso;", self.d), (None, u"destinataire configuré introuvable"))
+
+    def test_individu_non_rattache(self):
+        adresse, motif = self.f("1;perso;", self.d, IDfamille=7, rattachements={(1, 8)})
+        self.assertIsNone(adresse)
+        self.assertIn(u"rattaché", motif)
+
+    def test_rattachement_non_verifie_si_non_fourni(self):
+        """Reçu de règlement : le dictionnaire ne contient déjà que les
+        membres de la famille."""
+        self.assertEqual(self.f("1;perso;", self.d, IDfamille=7), ("a@example.org", None))
+
+    def test_adresse_vide(self):
+        self.assertEqual(self.f("1;travail;", self.d), (None, u"adresse email vide"))
+        self.assertEqual(self.f("2;travail;", self.d), (None, u"adresse email vide"))
+
+    def test_configuration_illisible(self):
+        for valeur in ("", None, "abc", "x;perso;", "1;perso"):
+            with self.subTest(valeur=valeur):
+                adresse, motif = self.f(valeur, self.d)
+                self.assertIsNone(adresse)
+                self.assertTrue(motif)
+
+
+class RecuEtDepotTests(unittest.TestCase):
+    """Reçu de règlement et avis de dépôt utilisent la même résolution : un
+    destinataire introuvable n'aboutit plus à une adresse vide."""
+
+    def test_recu_utilise_la_resolution_commune(self):
         source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_reglement.py").read_text(encoding="utf-8")
-        self.assertIn('IDindividu, categorie, adresse = email_recus.split(";")', source)
-        self.assertIn("if adresse == None :", source)
+        self.assertIn("UTILS_Envoi_email.ResoudreAdresseConfiguree(email_recus, dictAdressesIndividus)", source)
+        self.assertNotIn('IDindividu, categorie, adresse = email_recus.split(";")', source)
+        self.assertIn(u"Le reçu n'a pas été envoyé : %s.", source)
 
-    def test_caracterisation_depot_adresse_vide_non_detectee(self):
+    def test_depot_utilise_la_resolution_commune(self):
         source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_depot.py").read_text(encoding="utf-8")
-        self.assertIn('IDindividu, categorie, adresse = track.email_depots.split(";")', source)
+        self.assertIn("ResoudreAdresseConfiguree(track.email_depots, dictAdressesIndividus, track.IDfamille, rattachements)", source)
+        self.assertNotIn('IDindividu, categorie, adresse = track.email_depots.split(";")', source)
 
-    def test_configuration_membre_memorise_une_adresse_vide(self):
-        source = (NOETHYS_DIR / "Dlg" / "DLG_Selection_email.py").read_text(encoding="utf-8")
-        self.assertIn('IDindividu, categorie = self.ctrl_membre.GetAdresse()\n            adresse = ""', source)
+    def test_selection_avis_depot_bloque_les_adresses_inconnues(self):
+        """Contrat existant réutilisé : une ligne cochée avec adresse None
+        est refusée par DLG_Selection_avis_depots (pas d'envoi silencieux)."""
+        source = (NOETHYS_DIR / "Dlg" / "DLG_Selection_avis_depots.py").read_text(encoding="utf-8")
+        self.assertIn("if track.adresse == None :", source)
 
 
 if __name__ == "__main__":

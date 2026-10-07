@@ -139,6 +139,7 @@ class Dialog(wx.Dialog):
         FROM individus;"""
         DB.ExecuterReq(req)
         listeAdressesIndividus = DB.ResultatReq()
+        rattachements = UTILS_Envoi_email.GetRattachementsFamilles(DB)
         DB.Close() 
         dictAdressesIndividus = {}
         for IDindividu, mail, travail_mail in listeAdressesIndividus :
@@ -153,12 +154,16 @@ class Dialog(wx.Dialog):
             
             # Si Famille inscrite à l'envoi par Email :
             if track.email == True :
-                for valeur in track.email_factures.split("##"):
-                    IDindividu, categorie, adresse = valeur.split(";")
-                    if IDindividu != "" :
-                        if int(IDindividu) in dictAdressesIndividus :
-                            adresse = dictAdressesIndividus[int(IDindividu)][categorie]
-                            liste_adresses.append(adresse)
+                # Une adresse configurée non résolue (individu supprimé ou
+                # détaché, adresse vide) n'est jamais écartée en silence ; une
+                # adresse libre (";;adresse") est désormais prise en compte,
+                # comme pour les factures.
+                for valeur in (track.email_factures or u"").split("##"):
+                    adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(valeur, dictAdressesIndividus, track.IDfamille, rattachements)
+                    if adresse == None :
+                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, motif))
+                    else :
+                        liste_adresses.append(adresse)
             
             # Si famille non inscrite à l'envoi par Email
             else :
@@ -170,6 +175,9 @@ class Dialog(wx.Dialog):
             # Mémorisation des données
             for adresse in liste_adresses :
                 if adresse not in (None, "", []) :
+                    if track.IDrappel not in dictPieces :
+                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, _(u"document PDF non généré")))
+                        continue
                     fichier = dictPieces[track.IDrappel]
                     champs = dictChampsFusion[track.IDrappel]
                     listeDonnees.append({"adresse" : adresse, "pieces" : [fichier,], "champs" : champs})
@@ -181,7 +189,7 @@ class Dialog(wx.Dialog):
         
         # Annonce les anomalies trouvées
         if len(listeAnomalies) > 0 :
-            dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d des familles sélectionnées n'ont pas d'adresse Email :" % len(listeAnomalies),
+            dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d destinataire(s) des familles sélectionnées n'ont pas d'adresse Email utilisable (aucun envoi ne leur sera fait) :" % len(listeAnomalies),
                                         detail=u"".join([u"- %s\n" % nom for nom in listeAnomalies]), conclusion=u"Souhaitez-vous quand même continuer avec les %d autres familles ?" % len(listeDonnees),
                                         icone=wx.ICON_WARNING, boutons=[_(u"Oui"), _(u"Non"), _(u"Annuler")])
             reponse = dlg.ShowModal()
