@@ -1041,7 +1041,7 @@ class Dialog(wx.Dialog):
         # affiche déjà sa propre confirmation : on ne la double pas ici.
         if visible == False :
             if resultat == True :
-                dlg = wx.MessageDialog(self, _(u"L'Email a été envoyé avec succès !"), _(u"Envoi de l'Email"), wx.OK | wx.ICON_INFORMATION)
+                dlg = wx.MessageDialog(self, _(u"L'Email a été accepté par le serveur d'envoi.\n\nNoethys ne vérifie pas sa remise effective au destinataire."), _(u"Envoi de l'Email"), wx.OK | wx.ICON_INFORMATION)
             else :
                 dlg = wx.MessageDialog(self, _(u"L'envoi de l'Email a échoué."), _(u"Envoi de l'Email"), wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
@@ -1220,6 +1220,14 @@ class Traitement():
             # Envoi par Email
             if self.dict_parametres["methode_envoi"] == "email" :
                 resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track)
+                # Même contrat que Traitement_factures : si l'email n'a pas
+                # été accepté, la demande reste "attente" (aucun nouvel état,
+                # aucun changement de protocole Connecthys) au lieu d'annoncer
+                # à la famille un reçu envoyé.
+                if resultat == False :
+                    self.EcritLog(_(u"Le reçu de règlement n'a pas été envoyé par Email."))
+                    dlg_impression.Destroy()
+                    return False
                 reponse = _(u"Reçu de règlement envoyé par Email.")
 
             # Mémorisation de l'édition du reçu
