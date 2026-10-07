@@ -370,11 +370,11 @@ class Saison(wx.Panel):
     }
 
     LIBELLES_PERISCOLAIRES = (
-        ("periode_1", _(u"Période 1 · rentrée → Toussaint")),
-        ("periode_2", _(u"Période 2 · Toussaint → Noël")),
-        ("periode_3", _(u"Période 3 · Noël → vacances d'hiver")),
-        ("periode_4", _(u"Période 4 · hiver → Pâques")),
-        ("periode_5", _(u"Période 5 · Pâques → vacances d'été")),
+        ("periode_1", _(u"1ère période péri")),
+        ("periode_2", _(u"2ème période péri")),
+        ("periode_3", _(u"3ème période péri")),
+        ("periode_4", _(u"4ème période péri")),
+        ("periode_5", _(u"5ème période péri")),
     )
 
     def __init__(self, parent):
