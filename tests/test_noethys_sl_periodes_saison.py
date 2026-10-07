@@ -343,6 +343,14 @@ class PeriodesSaisonTests(unittest.TestCase):
             self.assertIn('("%s",' % code, bloc)
 
         self.assertIn("Saison complète (sept.-août)", bloc)
+        for label in (
+            "1ère période péri",
+            "2ème période péri",
+            "3ème période péri",
+            "4ème période péri",
+            "5ème période péri",
+        ):
+            self.assertIn(label, bloc)
         self.assertIn("1er semestre (sept.-févr.)", bloc)
         self.assertIn("2e semestre (mars-août)", bloc)
         self.assertNotIn("1er trimestre (sept.-déc.)", bloc)
