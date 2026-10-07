@@ -881,6 +881,7 @@ class MainFrame(wx.Frame):
                     "-",
                     "-",
                     {"code" : "affichage_barres_outils", "label" : _(u"Barres d'outils personnelles"), "infobulle" : _(u"Barres d'outils personnelles"), "image" : "Images/16x16/Barre_outils.png", "action" : self.On_affichage_barres_outils},
+                    {"code" : "affichage_aujourdhui", "label" : _(u"Personnaliser Aujourd’hui…"), "infobulle" : _(u"Personnaliser le panneau Aujourd’hui"), "action" : self.On_affichage_aujourdhui},
                     "-",
                     {"code" : "actualiser_affichage", "label" : _(u"Actualiser l'affichage\tF11"), "infobulle" : _(u"Actualiser l'affichage de la page d'accueil"), "image" : "Images/16x16/Actualiser2.png", "action" : self.On_affichage_actualiser},
                     ],
@@ -2601,6 +2602,10 @@ class MainFrame(wx.Frame):
 ##            print panneau.name
         
         
+    def On_affichage_aujourdhui(self, event):
+        if hasattr(self, "ctrl_ephemeride"):
+            self.ctrl_ephemeride.OnSettings(event)
+
     def On_affichage_actualiser(self, event):
         self.MAJ() 
 
