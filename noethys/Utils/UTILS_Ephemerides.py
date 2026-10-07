@@ -23,13 +23,12 @@ FIELDS = ('temperature_2m', 'precipitation', 'precipitation_probability',
 PERIODS = (('Matin · 6–12 h', 6, 12), ('Après-midi · 12–18 h', 12, 18))
 KINDS = ('Officiel', 'Local', 'Insolite')
 
-DASHBOARD_BLOCKS = ('weather', 'alerts', 'vacations', 'events')
+DASHBOARD_BLOCKS = ('weather', 'vacations', 'events')
 DEFAULT_DASHBOARD_LAYOUT = {
     'columns': 3,
     'blocks': {
         'weather': {'visible': True, 'column': 1, 'order': 1},
-        'alerts': {'visible': True, 'column': 2, 'order': 1},
-        'vacations': {'visible': True, 'column': 2, 'order': 2},
+        'vacations': {'visible': True, 'column': 2, 'order': 1},
         'events': {'visible': True, 'column': 3, 'order': 1},
     },
 }
@@ -76,16 +75,34 @@ def dashboard_columns(layout=None):
 
 # Catalogue volontairement court : chaque entrée renvoie à son organisateur.
 CATALOGUE = [
+    dict(title='Journée internationale de l’éducation', kind='Officiel', month=1, day=24,
+         source='https://www.un.org/en/observances/education-day'),
+    dict(title='Journée internationale des droits des femmes', kind='Officiel', month=3, day=8,
+         source='https://www.un.org/en/observances/womens-day'),
+    dict(title='Journée mondiale de la santé', kind='Officiel', month=4, day=7,
+         source='https://www.who.int/campaigns/world-health-day'),
+    dict(title='Star Wars Day', kind='Insolite', month=5, day=4,
+         source='https://www.starwars.com/news/the-history-of-may-the-4th'),
+    dict(title='Journée internationale des familles', kind='Officiel', month=5, day=15,
+         source='https://www.un.org/en/observances/international-day-of-families'),
+    dict(title='Journée mondiale de l’environnement', kind='Officiel', month=6, day=5,
+         source='https://www.worldenvironmentday.global/'),
+    dict(title='Journée internationale de la jeunesse', kind='Officiel', month=8, day=12,
+         source='https://www.un.org/en/observances/youth-day'),
     dict(title='Journée mondiale des enseignants', kind='Officiel', month=10, day=5,
          source='https://www.unesco.org/en/days/teachers'),
     dict(title='Journée mondiale de la santé mentale', kind='Officiel', month=10, day=10,
          source='https://www.un.org/en/healthy-workforce/world-mental-health-day'),
+    dict(title='Journée mondiale de l’alimentation', kind='Officiel', month=10, day=16,
+         source='https://www.fao.org/world-food-day/en'),
+    dict(title='Journée des Nations Unies', kind='Officiel', month=10, day=24,
+         source='https://www.un.org/en/observances/un-day'),
     dict(title='Journée mondiale des pâtes', kind='Insolite', month=10, day=25,
          source='https://internationalpasta.org/news/world-pasta-day-the-world-is-hungry-for-pasta-1-million-tons-more-pasta-is-consumed-in-a-year/'),
     dict(title='World Smile Day', kind='Insolite', month=10, weekday=4,
          source='https://www.worldsmile.org/about'),
-    dict(title='Star Wars Day', kind='Insolite', month=5, day=4,
-         source='https://www.starwars.com/news/the-history-of-may-the-4th'),
+    dict(title='Journée des droits de l’homme', kind='Officiel', month=12, day=10,
+         source='https://www.un.org/en/observances/human-rights-day'),
 ]
 
 
