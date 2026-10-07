@@ -18,21 +18,23 @@ JAMAIS affiché -- seul son parent (la demande Connecthys) est visible à
 l'écran. parent=self donnerait alors à la ProgressDialog un owner Win32
 immédiat caché, ce qui ne règle pas le problème.
 
-Correctif générique retenu (DLG_Mailer.py, Dialog.Envoyer()) : la
+Correctif générique de parentage retenu pour le chemin caché : la
 ProgressDialog est parentée à la première fenêtre réellement visible à
-l'écran -- self s'il est affiché (IsShownOnScreen()), sinon son parent
-(self.GetParent()).
+l'écran.
 
-Ce test construit un DLG_Mailer.Dialog *réel* (vraie fenêtre wx, vrais
-sous-contrôles, base SQLite de test pour l'adresse d'expéditeur) et exécute
-réellement Dialog.Envoyer() de bout en bout pour les DEUX chemins
-(visible=False et visible=True), en doublant uniquement :
-  - UTILS_Envoi_email.Messagerie (aucun réseau, aucun email réel émis) ;
-  - wx.ProgressDialog, pour capturer le parent qui lui est transmis.
+Depuis la recette RC2 des commandes de repas, le chemin interactif visible
+avec un seul destinataire a en plus un contrat différent : connexion et
+envoi réseau s'exécutent hors du thread wx, derrière une petite boîte modale
+animée. Le chemin caché Connecthys conserve provisoirement la ProgressDialog
+historique.
+
+Ce test construit un DLG_Mailer.Dialog *réel* et vérifie les deux contrats,
+sans aucun réseau ni email réel.
 """
 from __future__ import annotations
 
 import sys
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -84,12 +86,18 @@ class FausseMessagerie:
     """Double de UTILS_Envoi_email.Messagerie : aucun réseau, aucun email réel."""
 
     dernier_dlg_progress = None
+    thread_connecter = None
+    thread_envoyer = None
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def Connecter(self):
-        pass
+        FausseMessagerie.thread_connecter = threading.get_ident()
+
+    def Envoyer(self, message=None):
+        FausseMessagerie.thread_envoyer = threading.get_ident()
+        return True
 
     def Envoyer_lot(self, messages=None, dlg_progress=None, afficher_confirmation_envoi=True):
         # Comportement réel des backends : la dlg_progress est détruite
@@ -107,6 +115,8 @@ class DlgMailerProgressParentTests(unittest.TestCase):
     def setUp(self):
         FausseProgressDialog.instances = []
         FausseMessagerie.dernier_dlg_progress = None
+        FausseMessagerie.thread_connecter = None
+        FausseMessagerie.thread_envoyer = None
 
         self.base = BaseTest()
         self.base.db.CreationTable("adresses_mail", dicoDB=Tables.DB_DATA)
@@ -152,7 +162,7 @@ class DlgMailerProgressParentTests(unittest.TestCase):
 
         return parent_frame, dlg, [track]
 
-    def _envoyer(self, dlg, listeDestinataires):
+    def _envoyer_legacy(self, dlg, listeDestinataires):
         with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
              mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie):
             resultat = dlg.Envoyer(listeDestinataires=listeDestinataires)
@@ -171,27 +181,30 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         self.assertFalse(dlg.IsShownOnScreen())
         self.assertTrue(parent_frame.IsShownOnScreen())
 
-        progress = self._envoyer(dlg, destinataires)
+        progress = self._envoyer_legacy(dlg, destinataires)
 
         self.assertIsNotNone(progress.parent)
         self.assertIs(progress.parent, parent_frame)
         self.assertIsNot(progress.parent, dlg)
         self.assertTrue(progress.detruite)
 
-    def test_chemin_visible_progressdialog_parentee_sur_le_dlg_mailer(self):
-        """visible=True : DLG_Mailer lui-même affiché (éditeur ouvert).
-
-        La ProgressDialog doit rester parentée sur le DLG_Mailer.
-        """
+    def test_chemin_visible_unitaire_execute_le_reseau_hors_thread_wx(self):
+        """visible=True + un destinataire : SMTP/API ne bloque plus le thread wx."""
         parent_frame, dlg, destinataires = self._construire_dlg(montrer_dlg=True)
 
         self.assertTrue(dlg.IsShownOnScreen())
+        thread_ui = threading.get_ident()
 
-        progress = self._envoyer(dlg, destinataires)
+        with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie):
+            resultat = dlg.Envoyer(listeDestinataires=destinataires)
 
-        self.assertIsNotNone(progress.parent)
-        self.assertIs(progress.parent, dlg)
-        self.assertTrue(progress.detruite)
+        self.assertTrue(resultat)
+        self.assertEqual(FausseProgressDialog.instances, [])
+        self.assertIsNotNone(FausseMessagerie.thread_connecter)
+        self.assertIsNotNone(FausseMessagerie.thread_envoyer)
+        self.assertNotEqual(FausseMessagerie.thread_connecter, thread_ui)
+        self.assertNotEqual(FausseMessagerie.thread_envoyer, thread_ui)
 
 
 if __name__ == "__main__":
