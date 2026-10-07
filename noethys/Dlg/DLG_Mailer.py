@@ -19,6 +19,8 @@ import re
 import traceback
 import copy
 import datetime
+import threading
+import smtplib
 import GestionDB
 from Ctrl import CTRL_Bandeau
 import  wx.lib.dialogs
@@ -44,6 +46,55 @@ def _FormateErreurMessagerie(err):
     if smtp_error not in (None, ""):
         return six.text_type(smtp_error)
     return six.text_type(err)
+
+
+class _DialogAttenteEnvoi(wx.Dialog):
+    """Petite fenêtre modale animée pendant un appel réseau exécuté hors UI."""
+
+    def __init__(self, parent, message):
+        style = wx.DEFAULT_DIALOG_STYLE & ~wx.CLOSE_BOX
+        wx.Dialog.__init__(self, parent, -1, title=_(u"Envoi de l'Email"), style=style)
+        self._termine = False
+        self.label = wx.StaticText(self, -1, message)
+        self.gauge = wx.Gauge(self, -1, range=100)
+        self.timer = wx.Timer(self)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.label, 0, wx.EXPAND | wx.ALL, 12)
+        sizer.Add(self.gauge, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        self.SetSizerAndFit(sizer)
+        self.SetMinSize((440, 120))
+        self.SetSize((440, 120))
+        self.CenterOnParent()
+
+        self.Bind(wx.EVT_TIMER, self._OnTimer, self.timer)
+        self.Bind(wx.EVT_CLOSE, self._OnClose)
+        self.timer.Start(90)
+
+    def _OnTimer(self, event):
+        if not self._termine:
+            self.gauge.Pulse()
+
+    def _OnClose(self, event):
+        # On ne laisse pas fermer la fenêtre pendant que la socket SMTP/API
+        # travaille : l'opération réseau n'est pas annulable proprement ici.
+        if not self._termine and event.CanVeto():
+            event.Veto()
+            return
+        event.Skip()
+
+    def SetEtape(self, message):
+        if self._termine:
+            return
+        self.label.SetLabel(message)
+        self.Layout()
+        self.Update()
+
+    def Terminer(self):
+        self._termine = True
+        self.timer.Stop()
+        if self.IsModal():
+            self.EndModal(wx.ID_OK)
 
 
 class Dialog(wx.Dialog):
@@ -387,10 +438,102 @@ class Dialog(wx.Dialog):
         self.Envoyer(listeDestinataires=[listeDestinataires[0],], adresseTest=adresse)    
         
 
-    def OnBoutonEnvoyer(self, event):       
-        self.Envoyer(listeDestinataires = self.ctrl_destinataires.GetDonnees())    
-    
-    
+    def OnBoutonEnvoyer(self, event):
+        self.Envoyer(listeDestinataires=self.ctrl_destinataires.GetDonnees())
+
+    def _ExecuterEnvoiUniqueHorsUI(self, messagerie, message, parent_progress):
+        """Connexion + envoi d'un message sans bloquer le thread wx.
+
+        Le worker ne touche jamais à wx. Les seuls changements visuels sont
+        postés avec CallAfter vers la boucle UI de la boîte modale.
+        """
+        etat = {"succes": False, "erreur": None, "phase": "connexion"}
+        dlg_attente = _DialogAttenteEnvoi(
+            parent_progress,
+            _(u"Connexion au serveur de messagerie…"),
+        )
+
+        def _etape(phase, libelle):
+            etat["phase"] = phase
+            try:
+                wx.CallAfter(dlg_attente.SetEtape, libelle)
+            except RuntimeError:
+                pass
+
+        def _worker():
+            try:
+                messagerie.Connecter()
+                _etape("envoi", _(u"Envoi du message en cours…"))
+                try:
+                    resultat = messagerie.Envoyer(message)
+                except smtplib.SMTPServerDisconnected:
+                    _etape("reconnexion", _(u"Connexion interrompue — reconnexion…"))
+                    messagerie.Connecter()
+                    _etape("envoi", _(u"Envoi du message en cours…"))
+                    resultat = messagerie.Envoyer(message)
+
+                if resultat in (False, 0, None):
+                    raise RuntimeError(_(u"Le serveur de messagerie n'a pas confirmé l'envoi."))
+                etat["succes"] = True
+            except Exception as err:
+                etat["erreur"] = err
+            finally:
+                try:
+                    messagerie.Fermer()
+                except Exception:
+                    # Comme historiquement, un échec de QUIT/fermeture ne
+                    # transforme pas un envoi confirmé en échec.
+                    pass
+                try:
+                    wx.CallAfter(dlg_attente.Terminer)
+                except RuntimeError:
+                    pass
+
+        worker = threading.Thread(target=_worker, name="Noethys-Mailer-Unique", daemon=True)
+        worker.start()
+        dlg_attente.ShowModal()
+        dlg_attente.Destroy()
+        return etat
+
+    def _EnvoyerMessageUnique(self, messagerie, message, parent_progress):
+        """Chemin interactif unitaire : réseau hors UI, erreurs sur le thread wx."""
+        while True:
+            etat = self._ExecuterEnvoiUniqueHorsUI(messagerie, message, parent_progress)
+            if etat["succes"]:
+                self.listeSucces = [message]
+                if self.afficher_confirmation_envoi:
+                    dlg = wx.MessageDialog(
+                        self,
+                        _(u"L'Email a été envoyé avec succès !"),
+                        _(u"Fin de l'envoi"),
+                        wx.OK | wx.ICON_INFORMATION,
+                    )
+                    dlg.ShowModal()
+                    dlg.Destroy()
+                return True
+
+            erreur = etat["erreur"] or RuntimeError(_(u"Envoi interrompu."))
+            detail = _FormateErreurMessagerie(erreur)
+            if etat["phase"] == "connexion":
+                intro = _(u"La connexion au serveur de messagerie est impossible :")
+                conclusion = _(u"Vérifiez votre connexion internet ou les paramètres de votre adresse d'expédition.")
+                boutons = [_(u"Ok"),]
+            else:
+                intro = _(u"L'erreur suivante a été détectée pendant l'envoi :")
+                conclusion = _(u"Souhaitez-vous réessayer ?")
+                boutons = [_(u"Réessayer"), _(u"Arrêter")]
+
+            dlg_erreur = DLG_Messagebox.Dialog(
+                self, titre=_(u"Erreur"), introduction=intro, detail=detail,
+                conclusion=conclusion, icone=wx.ICON_ERROR, boutons=boutons,
+            )
+            reponse = dlg_erreur.ShowModal()
+            dlg_erreur.Destroy()
+
+            if etat["phase"] == "connexion" or reponse != 0:
+                self.listeSucces = []
+                return False
+
     def Envoyer(self, listeDestinataires=[], adresseTest=None):
         # Expéditeur
         dictExp = self.ctrl_exp.GetDonnees()
@@ -509,6 +652,31 @@ class Dialog(wx.Dialog):
         parent_progress = self
         if not self.IsShownOnScreen() and self.GetParent() is not None :
             parent_progress = self.GetParent()
+
+        # Le chemin le plus courant des commandes de repas est un envoi
+        # interactif vers un seul destinataire. Jusqu'ici connexion SMTP et
+        # sendmail s'exécutaient sur le thread wx : Windows pouvait afficher
+        # "ne répond pas" pendant l'attente réseau bien que l'envoi poursuive.
+        # On traite ce cas hors UI, tout en gardant le dialogue modal et les
+        # erreurs sur le thread wx. Les envois par lot conservent pour l'instant
+        # leur moteur historique afin de ne pas modifier leur sémantique RC2.
+        if len(liste_messages) == 1 and self.IsShownOnScreen():
+            try:
+                messagerie = UTILS_Envoi_email.Messagerie(
+                    backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
+                    utilisateur=dictExp["utilisateur"], motdepasse=dictExp["motdepasse"],
+                    email_exp=dictExp["adresse"], nom_exp=dictExp["nom_adresse"],
+                    timeout=20, use_tls=dictExp["startTLS"], parametres=dictExp["parametres"],
+                )
+                self._EnvoyerMessageUnique(messagerie, liste_messages[0], parent_progress)
+            finally:
+                handler.DeleteTemporaryImages()
+
+            if self.listeSucces:
+                message = liste_messages[0]
+                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet)
+            return bool(self.listeSucces)
+
         dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=parent_progress)
         dlg_progress.SetSize((450, 140))
         dlg_progress.CenterOnScreen()
