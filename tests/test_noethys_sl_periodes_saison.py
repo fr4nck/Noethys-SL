@@ -53,6 +53,80 @@ class PeriodesSaisonTests(unittest.TestCase):
             (datetime.date(2027, 4, 1), datetime.date(2027, 8, 31)),
         )
 
+    def test_cinq_periodes_periscolaires_suivent_les_vacances(self):
+        vacances = [
+            ("Toussaint", "2026-10-17", "2026-10-31"),
+            ("Noël", "2026-12-19", "2027-01-02"),
+            ("Février", "2027-02-20", "2027-03-06"),
+            ("Pâques", "2027-04-17", "2027-05-01"),
+            ("Eté", "2027-07-03", "2027-08-31"),
+        ]
+        bornes = periodes.GetBornesPeriodesPeriscolaires(2026, vacances)
+        self.assertEqual(
+            bornes,
+            {
+                "periode_1": (datetime.date(2026, 9, 1), datetime.date(2026, 10, 17)),
+                "periode_2": (datetime.date(2026, 11, 2), datetime.date(2026, 12, 19)),
+                "periode_3": (datetime.date(2027, 1, 4), datetime.date(2027, 2, 20)),
+                "periode_4": (datetime.date(2027, 3, 8), datetime.date(2027, 4, 17)),
+                "periode_5": (datetime.date(2027, 5, 3), datetime.date(2027, 7, 3)),
+            },
+        )
+
+    def test_periodes_periscolaires_acceptent_hiver_printemps_ete(self):
+        vacances = [
+            ("Vacances de la Toussaint", "2026-10-17", "2026-11-01"),
+            ("Vacances de Noel", "2026-12-19", "2027-01-03"),
+            ("Vacances d'hiver", "2027-02-20", "2027-03-07"),
+            ("Vacances de printemps", "2027-04-17", "2027-05-02"),
+            ("Vacances d'été", "2027-07-03", "2027-08-31"),
+        ]
+        bornes = periodes.GetBornesPeriodesPeriscolaires(2026, vacances)
+        self.assertEqual(set(bornes), set(periodes.PERIODES_PERISCOLAIRES))
+
+    def test_periode_periscolaire_n_invente_rien_si_calendrier_incomplet(self):
+        vacances = [
+            ("Toussaint", "2026-10-17", "2026-10-31"),
+            ("Noël", "2026-12-19", "2027-01-02"),
+        ]
+        bornes = periodes.GetBornesPeriodesPeriscolaires(2026, vacances)
+        self.assertEqual(set(bornes), {"periode_1", "periode_2"})
+
+    def test_ligne_de_vacances_invalide_est_ignoree(self):
+        vacances = [
+            ("Toussaint", "2026-10-17", "2026-10-31"),
+            ("Noël", "2026-12-19", "2027-01-02"),
+            ("Février", "2027-02-20", "2027-03-06"),
+            ("Pâques", "2027-04-17", "2027-05-01"),
+            ("Eté", "2027-07-03", "2027-08-31"),
+            ("Eté", "2027-07-10", "2027-07-01"),
+        ]
+        bornes = periodes.GetBornesPeriodesPeriscolaires(2026, vacances)
+        self.assertEqual(
+            bornes["periode_5"],
+            (datetime.date(2027, 5, 3), datetime.date(2027, 7, 3)),
+        )
+
+    def test_periode_en_cours_est_none_pendant_les_vacances(self):
+        vacances = [
+            ("Toussaint", "2026-10-17", "2026-10-31"),
+            ("Noël", "2026-12-19", "2027-01-02"),
+            ("Février", "2027-02-20", "2027-03-06"),
+            ("Pâques", "2027-04-17", "2027-05-01"),
+            ("Eté", "2027-07-03", "2027-08-31"),
+        ]
+        self.assertEqual(
+            periodes.GetCodePeriodePeriscolaireEnCours(
+                datetime.date(2027, 1, 12), vacances
+            ),
+            "periode_3",
+        )
+        self.assertIsNone(
+            periodes.GetCodePeriodePeriscolaireEnCours(
+                datetime.date(2026, 10, 25), vacances
+            )
+        )
+
     def test_bornes_semestres_et_annee_bissextile(self):
         bornes = periodes.GetBornesPeriodesSaison(2027)
         self.assertEqual(
@@ -94,12 +168,16 @@ class PeriodesSaisonTests(unittest.TestCase):
         positions = [source.index(marqueur) for marqueur in marqueurs]
         self.assertEqual(positions, sorted(positions))
 
-    def test_onglet_saison_reutilise_le_format_de_persistance_existant(self):
+    def test_onglet_saison_persiste_un_code_stable_sans_casser_l_historique(self):
         source = CTRL.read_text(encoding="utf-8")
         self.assertIn("if numPage == 4 :", source)
         self.assertIn('dictDonnees["page"] = 4', source)
+        self.assertIn('dictDonnees["periodeCode"] = page._GetCodeSelectionne()', source)
         self.assertIn('dictDonnees["annee"] = page.ctrl_annee.GetAnnee()', source)
         self.assertIn('dictDonnees["listePeriodes"] = self.GetDatesSelections()', source)
+        self.assertIn("LEGACY_INDEX_CODES", source)
+        self.assertIn('"trimestre_1"', source)
+        self.assertIn("GetLegacyCodeFromIndex", source)
 
     def test_selecteur_commun_peut_imposer_une_selection_simple(self):
         source = CTRL.read_text(encoding="utf-8")
@@ -190,13 +268,16 @@ class PeriodesSaisonTests(unittest.TestCase):
         self.assertIn("wx.ComboBox.SetValue(self,", bloc)
         self.assertIn("wx.ComboBox.GetValue(self)", bloc)
 
-    def test_restauration_saison_n_appelle_plus_maj(self):
+    def test_restauration_saison_recalcule_les_periodes_de_la_saison(self):
         source = CTRL.read_text(encoding="utf-8")
         debut = source.index("if numPage == 4 :")
         fin = source.index("self.evtActif = True", debut)
         bloc = source[debut:fin]
         self.assertIn("page.ctrl_annee.SetAnnee(annee)", bloc)
-        self.assertNotIn("page.MAJ()", bloc)
+        self.assertIn("page.MAJ()", bloc)
+        self.assertIn("page.SetSelectionCode(code)", bloc)
+        self.assertIn('code in ("trimestre_1", "trimestre_2", "trimestre_3")', bloc)
+        self.assertIn("self.notebook.SetSelection(3)", bloc)
 
 
 
@@ -246,26 +327,37 @@ class PeriodesSaisonTests(unittest.TestCase):
 
 
 
-    def test_saison_n_affiche_que_des_periodes_fixes(self):
+    def test_saison_affiche_les_periodes_periscolaires_pas_les_trimestres(self):
         source = CTRL.read_text(encoding="utf-8")
         debut = source.index("class Saison(wx.Panel):")
         fin = source.index("class Dates(wx.Panel):", debut)
         bloc = source[debut:fin]
 
         for code in (
-            "saison",
-            "trimestre_1",
-            "trimestre_2",
-            "trimestre_3",
-            "semestre_1",
-            "semestre_2",
+            "periode_1",
+            "periode_2",
+            "periode_3",
+            "periode_4",
+            "periode_5",
         ):
             self.assertIn('("%s",' % code, bloc)
 
-        self.assertNotIn('"trimestre_courant"', bloc)
-        self.assertNotIn('"semestre_courant"', bloc)
-        self.assertNotIn("Trimestre en cours", bloc)
-        self.assertNotIn("Semestre en cours", bloc)
+        self.assertIn("Saison complète (sept.-août)", bloc)
+        self.assertIn("1er semestre (sept.-févr.)", bloc)
+        self.assertIn("2e semestre (mars-août)", bloc)
+        self.assertNotIn("1er trimestre (sept.-déc.)", bloc)
+        self.assertNotIn("2e trimestre (janv.-mars)", bloc)
+        self.assertNotIn("3e trimestre (avr.-août)", bloc)
+
+    def test_saison_calcule_les_periodes_depuis_la_table_vacances(self):
+        source = CTRL.read_text(encoding="utf-8")
+        debut = source.index("class Saison(wx.Panel):")
+        fin = source.index("class Dates(wx.Panel):", debut)
+        bloc = source[debut:fin]
+        self.assertIn("FROM vacances", bloc)
+        self.assertIn("GetBornesPeriodesSaison(", bloc)
+        self.assertIn("liste_vacances=vacances", bloc)
+        self.assertIn("sans inventer de périodes périscolaires", bloc)
 
 
 
