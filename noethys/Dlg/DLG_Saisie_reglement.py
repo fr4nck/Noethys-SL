@@ -57,6 +57,17 @@ def DateEngEnDateDD(dateEng):
 
 
 
+
+def RecuAccepte(listeSucces=[], adresse=u""):
+    """ Vrai uniquement si le serveur d'envoi a accepté un message adressé à
+    adresse (contrat DLG_Mailer.listeSucces). Accepté ne veut pas dire remis
+    au destinataire. """
+    for message in listeSucces or [] :
+        if adresse in getattr(message, "destinataires", []) :
+            return True
+    return False
+
+
 class CTRL_Image(wx.StaticBitmap):
     def __init__(self, parent, style=0):
         wx.StaticBitmap.__init__(self, parent, id=-1, style=style)
@@ -1224,11 +1235,13 @@ class Dialog(wx.Dialog):
                             dlg2.SetDonnees(listeDonnees, modificationAutorisee=False)
                             dlg2.ChargerModeleDefaut()
                             dlg2.OnBoutonEnvoyer(None)
-                            if len(dlg2.listeAnomalies) == 0 :
-                                succes = True
+                            # Succès de soumission réel pour CE destinataire
+                            # (DLG_Mailer.listeSucces) : listeAnomalies n'est
+                            # jamais alimentée par le Mailer et ne prouvait rien.
+                            succes = RecuAccepte(dlg2.listeSucces, adresse)
                             dlg2.Destroy()
-                        except :
-                            pass
+                        except Exception as err :
+                            print(("Erreur lors de l'envoi du reçu par email : %s" % err))
 
                         try :
                             os.remove(nomDoc)     
