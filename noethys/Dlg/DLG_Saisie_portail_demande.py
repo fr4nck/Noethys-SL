@@ -945,6 +945,21 @@ class Dialog(wx.Dialog):
     def OnBoutonManuel(self, event):
         self.Traitement(mode="manuel")
 
+    def AfficherProgressionReservations(self, reponse="", etape=None):
+        """Rend immédiatement visible l'étape courante sans réentrer dans la boucle wx."""
+        texte = reponse or ""
+        if etape:
+            texte = (texte + u"\n\n" if texte else u"") + etape
+        self.ctrl_reponse.ChangeValue(texte)
+        # Update force uniquement le repaint des contrôles concernés. Ne pas utiliser
+        # Yield/SafeYield ici : le traitement reste synchrone et ne doit pas accepter
+        # d'autres actions utilisateur pendant une sauvegarde de grille.
+        self.ctrl_reponse.Refresh()
+        self.ctrl_reponse.Update()
+        self.panel_bandeau.Refresh()
+        self.panel_bandeau.Update()
+        self.Update()
+
     def Traitement(self, mode="automatique"):
         traitement = Traitement(parent=self, track=self.track, mode=mode)
         resultat = traitement.Traiter()
@@ -956,9 +971,11 @@ class Dialog(wx.Dialog):
                 # La demande a été validée
                 self.SetEtat(etat="valide", traitement_date=datetime.date.today())
 
-                # Mémorisation de la réponse
+                # Mémorisation de la réponse. Forcer le repaint avant les
+                # recalculs/écritures suivants : sinon la fenêtre générale Connecthys
+                # paraît avoir terminé avant cette fenêtre de premier plan.
                 if "reponse" in resultat and resultat["reponse"] not in (None, "") :
-                    self.ctrl_reponse.SetValue(resultat["reponse"])
+                    self.AfficherProgressionReservations(resultat["reponse"])
 
                 # Enregistrement de la demande
                 self.Sauvegarde()
@@ -1478,8 +1495,18 @@ class Traitement():
             ctrl_grille = self.parent.ctrl_grille
             self.Init_grille(ctrl_grille=ctrl_grille)
             reponse = self.Appliquer_reservations(ctrl_grille=ctrl_grille)
+
+            # Le calcul des réservations est terminé à ce stade, mais Sauvegarde()
+            # peut encore prendre quelques secondes. Afficher donc immédiatement
+            # le résultat calculé dans la fenêtre au premier plan, avec l'étape
+            # réelle restante, au lieu de laisser seulement le journal parent
+            # annoncer la réponse en arrière-plan.
+            if reponse not in (None, "") :
+                self.parent.AfficherProgressionReservations(
+                    reponse, _(u"Enregistrement des modifications en cours…"))
+            self.EcritLog(_(u"Enregistrement des consommations en cours..."))
             self.Save_grille(ctrl_grille)
-            self.EcritLog(_(u"Enregistrement des consommations"))
+            self.EcritLog(_(u"Enregistrement des consommations terminé."))
             if reponse == "":
                 return {"etat" : False, "reponse" : reponse}
             else :
