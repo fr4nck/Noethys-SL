@@ -32,10 +32,23 @@ def _noms_importes(chemin):
 
 
 class ShowBoundaryValueTests(unittest.TestCase):
-    def test_caracterisation_import_retire_de_reportlab_5(self):
+    def test_plus_aucun_import_de_showboundaryvalue(self):
         for chemin in FICHIERS:
             with self.subTest(chemin=chemin):
-                self.assertIn("ShowBoundaryValue", _noms_importes(chemin))
+                self.assertNotIn("ShowBoundaryValue", _noms_importes(chemin))
+
+    def test_modules_importables_avec_reportlab_installe(self):
+        if str(NOETHYS_DIR) not in sys.path:
+            sys.path.insert(0, str(NOETHYS_DIR))
+        try:
+            import wx  # noqa: F401
+        except ImportError:
+            self.skipTest("wx absent")
+        import importlib
+        for nom in ("Utils.UTILS_Impression_rappel", "Utils.UTILS_Impression_recu",
+                    "Utils.UTILS_Impression_cotisation"):
+            with self.subTest(module=nom):
+                importlib.import_module(nom)
 
 
 if __name__ == "__main__":
