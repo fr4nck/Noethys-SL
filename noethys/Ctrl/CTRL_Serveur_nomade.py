@@ -79,6 +79,29 @@ class GenerationFichier(Thread):
 
 
 
+# Fichiers d'actions émis par Nomadhys : actions_<IDfichier>_<AAAAMMJJHHMMSS>.nsc|.nsd
+# (synchronisation.py de Nomadhys ; IDfichier = 14 chiffres + 3 lettres).
+MOTIF_FICHIER_RECU = re.compile(r"\Aactions_[A-Za-z0-9]{1,40}_[0-9]{14}\.(nsc|nsd)\Z")
+TAILLE_MAX_FICHIER_RECU = 500 * 1024 * 1024
+
+
+def ValiderFichierRecu(nom=None, taille=None):
+    """ Retourne None si le nom et la taille annoncés par l'appareil sont
+    acceptables, sinon le motif du refus. Le fichier final doit rester dans
+    le répertoire de synchronisation. """
+    if not isinstance(nom, six.string_types) or MOTIF_FICHIER_RECU.match(nom) is None :
+        return _(u"nom de fichier non autorisé")
+    if os.path.basename(nom) != nom or "/" in nom or "\\" in nom or ".." in nom :
+        return _(u"nom de fichier non autorisé")
+    if isinstance(taille, bool) or not isinstance(taille, six.integer_types) or taille <= 0 or taille > TAILLE_MAX_FICHIER_RECU :
+        return _(u"taille de fichier invalide")
+    repertoire = os.path.realpath(UTILS_Fichiers.GetRepSync(""))
+    destination = os.path.realpath(UTILS_Fichiers.GetRepSync(nom))
+    if os.path.dirname(destination) != repertoire :
+        return _(u"destination hors du répertoire de synchronisation")
+    return None
+
+
 class Echo(Protocol):
     dictFichierReception = None
     log = None
@@ -148,10 +171,17 @@ class Echo(Protocol):
             message = json.loads(data)
 
             # Reception d'un fichier - init
-            if message["action"] == "envoyer" :
-                nom_appareil = message["nom_appareil"]
-                tailleFichier = message["taille"]
-                nomInitial = message["nom"]
+            if isinstance(message, dict) and message.get("action") == "envoyer" :
+                nom_appareil = six.text_type(message.get("nom_appareil", u""))
+                tailleFichier = message.get("taille")
+                nomInitial = message.get("nom")
+                # Nom et taille validés AVANT toute ouverture de fichier : une
+                # entrée invalide est refusée, jamais corrigée.
+                motif = ValiderFichierRecu(nomInitial, tailleFichier)
+                if motif != None :
+                    self.EcritLog(_(u"Fichier refusé : %s") % motif)
+                    self.transport.loseConnection()
+                    return
                 nomFinal = UTILS_Fichiers.GetRepSync(nomInitial)
                 self.EcritLog(_(u"Prêt à recevoir de l'appareil ") + nom_appareil + " le fichier " + nomInitial + " (" + FonctionsPerso.Formate_taille_octets(tailleFichier) + ")")
                 fichier = open(nomFinal, "wb")
@@ -212,11 +242,18 @@ class Echo(Protocol):
             self.log.SetImage("on")
             self.EcritLog(_(u"Clôture du fichier de réception"))
             nomFichier = self.dictFichierReception["nom_initial"]
+            taille_totale = self.dictFichierReception["taille_totale"]
             self.dictFichierReception["fichier"].close()
             self.dictFichierReception = None
             
-            # Analyse du fichier
-            resultat = AnalyserFichier(nomFichier)
+            # Analyse du fichier (avec contrôle de la taille annoncée : un
+            # transfert incomplet est mis en quarantaine, jamais importé ;
+            # la tablette conserve ses actions tant que Noethys ne les a pas
+            # archivées, elle pourra donc les renvoyer)
+            anomalies = []
+            resultat = AnalyserFichier(nomFichier, tailleFichier=taille_totale, anomalies=anomalies)
+            for nom, motif in anomalies :
+                self.EcritLog(_(u"Fichier %s non exploitable : %s") % (nom, motif))
             self.log.MAJ()
 
             
