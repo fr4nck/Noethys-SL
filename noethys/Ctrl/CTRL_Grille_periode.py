@@ -662,6 +662,7 @@ class CTRL(wx.Panel):
         listeSelections = dictDonnees["listeSelections"]
         dateDebut = dictDonnees["dateDebut"]
         dateFin = dictDonnees["dateFin"]
+        periodeCode = dictDonnees.get("periodeCode")
         
         # Recherche la page du notebook
         self.notebook.SetSelection(numPage)
@@ -702,11 +703,61 @@ class CTRL(wx.Panel):
             if dateFin != None : page.ctrl_date_fin.SetDate(dateFin)
 
         if numPage == 4 :
-            # Saison
+            # Saison. Les nouvelles préférences mémorisent un code stable.
+            # Pour une préférence plus ancienne, l'index est interprété selon
+            # l'ordre historique afin de ne jamais transformer silencieusement
+            # un ancien trimestre en période périscolaire.
             if annee != None :
                 page.ctrl_annee.SetAnnee(annee)
-            if len(listeSelections) > 0 :
-                page.SetSelectionIndex(listeSelections[0])
+            page.MAJ()
+
+            code = periodeCode
+            if code in (None, "") and len(listeSelections) > 0 :
+                code = page.GetLegacyCodeFromIndex(listeSelections[0])
+
+            restaure = False
+            if code not in (None, "") :
+                restaure = page.SetSelectionCode(code)
+
+            if not restaure and code not in (None, "") :
+                # Les trimestres ne sont plus proposés mais restent compris
+                # par le moteur. Une préférence historique est restaurée dans
+                # l'onglet Dates avec exactement ses anciennes bornes.
+                bornes = None
+                if code in ("trimestre_1", "trimestre_2", "trimestre_3") :
+                    try :
+                        bornes = UTILS_PeriodesSaison.GetPeriodeSaison(
+                            code,
+                            annee_debut=page.ctrl_annee.GetAnnee(),
+                        )
+                    except ValueError :
+                        bornes = None
+
+                # Même repli pour une période périscolaire mémorisée si les
+                # vacances ont depuis été retirées de la base : on conserve
+                # les bornes réellement mémorisées plutôt que d'inventer.
+                if bornes is None :
+                    liste_periodes_memorisees = dictDonnees.get("listePeriodes", [])
+                    if len(liste_periodes_memorisees) == 1 :
+                        bornes = liste_periodes_memorisees[0]
+
+                if bornes is not None and len(bornes) == 2 :
+                    def _date_dd(valeur) :
+                        if isinstance(valeur, datetime.datetime) :
+                            return valeur.date()
+                        if isinstance(valeur, datetime.date) :
+                            return valeur
+                        return UTILS_Dates.DateEngEnDateDD(valeur)
+
+                    try :
+                        debut = _date_dd(bornes[0])
+                        fin = _date_dd(bornes[1])
+                        if debut is not None and fin is not None :
+                            self.notebook.SetSelection(3)
+                            self.page_dates.ctrl_date_debut.SetDate(debut)
+                            self.page_dates.ctrl_date_fin.SetDate(fin)
+                    except Exception :
+                        pass
         
         self.evtActif = True
         
@@ -717,7 +768,7 @@ class CTRL(wx.Panel):
 ##        "dateFin" : None,
 
     def GetDictDonnees(self):
-        dictDonnees = {}
+        dictDonnees = {"periodeCode": None}
         numPage = self.notebook.GetSelection()
         page = self.notebook.GetPage(numPage)
         
@@ -761,6 +812,7 @@ class CTRL(wx.Panel):
                 dictDonnees["listeSelections"] = []
             else :
                 dictDonnees["listeSelections"] = [indexSelection]
+            dictDonnees["periodeCode"] = page._GetCodeSelectionne()
             dictDonnees["annee"] = page.ctrl_annee.GetAnnee()
             dictDonnees["dateDebut"] = None
             dictDonnees["dateFin"] = None
