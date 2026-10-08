@@ -63,6 +63,20 @@ class NoedocEcoulementTests(unittest.TestCase):
                                 taille_page=(infos["largeur"] or 210, infos["hauteur"] or 297))
         return hote, dlg
 
+    def _fermer(self, dlg, hote):
+        # Minuteur de redimensionnement de FloatCanvas encore armé juste après
+        # l'ouverture : l'arrêter évite qu'il se déclenche sur un canevas
+        # détruit pendant un test suivant.
+        minuteur = getattr(dlg.ctrl_canvas.canvas, "SizeTimer", None)
+        if minuteur is not None:
+            minuteur.Stop()
+        dlg.Quitter()
+        hote.Destroy()
+        for _ in range(5):
+            wx.Yield()  # la destruction d'une fenêtre de premier niveau est différée
+        if minuteur is not None:
+            minuteur.Stop()  # réarmé par le dernier événement de taille de la destruction
+
     def test_blocs_flottants_dans_la_page_et_ancrages_conserves(self):
         self.assertEqual(len(self.IDs), 3)
         for ID in self.IDs:
@@ -83,8 +97,7 @@ class NoedocEcoulementTests(unittest.TestCase):
                     canvas.Sauvegarde()
                     self.assertEqual(self._positions(ID), avant)
                 finally:
-                    dlg.Quitter()
-                    hote.Destroy()
+                    self._fermer(dlg, hote)
 
     def test_bloc_deplace_par_l_utilisateur_garde_sa_position(self):
         ID = self.IDs[0]
@@ -97,8 +110,7 @@ class NoedocEcoulementTests(unittest.TestCase):
             canvas.Sauvegarde()
             IDobjet = corps.IDobjet
         finally:
-            dlg.Quitter()
-            hote.Destroy()
+            self._fermer(dlg, hote)
         self.base.db.ExecuterReq("SELECT x, y FROM documents_objets WHERE IDobjet=%d;" % IDobjet)
         self.assertEqual(tuple(float(v) for v in self.base.db.ResultatReq()[0]), attendu)
 
