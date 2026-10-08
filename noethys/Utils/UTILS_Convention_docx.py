@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime
 import os
 import re
+import tempfile
 import zipfile
 from decimal import Decimal
 
@@ -32,6 +33,8 @@ NAMESPACES = {"w": NS_WORD}
 PARTIES_TEXTE = re.compile(
     r"^word/(?:document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$"
 )
+# Forme des mots-clés Noethys ({FAMILLE_NOM}, {CONVENTION_SAISON}...).
+MOT_CLE = re.compile(r"\{[A-Z][A-Z0-9_]*\}")
 
 
 def _TexteValeur(valeur):
@@ -154,11 +157,17 @@ def _RemplacerDansParagraphe(paragraphe, remplacements):
     return len(occurrences)
 
 
-def _RemplacerPartieXML(contenu, remplacements):
+def _RemplacerPartieXML(contenu, remplacements, inconnus=None):
+    """Remplace les champs d'une partie XML. Les mots-clés du modèle absents
+    de ``remplacements`` sont ajoutés à ``inconnus`` (lus avant remplacement :
+    une valeur insérée n'est jamais prise pour un mot-clé)."""
     parseur = etree.XMLParser(resolve_entities=False, no_network=True, recover=False)
     racine = etree.fromstring(contenu, parser=parseur)
     total = 0
     for paragraphe in racine.xpath(".//w:p", namespaces=NAMESPACES):
+        if inconnus is not None:
+            texte = u"".join(noeud.text or u"" for noeud in paragraphe.xpath(".//w:t", namespaces=NAMESPACES))
+            inconnus.update(champ for champ in MOT_CLE.findall(texte) if champ not in remplacements)
         total += _RemplacerDansParagraphe(paragraphe, remplacements)
     if not total:
         return contenu, 0
@@ -185,29 +194,49 @@ def GenererDOCX(modele, dictChamps, nomDoc=None, afficherDoc=True):
     remplacements = {
         champ: _TexteValeur(valeur) for champ, valeur in dictChamps.items()
     }
+
+    # Tout est préparé en mémoire avant d'écrire : un modèle invalide ou un
+    # mot-clé inconnu ne crée ni ne modifie aucun fichier.
     total = 0
+    inconnus = set()
+    parties = []
     try:
-        with zipfile.ZipFile(modele, "r") as source, zipfile.ZipFile(nomDoc, "w") as destination:
+        with zipfile.ZipFile(modele, "r") as source:
             for info in source.infolist():
                 contenu = source.read(info.filename)
                 if PARTIES_TEXTE.match(info.filename) and b"<w:t" in contenu:
-                    contenu, compteur = _RemplacerPartieXML(contenu, remplacements)
+                    contenu, compteur = _RemplacerPartieXML(contenu, remplacements, inconnus)
                     total += compteur
-                destination.writestr(info, contenu)
+                parties.append((info, contenu))
     except (OSError, zipfile.BadZipFile, etree.XMLSyntaxError) as err:
-        try:
-            if os.path.isfile(nomDoc):
-                os.remove(nomDoc)
-        except OSError:
-            pass
         raise ValueError(_(u"Le modèle Word n'a pas pu être lu : %s") % err)
-
+    if inconnus:
+        raise ValueError(_(u"Le modèle Word contient des mots-clés inconnus : %s.\n"
+                           u"Corrigez-les dans le modèle (voir la liste des champs de Noedoc).")
+                         % u", ".join(sorted(inconnus)))
     if total == 0:
-        try:
-            os.remove(nomDoc)
-        except OSError:
-            pass
         raise ValueError(_(u"Le modèle Word ne contient aucun champ Noethys reconnu."))
+
+    # Écriture atomique : fichier temporaire dans le même dossier, puis
+    # remplacement en une opération. Un document existant reste intact en
+    # cas d'échec (disque plein, document ouvert dans Word...).
+    descripteur, temporaire = tempfile.mkstemp(
+        prefix=u".~", suffix=u".docx", dir=os.path.dirname(nomDoc) or None
+    )
+    os.close(descripteur)
+    try:
+        with zipfile.ZipFile(temporaire, "w") as destination:
+            for info, contenu in parties:
+                destination.writestr(info, contenu)
+        os.replace(temporaire, nomDoc)
+    except OSError as err:
+        raise ValueError(_(u"Le document Word n'a pas pu être enregistré : %s") % err)
+    finally:
+        if os.path.exists(temporaire):
+            try:
+                os.remove(temporaire)
+            except OSError:
+                pass
     if afficherDoc:
         FonctionsPerso.LanceFichierExterne(nomDoc)
     return nomDoc
