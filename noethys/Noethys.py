@@ -109,6 +109,34 @@ ID_TB_CALCULATRICE = wx.Window.NewControlId()
 ID_TB_UTILISATEUR = wx.Window.NewControlId()
 
 
+def FermerSplashProgressivement(splash, on_finished=None):
+    """Efface le logo une fois la fenêtre principale entièrement préparée."""
+    def terminer():
+        if splash:
+            splash.Destroy()
+        if on_finished is not None:
+            on_finished()
+
+    if splash is None:
+        terminer()
+        return
+    niveaux = (230, 205, 180, 155, 130, 105, 80, 55, 30, 0)
+
+    def attenuer(index=0):
+        try:
+            if not splash:
+                return
+            if index == len(niveaux) or not splash.SetTransparent(niveaux[index]):
+                terminer()
+                return
+            wx.CallLater(40, attenuer, index + 1)
+        except RuntimeError:
+            # La fenêtre a pu être détruite lors de la fermeture de l'application.
+            return
+
+    wx.CallLater(40, attenuer)
+
+
 class MainFrame(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, -1, title=_(u"Noethys"), name="general", style=wx.DEFAULT_FRAME_STYLE)
@@ -119,6 +147,9 @@ class MainFrame(wx.Frame):
 ##        except : pass
 
         theme = UTILS_Interface.GetTheme()
+
+        # Fond clair dès la création, avant le premier rendu des panneaux.
+        self.SetBackgroundColour(wx.Colour(242, 242, 242))
 
         # Icône
         try :
@@ -243,7 +274,8 @@ class MainFrame(wx.Frame):
             self.userConfig["taille_fenetre"] = (0, 0)
         taille_fenetre = self.userConfig["taille_fenetre"]
         if taille_fenetre == (0, 0) or taille_fenetre == [0, 0]:
-            self.Maximize(True)
+            # Appliquer la maximisation après la création complète des panneaux.
+            self.maximiser_au_demarrage = True
         else:
             self.SetSize(taille_fenetre)
         self.CenterOnScreen()
@@ -4088,7 +4120,8 @@ class MainFrame(wx.Frame):
                     self.ChargeUtilisateur(dictTemp)
                     return True
         # Permet de donner le focus à la fenetre de connection sur LXDE (Fonctionnait sans sur d'autres distributions)
-        self.Raise()
+        if self.IsShown():
+            self.Raise()
         dlg = CTRL_Identification.Dialog(self, listeUtilisateurs=listeUtilisateurs, nomFichier=nomFichier)
         reponse = dlg.ShowModal() 
         dictUtilisateur = dlg.GetDictUtilisateur()
@@ -4447,7 +4480,13 @@ class MyApp(wx.App):
                     "Images/Interface/%s/%s" % (theme, nom_fichier_splash)
                 )
             bmp = wx.Bitmap(chemin_splash, wx.BITMAP_TYPE_PNG)
-            splash = AS.AdvancedSplash(None, bitmap=bmp, timeout=3000, agwStyle=AS.AS_CENTER_ON_SCREEN)
+            splash = AS.AdvancedSplash(
+                None, bitmap=bmp,
+                style=wx.FRAME_NO_TASKBAR | wx.FRAME_SHAPED,
+                agwStyle=AS.AS_NOTIMEOUT | AS.AS_CENTER_ON_SCREEN)
+            # Garder le logo jusqu’à la fin du chargement, y compris après un clic.
+            splash.Unbind(wx.EVT_MOUSE_EVENTS)
+            splash.Unbind(wx.EVT_CHAR)
             if not splash_sl_disponible:
                 anneeActuelle = str(datetime.date.today().year)
                 splash.SetText(u"Copyright © 2010-%s Ivan LUCAS" % anneeActuelle[2:])
@@ -4463,45 +4502,66 @@ class MyApp(wx.App):
         frame = MainFrame(None)
         self.SetTopWindow(frame)
         frame.Initialisation()
-        if splash is not None:
-            splash.Hide()
-            splash.Destroy()
-        frame.Show()
+        # Update() AUI utilise CallAfter : placer les panneaux avant de montrer la fenêtre.
+        frame._mgr.DoUpdate()
+        if getattr(frame, "maximiser_au_demarrage", False):
+            frame.Maximize(True)
+        frame._mgr.DoUpdate()
+        frame.Layout()
 
-        # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
-        etat_annonce = frame.Annonce()
+        def ouvrir_demarrage():
+            if not frame:
+                return
+            # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
+            etat_annonce = frame.Annonce()
                 
-        # Charge le fichier Exemple si l'utilisateur le souhaite
-        etat_exemple = frame.ChargeFichierExemple()
+            # Charge le fichier Exemple si l'utilisateur le souhaite
+            etat_exemple = frame.ChargeFichierExemple()
         
-        # Charge le dernier fichier
-        fichierOuvert = frame.OuvrirDernierFichier()
+            # Charge le dernier fichier
+            fichierOuvert = False
+            if not frame.userConfig.get("nomFichier"):
+                fichierOuvert = frame.OuvrirDernierFichier()
 
-        # Propose mise à jour immédiate
-        etat_maj = frame.ProposeMAJ()
+            # Propose mise à jour immédiate
+            etat_maj = frame.ProposeMAJ()
 
-        # Après ouverture d'un fichier :
-        if fichierOuvert == True and frame.EstFichierExemple() == False and etat_maj == False :
+            # Après ouverture d'un fichier :
+            if fichierOuvert == True and frame.EstFichierExemple() == False and etat_maj == False :
 
-            # Témoignages
-            temoignages = frame.AnnonceTemoignages()
+                # Témoignages
+                temoignages = frame.AnnonceTemoignages()
 
-            # Financement
-            if temoignages == False :
-                financement = frame.AnnonceFinancement()
+                # Financement
+                if temoignages == False :
+                    financement = frame.AnnonceFinancement()
 
 
-                # Détection d'anomalies
-                if financement == False and CUSTOMIZE.GetValeur("correction_anomalies", "actif", "1") == "1" :
-                    frame.AutodetectionAnomalies()
+                    # Détection d'anomalies
+                    if financement == False and CUSTOMIZE.GetValeur("correction_anomalies", "actif", "1") == "1" :
+                        frame.AutodetectionAnomalies()
 
-        # Démarrage du serveur Connecthys
-        if hasattr(frame, 'ctrl_serveur_portail') == True:
-            frame.ctrl_serveur_portail.StartServeur()
+            # Démarrage du serveur Connecthys
+            if hasattr(frame, 'ctrl_serveur_portail') == True:
+                frame.ctrl_serveur_portail.StartServeur()
 
-        # Démarrage du serveur Nomadhys
-        if hasattr(frame, 'ctrl_serveur_nomade') == True:
-            frame.ctrl_serveur_nomade.StartServeur()
+            # Démarrage du serveur Nomadhys
+            if hasattr(frame, 'ctrl_serveur_nomade') == True:
+                frame.ctrl_serveur_nomade.StartServeur()
+
+        # Montrer la fenêtre prête avant toute demande de mot de passe.
+        frame._mgr.DoUpdate()
+        frame.Layout()
+        if splash is not None:
+            splash.SetWindowStyleFlag(splash.GetWindowStyleFlag() | wx.STAY_ON_TOP)
+            splash.Raise()
+        frame.Show()
+        frame.Refresh()
+        frame.Update()
+        def apres_fondu():
+            wx.CallLater(500, ouvrir_demarrage)
+
+        FermerSplashProgressivement(splash, on_finished=apres_fondu)
 
         print("Temps de chargement ouverture de Noethys = ", time.time() - heure_debut)
         return True
