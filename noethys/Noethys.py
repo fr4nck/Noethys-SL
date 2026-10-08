@@ -435,6 +435,11 @@ class MainFrame(wx.Frame):
             FonctionsPerso.VideRepertoireTemp()
             FonctionsPerso.VideRepertoireUpdates()
         
+        # Arrêter le bandeau avant la destruction de ses contrôles wx.
+        # Sous Windows, un timer encore actif peut rappeler un contrôle détruit.
+        if hasattr(self, "ctrl_ephemeride"):
+            self.ctrl_ephemeride.StopTicker()
+
         # Arrête le timer Autodeconnect
         if self.autodeconnect_timer.IsRunning():
             self.autodeconnect_timer.Stop()

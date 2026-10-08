@@ -170,6 +170,7 @@ class CTRL(wx.Panel):
     
     def StopTicker(self):
         self.ctrl_ticker.Stop()
+        self.ctrl_ticker.timerPause.Stop()
 
     def GetOrganisateur(self):
         """ Récupère les infos sur l'organisateur """

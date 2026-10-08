@@ -114,3 +114,34 @@ Référence : PMSL-Arch `docs/REGLES_ADHESION_ACTIVITES.md` ; implémentation `d
 10. Trois **stashes** du 25/09/2026 (dépôt commun) à examiner avant toute résorption.
 11. Worktrees `Noethys-RC2` et `Noethys-RC2-clean` : résorption après recette et accord sur les éléments non repris.
 12. Famille de défauts « valeur par défaut évaluée à l'import » (`GenerationNomDoc`, 14 occurrences) : à ratisser.
+
+
+## 12. Reprise Codex — 08/10/2026
+
+- Push vérifié : `main`, `wx`, `qt` sur `a66e404a` ; PMSL-Arch `main` sur `9dc3f97`.
+- Portable e6c9f2de testé dans une extraction dédiée avec le fichier SQLite fictif
+  **Recette**, sans profil réel. Parcours fiche famille > saisie d'un règlement :
+  bouton Mode, création `MODE RECETTE CODEX`, bouton Émetteur, création
+  `EMETTEUR RECETTE CODEX` ; les deux éléments apparaissent dans leurs listes.
+  Le règlement de test a été annulé ; aucune base réelle touchée.
+- Crash reproduit dans ce portable : exception Windows `0xc0000005` dans
+  `wxbase32u_vc140_x64.dll`. Reproduit aussi depuis les sources sans fichier
+  ouvert et sans Noedoc. La piste Noedoc n'explique pas ce cas.
+- Isolation : sans le panneau éphéméride, la fermeture réussit ; arrêter le
+  seul timer de défilement avant la fermeture suffit aussi. Désinstaller le
+  gestionnaire AUI seul ne suffit pas. Correctif : arrêter le bandeau et son
+  timer de pause après acceptation de la fermeture, avant destruction wx.
+- Nouveau test `test_noethys_sl_fermeture_windows.py` : fermeture réelle de
+  l'accueil dans un sous-processus Windows, profil temporaire, réseau interdit.
+  Succès après correctif, zéro tentative de connexion réseau.
+- Le portable e6c9f2de existant **ne contient pas** ce nouveau correctif tant
+  qu'un nouveau build n'a pas été produit et vérifié.
+- Restent : DPI 125 % / 150 %, confirmation des données réelles d'Arthur,
+  recette Connecthys réelle et résorption des anciens travaux après validation.
+- Deux instances de l'installation réelle ont été constatées. Celle lancée
+  à 14:23 semble provenir du premier essai de lancement du portable via
+  Computer Use. Aucune interaction métier ni fermeture sur ces instances.
+
+Validation du correctif : suite `python -m unittest discover -s tests` terminée
+avec code 0. Des avertissements de nettoyage de bases temporaires et les
+exceptions volontairement simulées restent imprimés par les tests existants.
