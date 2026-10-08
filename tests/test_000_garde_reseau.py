@@ -29,5 +29,27 @@ class GardeReseauTests(unittest.TestCase):
         self.assertEqual(UTILS_Config.FichierConfig().GetItemConfig("nomFichier"), "")
 
 
+    def test_serveur_local_autorise_seul(self):
+        import os
+        from unittest import mock
+        import GestionDB
+        env = {"NOETHYS_TEST_MYSQL_HOST": "127.0.0.1", "NOETHYS_TEST_MYSQL_PORT": "3307",
+               "NOETHYS_TEST_MYSQL_USER": "test", "NOETHYS_TEST_MYSQL_PASSWORD": "x"}
+        with mock.patch.dict(os.environ, env):
+            with _garde_reseau.ServeurMySQLDeTest():
+                for autre in (u"3306;10.0.0.5;u;p[RESEAU]autre", u"3307;192.168.1.10;u;p[RESEAU]autre",
+                              u"3306;127.0.0.1;u;p[RESEAU]autre"):
+                    db = GestionDB.DB(nomFichier=autre, suffixe=None)
+                    self.assertEqual(db.echec, 1, autre)
+                    self.assertIsInstance(db.erreur, _garde_reseau.ConnexionReseauInterdite)
+            # Hors du bloc, même le serveur local de test est refusé.
+            db = GestionDB.DB(nomFichier=u"3307;127.0.0.1;u;p[RESEAU]autre", suffixe=None)
+            self.assertIsInstance(db.erreur, _garde_reseau.ConnexionReseauInterdite)
+        with mock.patch.dict(os.environ, dict(env, NOETHYS_TEST_MYSQL_HOST="203.0.113.10")):
+            with self.assertRaises(_garde_reseau.ConnexionReseauInterdite):
+                with _garde_reseau.ServeurMySQLDeTest():
+                    pass
+
+
 if __name__ == "__main__":
     unittest.main()
