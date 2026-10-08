@@ -1927,6 +1927,31 @@ Version 0.0.0.1 (15/02/2010) :
 
 ------------------------------------------------------------
 
+Noethys SL 0.1.0 RC3 - suite du 08/10/2026
+
+- Panneau Aujourd'hui : presentation simplifiee, dates enrichies et
+  reglages d'affichage regroupes dans le menu Affichage.
+- Periscolaire : cinq periodes integrees au selecteur commun avec codes
+  de periode stabilises et libelles clarifies.
+- Email unitaire : envoi sans blocage du fil graphique et diagnostic
+  des echecs d'initialisation conserve.
+- Connecthys : synchronisation de l'affichage de progression du
+  traitement automatique, sans pretendre qualifier les echanges reels.
+- Windows : nouvelle identite publique RC3 pour le portable et le Setup.
+  Le build et son demarrage restent a verifier sur l'artefact exact.
+
+Limites du candidat :
+- Tests Connecthys reels, MySQL/MariaDB et restauration d'une copie
+  de sauvegarde non valides par ce seul conditionnement.
+- Corrections du rail reseau 1 sur branche distincte non integrees.
+- Recette Windows de RC3 et rattachement des derniers correctifs
+  decrits dans la session locale a un commit encore a confirmer.
+
+La version interne 1.3.4.4 reste celle des fichiers,
+migrations de base et echanges Connecthys.
+
+------------------------------------------------------------
+
 Noethys SL 0.1.0 RC2 - suite du 01/10/2026
 
 - Adhésion annuelle automatique : une adhésion glissante d'un an est créée
