@@ -510,9 +510,11 @@ class CTRL_Donnees(gridlib.Grid):
 
         dictInfosTitulaires = UTILS_Titulaires.GetTitulaires([self.parent.IDfamille,], mode_adresse_facturation=True)
 
-        self.SetValeur("nom", dictInfosTitulaires[self.parent.IDfamille]["titulairesAvecCivilite"])
-        self.SetValeur("rue", dictInfosTitulaires[self.parent.IDfamille]["adresse"]["rue"])
-        self.SetValeur("ville", u"%s %s" % (dictInfosTitulaires[self.parent.IDfamille]["adresse"]["cp"], dictInfosTitulaires[self.parent.IDfamille]["adresse"]["ville"]))
+        # Adresse incomplète (personne morale, fiche en cours) : cellules vides, jamais None.
+        adresse = dictInfosTitulaires[self.parent.IDfamille]["adresse"]
+        self.SetValeur("nom", dictInfosTitulaires[self.parent.IDfamille]["titulairesAvecCivilite"] or u"")
+        self.SetValeur("rue", adresse["rue"] or u"")
+        self.SetValeur("ville", u" ".join(valeur for valeur in (adresse["cp"], adresse["ville"]) if valeur))
         
 
 
