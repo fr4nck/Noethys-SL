@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build:
-    name: Construire Noethys SL 0.1.0 RC2 pour Windows
+    name: Construire Noethys SL 0.1.0 RC3 pour Windows
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -44,7 +44,7 @@ jobs:
           python -m compileall -q noethys tests
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
 
-          python -c "from pathlib import Path; v=Path('noethys/Versions.txt').read_text(encoding='utf-8'); assert v.startswith('Version 1.3.4.4 (01/10/2026) :'); assert 'Noethys SL 0.1.0 RC2 - suite du 01/10/2026' in v"
+          python -c "from pathlib import Path; v=Path('noethys/Versions.txt').read_text(encoding='utf-8'); assert v.startswith('Version 1.3.4.4 (01/10/2026) :'); assert 'Noethys SL 0.1.0 RC3 - suite du 08/10/2026' in v"
 
       - name: Construire l'exécutable
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
@@ -55,15 +55,18 @@ jobs:
           if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
           $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'
           if (-not (Test-Path $splash)) { throw 'Splash Pêle-Mêle absent du paquet' }
-          if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC2 - suite du 01/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
+          if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC3 - suite du 01/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
           if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
+          $identity = Get-Content 'noethys/Identite.py' -Raw
+          if ($identity -notmatch 'PRODUCT_VERSION = "0\\.1\\.0-rc\\.3"') { throw 'Version publique RC3 incorrecte' }
+          if ($identity -notmatch 'PRODUCT_VERSION_DISPLAY = u"0\\.1\\.0 RC3"') { throw 'Version affichee RC3 incorrecte' }
           @(
-            'Noethys SL 0.1.0 RC2 - Windows'
+            'Noethys SL 0.1.0 RC3 - Windows'
             "Commit: $env:GITHUB_SHA"
             "Workflow run: $env:GITHUB_RUN_ID"
           ) | Set-Content 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
           New-Item -ItemType Directory -Path 'windows-output' -Force | Out-Null
-          Compress-Archive -Path 'dist/Noethys' -DestinationPath 'windows-output/Noethys-SL-0.1.0-RC2-Windows-portable.zip' -Force
+          Compress-Archive -Path 'dist/Noethys' -DestinationPath 'windows-output/Noethys-SL-0.1.0-rc.3-Windows-portable.zip' -Force
 
       - name: Vérifier le démarrage de l'exécutable
         shell: pwsh
@@ -89,15 +92,15 @@ jobs:
           choco install innosetup --no-progress -y
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
-          & $iscc '/DMyAppVersion=0.1.0-rc.2' 'packaging\vanilla-installer.iss'
+          & $iscc '/DMyAppVersion=0.1.0-rc.3' 'packaging\vanilla-installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
-          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-RC2-Setup.exe'
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.3-Setup.exe'
 
       - name: Publier les deux fichiers Windows
         uses: actions/upload-artifact@v7
         with:
-          name: Noethys-SL-0.1.0-RC2-Windows
+          name: Noethys-SL-0.1.0-rc.3-Windows
           path: windows-output/*
           if-no-files-found: error
           retention-days: 14
