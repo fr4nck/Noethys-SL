@@ -3,7 +3,7 @@ name: Noethys SL RC - Windows portable et Setup
 on:
   pull_request:
     branches:
-      - release/noethys-sl-0.1.0
+      - rc/noethys-sl-0.1.0-rc.2
     paths:
       - 'noethys/Noethys.py'
       - 'noethys/Versions.txt'
@@ -58,8 +58,8 @@ jobs:
           if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC3 - suite du 01/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
           if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
           $identity = Get-Content 'noethys/Identite.py' -Raw
-          if ($identity -notmatch 'PRODUCT_VERSION = "0\\.1\\.0-rc\\.3"') { throw 'Version publique RC3 incorrecte' }
-          if ($identity -notmatch 'PRODUCT_VERSION_DISPLAY = u"0\\.1\\.0 RC3"') { throw 'Version affichee RC3 incorrecte' }
+          if ($identity -notmatch 'PRODUCT_VERSION = "0\.1\.0-rc\.3"') { throw 'Version publique RC3 incorrecte' }
+          if ($identity -notmatch 'PRODUCT_VERSION_DISPLAY = u"0\.1\.0 RC3"') { throw 'Version affichee RC3 incorrecte' }
           @(
             'Noethys SL 0.1.0 RC3 - Windows'
             "Commit: $env:GITHUB_SHA"
