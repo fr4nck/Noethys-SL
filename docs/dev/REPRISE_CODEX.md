@@ -103,7 +103,7 @@ Référence : PMSL-Arch `docs/REGLES_ADHESION_ACTIVITES.md` ; implémentation `d
 3. Contrôle en lecture seule de la ligne `parametres` de l'incident (requêtes 9 / 9 bis).
 
 **P1**
-4. Mise à l'échelle Windows **125 % et 150 %** : Noedoc, saisie d'un règlement, devis (non testé).
+4. Recette **125 % et 150 %** effectuée : règlement et devis accessibles ; crash Noedoc au double-clic isolé et corrigé. Nouveau portable à retester graphiquement ; voir § 13 pour les limites exactes.
 5. **Corrigé et validé** : crash à la fermeture après « Rappel de sauvegarde ». Arrêt des timers du bandeau avant destruction (commit source `db27767b`) ; nouveau portable testé sur Recette, fermeture normale avec code 0. Voir § 12.
 6. **Aucune recette Connecthys réelle** : seul le traitement d'une demande de réservation a été simulé localement (grille, adhésion, signalement).
 7. Avant publication officielle : numéro de version (RC3), notes de version, reciblage du workflow `noethys-sl-windows.yml` (déclencheur actuel `release/noethys-sl-0.1.0`), Setup via la CI.
@@ -157,3 +157,52 @@ portable sur le fichier fictif Recette a été validée : croix de la fenêtre,
 « Pas maintenant » au rappel de sauvegarde, processus terminé avec code 0.
 La fermeture depuis les sources est également validée par le test.
 Le titre reste RC2 : aucune nouvelle version publique ni release créée.
+
+
+## 13. Recette DPI et crash au double-clic Noedoc — 08/10/2026
+
+Écran Windows 2560 × 1440 ; mise à l'échelle 125 %, puis 150 %, vérifiée
+dans les Paramètres. Candidat `db27767b`, fichier SQLite fictif Recette.
+Aucune donnée réelle ni aucun profil de production utilisé.
+
+- À 125 % : fiche famille, saisie de règlement, boutons Mode et Émetteur
+  ouverts et fermés ; commandes accessibles. Devis fictif généré et ouvert
+  dans Adobe Reader malgré un règlement de 50 € non ventilé. Deux messages
+  Windows « Font Capture », exception `0xc06d007e`, sont apparus pendant
+  l'ouverture de l'aperçu ; Franck les a fermés. Causalité non établie.
+- À 150 % : mêmes parcours règlement/Mode/Émetteur accessibles ; devis
+  fictif généré et ouvert dans Reader sans nouveau message Font Capture.
+  L'éditeur Noedoc s'ouvre et se ferme via le bouton Modifier.
+- Au double-clic sur « Facture par défaut », le portable s'arrête à 125 %
+  et à 150 % : événements Windows 1000, `0xc0000005` puis `0xc000041d`,
+  module `_core.cp310-win_amd64.pyd`. Reproduction depuis le code source
+  sur une copie temporaire de Recette avec garde réseau.
+- Trace faulthandler : `FloatCanvas.GetHitTestColor`, appelé depuis
+  `GUIMode.OnLeftUp`, lit le point `(289, 257)` dans un tampon `(20, 20)`
+  avant le premier dessin. AlphaPixelData n'effectue pas de contrôle des
+  bornes ; le relâchement du double-clic provoque la lecture native invalide.
+- Correctif isolé `027ffe7e` : CanvasNoedoc contrôle l'existence et les
+  dimensions du tampon de sélection avant lecture. Hors tampon : aucune
+  sélection ; dans le tampon : comportement FloatCanvas conservé.
+- Vérification graphique du code corrigé à 150 % : double-clic depuis la
+  liste des modèles, dessin complet, sélection d'un bloc et affichage des
+  propriétés, Annuler puis fermeture de la liste et de l'accueil ; code 0.
+- Cinq tests ciblés passent : trois `test_noethys_sl_noedoc*.py`, un
+  `test_noedoc_texte_ui.py`, un `test_noethys_sl_fermeture_windows.py`.
+  Le nouveau test exerce dans un sous-processus les coordonnées négatives,
+  les bords et le point réel du crash, les pixels valides, la priorité du
+  tampon de premier plan et l'absence de tampon. Réseau interdit.
+
+Nouveau portable local (correctifs fermeture + Noedoc), commit source
+`027ffe7e98faa67478934db3bdca1919bf8658d7` :
+`C:\Users\Ordi\Documents\GitHub\Noethys\dist\Noethys-SL-0.1.0-rc.2+027ffe7e-local-Windows-portable.zip`.
+SHA-256 : `778485c3ba9aa36317604f0b2afc3f33dd8b954834ca2d728fa270bc27bdd998`.
+Build terminé, intégrité ZIP vérifiée, aucun profil Portable dans l'archive.
+Un profil fictif séparé a été préparé dans l'extraction de recette.
+
+Restent à valider : double-clic et fermeture dans ce nouveau portable, puis
+contre-recette Noedoc corrigé à 125 %. Ne pas considérer la recette DPI comme
+une validation exhaustive de l'éditeur, de tous les écrans ou de toutes les
+résolutions. Les messages Font Capture restent une anomalie non attribuée.
+Arthur réel, contrôle de l'incident et recette Connecthys réelle restent
+en attente. Aucun tag, release ou déploiement ; anciens travaux préservés.
