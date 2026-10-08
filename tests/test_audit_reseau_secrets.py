@@ -313,7 +313,11 @@ class CryptageTests(unittest.TestCase):
         self.C.DecrypterFichier(chiffre, sortie, "mauvais-mdp-factice")  # aucune exception
         self.assertNotEqual(Path(sortie).read_bytes(), Path(clair).read_bytes())
 
-    def test_sec06_ancien_format_pickle_execute_du_code_au_dechiffrement(self):
+    def test_sec06_mode_par_defaut_restauration_locale_conserve_le_pickle(self):
+        """RISQUE RÉSIDUEL ACCEPTÉ au rail 1 (SEC-06 / X-01) : le mode par
+        défaut de DecrypterFichier (restauration locale volontaire) désérialise
+        encore l'ancien format. Les entrées réseau (pièces Connecthys, fichiers
+        Nomadhys) utilisent le mode strict : voir tests/test_rail1_format_chiffrement.py."""
         drapeau = "NOETHYS_AUDIT_PICKLE_%d" % os.getpid()
 
         class Charge(object):

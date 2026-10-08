@@ -228,8 +228,12 @@ class CryptageTests(BaseSync):
         # Aucune exception : l'intégrité n'est pas vérifiée
         self.crypt.DecrypterFichier(nsc, os.path.join(self.tmp, "c.nsd"), MDP_NOETHYS)
 
-    def test_ancien_format_deserialise_pickle_du_fichier_recu(self):
-        """Un .nsc sans en-tête SV2 est passé à pickle.load : exécution de code."""
+    def test_mode_par_defaut_restauration_locale_conserve_le_pickle(self):
+        """RISQUE RÉSIDUEL ACCEPTÉ au rail 1 : DecrypterFichier en mode par
+        défaut (restauration locale volontaire) passe encore un .nsc sans
+        en-tête SV2 à pickle.load. Les fichiers Nomadhys REÇUS appellent
+        AnalyserFichier, qui impose autoriser_ancien_format=False (voir
+        AnalyserFichierTests.test_ancien_format_pickle_refuse_en_reception)."""
         marqueur = "AUDIT_NOMADHYS_PICKLE_%d" % os.getpid()
         os.environ.pop(marqueur, None)
 

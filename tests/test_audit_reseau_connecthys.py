@@ -697,10 +697,25 @@ class _Charge:
 @unittest.skipUnless(IMPORT_OK, "Crypto indisponible")
 class CryptageFichierTests(unittest.TestCase):
 
-    def test_fichier_non_sv2_deserialise_par_pickle(self):
-        """DecrypterFichier (appelé sur une pièce téléchargée du portail,
-        DLG_Saisie_portail_demande.Traitement_pieces l.1606) fait
-        pickle.load sur tout fichier ne commençant pas par b'SV2'."""
+    def test_piece_non_sv2_refusee_sur_entree_reseau(self):
+        """CNX-01 / X-01 CORRIGÉ (rail 1) : une pièce téléchargée du portail
+        (DLG_Saisie_portail_demande.Traitement_pieces) est déchiffrée avec
+        autoriser_ancien_format=False : un fichier ne commençant pas par
+        b'SV2' est refusé SANS être désérialisé (aucun code exécuté)."""
+        del MARQUEUR_PICKLE[:]
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "piece.crypt")
+            with open(src, "wb") as f:
+                pickle.dump(_Charge(), f)
+            with self.assertRaises(UTILS_Cryptage_fichier.FormatChiffrementRefuse):
+                UTILS_Cryptage_fichier.DecrypterFichier(src, src, "0123456789", autoriser_ancien_format=False)
+        self.assertEqual(MARQUEUR_PICKLE, [])
+
+    def test_mode_par_defaut_restauration_locale_conserve_le_pickle(self):
+        """RISQUE RÉSIDUEL ACCEPTÉ au rail 1 : sans l'option stricte (mode par
+        défaut, utilisé par la restauration locale volontaire de sauvegardes
+        anciennes, DLG_Restauration), l'ancien format reste désérialisé.
+        Durcissement prévu au rail 2."""
         del MARQUEUR_PICKLE[:]
         with tempfile.TemporaryDirectory() as d:
             src = os.path.join(d, "piece.crypt")
