@@ -19,6 +19,12 @@ Règle métier :
   possible dès le 16/06/2027) ;
 - aucun renouvellement automatique : après expiration on attend la
   prochaine participation réelle ;
+- jamais de chevauchement : si la période à créer recouvre une adhésion
+  existante du même type (y compris future), rien n'est créé et la
+  situation est `a_verifier` (motif "chevauchement") ;
+- au plus une adhésion à venir (début postérieur à la date de
+  réconciliation) : une participation plus lointaine n'est traitée qu'à
+  une réconciliation ultérieure (motif "adhesion_a_venir_existante") ;
 - tarif, durée et libellé viennent de `unites_cotisations`, jamais codés
   en dur ; le type/l'unité sont résolus par configuration (type
   "individu" par défaut, unité à durée par défaut), sans ID codé en dur.
@@ -318,6 +324,23 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
         if DB.ResultatReq():
             return {"statut": STATUT_RIEN, "motif": "adhesion_deja_valide"}
 
+        # Aucune adhésion ne doit chevaucher la période à créer, y compris une
+        # adhésion future déjà enregistrée : la situation est laissée à vérifier.
+        DB.ExecuterReq("""SELECT IDcotisation FROM cotisations
+        WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s';"""
+                       % (IDindividu, config["IDtype_cotisation"], date_fin, date_debut))
+        if DB.ResultatReq():
+            return {"statut": STATUT_A_VERIFIER, "motif": "chevauchement"}
+
+        # Au plus une adhésion à venir : une participation plus lointaine attend
+        # qu'une prochaine réconciliation la trouve sans adhésion à venir.
+        if date_debut > date_reference:
+            DB.ExecuterReq("""SELECT IDcotisation FROM cotisations
+            WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut>'%s';"""
+                           % (IDindividu, config["IDtype_cotisation"], date_reference))
+            if DB.ResultatReq():
+                return {"statut": STATUT_RIEN, "motif": "adhesion_a_venir_existante"}
+
         if _periode_verrouillee(DB, date_reference):
             return {"statut": STATUT_A_VERIFIER, "motif": "periode_verrouillee"}
 
@@ -418,6 +441,8 @@ def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=Non
             continue
         if creation["statut"] == STATUT_A_VERIFIER:
             resultat.update({"statut": STATUT_A_VERIFIER, "motif": creation["motif"]})
+        elif creation.get("motif"):
+            resultat["motif"] = creation["motif"]
         break
 
     resultat["a_verifier"] = EvaluerAdhesionsAutomatiques(IDindividu, config)

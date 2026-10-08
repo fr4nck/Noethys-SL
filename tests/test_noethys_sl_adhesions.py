@@ -424,6 +424,69 @@ class AdhesionsTests(unittest.TestCase):
     def test_import_sans_wx(self):
         self.assertNotIn("wx", sys.modules.get("Utils.UTILS_Adhesions").__dict__)
 
+    # --- Chevauchements et anticipation (deux adhésions 7,50 € du 01/10/2026) ---
+
+    def _periodes(self, e):
+        return e.lire("SELECT date_debut, date_fin FROM cotisations ORDER BY date_debut;")
+
+    def test_reservation_anterieure_a_l_adhesion_creee_ne_cree_pas_de_chevauchement(self):
+        jour = D(2026, 10, 1)
+        with Env() as e:
+            e.conso(100, D(2026, 10, 14))
+            self.assertEqual(A.ReconcilierIndividu(100, date_reference=jour, depuis=D(2026, 10, 14))["statut"], A.STATUT_CREE)
+            e.conso(100, D(2026, 10, 7))  # seconde sauvegarde le même jour
+            res = A.ReconcilierIndividu(100, date_reference=jour, depuis=D(2026, 10, 7))
+            self.assertEqual((res["statut"], res["motif"]), (A.STATUT_A_VERIFIER, "chevauchement"))
+            self.assertEqual(self._periodes(e), [("2026-10-14", "2027-10-14")])
+            self.assertEqual(e.compte("prestations", "categorie='cotisation'"), 1)
+
+    def test_adhesion_future_manuelle_n_est_pas_chevauchee(self):
+        with Env() as e:
+            e.adhesion(100, D(2027, 1, 1), D(2028, 1, 1), observations="saisie manuelle")
+            e.conso(100, D(2026, 10, 7))
+            res = A.ReconcilierIndividu(100, date_reference=D(2026, 10, 1), depuis=D(2026, 10, 7))
+            self.assertEqual((res["statut"], res["motif"]), (A.STATUT_A_VERIFIER, "chevauchement"))
+            self.assertEqual(e.compte("cotisations"), 1)
+
+    def test_adhesion_2027_creee_puis_reservation_2026_reste_a_verifier(self):
+        jour = D(2026, 10, 1)
+        with Env() as e:
+            e.conso(100, D(2027, 2, 15))
+            self.assertEqual(A.ReconcilierIndividu(100, date_reference=jour, depuis=D(2027, 2, 15))["statut"], A.STATUT_CREE)
+            e.conso(100, D(2026, 10, 7))
+            res = A.ReconcilierIndividu(100, date_reference=jour, depuis=D(2026, 10, 7))
+            self.assertEqual(res["statut"], A.STATUT_A_VERIFIER)
+            self.assertEqual(self._periodes(e), [("2027-02-15", "2028-02-15")])
+
+    def test_au_plus_une_adhesion_a_venir(self):
+        with Env() as e:
+            e.conso(100, D(2026, 10, 7))
+            e.conso(100, D(2027, 10, 20))
+            res = A.ReconcilierIndividu(100, date_reference=D(2026, 10, 1), depuis=D(2026, 10, 7))
+            self.assertEqual(len(res["cotisations_creees"]), 1)
+            self.assertEqual(res["motif"], "adhesion_a_venir_existante")
+            self.assertEqual(self._periodes(e), [("2026-10-07", "2027-10-07")])
+            # Une réconciliation ultérieure, l'adhésion commencée, traite la participation suivante.
+            res = A.ReconcilierIndividu(100, date_reference=D(2027, 10, 15), depuis=D(2027, 10, 15))
+            self.assertEqual(len(res["cotisations_creees"]), 1)
+            self.assertEqual(self._periodes(e), [("2026-10-07", "2027-10-07"), ("2027-10-20", "2028-10-20")])
+
+    def test_adhesion_a_venir_permise_apres_une_adhesion_en_cours(self):
+        with Env() as e:
+            e.adhesion(100, D(2025, 11, 15), D(2026, 11, 15), observations="saisie manuelle")
+            e.conso(100, D(2026, 11, 20))
+            res = A.ReconcilierIndividu(100, date_reference=D(2026, 10, 1), depuis=D(2026, 10, 1))
+            self.assertEqual(res["statut"], A.STATUT_CREE)
+            self.assertEqual(self._periodes(e)[-1], ("2026-11-20", "2027-11-20"))
+
+    def test_meme_demande_repetee_une_seule_adhesion(self):
+        with Env() as e:
+            e.conso(100, D(2026, 10, 7))
+            for _ in range(3):
+                A.ReconcilierIndividu(100, date_reference=D(2026, 10, 1), depuis=D(2026, 10, 7))
+            self.assertEqual(e.compte("cotisations"), 1)
+            self.assertEqual(e.compte("prestations", "categorie='cotisation'"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
