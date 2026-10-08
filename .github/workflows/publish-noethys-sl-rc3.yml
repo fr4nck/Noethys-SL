@@ -1,0 +1,118 @@
+name: Publish Noethys SL 0.1.0 RC3 prerelease
+
+# Publication unique depuis un artefact Windows existant et qualifié.
+# Le tag vise le commit source exact, pas le commit ajoutant ce workflow.
+on:
+  push:
+    branches:
+      - rc/noethys-sl-0.1.0-rc.3
+    paths:
+      - .github/workflows/publish-noethys-sl-rc3.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish_rc3:
+    name: Publier les fichiers RC3 en préversion GitHub
+    if: github.ref == 'refs/heads/rc/noethys-sl-0.1.0-rc.3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: noethys-sl-0.1.0-rc.3
+      TARGET_SHA: 6ab134707ac48e16ee82001088234510657f1ab6
+      BUILD_MERGE_SHA: 62fcbdf602600a67e002d8786e7d3ee8e5604e39
+      SOURCE_RUN_ID: '37804427711'
+      ARTIFACT_NAME: Noethys-SL-0.1.0-rc.3-Windows
+    steps:
+      - name: Vérifier le build, les arbres Git et l'absence de release RC3
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          test "$(jq -r '.conclusion' <<< "$run_json")" = 'success'
+          test "$(jq -r '.status' <<< "$run_json")" = 'completed'
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$TARGET_SHA"
+          source_tree="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA" --jq '.commit.tree.sha')"
+          built_tree="$(gh api "repos/$GITHUB_REPOSITORY/commits/$BUILD_MERGE_SHA" --jq '.commit.tree.sha')"
+          test "$source_tree" = "$built_tree"
+          echo "Source tree validated: $source_tree"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'RC3 release already exists; refuse overwriting it.' >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo 'RC3 tag already exists; refuse altering it.' >&2
+            exit 1
+          fi
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts")"
+          artifact_count="$(jq -r --arg n "$ARTIFACT_NAME" '[.artifacts[] | select(.name == $n and .expired == false and .digest == "sha256:00059f5b05a0a34816911e5d27dedbb62a8ca4930720cab1c74a45927d5a1533")] | length' <<< "$artifacts")"
+          test "$artifact_count" = '1'
+
+      - name: Télécharger et contrôler le portable et le Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir release-assets
+          ZIP='release-assets/Noethys-SL-0.1.0-rc.3-Windows-portable.zip'
+          SETUP='release-assets/Noethys-SL-0.1.0-rc.3-Setup.exe'
+          test -s "$ZIP"
+          test -s "$SETUP"
+          unzip -t "$ZIP" >/dev/null
+          entry="$(zipinfo -1 "$ZIP" | grep -E '(^|/)BUILD-INFO\.txt$' | head -n 1)"
+          test -n "$entry"
+          unzip -p "$ZIP" "$entry" | grep -F 'Noethys SL 0.1.0 RC3 - Windows'
+          zipinfo -1 "$ZIP" | grep -E '(^|/)Noethys\.exe$' >/dev/null
+          echo 'Both RC3 distribution files verified.'
+
+      - name: Publier la release RC3 en préversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'RC3_RELEASE_NOTES'
+          # Noethys SL 0.1.0 RC3 — préversion Windows
+          
+          Nouvelle Release Candidate de Noethys SL wxPython, à tester avant toute mise en production.
+          
+          ## Évolutions incluses
+          
+          - Panneau « Aujourd'hui » simplifié, dates enrichies et réglages regroupés dans Affichage.
+          - Sélecteur commun étendu aux cinq périodes périscolaires, avec identifiants stabilisés.
+          - Envoi de courriel unitaire corrigé pour éviter le blocage de l'interface et conserver les diagnostics d'échec.
+          - Affichage de la progression automatique Connecthys amélioré (sans qualification des échanges réels).
+          - Correctifs déjà intégrés à la branche RC2 candidate et nouvelle identité de version RC3.
+          
+          ## Qualification et provenance
+          
+          - Build Windows : [GitHub Actions #37804427711](https://github.com/fr4nck/Noethys-SL/actions/runs/37804427711), résultat SUCCESS.
+          - Compilation, conditionnement portable, contrôle du lancement automatisé et Setup : validés par ce workflow.
+          - Sources candidates : `6ab134707ac48e16ee82001088234510657f1ab6` ; contenu identique à l'arbre du merge de test compilé par GitHub Actions.
+          - Version publique : 0.1.0 RC3 ; version de compatibilité des bases inchangée : 1.3.4.4.
+          
+          ## Limites connues
+          
+          - Cette préversion n'est **pas** une version stable ni une qualification métier complète.
+          - Synchronisation Connecthys réelle et autres intégrations réseau : recette de bout en bout non réalisée.
+          - MySQL/MariaDB réels et restauration complète d'une sauvegarde : à qualifier sur cette candidate.
+          - Les modifications restées uniquement dans une session de travail locale après interruption de quota ne sont pas réputées incluses.
+          - Avant essai : sauvegarder les données et tester sur une copie isolée, sans toucher à la base de production.
+          
+          Les RC précédentes restent disponibles et ne sont pas remplacées.
+          RC3_RELEASE_NOTES
+          gh release create "$TAG" \
+            release-assets/Noethys-SL-0.1.0-rc.3-Windows-portable.zip \
+            release-assets/Noethys-SL-0.1.0-rc.3-Setup.exe \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title 'Noethys SL 0.1.0 RC3' \
+            --notes-file release-notes.md \
+            --prerelease
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+          test "$(jq -r '.prerelease' <<< "$release")" = 'true'
+          test "$(jq -r '.assets | length' <<< "$release")" = '2'
+          tag_target="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$tag_target" = "$TARGET_SHA"
+          echo "Published: $(jq -r '.html_url' <<< "$release")"
