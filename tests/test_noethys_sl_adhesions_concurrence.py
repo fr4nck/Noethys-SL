@@ -52,12 +52,12 @@ class _Concurrence(object):
     """ Lance A, attend qu'il soit dans la section protégée, lance B, vérifie
     que B est bloqué, libère A, puis lit les résultats. """
 
-    def lancer(self, mode, cible):
+    def lancer(self, mode, cible, individus=(100, 100)):
         barriere = Path(tempfile.mkdtemp(prefix="barriere-adhesions-"))
-        poste_a = subprocess.Popen([sys.executable, AIDE, mode, cible, "A", str(barriere)])
+        poste_a = subprocess.Popen([sys.executable, AIDE, mode, cible, "A", str(barriere), str(individus[0])])
         try:
             self.assertTrue(_attendre(lambda: (barriere / "A_dans_section").exists()), "A n'a pas atteint la section protégée")
-            poste_b = subprocess.Popen([sys.executable, AIDE, mode, cible, "B", str(barriere)])
+            poste_b = subprocess.Popen([sys.executable, AIDE, mode, cible, "B", str(barriere), str(individus[1])])
             time.sleep(2.0)
             b_bloque = poste_b.poll() is None and not (barriere / "B.json").exists()
             (barriere / "A_continuer").write_text("1")

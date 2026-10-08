@@ -8,9 +8,18 @@
 """ Réconciliation idempotente des adhésions annuelles, sans dépendance wx.
 
 Règle métier :
-- une seule adhésion (table `cotisations`) valide à la fois par IDindividu
-  (personne physique ou morale, sans distinction), toutes activités,
-  sites, ateliers, classes, sections et séances confondus ;
+- titulaire de l'adhésion :
+  * structure adhérente (association, collectivité, organisme, entreprise) :
+    famille dont un titulaire rattaché est une personne morale (individu de
+    civilité « AUTRE » de DATA_Civilites). UNE adhésion pour la structure,
+    portée par cet individu personne morale, quelles que soient les
+    sections, activités ou représentants qui participent ;
+  * sinon (famille de personnes physiques) : UNE adhésion par personne qui
+    participe (enfant ou adulte), couvrant toutes ses activités ; jamais
+    commune à toute la famille ;
+- une seule adhésion (table `cotisations`, type individuel par défaut) valide
+  à la fois par titulaire, toutes activités, sites, ateliers, classes,
+  sections et séances confondus ;
 - la première participation réelle sans adhésion valide crée l'adhésion,
   qui démarre à la date de cette participation ;
 - convention native Noethys : validité INCLUSIVE, `date_debut <= date <=
@@ -268,10 +277,16 @@ def GetProchaineDateDeclenchante(IDindividu, config, depuis=None, date_reference
     participation (cf. GetParticipations). Ne crée rien. """
     date_reference = _en_date(date_reference) or datetime.date.today()
     depuis = _en_date(depuis) or date_reference
-    adhesions = GetAdhesions(IDindividu, config["IDtype_cotisation"])
     activites = GetActivitesConcernees(config["IDtype_cotisation"])
+    titulaires, adhesions = {}, {}
     for participation in GetParticipations(IDindividu, activites, depuis):
-        if not any(_est_valide(a, participation["date"]) for a in adhesions):
+        cle = (participation.get("IDcompte_payeur"), participation.get("IDinscription"))
+        if cle not in titulaires:
+            titulaires[cle] = ResoudreTitulaire(IDindividu, participation)["IDtitulaire"]
+        IDtitulaire = titulaires[cle]
+        if IDtitulaire not in adhesions:
+            adhesions[IDtitulaire] = GetAdhesions(IDtitulaire, config["IDtype_cotisation"])
+        if not any(_est_valide(a, participation["date"]) for a in adhesions[IDtitulaire]):
             return participation
     return None
 
@@ -312,6 +327,83 @@ def _resoudre_payeur(DB, IDindividu, participation):
     if len(lignes) == 1:
         return lignes[0]
     return None, None
+
+
+# Civilités de personnes morales (DATA_Civilites, rubrique « AUTRE ») :
+# 6 Collectivité, 7 Association, 8 Organisme, 9 Entreprise.
+CIVILITES_PERSONNE_MORALE = (6, 7, 8, 9)
+
+
+class TitulaireAmbigu(Exception):
+    pass
+
+
+class _Lecteur(object):
+    """ Interface ExecuterReq/ResultatReq pour des lectures ponctuelles. """
+
+    def __init__(self):
+        self._req = None
+
+    def ExecuterReq(self, req):
+        self._req = req
+        return 1
+
+    def ResultatReq(self):
+        return _lire(self._req)
+
+
+def _StructureDeFamille(acces, IDfamille):
+    """ IDindividu de la personne morale titulaire de la famille (structure
+    adhérente), ou None pour une famille de personnes physiques. Lève
+    TitulaireAmbigu si la famille a plusieurs personnes morales titulaires. """
+    acces.ExecuterReq("""SELECT DISTINCT rattachements.IDindividu
+    FROM rattachements
+    JOIN individus ON individus.IDindividu = rattachements.IDindividu
+    WHERE rattachements.IDfamille=%d AND rattachements.titulaire=1
+    AND individus.IDcivilite IN %s;""" % (IDfamille, _liste_sql(CIVILITES_PERSONNE_MORALE)))
+    ids = sorted(ligne[0] for ligne in acces.ResultatReq())
+    if len(ids) > 1:
+        raise TitulaireAmbigu(ids)
+    return ids[0] if ids else None
+
+
+def ResoudreTitulaire(IDindividu, participation, acces=None):
+    """ Titulaire de l'adhésion couvrant cette participation :
+    {"IDtitulaire", "IDcompte_payeur", "IDfamille", "structure", "motif"}.
+    La famille est celle du payeur de la participation (cf. _resoudre_payeur).
+    Si elle est une structure adhérente, le titulaire est sa personne morale ;
+    sinon c'est l'individu qui participe. `motif` signale un cas à vérifier
+    (payeur indéterminable, plusieurs personnes morales titulaires). """
+    acces = acces or _Lecteur()
+    IDcompte_payeur, IDfamille = _resoudre_payeur(acces, IDindividu, participation)
+    titulaire = {"IDtitulaire": IDindividu, "IDcompte_payeur": IDcompte_payeur, "IDfamille": IDfamille,
+                 "structure": False, "motif": None}
+    if IDcompte_payeur is None:
+        titulaire["motif"] = "payeur_indeterminable"
+        return titulaire
+    try:
+        structure = _StructureDeFamille(acces, IDfamille)
+    except TitulaireAmbigu:
+        titulaire["motif"] = "titulaire_ambigu"
+        return titulaire
+    if structure is not None:
+        titulaire.update(IDtitulaire=structure, structure=True)
+    return titulaire
+
+
+def _ParticipantsDuTitulaire(IDtitulaire):
+    """ Individus dont les participations relèvent de ce titulaire : tous les
+    membres des familles dont il est la personne morale titulaire, sinon
+    lui seul. """
+    familles = [ligne[0] for ligne in _lire("""SELECT rattachements.IDfamille
+    FROM rattachements
+    JOIN individus ON individus.IDindividu = rattachements.IDindividu
+    WHERE rattachements.IDindividu=%d AND rattachements.titulaire=1
+    AND individus.IDcivilite IN %s;""" % (IDtitulaire, _liste_sql(CIVILITES_PERSONNE_MORALE)))]
+    if not familles:
+        return [IDtitulaire]
+    membres = _lire("SELECT IDindividu FROM rattachements WHERE IDfamille IN %s;" % _liste_sql(familles))
+    return sorted({IDtitulaire} | {ligne[0] for ligne in membres})
 
 
 class VerrouIndisponible(Exception):
@@ -430,8 +522,13 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
     liberer = None
     try:
         acces = _AccesStrict(DB)
+        titulaire = ResoudreTitulaire(IDindividu, participation, acces)
+        IDtitulaire = titulaire["IDtitulaire"]
+        periode["IDtitulaire"] = IDtitulaire
+        if titulaire["motif"]:
+            return dict(periode, statut=STATUT_A_VERIFIER, motif=titulaire["motif"])
         try:
-            liberer = _Verrouiller(DB, IDindividu, config["IDtype_cotisation"])
+            liberer = _Verrouiller(DB, IDtitulaire, config["IDtype_cotisation"])
         except VerrouIndisponible:
             return dict(periode, statut=STATUT_A_VERIFIER, motif="verrou_indisponible")
         except TransactionsNonSupportees:
@@ -440,7 +537,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
         # Re-vérification sous verrou (idempotence)
         acces.ExecuterReq("""SELECT IDcotisation FROM cotisations
         WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s';"""
-                          % (IDindividu, config["IDtype_cotisation"], date_debut, date_debut))
+                          % (IDtitulaire, config["IDtype_cotisation"], date_debut, date_debut))
         if acces.ResultatReq():
             return {"statut": STATUT_RIEN, "motif": "adhesion_deja_valide"}
 
@@ -449,7 +546,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
         acces.ExecuterReq("""SELECT IDcotisation, date_debut, date_fin FROM cotisations
         WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s'
         ORDER BY date_debut, IDcotisation;"""
-                          % (IDindividu, config["IDtype_cotisation"], date_fin, date_debut))
+                          % (IDtitulaire, config["IDtype_cotisation"], date_fin, date_debut))
         chevauchements = [(ID, _en_date(debut), _en_date(fin)) for ID, debut, fin in acces.ResultatReq()]
         if chevauchements:
             return dict(periode, statut=STATUT_A_VERIFIER, motif="chevauchement", chevauchements=chevauchements)
@@ -459,25 +556,23 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
         if date_debut > date_reference:
             acces.ExecuterReq("""SELECT IDcotisation FROM cotisations
             WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut>'%s';"""
-                              % (IDindividu, config["IDtype_cotisation"], date_reference))
+                              % (IDtitulaire, config["IDtype_cotisation"], date_reference))
             if acces.ResultatReq():
                 return {"statut": STATUT_RIEN, "motif": "adhesion_a_venir_existante"}
 
         if _periode_verrouillee(acces, date_reference):
             return dict(periode, statut=STATUT_A_VERIFIER, motif="periode_verrouillee")
 
-        IDcompte_payeur, IDfamille_payeur = _resoudre_payeur(acces, IDindividu, participation)
-        if IDcompte_payeur is None:
-            return dict(periode, statut=STATUT_A_VERIFIER, motif="payeur_indeterminable")
+        IDcompte_payeur, IDfamille_payeur = titulaire["IDcompte_payeur"], titulaire["IDfamille"]
 
         label = config["label_prestation"] or u"%s - %s" % (config["nom_type"], config["nom_unite"])
-        observations = u"%s Créée automatiquement le %s à partir de la participation du %s (%s %s)." % (
-            MARQUEUR_AUTO, date_reference, date_debut, participation["source"], participation["id"])
+        observations = u"%s Créée automatiquement le %s à partir de la participation du %s (%s %s, individu %d)." % (
+            MARQUEUR_AUTO, date_reference, date_debut, participation["source"], participation["id"], IDindividu)
 
         try:
             IDcotisation = acces.Inserer("cotisations", [
                 ("IDfamille", None),
-                ("IDindividu", IDindividu),
+                ("IDindividu", IDtitulaire),
                 ("IDtype_cotisation", config["IDtype_cotisation"]),
                 ("IDunite_cotisation", config["IDunite_cotisation"]),
                 ("date_saisie", str(date_reference)),
@@ -497,7 +592,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 ("montant_initial", config["montant"]),
                 ("montant", config["montant"]),
                 ("IDfamille", IDfamille_payeur),
-                ("IDindividu", IDindividu),
+                ("IDindividu", IDtitulaire),
                 ("date_valeur", str(date_reference)),
             ])
             acces.Modifier("UPDATE cotisations SET IDprestation=? WHERE IDcotisation=?", (IDprestation, IDcotisation))
@@ -506,8 +601,8 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 ("date", str(date_reference)),
                 ("heure", maintenant.strftime("%H:%M:%S")),
                 ("IDutilisateur", IDutilisateur),
-                ("IDfamille", None),
-                ("IDindividu", IDindividu),
+                ("IDfamille", IDfamille_payeur if titulaire["structure"] else None),
+                ("IDindividu", IDtitulaire),
                 ("IDcategorie", 21),
                 ("action", u"Saisie de la cotisation ID%d '%s' pour la période du %s au %s (création automatique)" % (
                     IDcotisation, label, date_debut.strftime("%d/%m/%Y"), date_fin.strftime("%d/%m/%Y"))),
@@ -518,7 +613,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             DB.connexion.rollback()
             return dict(periode, statut=STATUT_A_VERIFIER, motif="echec_ecriture")
         return {"statut": STATUT_CREE, "IDcotisation": IDcotisation, "IDprestation": IDprestation,
-                "date_debut": date_debut, "date_fin": date_fin}
+                "date_debut": date_debut, "date_fin": date_fin, "IDtitulaire": IDtitulaire}
     except Exception:
         try:
             DB.connexion.rollback()
@@ -570,12 +665,20 @@ def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=Non
         if creation["statut"] == STATUT_A_VERIFIER:
             resultat.update({"statut": STATUT_A_VERIFIER, "motif": creation["motif"],
                              "date_debut": creation.get("date_debut"), "date_fin": creation.get("date_fin"),
-                             "chevauchements": creation.get("chevauchements", [])})
+                             "chevauchements": creation.get("chevauchements", []),
+                             "IDtitulaire": creation.get("IDtitulaire", IDindividu)})
         elif creation.get("motif"):
             resultat["motif"] = creation["motif"]
         break
 
-    resultat["a_verifier"] = EvaluerAdhesionsAutomatiques(IDindividu, config)
+    # Évaluation des adhésions automatiques de chaque titulaire concerné.
+    activites = GetActivitesConcernees(config["IDtype_cotisation"])
+    titulaires = {IDindividu}
+    for participation in GetParticipations(IDindividu, activites, depuis):
+        titulaires.add(ResoudreTitulaire(IDindividu, participation)["IDtitulaire"])
+    resultat["a_verifier"] = []
+    for IDtitulaire in sorted(titulaires):
+        resultat["a_verifier"].extend(EvaluerAdhesionsAutomatiques(IDtitulaire, config))
     return resultat
 
 
@@ -633,12 +736,12 @@ def EvaluerAdhesionsAutomatiques(IDindividu, config=None):
         except ConfigurationAdhesionInvalide:
             return []
     activites = GetActivitesConcernees(config["IDtype_cotisation"])
+    participants = _ParticipantsDuTitulaire(IDindividu)
     a_verifier = []
     for adhesion in GetAdhesions(IDindividu, config["IDtype_cotisation"]):
         if MARQUEUR_AUTO not in (adhesion["observations"] or ""):
             continue
-        participations = GetParticipations(IDindividu, activites, adhesion["date_debut"], adhesion["date_fin"])
-        if participations:
+        if any(GetParticipations(ID, activites, adhesion["date_debut"], adhesion["date_fin"]) for ID in participants):
             continue
         facturee_ou_reglee = False
         if adhesion["IDprestation"]:
@@ -649,6 +752,7 @@ def EvaluerAdhesionsAutomatiques(IDindividu, config=None):
                 facturee_ou_reglee = any(ligne[0] for ligne in lignes)
         a_verifier.append({
             "IDcotisation": adhesion["IDcotisation"],
+            "IDtitulaire": IDindividu,
             "date_debut": adhesion["date_debut"],
             "date_fin": adhesion["date_fin"],
             "statut": STATUT_A_VERIFIER,
@@ -663,6 +767,7 @@ _LIBELLES_MOTIFS = {
     "periode_verrouillee": u"la période de gestion est verrouillée",
     "payeur_indeterminable": u"le payeur ne peut pas être déterminé (aucune famille ou plusieurs familles possibles)",
     "echec_ecriture": u"l'écriture en base a échoué",
+    "titulaire_ambigu": u"la famille compte plusieurs personnes morales titulaires : le titulaire de l'adhésion ne peut pas être choisi",
     "verrou_indisponible": u"une autre sauvegarde traitait la même personne au même moment ; relancez la sauvegarde",
     "transactions_non_supportees": u"la base MySQL n'utilise pas de tables transactionnelles (InnoDB) : création automatique désactivée",
     "facturee_ou_reglee": u"elle n'a plus de participation, mais sa prestation est facturée ou réglée : aucune suppression automatique",
@@ -697,7 +802,15 @@ def ElementsAVerifier(resultats):
                          "texte": u"La vérification automatique des adhésions a échoué : %s. "
                                   u"Les adhésions des personnes concernées doivent être contrôlées manuellement." % erreur["motif"]})
     individus = [r for cle, r in resultats.items() if cle != CLE_ERREUR]
-    noms = _noms_individus([r["IDindividu"] for r in individus])
+    noms = _noms_individus([r["IDindividu"] for r in individus]
+                           + [r.get("IDtitulaire") for r in individus]
+                           + [e.get("IDtitulaire") for r in individus for e in r.get("a_verifier", [])])
+
+    def titulaire_de(ID, IDtitulaire):
+        """ Nom du titulaire, avec la personne qui participe s'il diffère. """
+        if IDtitulaire in (None, ID):
+            return noms.get(ID, u"Individu %s" % ID)
+        return u"%s (participation de %s)" % (noms.get(IDtitulaire, u"Individu %s" % IDtitulaire), noms.get(ID, u"Individu %s" % ID))
     config_signalee = False
     for r in sorted(individus, key=lambda r: (noms.get(r["IDindividu"], u""), r["IDindividu"])):
         ID = r["IDindividu"]
@@ -715,15 +828,16 @@ def ElementsAVerifier(resultats):
                 raison = u"elle chevaucherait l'adhésion déjà enregistrée %s" % existantes
             else:
                 raison = _LIBELLES_MOTIFS.get(r["motif"], r["motif"])
-            elements.append({"IDindividu": ID, "nom": nom, "date_debut": r.get("date_debut"), "date_fin": r.get("date_fin"),
-                             "motif": r["motif"],
-                             "texte": u"%s : adhésion %s non créée, %s." % (nom, periode, raison)})
+            elements.append({"IDindividu": r.get("IDtitulaire") or ID, "nom": nom, "date_debut": r.get("date_debut"),
+                             "date_fin": r.get("date_fin"), "motif": r["motif"],
+                             "texte": u"%s : adhésion %s non créée, %s." % (titulaire_de(ID, r.get("IDtitulaire")), periode, raison)})
         for evaluation in r.get("a_verifier", []):
             periode = u"du %s au %s" % (_date_fr(evaluation.get("date_debut")), _date_fr(evaluation.get("date_fin")))
-            elements.append({"IDindividu": ID, "nom": nom, "date_debut": evaluation.get("date_debut"),
+            IDtitulaire = evaluation.get("IDtitulaire", ID)
+            elements.append({"IDindividu": IDtitulaire, "nom": noms.get(IDtitulaire, nom), "date_debut": evaluation.get("date_debut"),
                              "date_fin": evaluation.get("date_fin"), "motif": evaluation["motif"],
                              "texte": u"%s : adhésion automatique %s à vérifier, %s." % (
-                                 nom, periode, _LIBELLES_MOTIFS.get(evaluation["motif"], evaluation["motif"]))})
+                                 noms.get(IDtitulaire, nom), periode, _LIBELLES_MOTIFS.get(evaluation["motif"], evaluation["motif"]))})
     return elements
 
 
