@@ -36,7 +36,7 @@
 | NOM-03 | P0 CONFIRMÉ → **requalifié P1** | audit phase 1 + code Nomadhys | Suppression distante seulement après un `.dat` exploitable ; quarantaine `.echec` ; compte rendu ; `DELE` intercepté | `test_echec_dechiffrement_conserve_distant_et_local`, `test_reprise_…` | aa03f97 | Sans objet | Requalification : Nomadhys ne purge ses actions qu'après archivage par Noethys ; la perte n'était donc définitive que si la tablette était réinitialisée. |
 | NOM-04 | P1 CONFIRMÉ | audit phase 1 | Aucune suppression avant succès ; écriture atomique du `.dat` | tests inversés | aa03f97 | Sans objet | Absence de MAC (SEC-07) : un fichier altéré mais dézippable reste accepté (rail 2). |
 | X-01 | P0 CONFIRMÉ | audit phase 1 | Ancien format refusé pour **toutes les entrées réseau** (pièces Connecthys, Nomadhys). Conservé pour la restauration locale. | `test_rail1_format_chiffrement.py` | 0c23750 | **Prouvée** (aucune version publiée n'émet de pièce au format pickle : pièces chiffrées en SV2 depuis Connecthys 0.9.1 ; Noethys Python 3 n'écrit que du SV2) | La restauration d'une sauvegarde piégée reste possible (action locale volontaire, rail 2). |
-| CNX-16 | P0 À PROUVER | code serveur Connecthys, 87 versions (0.1.1 à 1.1.0 et `master` @ `7949752`) | — | — | — | — | **RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** : `syncup` ne fait qu'un `UPDATE` des actions par `ref_unique` et ne remplace la table des actions que si elle est vide (section B du contrat). La version de production reste à relever. |
+| CNX-16 | P0 À PROUVER | code serveur Connecthys, 87 versions (0.1.1 à 1.1.0 et `master` @ `7949752`) | — | — | — | — | **RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** : `syncup` ne fait qu'un `UPDATE` des actions par `ref_unique` et ne remplace la table des actions que si elle est vide (section B du contrat). La production PMSL déclare 1.1.0. |
 | CNX-03 | P0 CONFIRMÉ | — | **Non modifié** (consigne) | — | — | Rôle documenté (section K) | Ouvert : empreintes SHA-256 proposées pour le rail 2. |
 | REPORTLAB-5 | Nouveau, CONFIRMÉ | `test_rail1_reportlab5.py` (b805b6d) ; **le build Windows RC2 du 07/10 installe déjà ReportLab 5.0.1** (journal du run 13) | Import inutilisé `ShowBoundaryValue` retiré (rappels, reçus, cotisations, relevés), comme #409 | verts ; rendus RC2 et branche **identiques** sous ReportLab 5.0.1 (reçu, rappel, cotisation, relevé) | a05efe8 | Sans objet | `reportlab` non épinglé : les builds flottent (voir la contre-qualification). |
 
@@ -57,7 +57,7 @@
 
 **CORRIGÉ ET PROUVÉ** : MAIL-FAM-01, MAIL-FAM-02, MAILJET-ERR-01, MAIL-HIST-01, EMAIL-07, EMAIL-08, EMAIL-10, X-03, CNX-10, CNX-14, NOM-02, NOM-03, NOM-04, X-01 (entrées réseau), REPORTLAB-5, NOM-10 (en partie).
 
-**COMPATIBILITÉ CONNECTHYS PROUVÉE** pour toutes les versions publiées (lecture du code serveur de 87 versions, et tests) : X-03, CNX-10, CNX-14, EMAIL-10, X-01 (pièces). Aucune requête, réponse, aucun format, jeton, fichier échangé ou séquence n'a été modifié. **La version réellement déployée chez PMSL reste à relever manuellement** : procédure dans `CONTRAT_CONNECTHYS.md`.
+**COMPATIBILITÉ CONNECTHYS PROUVÉE** pour toutes les versions publiées (lecture du code serveur de 87 versions, et tests) : X-03, CNX-10, CNX-14, EMAIL-10, X-01 (pièces). Aucune requête, réponse, aucun format, jeton, fichier échangé ou séquence n'a été modifié. **La production PMSL (`pelemele.connecthys.com`) déclare la version 1.1.0** (`/get_version`, lecture seule, 08/10/2026) : le contrat est identique à celui analysé. Identité octet à octet du code hébergé non vérifiée.
 
 **RÉFUTÉ** : CNX-16 (perte de demandes entre `syncdown` et `syncup`) pour le contrat Connecthys qualifié.
 
@@ -87,7 +87,7 @@ Détails, recettes et décision : [`CONTRE_QUALIFICATION_RAIL1.md`](CONTRE_QUALI
 - **Code de production** : aucun changement depuis `4fef6a42`.
 - **Tests** : 218 tests d'audit et du rail 1 réussis ; suite complète 840 réussis, 36 échecs, **identiques à la RC2 d'origine** (dette de test préexistante, non comptée comme une réussite). Le comparateur du projet (`scripts/qualification/compare_test_baseline.py`) confirme : aucun nouvel échec, aucune cause d'échec modifiée.
 - **Windows** : le pipeline de la RC2 construit la branche avec succès (Python 3.10.11, wxPython 4.2.5, ReportLab 5.0.1, mailjet-rest 1.9.1) et l'exécutable démarre. Ce pipeline **n'exécute aucun test** : la recette Windows manuelle reste à faire.
-- **Connecthys de production** : version à relever manuellement ; compatibilité prouvée pour toutes les versions publiées.
+- **Connecthys de production** : 1.1.0 déclarée (lecture seule) ; compatibilité prouvée pour 1.1.0 et toutes les versions publiées.
 
 ### Proposition : Rail réseau 2 (non commencé)
 
@@ -315,7 +315,7 @@ Nouveaux constats postérieurs à cet état initial (rail 1) : MAIL-FAM-01, MAIL
 
 #### CNX-16 — Connecthys : perte possible de demandes côté serveur entre `syncdown` et `syncup` — P0 — À PROUVER
 
-> **Après rail 1 : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** (Connecthys 0.1.1 à 1.1.0 et `master` @ `7949752`, 87 versions analysées). `syncup` ne fait qu'un `UPDATE` des actions existantes par `ref_unique` et ne remplace la table des actions que si elle est vide : une demande créée entre `syncdown` et `syncup` survit et est téléchargée au cycle suivant. La version de production reste **à relever manuellement** (`CONTRAT_CONNECTHYS.md`).**
+> **Après rail 1 : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** (Connecthys 0.1.1 à 1.1.0 et `master` @ `7949752`, 87 versions analysées). `syncup` ne fait qu'un `UPDATE` des actions existantes par `ref_unique` et ne remplace la table des actions que si elle est vide : une demande créée entre `syncdown` et `syncup` survit et est téléchargée au cycle suivant. La production PMSL déclare **1.1.0** : verdict applicable.
 - **Où** : `UTILS_Portail_synchro.py:1417-1434`, 1510-1512 (`Upload_data`) : l'export renvoie la table `actions` des N derniers mois et `tables_modifiees_synchro`. `Synchro_totale` exécute `syncdown` **avant** `syncup` (l.138).
 - **Mécanisme** : si le serveur **remplace** sa table `actions` par l'export, une demande déposée par une famille entre les deux appels est effacée sans avoir été téléchargée.
 - **À prouver** : lire le traitement `syncup` du code serveur Connecthys (absent du dépôt).

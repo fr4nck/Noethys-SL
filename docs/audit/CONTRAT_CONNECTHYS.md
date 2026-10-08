@@ -19,13 +19,19 @@
 
 ## Contre-qualification du rail 1 : version déployée et compatibilité par version
 
-### Version Connecthys de production : **À RELEVER MANUELLEMENT**
+### Version Connecthys de production : **1.1.0 (déclarée, relevée en lecture seule)**
 
-L'instance PMSL n'est pas joignable depuis l'environnement d'analyse, et aucun dépôt local n'indique laquelle est en production. Les deux candidats sont :
-- **Connecthys amont** `Noethys/Connecthys` : version 1.1.0 (= `master` @ `7949752`), installée par l'installateur de Noethys ou mise à jour par `/update` ;
-- **le fork privé `fr4nck/Portails`** (« Portail PMSL »), importé de l'amont. Son README précise qu'il **n'est pas encore** la cible d'exploitation PMSL. Ses 6 fichiers de contrat (`views.py`, `importation.py`, `exportation.py`, `cryptage.py`, `models.py`, `updater.py`) et `versions.txt` sont **octet pour octet identiques** à l'amont 1.1.0 ; il ajoute seulement des routes natives désactivées par défaut dans `application/__init__.py`.
+Instance : `https://pelemele.connecthys.com/`.
 
-**Procédure minimale, sans aucune opération destructive** (lecture seule ; ne lancer ni mise à jour, ni `upgrade`, `repairdb`, `cleardb`) :
+Relevé en **lecture seule** le 08/10/2026 (une seule requête `GET https://pelemele.connecthys.com/get_version`, sans secret, sans écriture) : HTTP 200, `{"version_str": "1.1.0", "version_tuple": [1, 1, 0]}`.
+- **Correspondance** : tag amont `1.1.0` = commit `e65235d` (13/08/2024). Pour les 5 fichiers de contrat, le tag `1.1.0`, `master` @ `7949752` et le fork `fr4nck/Portails` ont les **mêmes empreintes** (`475e01e486e8` / `9cf4344387a8` / `9d9228deb7b2` / `efc3f85b313c` / `132743f419c9`).
+- **Écart 1.1.0 → `master`** : 3 commits (mise à jour de SQLAlchemy dans `lib/`, deux fois ; correctif de `macros_planning.html`, « semaine-type »). **Aucun fichier du contrat n'est touché.**
+- **Limite** : `/get_version` donne la version **déclarée**. Le code réellement présent sur l'hébergement n'a pas pu être haché à distance ; une instance modifiée localement avec la même chaîne de version resterait indétectable. Conclusion : **version déclarée 1.1.0 = CONFIRMÉ** ; **code identique à 1.1.0 = très probable, non prouvé au niveau octet** (les 5 empreintes restent facultatives pour lever ce doute).
+- Aucune opération d'administration lancée (ni `update`, `upgrade`, `repairdb`, `cleardb`, ni installation ni modification de configuration).
+
+Candidats initialement envisagés : l'amont `Noethys/Connecthys` 1.1.0, ou le fork `fr4nck/Portails` (identique sur les fichiers de contrat, routes natives désactivées par défaut). La production répond comme 1.1.0 ; le fork ne s'en distingue pas côté contrat.
+
+**Procédure complémentaire (facultative) pour prouver l'identité du code, sans aucune opération destructive** (lecture seule ; ne lancer ni mise à jour, ni `upgrade`, `repairdb`, `cleardb`) :
 
 1. **Version déclarée.** Ouvrir dans un navigateur, ou avec `curl`, l'adresse `<url_connecthys>/get_version`.
    - Mode CGI : `<url_connecthys>/<fichier_cgi>/get_version`.
@@ -147,7 +153,7 @@ Scénario :
 
 Seul cas de remplacement complet : la table des actions du serveur est **vide** (première synchronisation ou `cleardb`). Aucune action famille ne peut alors être perdue.
 
-**Statut : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ.** Le comportement décrit est présent, sous la même forme, dans **les 87 versions analysées** (tags 0.1.1 à 1.1.0 et `master` @ `7949752`) : voir la table de la section suivante. La version réellement installée chez PMSL reste à relever (procédure ci-dessous) ; tant qu'elle ne l'est pas, ce verdict vaut pour toutes les versions publiées, et non pour une instance précise.
+**Statut : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ.** Le comportement décrit est présent, sous la même forme, dans **les 87 versions analysées** (tags 0.1.1 à 1.1.0 et `master` @ `7949752`) : voir la table de la section suivante. La production PMSL déclare la version 1.1.0 (relevé en lecture seule) : le verdict s'y applique.
 
 ## C. Structure des actions
 
@@ -281,7 +287,7 @@ Pour chaque fonction, les points vérifiés sont : changement de requête, de r�
 
 ## Points bloqués ou à prouver
 
-- **Version Connecthys réellement déployée** : À PROUVER (lire `/get_version` en production).
+- **Version Connecthys réellement déployée** : **1.1.0 déclarée** (`/get_version`, 08/10/2026). Identité octet à octet du code hébergé : non vérifiée (empreintes facultatives).
 - **CNX-08 / CNX-09** (déduplication) : la correction suppose un index unique ou un contrôle sur `ref_unique` côté Noethys. C'est compatible côté serveur, mais cela touche les données locales. **Rail 2**.
 - **X-06** (jeton) : passer à une authentification HMAC demande une **évolution conjointe** de Connecthys. **BLOQUÉ PAR COMPATIBILITÉ CONNECTHYS** tant qu'aucune version serveur ne l'accepte.
 - **CNX-03** (`models.py`) : proposition d'empreintes, section K. **Rail 2**.

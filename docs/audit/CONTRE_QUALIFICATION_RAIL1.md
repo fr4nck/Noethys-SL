@@ -19,21 +19,15 @@
 
 ## 2. Connecthys de production : STOP-GATE
 
-### **VERSION CONNECTHYS PRODUCTION À RELEVER MANUELLEMENT**
+### **VERSION CONNECTHYS PRODUCTION RELEVÉE : 1.1.0 (déclarée)**
 
-L'instance PMSL n'est pas joignable depuis l'environnement d'analyse, et aucun dépôt local n'indique laquelle est déployée.
+Instance : `https://pelemele.connecthys.com/`.
 
-**Ce qui a été établi sans toucher à la production :**
-- Le dépôt privé `fr4nck/Portails` (« Portail PMSL ») est un **fork de Connecthys 1.1.0**. Son README dit qu'il n'est **pas encore** la cible d'exploitation PMSL. Ses fichiers de contrat sont **octet pour octet identiques** à l'amont 1.1.0.
-- La mise à jour automatique de Connecthys étant activée par défaut, une instance issue de l'amont tend vers 1.1.0 (`versions.txt` : 1.1.0, version minimale de Noethys 1.3.3.0 ; Noethys-SL est en 1.3.4.4). **Ce n'est qu'une inférence, non une preuve.**
-
-**Procédure minimale pour relever la version (lecture seule, aucune opération destructive) :**
-
-1. Ouvrir `<URL d'accès à Connecthys>/get_version` dans un navigateur. En mode CGI : `<URL>/<fichier cgi>/get_version`. Réponse attendue : `{"version_str": "1.1.0", "version_tuple": [1, 1, 0]}`. La route ne prend aucun secret et ne modifie rien.
-2. Sur l'hébergement, calculer le SHA-256 de `connecthys/application/views.py`, `importation.py`, `exportation.py`, `cryptage.py` et `models.py`, et comparer les 12 premiers caractères au tableau de [`CONTRAT_CONNECTHYS.md`](CONTRAT_CONNECTHYS.md).
-3. Ne **lancer ni mise à jour, ni installation, ni `upgrade`, `repairdb`, `cleardb`**.
-
-Me transmettre le résultat de l'étape 1 et les 5 empreintes suffit ; aucune donnée personnelle n'est nécessaire.
+Relevé en **lecture seule** le 08/10/2026 (une seule requête `GET https://pelemele.connecthys.com/get_version`, sans secret, sans écriture) : HTTP 200, `{"version_str": "1.1.0", "version_tuple": [1, 1, 0]}`.
+- **Correspondance** : tag amont `1.1.0` = commit `e65235d` (13/08/2024). Pour les 5 fichiers de contrat, le tag `1.1.0`, `master` @ `7949752` et le fork `fr4nck/Portails` ont les **mêmes empreintes** (`475e01e486e8` / `9cf4344387a8` / `9d9228deb7b2` / `efc3f85b313c` / `132743f419c9`).
+- **Écart 1.1.0 → `master`** : 3 commits (mise à jour de SQLAlchemy dans `lib/`, deux fois ; correctif de `macros_planning.html`, « semaine-type »). **Aucun fichier du contrat n'est touché.**
+- **Limite** : `/get_version` donne la version **déclarée**. Le code réellement présent sur l'hébergement n'a pas pu être haché à distance ; une instance modifiée localement avec la même chaîne de version resterait indétectable. Conclusion : **version déclarée 1.1.0 = CONFIRMÉ** ; **code identique à 1.1.0 = très probable, non prouvé au niveau octet** (les 5 empreintes restent facultatives pour lever ce doute).
+- Aucune opération d'administration lancée (ni `update`, `upgrade`, `repairdb`, `cleardb`, ni installation ni modification de configuration).
 
 ## 3. Comparaison des contrats avec les versions Connecthys
 
@@ -54,7 +48,7 @@ Le serveur Connecthys réel **n'a pas été exécuté** (sa pile historique ne d
 | CNX-14 | **COMPATIBLE PROUVÉ** | Interface uniquement |
 | EMAIL-10 | **COMPATIBLE PROUVÉ** | `etat`/`reponse` ne sont jamais transmis tels quels ; `UPDATE` par `ref_unique` identique dans toutes les versions |
 | X-01, pièces Connecthys | **COMPATIBLE PROUVÉ** | Aucune version n'émet de pièce au format pickle |
-| Même verdict pour la **version déployée** | **IMPOSSIBLE À PROUVER** ici | version à relever (section 2) |
+| Même verdict pour la **version déployée** (1.1.0 déclarée) | **COMPATIBLE PROUVÉ pour 1.1.0** | contrat identique sur 1.1.0 ; identité octet à octet du code hébergé non vérifiable à distance (section 2) |
 
 CNX-16 : **RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** (versions 0.1.1 à 1.1.0 et `master`).
 
@@ -228,13 +222,13 @@ Aucun défaut ni incompatibilité n'a été détecté dans les corrections du ra
 
 ## 12. Décision
 
-### **RAIL 1 NON QUALIFIÉ POUR MERGE À CE STADE**
+### **RAIL 1 NON QUALIFIÉ POUR MERGE À CE STADE (un seul bloqueur restant)**
 
-Aucun défaut ni incompatibilité n'a été trouvé dans le rail 1. La décision reste négative parce que deux conditions fixées par la mission ne peuvent pas être remplies depuis l'environnement d'analyse. **Bloqueurs exacts :**
+Aucun défaut ni incompatibilité n'a été trouvé dans le rail 1. La compatibilité Connecthys est désormais prouvée pour l'instance PMSL de production (version déclarée 1.1.0). **Bloqueur restant :**
 
-1. **Version Connecthys de production non relevée** (stop-gate de la section 2). La compatibilité est prouvée pour toutes les versions publiées et pour le fork PMSL actuel, mais pas pour l'instance réellement déployée. Action : relever `get_version` et les 5 empreintes (quelques minutes).
-2. **Recette Windows manuelle non exécutée** (section 9). Le build Windows réussit et démarre, mais aucun scénario métier n'a tourné sous Windows. Action : dérouler le tableau A à E.
+1. ~~Version Connecthys de production non relevée~~ **LEVÉ** : `get_version` = 1.1.0 (section 2). Reste facultatif : les 5 empreintes de fichiers.
+1. **Recette Windows manuelle non exécutée** (section 9). Le build Windows réussit et démarre, mais aucun scénario métier n'a tourné sous Windows. Action : dérouler le tableau A à E.
 
 **Ce qui n'est PAS un bloqueur** : les 36 échecs de tests (préexistants et identiques à la RC2), l'épinglage de ReportLab (non nécessaire pour le correctif), la mise à jour automatique de Connecthys (à décider).
 
-Si les deux actions donnent le résultat attendu, le rail 1 peut passer en validation humaine avant fusion. **Pas de fusion et pas de rail 2 tant que cette validation n'est pas donnée.**
+Si cette recette donne le résultat attendu, le rail 1 peut passer en validation humaine avant fusion. **Pas de fusion et pas de rail 2 tant que cette validation n'est pas donnée.**
