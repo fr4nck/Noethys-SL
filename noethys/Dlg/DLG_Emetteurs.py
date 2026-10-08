@@ -26,7 +26,7 @@ else :
     from wx.combo import BitmapComboBox
 
 
-TAILLE_IMAGE = (132/2.0, 72/2.0)
+TAILLE_IMAGE = (132 // 2, 72 // 2)  # entiers : wx.ImageList et Image.Rescale refusent les float sous Phoenix
 IMAGE_DEFAUT = Chemins.GetStaticPath("Images/Special/Image_non_disponible.png")
 
 

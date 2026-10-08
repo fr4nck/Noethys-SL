@@ -22,7 +22,7 @@ from Ctrl.CTRL_ObjectListView import FastObjectListView, ColumnDefn, Filter, CTR
 from Utils import UTILS_Utilisateurs
 
 
-TAILLE_IMAGE = (132/2.0, 72/2.0)
+TAILLE_IMAGE = (132 // 2, 72 // 2)  # entiers : wx.ImageList et Image.Rescale refusent les float sous Phoenix
 IMAGE_DEFAUT = Chemins.GetStaticPath("Images/Special/Image_non_disponible.png")
 
 
