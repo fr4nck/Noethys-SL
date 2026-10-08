@@ -17,6 +17,81 @@
 
 ---
 
+## Contre-qualification du rail 1 : version déployée et compatibilité par version
+
+### Version Connecthys de production : **À RELEVER MANUELLEMENT**
+
+L'instance PMSL n'est pas joignable depuis l'environnement d'analyse, et aucun dépôt local n'indique laquelle est en production. Les deux candidats sont :
+- **Connecthys amont** `Noethys/Connecthys` : version 1.1.0 (= `master` @ `7949752`), installée par l'installateur de Noethys ou mise à jour par `/update` ;
+- **le fork privé `fr4nck/Portails`** (« Portail PMSL »), importé de l'amont. Son README précise qu'il **n'est pas encore** la cible d'exploitation PMSL. Ses 6 fichiers de contrat (`views.py`, `importation.py`, `exportation.py`, `cryptage.py`, `models.py`, `updater.py`) et `versions.txt` sont **octet pour octet identiques** à l'amont 1.1.0 ; il ajoute seulement des routes natives désactivées par défaut dans `application/__init__.py`.
+
+**Procédure minimale, sans aucune opération destructive** (lecture seule ; ne lancer ni mise à jour, ni `upgrade`, `repairdb`, `cleardb`) :
+
+1. **Version déclarée.** Ouvrir dans un navigateur, ou avec `curl`, l'adresse `<url_connecthys>/get_version`.
+   - Mode CGI : `<url_connecthys>/<fichier_cgi>/get_version`.
+   - `<url_connecthys>` est le paramètre `url_connecthys` de la configuration Connecthys de Noethys (valeur par défaut `http://127.0.0.1:5000`).
+   - Cette route ne prend aucun secret, ne modifie rien et répond par exemple `{"version_str": "1.1.0", "version_tuple": [1, 1, 0]}`.
+2. **Génération du code** (plus fiable que le numéro). Sur l'hébergement, en lecture seule, calculer l'empreinte SHA-256 de `connecthys/application/views.py`, `importation.py`, `exportation.py`, `cryptage.py` et `models.py`, par exemple avec `sha256sum`. Comparer les 12 premiers caractères à la table ci-dessous.
+3. **Version enregistrée en base** (facultatif, indicatif) : `SELECT parametre FROM [préfixe_]portail_parametres WHERE nom='version';`. Cette valeur est écrite à la création ou à la migration de la base (`CreationDB`, `UpgradeDB`) : elle peut être **en retard sur le code** si une mise à jour de fichiers n'a pas été suivie d'un `upgrade`. L'étape 1 et surtout l'étape 2 font foi.
+4. **Fork ou amont ?** Si l'empreinte de `views.py` vaut `475e01e486e8` pour les deux, le contrat est identique : la distinction ne change rien à la compatibilité du rail 1.
+
+À transmettre : le résultat de `get_version` et les 5 empreintes. Aucune donnée personnelle ni secret n'est nécessaire.
+
+**Empreintes de référence** (12 premiers caractères du SHA-256, fichiers tels que livrés dans l'archive ; un transfert FTP en mode texte peut altérer les fins de ligne et donc l'empreinte) :
+
+| Version | `views.py` | `importation.py` | `exportation.py` | `cryptage.py` | `models.py` |
+|---|---|---|---|---|---|
+| 0.9.9 | `cc8fd1a4b2b9` | `3b8a9445fcaf` | `8b508d274dd1` | `efc3f85b313c` | `b050e53aa850` |
+| 1.0.0 | `cc8fd1a4b2b9` | `3b8a9445fcaf` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.1 | `cc8fd1a4b2b9` | `9cf4344387a8` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.2 et 1.0.3 | `5c4283258b31` | `9cf4344387a8` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.4 | `ec15005ce414` | `9cf4344387a8` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.5 | `26ef6e4fdbc9` | `9cf4344387a8` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.6 | `5f4375298319` | `9cf4344387a8` | `8b508d274dd1` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.7 | `12c2aa6aad66` | `9cf4344387a8` | `9d9228deb7b2` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.8 | `45b482935dc8` | `9cf4344387a8` | `9d9228deb7b2` | `efc3f85b313c` | `132743f419c9` |
+| 1.0.9 | `702d73ca6b65` | `9cf4344387a8` | `9d9228deb7b2` | `efc3f85b313c` | `132743f419c9` |
+| **1.1.0 = `master` = fork PMSL** | `475e01e486e8` | `9cf4344387a8` | `9d9228deb7b2` | `efc3f85b313c` | `132743f419c9` |
+
+### Contrat vérifié sur toutes les versions publiées
+
+Analyse mécanique du code de **87 versions** (86 tags de 0.1.1 à 1.1.0, plus `master`) : présence des routes, du calcul du jeton, du comportement de `syncup` et `syncdown`, des colonnes de `portail_actions`, du chiffrement.
+
+| Élément du contrat | Versions concernées |
+|---|---|
+| Routes `/syncup/<jeton>`, `/syncdown/<jeton>/<last>`, `/get_version` | **toutes** (0.1.1 à 1.1.0) |
+| Jeton = date du jour + chiffres de `SECRET_KEY` | **toutes** |
+| `syncup` : réponse `str(résultat)` ; actions existantes mises à jour par `UPDATE … WHERE ref_unique` (`etat`, `traitement_date`, `reponse`) ; table des actions recréée seulement si vide | **toutes** |
+| `syncdown` : `last == 0` renvoie tout ; sinon filtre `IDaction > last` et `etat == "attente"` ; recherche par `ref_unique` | **toutes** |
+| Colonnes `ref_unique`, `etat`, `reponse` de `Action` | **toutes** |
+| Routes d'administration | `upgrade` : **toutes** ; `update` : **0.1.2 à 1.1.0** ; `repairdb` : **0.5.4 à 1.1.0** ; `cleardb` : **0.7.2 à 1.1.0** |
+| Format SV2 (`b"SV2"`, `cryptFile2`) disponible | **0.7.2 à 1.1.0** (avant : pickle seul) |
+| Envoi de pièces par les familles, chiffrées en SV2 par défaut | **0.9.1 à 1.1.0** ; aucune version avant 0.9.1 ne propose l'envoi de pièces |
+| Un appel serveur demandant l'ancien format pour une pièce | **aucun** dans aucune version |
+
+### Verdict par correction du rail 1
+
+La méthode est la **lecture du code serveur** (87 versions) et les tests côté Noethys. **Le serveur Connecthys réel n'a pas été exécuté** : sa pile historique (Flask 0.10, Jinja2 2.8, etc.) ne démarre pas sous un Python moderne, comme le constate déjà `Portails/docs/LEGACY_RUNTIME.md`. Aucun test ne se connecte à l'instance de production.
+
+| Correction | Verdict | Fondement |
+|---|---|---|
+| **X-03** (contexte TLS local) | **COMPATIBLE PROUVÉ** pour toute version | Aucune requête, réponse ni séquence ne change ; sans l'option, l'appel `urlopen(req)` est celui d'origine ; avec l'option, mêmes requêtes avec un contexte non vérifié, propre à Connecthys. Le serveur n'est pas concerné par le contexte TLS du client. |
+| **CNX-10** (installation bornée) | **COMPATIBLE PROUVÉ** | L'URL (`archive/master.zip`), l'archive et la procédure d'installation ne changent pas. Seule la boucle de lecture de la taille est bornée. **Hors périmètre du serveur de production** : l'installateur ne s'adresse qu'à GitHub puis à l'hébergement. |
+| **CNX-14** (bouton sur le thread wx) | **COMPATIBLE PROUVÉ** | Interface uniquement ; aucun échange réseau modifié. |
+| **EMAIL-10** (reçu en attente si l'email échoue) | **COMPATIBLE PROUVÉ** pour les 87 versions | `etat` et `reponse` ne sont jamais transmis tels quels : seuls l'état `validation` et le texte atteignent Connecthys, au `syncup` suivant, par un `UPDATE` sur `ref_unique`, identique dans toutes les versions. Renvoyer `False` laisse la demande à `attente`, état qui existe depuis 0.1.1. |
+| **X-01 côté pièces Connecthys** (pas de pickle en entrée réseau) | **COMPATIBLE PROUVÉ** pour toute version qui envoie des pièces (≥ 0.9.1) | Ces versions écrivent du SV2 (`ancienne_methode=False` par défaut, aucun appel contraire). Avant 0.9.1, l'envoi de pièces n'existe pas. **Si le serveur n'a pas AES** (`IMPORT_AES` faux), la pièce est stockée en clair : elle n'était pas lisible avant le rail 1 (le pickle échouait) et reste refusée, désormais par un message au lieu d'une exception. |
+| **Version de production** | **IMPOSSIBLE À PROUVER** ici | À relever (procédure ci-dessus). Le verdict vaut pour toutes les versions publiées et pour le fork PMSL actuel. |
+
+**Prérequis indépendant du rail 1, à connaître.** Noethys sous Python 3 écrit toujours l'export `.crypt` en **SV2**. Une instance Connecthys **antérieure à 0.7.2** ne saurait pas le lire : c'est le cas de la RC2 avant comme après le rail 1.
+
+### Risque préexistant lié à la mise à jour automatique (hors rail 1, à décider)
+
+Le paramètre « Rechercher les mises à jour de Connecthys » est **activé par défaut** (`client_rechercher_updates = True`). À chaque synchronisation, une fois par jour et par version de Noethys, Noethys appelle `/update/<jeton>/<version>/<mode>`. Si une version plus récente que celle installée figure dans `versions.txt` **sur GitHub amont**, le serveur télécharge l'archive amont et **écrase les fichiers de l'application** (`updater.Update`).
+
+Pour une instance basée sur le **fork PMSL**, cela remplacerait ses modules propres dès qu'une version amont postérieure à 1.1.0 serait publiée. Ce comportement est antérieur au rail 1 et n'est pas modifié. **Décision à prendre par l'équipe** : décocher cette option côté Noethys si la production exécute le fork.
+
+---
+
 ## A. syncdown : récupération des demandes du portail
 
 | | |
@@ -59,7 +134,7 @@
 | **Risque de perte** | Voir CNX-16 ci-dessous : **RÉFUTÉ**. |
 | **Compatibilité** | Inchangée au rail 1. Le contexte TLS local n'est utilisé qu'avec `accept_all_cert`, et l'appel `urlopen(req)` d'origine est conservé sans cette option. |
 
-### CNX-16 : perte d'une action entre syncdown et syncup → **RÉFUTÉ** (Connecthys 1.1.0, comportement stable depuis 2016)
+### CNX-16 : perte d'une action entre syncdown et syncup → **RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** (Connecthys 0.1.1 à 1.1.0 et `master` @ `7949752`, voir la section « Contre-qualification »)
 
 Scénario :
 - **T0** : `syncdown`.
@@ -72,7 +147,7 @@ Scénario :
 
 Seul cas de remplacement complet : la table des actions du serveur est **vide** (première synchronisation ou `cleardb`). Aucune action famille ne peut alors être perdue.
 
-**Statut : RÉFUTÉ** pour Connecthys `master` @ `7949752`. Ce n'est pas encore prouvé pour une instance déployée plus ancienne que 2016-08 (commit `6e0b54a`), cas jugé improbable.
+**Statut : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ.** Le comportement décrit est présent, sous la même forme, dans **les 87 versions analysées** (tags 0.1.1 à 1.1.0 et `master` @ `7949752`) : voir la table de la section suivante. La version réellement installée chez PMSL reste à relever (procédure ci-dessous) ; tant qu'elle ne l'est pas, ce verdict vaut pour toutes les versions publiées, et non pour une instance précise.
 
 ## C. Structure des actions
 

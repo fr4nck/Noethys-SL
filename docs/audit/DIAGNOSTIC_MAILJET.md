@@ -38,10 +38,38 @@ Depuis le rail 1, une famille configurée pour l'envoi par email ne peut plus di
 
 Les rappels prennent désormais en compte les adresses libres. Avant correction, ils les ignoraient toujours.
 
-## Proposition pour le rail 2 : suivi réel de la distribution
+## Orientation rail 2 : suivi réel de la distribution (comparaison sur papier, rien d'implémenté)
 
-Ce suivi n'est pas implémenté au rail 1, car il demande une infrastructure entrante.
+Objectif : savoir si un message **accepté** par Mailjet a été **distribué, rejeté, bloqué ou classé en spam**. Contrainte prioritaire : **ne rien modifier côté Connecthys**.
 
-- **Option A, webhook Mailjet.** Elle demande un point d'entrée HTTPS joignable depuis Internet. Noethys est une application de bureau ; Connecthys pourrait jouer ce rôle, mais cela suppose une **évolution de Connecthys**. Un stockage des événements par `MessageID` et un rapprochement au `syncdown` sont aussi nécessaires.
-- **Option B, interrogation à la demande.** `GET /v3/REST/message/{MessageID}` (ou l'API des statistiques), avec les identifiants désormais conservés. Un bouton « Vérifier la remise » dans l'historique suffirait. Il n'y a aucune infrastructure entrante, mais il faut des appels API supplémentaires et un quota à prévoir.
-- **Prérequis acquis au rail 1** : `MessageID` et `MessageUUID` sont conservés (`message.mailjet_ids`) et le `MessageID` est écrit dans l'historique.
+### Ce qui est établi
+
+- **Documenté par Mailjet** (guides « Send API v3.1 » et « Webhooks », et liste des endpoints « Messages ») :
+  - la réponse d'envoi donne, par destinataire, `MessageUUID`, `MessageID` et `MessageHref` ;
+  - les événements de suivi (`sent`, `open`, `click`, `bounce`, `spam`, `blocked`, `unsub`) sont envoyés par **webhook** vers une URL configurée (`/eventcallbackurl` ou préférences du compte) ; l'URL doit répondre HTTP 200, sinon Mailjet **réessaie toutes les 30 s pendant 24 h** ;
+  - existent des endpoints de lecture `GET /v3/REST/message/{ID}`, `/messagehistory/{ID}` et `/messageinformation/{ID}`.
+- **Vu dans le code** : la bibliothèque `mailjet-rest` reconnaît les champs d'envoi `CustomID` et `EventPayload`, qui permettent de rattacher un événement à un identifiant propre à Noethys.
+- **Déjà acquis par le rail 1** : le `MessageID` est conservé (`message.mailjet_ids`) et écrit dans l'historique de la famille, sous forme de texte.
+- **Non confirmé, à lire avant toute décision** (les pages de référence détaillées n'étaient pas accessibles lors de l'étude) : le schéma exact des réponses, les valeurs de statut, la durée de conservation des données, les quotas et limites d'appel, et la disponibilité de ces ressources pour une clé d'API ordinaire.
+
+### Comparaison
+
+| Critère | **A. Webhook via Connecthys** | **B. Interrogation ponctuelle de l'API Mailjet** |
+|---|---|---|
+| Principe | Mailjet appelle une URL publique ; les événements sont stockés, puis relayés à Noethys. | Noethys interroge Mailjet avec le `MessageID` déjà conservé. |
+| **Modification de Connecthys** | **Oui** : nouvelle route publique, stockage des événements, nouveau canal vers Noethys. Cela ajoute un échange au protocole de synchronisation. | **Aucune** |
+| Infrastructure entrante | Requise : point d'entrée HTTPS joignable depuis Internet, authentification, CSRF à écarter pour cette route. Noethys, application de bureau, ne peut pas la porter. | Aucune : uniquement des appels HTTPS **sortants** vers Mailjet, comme pour l'envoi. |
+| Compatibilité Connecthys | **Risque élevé** : un serveur amont mis à jour par `/update` écraserait la route ajoutée ; sur le fork PMSL, évolution à coordonner. | **Sans risque** |
+| Fraîcheur | Événements poussés, proches du temps réel. | À la demande : état au moment de l'interrogation (une distribution ou un rejet peut prendre du temps). |
+| Fiabilité | Réessais Mailjet pendant 24 h, mais perte possible si le portail est indisponible plus longtemps ; il faut dédoublonner. | Simple et idempotent : relire l'état autant de fois que nécessaire. |
+| Coût de mise en œuvre | Élevé : serveur, protocole, migration, tests croisés Noethys/Connecthys. | Modéré : un second client Mailjet en lecture, un bouton « Vérifier la remise », un affichage. |
+| Données à stocker | Événements par message. | Le `MessageID` de façon **structurée** : il n'existe aujourd'hui que dans le texte de l'historique ; stocker un identifiant exploitable peut exiger un petit changement de schéma, à décider au rail 2. |
+| Points à lever avant de choisir | Quotas et authentification du webhook ; relais jusqu'à Noethys. | Schéma des réponses, quotas, rétention, droits de la clé d'API. |
+
+### Recommandation
+
+**Étudier d'abord l'option B.** Elle respecte la contrainte de compatibilité Connecthys, ne demande aucune infrastructure entrante et réutilise le `MessageID` déjà conservé. Une première version pourrait n'interroger Mailjet que sur action de l'utilisateur, avec les états « accepté, remise non vérifiée », « distribué », « rejeté », « bloqué », « spam », « inconnu ».
+
+L'option A ne se justifie que si un suivi quasi temps réel devient indispensable **et** qu'une évolution conjointe de Connecthys est acceptée. Une option C hybride (B d'abord, A plus tard) reste possible, car B pose le stockage structuré du `MessageID` dont A aurait aussi besoin.
+
+**Ni A ni B n'est implémentée dans ce lot.**
