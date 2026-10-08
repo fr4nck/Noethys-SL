@@ -3633,6 +3633,18 @@ class MyGUIMouse(GUIMode.ZoomWithMouseWheel, GUIMode.GUIMouse):
 
 
 
+def XYSauvegarde(objet):
+    """ Position à enregistrer : l'ancrage d'origine d'un bloc flottant que
+    l'aperçu d'écoulement a seulement déplacé à l'écran, sinon la position
+    réelle (bloc non flottant, ou déplacé par l'utilisateur). """
+    xy = tuple(float(v) for v in objet.GetXY())
+    ancre = getattr(objet, "_ancre_ecoulement", None)
+    affiche = getattr(objet, "_xy_ecoulement", None)
+    if ancre is not None and affiche is not None and abs(xy[0] - affiche[0]) < 1e-6 and abs(xy[1] - affiche[1]) < 1e-6:
+        return ancre
+    return xy
+
+
 class Panel_canvas(wx.Panel):
     def __init__(self, parent, IDmodele=None, categorie=None, infosCategorie=None,
                  taille_page=None, couleur_zone_travail=COULEUR_ZONE_TRAVAIL,
@@ -4638,6 +4650,93 @@ class Panel_canvas(wx.Panel):
             self.parent.ctrl_infos.SetCoords(x, y)
             self.parent.ctrl_infos.SetInfo(info)
     
+    def AppliquerApercuEcoulement(self):
+        """ Conventions : présente les blocs flottants comme le générateur PDF
+        les fait couler (UTILS_Impression_convention : bloc de texte, image
+        d'écoulement, espace ou saut de page dont l'ancrage est dans le cadre
+        principal, lus dans l'ordre du modèle depuis le haut du cadre).
+
+        Affichage seulement : l'ancrage enregistré de chaque bloc est conservé
+        (voir XYSauvegarde) ; un bloc que l'utilisateur déplace garde la
+        position choisie. Les blocs qui ne tiennent pas sur la première page
+        sont masqués et signalés, au lieu de déborder sous la page. """
+        if self.categorie != "convention" or self.mode != "edition":
+            return
+        for indicateur in list(getattr(self, "_indicateurs_ecoulement", [])):
+            try:
+                self.canvas.RemoveObject(indicateur)
+            except Exception:
+                pass
+        self._indicateurs_ecoulement = []
+        objets = list(self.canvas._ForeDrawList)
+        cadre = next((o for o in objets if getattr(o, "champ", None) == "cadre_principal"), None)
+        if cadre is None or getattr(cadre, "BoundingBox", None) is None:
+            return
+        (x0, bas), (x1, haut) = [[float(v) for v in point] for point in cadre.BoundingBox]
+        largeur = x1 - x0
+        courant = haut
+        page_pleine = False
+        masques = 0
+        for objet in objets:
+            categorie = str(getattr(objet, "categorie", ""))
+            champ = getattr(objet, "champ", None)
+            ancre = getattr(objet, "_ancre_ecoulement", None)
+            if ancre is None:
+                ancre = tuple(float(v) for v in objet.GetXY())
+            if objet is cadre or champ == "cadre_pages_suivantes":
+                continue
+            if not (x0 <= ancre[0] <= x0 + largeur and bas <= ancre[1] <= haut):
+                continue  # objet à position fixe
+            if categorie == "special" and champ in ("saut_page", "espace_vertical"):
+                if champ == "saut_page":
+                    page_pleine = True
+                elif getattr(objet, "WH", None) is not None:
+                    courant -= float(objet.WH[1])
+                continue
+            if "texte" in categorie:
+                if not objet.GetLargeurTexte() and hasattr(objet, "SetText"):
+                    # Comme le générateur : un bloc flottant sans largeur propre
+                    # est replié à la largeur du cadre (largeurTexte reste vide).
+                    objet.Width = largeur - (ancre[0] - x0)
+                    objet.SetText(objet.String)
+                    objet.CalcBoundingBox()
+                hauteurBloc = float(getattr(objet, "BoxHeight", 0) or 0)
+            elif categorie == "image" and champ == "convention_flow_image" and getattr(objet, "WH", None) is not None:
+                hauteurBloc = float(objet.WH[1])
+            else:
+                continue
+            objet._ancre_ecoulement = ancre
+            if not page_pleine and courant >= haut and courant - hauteurBloc < bas and "texte" in categorie                     and len(getattr(objet, "Strings", [])) > 1:
+                # Premier bloc de la page, plus haut que le cadre : seules les
+                # lignes qui tiennent sont affichées (le texte enregistré reste
+                # complet ; le PDF poursuit sur les pages suivantes).
+                hauteurLigne = hauteurBloc / len(objet.Strings)
+                nbreLignes = max(1, int((courant - bas) / hauteurLigne) - 1)
+                objet.String = u"\n".join(objet.Strings[:nbreLignes] + [_(u"[…] suite sur les pages suivantes")])
+                objet.LayoutText()
+                objet.CalcBoundingBox()
+                hauteurBloc = float(objet.BoxHeight)
+                page_pleine = True
+            elif page_pleine or (courant < haut and courant - hauteurBloc < bas):
+                # Ne tient plus sur la première page : suite dans l'aperçu PDF.
+                page_pleine = True
+                masques += 1
+                objet.Visible = False
+                objet._xy_ecoulement = tuple(float(v) for v in objet.GetXY())
+                continue
+            objet.Visible = True
+            # Texte ancré en haut à gauche ; image d'écoulement ancrée en bas à gauche.
+            cible = (ancre[0], courant if "texte" in categorie else courant - hauteurBloc)
+            actuel = tuple(float(v) for v in objet.GetXY())
+            objet.Move(numpy.array((cible[0] - actuel[0], cible[1] - actuel[1])))
+            objet._xy_ecoulement = tuple(float(v) for v in objet.GetXY())
+            courant -= hauteurBloc + 1.0
+        if masques:
+            texte = _(u"Suite du contenu sur les pages suivantes : %d bloc(s), visibles dans l'aperçu PDF") % masques
+            indicateur = FloatCanvas.ScaledText(texte, (x0, bas - 1.5), Size=8 / 3.7, Color=(110, 110, 110), Position="tl", InForeground=False)
+            self.canvas.AddObject(indicateur)  # arrière-plan : hors des objets enregistrés
+            self._indicateurs_ecoulement.append(indicateur)
+
     def GetObjets(self):
         self.Deselection(forceDraw=True)
         listeObjets = self.canvas._ForeDrawList
@@ -5258,6 +5357,8 @@ class Panel_canvas(wx.Panel):
         if InForeground == False:
             return listeObjets
 
+        self.AppliquerApercuEcoulement()
+
         if ResetBB == True :
             self.AjusterPage()
         self.SetFocus()
@@ -5324,8 +5425,8 @@ class Panel_canvas(wx.Panel):
                 ("texte", objet.GetTexte()),
                 ("points", objet.GetPoints()),
                 ("typeImage", objet.GetTypeImage()),
-                ("x", float(objet.GetXY()[0])),
-                ("y", float(objet.GetXY()[1])),
+                ("x", float(XYSauvegarde(objet)[0])),
+                ("y", float(XYSauvegarde(objet)[1])),
                 ("verrouillageX", int(objet.verrouillageX)),
                 ("verrouillageY", int(objet.verrouillageY)),
                 ("Xmodifiable", int(objet.Xmodifiable)),
