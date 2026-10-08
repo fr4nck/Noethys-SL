@@ -1,16 +1,21 @@
 # Audit exhaustif des entrées / sorties réseau — Noethys-SL 0.1.0 RC2
 
-> **Phase 1 : audit uniquement.** Aucun fichier de production (`noethys/`) n'a été modifié.
-> Les seuls ajouts sont ce rapport et des tests de caractérisation `tests/test_audit_reseau_*.py`.
-> Un test de caractérisation **vert signifie « comportement actuel reproduit »** (y compris lorsqu'il est défectueux).
-> Ils devront être inversés au fur et à mesure des corrections.
-> Aucun secret réel n'est reproduit dans ce document.
+> **Comment lire ce document.** Il contient deux états successifs, à ne pas confondre :
+>
+> | Partie | État décrit | Code |
+> |---|---|---|
+> | **A. RAIL 1 : état après corrections** | **État courant** | branche `fix/rc2-network-stopgate-1`, HEAD de production `4fef6a42` |
+> | **B. PHASE 1 : état initial** | **Historique**, conservé comme preuve | RC2 d'origine `91d9e625`, audit sans aucune modification de production (branche `386bbb46`) |
+>
+> Les défauts décrits en partie B ont, pour une partie d'entre eux, été corrigés depuis : chaque entrée concernée porte une note **« Après rail 1 »**. Les matrices et cartes de la partie B décrivent l'état **initial** ; la partie A dit ce qui a changé.
+> Un test d'audit nommé « anomalie présente » était vert tant que le défaut existait ; les tests des défauts corrigés ont été **inversés** en tests de non-régression.
+> Rien n'est fusionné dans la RC2. Aucun secret réel n'est reproduit dans ce document.
 
 ---
 
-## Mise à jour : Rail réseau 1 (branche `fix/rc2-network-stopgate-1`)
+## PARTIE A : RAIL 1, ÉTAT APRÈS CORRECTIONS (HEAD de production `4fef6a42`)
 
-> Corrections locales « stop-gate », non fusionnées dans la RC2, en attente de contre-qualification.
+> Corrections locales « stop-gate », non fusionnées dans la RC2. Contre-qualification : [`CONTRE_QUALIFICATION_RAIL1.md`](CONTRE_QUALIFICATION_RAIL1.md).
 > Contrat Connecthys : [`CONTRAT_CONNECTHYS.md`](CONTRAT_CONNECTHYS.md). Diagnostic Mailjet : [`DIAGNOSTIC_MAILJET.md`](DIAGNOSTIC_MAILJET.md).
 > Aucun changement protocolaire Connecthys. Chaque correctif a d'abord été caractérisé, puis son test a été inversé.
 
@@ -30,10 +35,10 @@
 | NOM-02 | P0 CONFIRMÉ | audit phase 1 | Liste blanche du nom et de la taille, `realpath`, refus avant ouverture | tests inversés et étendus | b44772c | Sans objet (format Nomadhys vérifié) | — |
 | NOM-03 | P0 CONFIRMÉ → **requalifié P1** | audit phase 1 + code Nomadhys | Suppression distante seulement après un `.dat` exploitable ; quarantaine `.echec` ; compte rendu ; `DELE` intercepté | `test_echec_dechiffrement_conserve_distant_et_local`, `test_reprise_…` | aa03f97 | Sans objet | Requalification : Nomadhys ne purge ses actions qu'après archivage par Noethys ; la perte n'était donc définitive que si la tablette était réinitialisée. |
 | NOM-04 | P1 CONFIRMÉ | audit phase 1 | Aucune suppression avant succès ; écriture atomique du `.dat` | tests inversés | aa03f97 | Sans objet | Absence de MAC (SEC-07) : un fichier altéré mais dézippable reste accepté (rail 2). |
-| X-01 | P0 CONFIRMÉ | audit phase 1 | Ancien format refusé pour **toutes les entrées réseau** (pièces Connecthys, Nomadhys). Conservé pour la restauration locale. | `test_rail1_format_chiffrement.py` | 0c23750 | **Prouvée** (pièces SV2 depuis 2021 ; Noethys Python 3 n'écrit que du SV2) | La restauration d'une sauvegarde piégée reste possible (action locale volontaire, rail 2). |
-| CNX-16 | P0 À PROUVER | code serveur Connecthys 1.1.0 | — | — | — | — | **RÉFUTÉ** : `syncup` ne fait qu'un `UPDATE` des actions par `ref_unique` (section B du contrat). |
+| X-01 | P0 CONFIRMÉ | audit phase 1 | Ancien format refusé pour **toutes les entrées réseau** (pièces Connecthys, Nomadhys). Conservé pour la restauration locale. | `test_rail1_format_chiffrement.py` | 0c23750 | **Prouvée** (aucune version publiée n'émet de pièce au format pickle : pièces chiffrées en SV2 depuis Connecthys 0.9.1 ; Noethys Python 3 n'écrit que du SV2) | La restauration d'une sauvegarde piégée reste possible (action locale volontaire, rail 2). |
+| CNX-16 | P0 À PROUVER | code serveur Connecthys, 87 versions (0.1.1 à 1.1.0 et `master` @ `7949752`) | — | — | — | — | **RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** : `syncup` ne fait qu'un `UPDATE` des actions par `ref_unique` et ne remplace la table des actions que si elle est vide (section B du contrat). La version de production reste à relever. |
 | CNX-03 | P0 CONFIRMÉ | — | **Non modifié** (consigne) | — | — | Rôle documenté (section K) | Ouvert : empreintes SHA-256 proposées pour le rail 2. |
-| REPORTLAB-5 | Nouveau, CONFIRMÉ | `test_rail1_reportlab5.py` (b805b6d) | Import inutilisé `ShowBoundaryValue` retiré (rappels, reçus, cotisations, relevés), comme #409 | verts | a05efe8 | Sans objet | `reportlab` non épinglé dans `requirements.txt`. |
+| REPORTLAB-5 | Nouveau, CONFIRMÉ | `test_rail1_reportlab5.py` (b805b6d) ; **le build Windows RC2 du 07/10 installe déjà ReportLab 5.0.1** (journal du run 13) | Import inutilisé `ShowBoundaryValue` retiré (rappels, reçus, cotisations, relevés), comme #409 | verts ; rendus RC2 et branche **identiques** sous ReportLab 5.0.1 (reçu, rappel, cotisation, relevé) | a05efe8 | Sans objet | `reportlab` non épinglé : les builds flottent (voir la contre-qualification). |
 
 ### Nouveaux constats et requalifications
 
@@ -42,8 +47,8 @@
 - **Mailjet « accepté » ≠ « distribué »** : les libellés « envoyé avec succès » des parcours email sont remplacés par « accepté par Mailjet / le serveur de messagerie… Noethys ne vérifie pas sa remise effective ». Aucun suivi de distribution n'est revendiqué.
 - **Relances Mailjet** (point 14) :
   - Le code Noethys ne relance jamais automatiquement : seulement via « Réessayer ».
-  - `mailjet_rest` 1.9.0 relance lui-même (urllib3, `total=3`, **POST inclus**, sur 429 et 5xx) et ajoute un en-tête `Idempotency-Key` égal à l'empreinte du payload. Que Mailjet le prenne en compte n'est **pas prouvé**.
-  - La version installée dépend du build, car `mailjet-rest` n'est pas épinglé.
+  - `mailjet_rest` 1.9.0 (build RC2) puis 1.9.1 (build de la branche) relance lui-même (urllib3, `total=3`, **POST inclus**, sur 429 et 5xx) et ajoute un en-tête `Idempotency-Key` égal à l'empreinte du payload. Que Mailjet le prenne en compte n'est **pas prouvé**.
+  - La version installée dépend du build : 1.9.0 le 07/10, 1.9.1 le 08/10, car `mailjet-rest` n'est pas épinglé. Les différences 1.9.0 à 1.9.1 portent sur la pagination et sur des garde-fous du **constructeur de messages**, que Noethys n'utilise pas ; l'empreinte d'idempotence est identique.
   - Ne pas transposer la solution SMTP : à étudier au rail 2.
 - **Contrat Nomadhys** : la tablette supprime son fichier dès l'envoi TCP, mais conserve ses actions jusqu'à lire `nomade_archivage`. Le contrat effectif est donc « au moins une fois, avec accusé différé par l'archivage ». NOM-05 est récupérable.
 - **Tests préexistants** : 36 échecs identiques avant et après le rail 1 (profil Noethys absent, tests non maintenus). Les 36 tests Mailjet historiques passent avant et après lorsque `UTILS_Parametres` est neutralisé.
@@ -52,13 +57,15 @@
 
 **CORRIGÉ ET PROUVÉ** : MAIL-FAM-01, MAIL-FAM-02, MAILJET-ERR-01, MAIL-HIST-01, EMAIL-07, EMAIL-08, EMAIL-10, X-03, CNX-10, CNX-14, NOM-02, NOM-03, NOM-04, X-01 (entrées réseau), REPORTLAB-5, NOM-10 (en partie).
 
-**COMPATIBILITÉ CONNECTHYS PROUVÉE** (lecture du serveur et tests) : X-03, CNX-10, CNX-14, EMAIL-10, X-01 (pièces). Aucune requête, réponse, aucun format, jeton, fichier échangé ou séquence n'a été modifié.
+**COMPATIBILITÉ CONNECTHYS PROUVÉE** pour toutes les versions publiées (lecture du code serveur de 87 versions, et tests) : X-03, CNX-10, CNX-14, EMAIL-10, X-01 (pièces). Aucune requête, réponse, aucun format, jeton, fichier échangé ou séquence n'a été modifié. **La version réellement déployée chez PMSL reste à relever manuellement** : procédure dans `CONTRAT_CONNECTHYS.md`.
+
+**RÉFUTÉ** : CNX-16 (perte de demandes entre `syncdown` et `syncup`) pour le contrat Connecthys qualifié.
 
 **ENCORE OUVERT** :
 - emails : EMAIL-03 (SMTP incertain et doublon), EMAIL-04 (Mailjet incertain) ;
-- Connecthys : CNX-03 (`models.py`), CNX-07 (timeouts de synchro), CNX-08/09 (déduplication) ;
+- Connecthys : CNX-03 (`models.py`, rôle documenté, non modifié), CNX-07 (timeouts de synchro), CNX-08/09 (déduplication) ;
 - sécurité des échanges : X-02 (clé SSH), X-04 (FTP clair), X-06 (jeton) ;
-- Nomadhys : NOM-01 (authentification) ;
+- Nomadhys : NOM-01 (authentification), NOM-05 en partie (accusé applicatif), résiduel du format pickle pour la restauration locale volontaire ;
 - bases et secrets : DB-05/06 (transactions), SEC-14 ;
 - reste du rapport : SMS (X-08) et P2/P3 non traités.
 
@@ -72,6 +79,15 @@
 - serveur Nomadhys avec une vraie tablette (nom refusé, fichier tronqué) ;
 - réception FTP Nomadhys avec un mauvais mot de passe puis reprise ;
 - pièce Connecthys chiffrée.
+
+### Contre-qualification du rail 1 (résumé)
+
+Détails, recettes et décision : [`CONTRE_QUALIFICATION_RAIL1.md`](CONTRE_QUALIFICATION_RAIL1.md).
+
+- **Code de production** : aucun changement depuis `4fef6a42`.
+- **Tests** : 218 tests d'audit et du rail 1 réussis ; suite complète 840 réussis, 36 échecs, **identiques à la RC2 d'origine** (dette de test préexistante, non comptée comme une réussite). Le comparateur du projet (`scripts/qualification/compare_test_baseline.py`) confirme : aucun nouvel échec, aucune cause d'échec modifiée.
+- **Windows** : le pipeline de la RC2 construit la branche avec succès (Python 3.10.11, wxPython 4.2.5, ReportLab 5.0.1, mailjet-rest 1.9.1) et l'exécutable démarre. Ce pipeline **n'exécute aucun test** : la recette Windows manuelle reste à faire.
+- **Connecthys de production** : version à relever manuellement ; compatibilité prouvée pour toutes les versions publiées.
 
 ### Proposition : Rail réseau 2 (non commencé)
 
@@ -90,6 +106,12 @@
 4. **Format de chiffrement** : migration vers AES-GCM avec dérivation de clé (PBKDF2), en coordination avec Connecthys et Nomadhys. Confirmation avant de restaurer une sauvegarde à l'ancien format.
 5. **MySQL** : transactions et rollback (règlement et ventilation, facturation), numéro de facture unique, timeouts, TLS requis.
 6. **CI** : exécuter les tests réseau et `tests/test_rail1_*` sur la RC2 (Linux sous Xvfb), avec une base de test.
+
+---
+
+## PARTIE B : PHASE 1, ÉTAT INITIAL AU HEAD `91d9e625` (HISTORIQUE)
+
+> **Cette partie décrit le code AVANT les corrections du rail 1.** Elle est conservée telle quelle comme preuve. Les matrices, la carte des flux, les tableaux et les listes décrivent l'état initial ; pour l'état courant, voir la partie A. Les entrées corrigées portent une note **« Après rail 1 »**. Les sections de cette partie gardent leur numérotation d'origine.
 
 ---
 
@@ -138,6 +160,8 @@ Vérifié dans Git (ascendance, `git show`, et présence ligne à ligne des ajou
 
 ## 6. Carte des frontières réseau
 
+> **État initial (historique, HEAD `91d9e625`).** Après rail 1 : la carte est inchangée ; seuls les comportements décrits en partie A ont changé (aucun flux ajouté, aucun protocole modifié).
+
 ```
                                    ┌────────────────────────────── INTERNET / LAN ──────────────────────────────┐
                                    │                                                                            │
@@ -177,6 +201,8 @@ Vérifié dans Git (ascendance, `git show`, et présence ligne à ligne des ajou
 ---
 
 ## 7. Tableau des flux identifiés
+
+> **État initial (historique, HEAD `91d9e625`).** Après rail 1, changements : E1/E3 (bilan de lot, erreurs Mailjet, historique au fil de l'eau), C1 (contexte TLS local), C7 (pièces : SV2 seul), C8 (installation bornée), C10 (bouton sur le thread wx), N1 (nom et taille validés), N2 et N3 (suppression distante après succès, quarantaine). Les autres lignes sont inchangées.
 
 Légende : TO = timeout ; UI = thread principal wx ; W = thread worker ; « — » = absent.
 
@@ -220,20 +246,24 @@ Les constats communs à plusieurs domaines ont été **fusionnés** (X-xx). Les 
 
 Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de code non ambiguë ; **PROBABLE** = raisonnement solide non exécuté contre un vrai serveur ; **À PROUVER** = dépend d'un élément non disponible (code serveur Connecthys, Windows, tablette Nomadhys).
 
-### Synthèse
+### Synthèse (état initial, avec l'issue au rail 1)
 
-| P | Nb | Identifiants |
-|---|---|---|
-| **P0** | 7 | X-01, X-02, CNX-03, NOM-01, NOM-02, NOM-03, CNX-16 (À PROUVER) |
-| **P1** | 23 | X-03…X-08, EMAIL-03, EMAIL-04, EMAIL-07, EMAIL-10, CNX-07, CNX-08/09, CNX-10, CNX-11, CNX-14, CNX-17, NOM-04, NOM-05, NET-02, DB-05/06, DB-07, SEC-14, SEC-01 |
-| **P2** | ~30 | voir tableau P2 |
-| **P3** | ~20 | voir tableau P3 |
+| P initial | Nb | Identifiants | Issue au rail 1 |
+|---|---|---|---|
+| **P0** | 7 | X-01, X-02, CNX-03, NOM-01, NOM-02, NOM-03, CNX-16 | **Corrigés** : X-01 (entrées réseau), NOM-02, NOM-03 (requalifié P1). **Réfuté** : CNX-16. **Ouverts** : X-02, CNX-03 (non modifié, rôle documenté), NOM-01. |
+| **P1** | 23 | X-03…X-08, EMAIL-03, EMAIL-04, EMAIL-07, EMAIL-10, CNX-07, CNX-08/09, CNX-10, CNX-11, CNX-14, CNX-17, NOM-04, NOM-05, NET-02, DB-05/06, DB-07, SEC-14, SEC-01 | **Corrigés** : X-03, EMAIL-07, EMAIL-10, CNX-10, CNX-14, NOM-04 ; NOM-05 en partie. **Ouverts** : tous les autres. |
+| **P2** | ~30 | voir tableau P2 | EMAIL-08 corrigé ; NOM-07 (exception interceptée) et NOM-10 (en partie) traités. Le reste est ouvert. |
+| **P3** | ~20 | voir tableau P3 | Non traités. |
+
+Nouveaux constats postérieurs à cet état initial (rail 1) : MAIL-FAM-01, MAIL-FAM-02, MAILJET-ERR-01, MAIL-HIST-01, REPORTLAB-5, tous corrigés. Voir la partie A.
 
 ---
 
 ### P0 — Perte/corruption, exécution de contenu distant, validation crypto neutralisée à impact critique
 
 #### X-01 — Désérialisation `pickle` de fichiers reçus du réseau → exécution de code — P0 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ pour les entrées réseau** (0c23750). Pièces Connecthys et fichiers Nomadhys sont déchiffrés avec `autoriser_ancien_format=False` : SV2 uniquement, aucun pickle. Aucune version publiée de Connecthys n'émet de pièce au format pickle (SV2 depuis 0.9.1, date de l'envoi de pièces). **Risque résiduel accepté** : la restauration locale volontaire de sauvegardes anciennes conserve l'ancien format (rail 2). Voir `CONTRAT_CONNECTHYS.md`, sections L et M.**
 *(CNX-01, SEC-06, NOM « ancien format »)*
 - **Où** : `noethys/Utils/UTILS_Cryptage_fichier.py:166-173` `DecrypterFichier` : tout fichier ne commençant pas par `SV2` passe par `pickle.load`, **avant** toute vérification de mot de passe.
 - **Points d'entrée réseau** :
@@ -252,6 +282,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Attendu** : `RejectPolicy` + empreinte épinglée en configuration, confirmation explicite à la première connexion, alerte bloquante si la clé change.
 
 #### CNX-03 — `models.py` téléchargé puis exécuté (`exec`) sans contrôle d'intégrité — P0 — CONFIRMÉ
+
+> **Après rail 1 : NON MODIFIÉ** (consigne). Rôle réel documenté dans `CONTRAT_CONNECTHYS.md`, section K : `models.py` est le schéma SQLAlchemy de la version de Connecthys installée. Empreintes SHA-256 proposées pour le rail 2.**
 - **Où** : `UTILS_Portail_synchro.py:421-492` `ChargeModuleModels` (appel l.534). Hérité de #397 ; le mécanisme de chargement a changé, pas le niveau de confiance.
 - **Reproduction** : tests existants `ChargeModuleModelsTests` + `test_audit_reseau_connecthys.py::UploadDataReponsePerdueTests` (un `models.py` déposé est exécuté).
 - **Impact** : quiconque peut écrire `application/models.py` (portail compromis, FTP clair, SFTP sans clé) exécute du code dans Noethys.
@@ -266,18 +298,24 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Condition** : actif seulement si `synchro_serveur_activer` (Noethys.py:513-516).
 
 #### NOM-02 — Serveur Nomadhys : écriture/écrasement de fichier arbitraire par un client — P0 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (b44772c). Nom et taille validés avant toute ouverture : liste blanche `actions_<IDfichier>_<horodatage>.nsc|nsd` (format émis par Nomadhys), aucun séparateur ni `..`, taille entière bornée, `realpath` sous le répertoire de synchronisation. Entrée invalide refusée, connexion fermée.**
 - **Où** : `CTRL_Serveur_nomade.py:155-157` : `open(UTILS_Fichiers.GetRepSync(nom), "wb")` avec `nom` fourni par le client dans l'en-tête JSON, sans assainissement.
 - **Reproduction** : `test_nom_de_fichier_client_permet_l_ecriture_hors_sync` (`../`), `test_nom_absolu_ecrase_un_fichier_arbitraire` (fichier existant tronqué dès l'en-tête).
 - **Impact** : corruption ou remplacement de tout fichier inscriptible par l'utilisateur Windows (base `.dat` locale, `Config.json`, scripts de démarrage…), sans authentification.
 - **Attendu** : `os.path.basename` + liste blanche du motif `actions_<IDfichier>_<horodatage>.(nsc|nsd)` + taille maximale.
 
 #### NOM-03 — Synchro FTP Nomadhys : fichier distant supprimé même si l'analyse locale a échoué → perte définitive silencieuse — P0 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ et REQUALIFIÉ P1** (aa03f97). Le fichier distant n'est supprimé qu'après une analyse réussie ; un fichier en échec est conservé en quarantaine (`.echec`) avec un message ; la reprise après correction du mot de passe est démontrée par test. Requalification : Nomadhys ne purge ses actions qu'après archivage par Noethys (`nomade_archivage`) ; la perte n'était définitive que si la tablette était réinitialisée.**
 - **Où** : `Dlg/DLG_Synchronisation.py:752-765` `RecevoirFTP` : la boucle appelle `AnalyserFichier(...)` puis **`ftp.delete(nomFichier)` sans tester `resultat`**. Or `AnalyserFichier` (l.43-80) **supprime le `.nsc` local avant de savoir si le déchiffrement a produit un zip valide** (l.62), et renvoie `False` sans message en cas de mauvais mot de passe, taille incorrecte ou zip invalide.
 - **Reproduction** : `RecevoirFTPTests::test_echec_dechiffrement_puis_suppression_distante_perte_totale` : fichier chiffré avec un autre mot de passe → supprimé à distance, supprimé localement, aucun `.dat`, **aucun message**. Idem pour un transfert tronqué (taille ≠) : `test_taille_incorrecte_supprime_le_fichier_local` + suppression distante.
 - **Impact** : les pointages / consommations / mémos saisis sur la tablette sont perdus définitivement (seule copie supprimée des deux côtés), cas réaliste après un changement de mot de passe de chiffrement ou une coupure.
 - **Attendu** : ne supprimer à distance qu'après un `AnalyserFichier` réussi, idéalement après import et archivage ; conserver l'original en quarantaine en cas d'échec ; signaler l'échec.
 
 #### CNX-16 — Connecthys : perte possible de demandes côté serveur entre `syncdown` et `syncup` — P0 — À PROUVER
+
+> **Après rail 1 : RÉFUTÉ POUR LE CONTRAT CONNECTHYS QUALIFIÉ** (Connecthys 0.1.1 à 1.1.0 et `master` @ `7949752`, 87 versions analysées). `syncup` ne fait qu'un `UPDATE` des actions existantes par `ref_unique` et ne remplace la table des actions que si elle est vide : une demande créée entre `syncdown` et `syncup` survit et est téléchargée au cycle suivant. La version de production reste **à relever manuellement** (`CONTRAT_CONNECTHYS.md`).**
 - **Où** : `UTILS_Portail_synchro.py:1417-1434`, 1510-1512 (`Upload_data`) : l'export renvoie la table `actions` des N derniers mois et `tables_modifiees_synchro`. `Synchro_totale` exécute `syncdown` **avant** `syncup` (l.138).
 - **Mécanisme** : si le serveur **remplace** sa table `actions` par l'export, une demande déposée par une famille entre les deux appels est effacée sans avoir été téléchargée.
 - **À prouver** : lire le traitement `syncup` du code serveur Connecthys (absent du dépôt).
@@ -287,6 +325,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 ### P1
 
 #### X-03 — Vérification TLS désactivée pour **tout le processus** par l'option Connecthys `accept_all_cert` — P1 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (d25d21e). L'option `accept_all_cert` produit un contexte SSL local passé aux seuls `urlopen` vers Connecthys ; `ssl._create_default_https_context` n'est plus modifié. Sans l'option, l'appel `urlopen(req)` est celui d'origine. Aucun changement protocolaire.**
 *(NET-01, SEC-09, CNX-06)*
 - **Où** : `UTILS_Portail_synchro.py:100-102` : `ssl._create_default_https_context = ssl._create_unverified_context`. Jamais restauré, même si une instance suivante est créée avec `False`.
 - **Effet** : sous Python 3.10/3.11 (build Windows) tous les `urllib` HTTPS du processus perdent la validation : « Aujourd'hui », calendrier scolaire, enregistrement, `urlretrieve` de l'installation Connecthys (`master.zip`, code ensuite déployé). `requests` (SMS, Mailjet) n'est pas touché. Sous 3.12+, l'effet dépend de l'ordre des appels.
@@ -332,10 +372,14 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Attendu** : statut « incertain », épinglage de version, `timeout` explicite.
 
 #### EMAIL-07 — Reçu de règlement mémorisé comme envoyé même si l'email échoue (faux succès) — P1 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (31ddc74). Le reçu n'est mémorisé comme envoyé que si `DLG_Mailer.listeSucces` contient un message accepté pour ce destinataire. Résiduel : un envoi SMTP incertain puis renvoyé reste compté comme un succès (EMAIL-03, rail 2).**
 - **Où** : `DLG_Saisie_reglement.py:1229` teste `dlg2.listeAnomalies`, **jamais alimenté** par `DLG_Mailer` (affecté seulement l.107) ; `except: pass` l.1232.
 - **Effet** : insertion dans `recus` + historique « Edition d'un reçu » sans envoi. **Attendu** : tester `listeSucces`.
 
 #### EMAIL-10 — Connecthys : « Reçu de règlement envoyé par Email » renvoyé à la famille sans vérifier l'envoi — P1 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (4436c67), après établissement du contrat. `etat` et `reponse` sont locaux à Noethys : seuls l'état `validation` et le texte atteignent Connecthys, au `syncup` suivant, par un `UPDATE` sur `ref_unique` (identique dans les 87 versions). L'échec de l'email renvoie `False` comme pour les factures : la demande reste « attente ». Aucune valeur nouvelle.**
 - **Où** : `DLG_Saisie_portail_demande.py:1221-1223` : résultat d'`EnvoiEmailFamille` ignoré, `{"etat": True}`.
 
 #### X-08 — SMS : coupure en cours de boucle, aucune trace des SMS partis, faux « terminé » — P1 — CONFIRMÉ
@@ -357,6 +401,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Attendu** : index unique sur `ref_unique` + insertion conditionnelle ; verrou de synchro partagé en base.
 
 #### CNX-10 — Installation Connecthys : boucle infinie hors ligne — P1 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (3753b13). 3 essais de 30 s puis message explicite. URL, archive et procédure inchangées.**
 - **Où** : `UTILS_Portail_installation.py:448-455` : `num_essai` jamais incrémenté ; `sleep(1)` sur le thread UI. **Attendu** : `num_essai += 1` + timeout.
 
 #### CNX-11 — Installation : archive `master.zip` non épinglée + zip-slip — P1 — CONFIRMÉ
@@ -364,6 +410,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Attendu** : tag/commit épinglé + SHA-256 ; contrôle `realpath` sous la destination.
 
 #### CNX-14 — Connecthys : widgets wx modifiés depuis le thread worker — P1 — CONFIRMÉ (appel) / PROBABLE (crash)
+
+> **Après rail 1 : CORRIGÉ** (00f6c6e). `MAJ_bouton()` est exécuté sur le thread wx par `wx.CallAfter` ; panneau détruit ignoré. Aucun échange réseau modifié.**
 - **Où** : `CTRL_Portail_serveur.py:131` appelle `Panel.MAJ_bouton` (l.241-280 : `SetLabel`, `SetBackgroundColour`, `taskBarIcon.Connecthys`) depuis le worker. #376 n'a traité que jauge/image/journal.
 - **Attendu** : `wx.CallAfter(self.parent.MAJ_bouton)`.
 
@@ -371,11 +419,15 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 - **Où** : `Download_data` l.1771-1777 `except: pass` sur un renseignement indéchiffrable : l'action est importée **sans** le renseignement, sans message.
 
 #### NOM-04 — Nomadhys : mauvais mot de passe / fichier altéré non détecté, fichier source supprimé — P1 — CONFIRMÉ
+
+> **Après rail 1 : CORRIGÉ** (aa03f97). Rien n'est supprimé avant la production d'un `.dat` exploitable (écriture atomique) ; échec : quarantaine `.echec` et motif. Résiduel : sans MAC (SEC-07), un fichier altéré mais dézippable reste accepté (rail 2).**
 - **Où** : `UTILS_Cryptage_fichier.py:110-127` (AES-CFB, clé = MD5 hex sans sel, **sans MAC**) ; `DLG_Synchronisation.AnalyserFichier` l.56-68 supprime le `.nsc` puis échoue sur le zip, laisse un `.nsd` déchet, `return False` sans message.
 - **Reproduction** : `CryptageTests::test_mauvais_mot_de_passe_ne_leve_aucune_erreur`, `test_absence_de_mac_alteration_non_detectee`, `AnalyserFichierTests::test_mauvais_mdp_supprime_le_nsc_et_retourne_false`.
 - **Cumul** : avec NOM-03 = perte définitive.
 
 #### NOM-05 — Serveur Nomadhys : fichier tronqué analysé sans contrôle de taille, aucun accusé de réception — P1 — CONFIRMÉ (Noethys) / À PROUVER (tablette)
+
+> **Après rail 1 : PARTIELLEMENT CORRIGÉ** (b44772c). La taille annoncée est transmise à l'analyse : un transfert tronqué est mis en quarantaine, jamais importé. L'accusé de réception applicatif envers la tablette n'est pas implémenté (rail 2) ; la tablette conserve ses actions jusqu'à l'archivage par Noethys.**
 - **Où** : `CTRL_Serveur_nomade.connectionLost` l.208-220 : `AnalyserFichier(nomFichier)` **sans `tailleFichier`** ; aucun ACK renvoyé au client.
 - **Reproduction** : `test_fin_de_connexion_analyse_sans_controle_de_taille` (10 octets sur 1 000 000).
 - **Impact** : si la tablette considère l'envoi réussi à la fermeture de la socket et purge ses données (À PROUVER côté Nomadhys), les actions sont perdues.
@@ -441,6 +493,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 | NET-10 | CONFIRMÉ (Linux) / À PROUVER (Windows) | `FonctionsPerso.LanceFichierExterne` l.1018-1025 | Linux : `os.system("xdg-open " + x)` sans guillemets (URL tronquées au `&`, injection shell possible via un href HTML affiché) ; Windows : `/` → `\` dans les URL. | `subprocess` en liste / `webbrowser.open`. |
 | CI-01 | CONFIRMÉ | `.github/workflows/noethys-sl-windows.yml` | La CI de la RC2 n'exécute **aucun** test ; 36 tests existants échouent localement (dépendance au profil, tests non maintenus). | Job pytest Linux/Xvfb + base fixture. |
 
+> **Après rail 1, pour les entrées P2 ci-dessus :** EMAIL-08 CORRIGÉ (apostrophe dans l'historique) ; NOM-07 TRAITÉ (l'exception de suppression distante est interceptée, message, fichier reproposé) ; NOM-10 EN PARTIE (un morceau de fichier JSON non-objet n'est plus pris pour une commande). Les autres entrées P2 sont inchangées.
+
 ### P3 — Dette / faiblesse sans impact opérationnel démontré
 
 | Id | Où | Constat |
@@ -463,6 +517,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 
 ## 10. Matrice générale de panne (protocoles principaux)
 
+> **État initial (historique, HEAD `91d9e625`).** Cellules modifiées par le rail 1 : « Certificat invalide » côté Connecthys (accepté pour tout le processus devient local à Connecthys) ; « Contenu corrompu / malveillant » côté pièces Connecthys et fichiers Nomadhys (pickle refusé, écriture arbitraire refusée) ; « Contenu tronqué » et « Mauvais mot de passe » côté Nomadhys (fichier distant conservé, quarantaine). Les autres cellules, dont « opération réussie + confirmation perdue », sont inchangées.
+
 | Panne | SMTP (E1) | Mailjet (E3) | SMS API (E4) | Connecthys HTTP (C4–C6) | Connecthys FTP/SFTP (C1–C3, C7) | Nomadhys TCP (N1) | Nomadhys FTP (N2) | MySQL (D1) |
 |---|---|---|---|---|---|---|---|---|
 | DNS impossible | erreur affichée, pas de fuite | erreur | **exception non capturée** | `False`, cause absente du journal | `False` | n/a (entrant) | message générique | « connexion impossible » |
@@ -484,6 +540,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 
 ### Nomadhys — coupures A à F
 
+> **État initial (historique, HEAD `91d9e625`).** Après rail 1 : **B (TCP)** la taille annoncée est contrôlée, un fichier tronqué est mis en quarantaine ; **C** le fichier distant n'est plus supprimé avant une analyse réussie, un échec laisse le distant et une copie `.echec`, avec un message ; **F** l'exception de suppression distante est interceptée et signalée, le fichier est reproposé. A, D et E sont inchangés.
+
 | Moment | Ce qui se passe à la reprise | Risque |
 |---|---|---|
 | A. avant transfert | rien n'est modifié ; message générique | aucun |
@@ -495,6 +553,8 @@ Statut de preuve : **CONFIRMÉ** = reproduit par un test d'audit ou lecture de c
 | F. après import, avant suppression distante | n/a en FTP (suppression avant import) ; si `DELE` échoue : `EOFError` non gérée, re-téléchargement et reproposition | doublon d'import possible |
 
 ### Connecthys — scénario critique demandé (réponse perdue)
+
+> **État initial (historique, HEAD `91d9e625`).** Inchangé par le rail 1. Le sens montant est idempotent côté données (un `UPDATE` des mêmes états) : voir `CONTRAT_CONNECTHYS.md`, section N. CNX-16 est réfuté.
 
 1. Noethys dépose `import_<n>.crypt` puis `GET /syncup/<n>`. 2. Le portail traite. 3. La réponse est perdue (timeout illimité → en pratique coupure). 4. Noethys conclut à l'échec, `last_synchro` n'avance pas. 5. L'utilisateur (ou le cycle suivant) recommence → **nouvel export sous un nouveau nom**, retraité par le portail.
 - **Doublon dans Noethys** : non (sens montant).
@@ -526,6 +586,8 @@ Aucun secret réel n'est committé dans le dépôt (valeurs factices `ICI_MOT_DE
 
 ## 9. Threads et interface wx — synthèse
 
+> **État initial (historique, HEAD `91d9e625`).** Après rail 1 : seule la ligne « Connecthys automatique » change (`MAJ_bouton` passe par `wx.CallAfter`).
+
 | Opération réseau | Thread | Constat |
 |---|---|---|
 | Email unitaire visible | worker + `CallAfter`, modale non fermable | correct (4dccd87) |
@@ -542,6 +604,8 @@ Aucun secret réel n'est committé dans le dépôt (valeurs factices `ICI_MOT_DE
 ---
 
 ## 15–16. Tests existants et tests manquants
+
+> **État initial (historique, HEAD `91d9e625`).** Après rail 1 : les tests d'audit des défauts corrigés ont été inversés en tests de non-régression, et six fichiers `tests/test_rail1_*.py` ont été ajoutés. Total : 218 tests d'audit et du rail 1. Voir `CONTRE_QUALIFICATION_RAIL1.md` pour les résultats.
 
 ### Tests existants liés au réseau
 `test_noethys_sl_mailer_errors.py`, `test_vanilla_dlg_mailer_progress_parent.py`, `test_vanilla_mailjet_email_confirmation.py`, `test_vanilla_mailjet_progress_lifecycle.py`, `test_vanilla_connecthys_synchro.py`, `test_noethys_sl_connecthys_wx_thread.py`, `test_connecthys_reservations_progress.py`, `test_portail_pieces_safe_yield.py`, `test_noethys_sl_nomadhys_wx_thread.py`, `test_ephemerides*.py`, `test_vanilla_crash_recipient.py`.
@@ -572,6 +636,8 @@ Limites : Twisted et MySQLdb non installés (code extrait par AST / pilote simul
 ---
 
 ## 17. Recommandations de correction — ordre proposé (phase 2)
+
+> **État initial (historique, HEAD `91d9e625`).** Traité au rail 1 : X-01 (entrées réseau), NOM-02, NOM-03, NOM-04, X-03, EMAIL-07, EMAIL-10, CNX-10, CNX-14. Reste ouvert : tout le reste de la liste ci-dessous ; la proposition de rail 2 est en partie A.
 
 1. **Supprimer les exécutions de contenu distant** : X-01 (pickle), CNX-03 (`models.py`), NOM-02 (nom de fichier), CNX-11 (zip-slip / épinglage).
 2. **Fermer les canaux non authentifiés** : NOM-01 (auth + chiffrement obligatoire du serveur Nomadhys), X-02 (clé SSH épinglée), X-04 (FTPS/SFTP), X-05 (STARTTLS vérifié, corrige aussi EMAIL-01), X-03 (contexte TLS local), X-06 (HMAC en en-tête, plus de `print` d'URL).
