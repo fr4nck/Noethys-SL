@@ -200,9 +200,16 @@ SHA-256 : `778485c3ba9aa36317604f0b2afc3f33dd8b954834ca2d728fa270bc27bdd998`.
 Build terminé, intégrité ZIP vérifiée, aucun profil Portable dans l'archive.
 Un profil fictif séparé a été préparé dans l'extraction de recette.
 
-Restent à valider : double-clic et fermeture dans ce nouveau portable, puis
-contre-recette Noedoc corrigé à 125 %. Ne pas considérer la recette DPI comme
-une validation exhaustive de l'éditeur, de tous les écrans ou de toutes les
-résolutions. Les messages Font Capture restent une anomalie non attribuée.
+Validation graphique du nouveau portable `027ffe7e` terminée :
+- À 150 % : double-clic sur le modèle, dessin complet, sélection d'un bloc,
+  propriétés affichées, Annuler puis fermeture des fenêtres et du processus.
+  Aucun crash observé ; code de sortie non recueilli pour cette exécution.
+- À 125 % : même parcours, puis fermeture de l'accueil ; code de sortie 0
+  recueilli sur le processus conservé depuis son lancement.
+
+La recette DPI est ciblée : elle ne valide pas exhaustivement l'éditeur,
+les autres écrans ou toutes les résolutions. Les messages Font Capture
+restent une anomalie non attribuée. L'affichage Windows est actuellement
+à 125 % ; la valeur habituelle de Franck reste à confirmer pour restauration.
 Arthur réel, contrôle de l'incident et recette Connecthys réelle restent
 en attente. Aucun tag, release ou déploiement ; anciens travaux préservés.
