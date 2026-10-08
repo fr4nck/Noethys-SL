@@ -5,6 +5,9 @@ plus un moteur ReportLab dedie ni pilote par un questionnaire
 obligatoire. Voir aussi test_vanilla_convention_rendering.py pour la
 verification d'execution reelle (pas seulement de source).
 """
+import sys as _sys_garde, pathlib as _pathlib_garde
+_sys_garde.path.insert(0, str(_pathlib_garde.Path(__file__).resolve().parent))
+import _garde_reseau  # noqa: E402,F401  aucune connexion à une base réseau (voir _garde_reseau)
 import unittest
 from pathlib import Path
 

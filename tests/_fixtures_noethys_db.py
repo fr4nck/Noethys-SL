@@ -20,6 +20,7 @@ NOETHYS_DIR = Path(__file__).resolve().parents[1] / "noethys"
 if str(NOETHYS_DIR) not in sys.path:
     sys.path.insert(0, str(NOETHYS_DIR))
 
+import _garde_reseau  # noqa: E402,F401  (aucune connexion à une base réseau)
 import GestionDB  # noqa: E402
 from Data import DATA_Tables as Tables  # noqa: E402
 
