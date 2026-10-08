@@ -172,6 +172,10 @@ class Panel(wx.Panel):
 
 
 class ListCtrl(wx.ListCtrl, CheckListCtrlMixin):
+    # Conserver les cases du mixin et son callback, sans appeler CheckItem natif.
+    CheckItem = CheckListCtrlMixin.CheckItem
+    IsChecked = CheckListCtrlMixin.IsChecked
+
     def __init__(self, parent, nomBase = ""):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
         CheckListCtrlMixin.__init__(self)
@@ -202,9 +206,9 @@ class ListCtrl(wx.ListCtrl, CheckListCtrlMixin):
             else:
                 autorisationStr = "Non"
             if 'phoenix' in wx.PlatformInfo:
-                index = self.InsertItem(six.MAXSIZE, autorisationStr)
+                index = self.InsertItem(self.GetItemCount(), autorisationStr)
             else:
-                index = self.InsertStringItem(six.MAXSIZE, autorisationStr)
+                index = self.InsertStringItem(self.GetItemCount(), autorisationStr)
             if user == "root" :
                 user = _(u"root (Administrateur)")
             if 'phoenix' in wx.PlatformInfo:

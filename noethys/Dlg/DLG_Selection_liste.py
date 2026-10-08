@@ -153,6 +153,9 @@ class Dialog(wx.Dialog):
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 class ListCtrl(wx.ListCtrl, CheckListCtrlMixin):
+    CheckItem = CheckListCtrlMixin.CheckItem
+    IsChecked = CheckListCtrlMixin.IsChecked
+
     def __init__(self, parent, listeColonnes, listeValeurs):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
         CheckListCtrlMixin.__init__(self)
@@ -182,9 +185,9 @@ class ListCtrl(wx.ListCtrl, CheckListCtrlMixin):
             else :
                 ID = int(valeurs[0])
             if 'phoenix' in wx.PlatformInfo:
-                index = self.InsertItem(six.MAXSIZE, str(ID))
+                index = self.InsertItem(self.GetItemCount(), str(ID))
             else:
-                index = self.InsertStringItem(six.MAXSIZE, str(ID))
+                index = self.InsertStringItem(self.GetItemCount(), str(ID))
             x = 1
             for valeur in valeurs[1:] :
                 if 'phoenix' in wx.PlatformInfo:
