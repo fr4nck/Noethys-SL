@@ -15,7 +15,15 @@ Installée, la garde :
 2. fait échouer toute ouverture réseau : GestionDB passe en echec=1 et
    Noethys retombe sur ses valeurs par défaut, comme sans fichier ouvert.
 Les bases SQLite de test, ouvertes par chemin explicite, ne sont pas concernées.
+
+Exception explicite : ServeurMySQLDeTest() autorise, le temps d'un bloc
+« with », le seul serveur MySQL local de test déclaré par les variables
+NOETHYS_TEST_MYSQL_HOST / _PORT / _USER / _PASSWORD (hôte 127.0.0.1 ou
+localhost uniquement). Toute autre destination reste interdite. Les
+identifiants ne sont jamais écrits dans le dépôt.
 """
+
+import contextlib
 
 import os
 import tempfile
@@ -32,15 +40,55 @@ from Utils import UTILS_Fichiers  # noqa: E402
 
 TENTATIVES = []
 PROFIL_TEST = None
+_CONNEXION_REELLE = GestionDB.GetConnexionReseau
+_AUTORISE = {"hote": None, "port": None}
+HOTES_LOCAUX = ("127.0.0.1", "localhost")
 
 
 class ConnexionReseauInterdite(RuntimeError):
     pass
 
 
+def _destination(nomFichier):
+    port, hote = str(nomFichier).split("[RESEAU]")[0].split(";")[:2]
+    return hote.strip().lower(), int(port)
+
+
 def _interdire(*args, **kwargs):
-    TENTATIVES.append(args[0] if args else None)
+    nomFichier = args[0] if args else kwargs.get("nomFichier", "")
+    try:
+        destination = _destination(nomFichier)
+    except Exception:
+        destination = None
+    if destination is not None and _AUTORISE["hote"] is not None and destination == (_AUTORISE["hote"], _AUTORISE["port"]):
+        return _CONNEXION_REELLE(*args, **kwargs)
+    TENTATIVES.append(destination)
     raise ConnexionReseauInterdite(u"Tests : connexion à une base réseau interdite.")
+
+
+def ParametresMySQLDeTest():
+    """ Paramètres du serveur MySQL local de test, ou None s'il n'est pas déclaré. """
+    hote = os.environ.get("NOETHYS_TEST_MYSQL_HOST", "").strip().lower()
+    if not hote:
+        return None
+    if hote not in HOTES_LOCAUX:
+        raise ConnexionReseauInterdite(u"Serveur MySQL de test non local refusé : %s" % hote)
+    return {"hote": hote, "port": int(os.environ.get("NOETHYS_TEST_MYSQL_PORT", "3306")),
+            "utilisateur": os.environ.get("NOETHYS_TEST_MYSQL_USER", "root"),
+            "motdepasse": os.environ.get("NOETHYS_TEST_MYSQL_PASSWORD", "")}
+
+
+@contextlib.contextmanager
+def ServeurMySQLDeTest():
+    """ Autorise le seul serveur MySQL local de test pendant le bloc. """
+    parametres = ParametresMySQLDeTest()
+    if parametres is None:
+        raise ConnexionReseauInterdite(u"Aucun serveur MySQL de test déclaré.")
+    _AUTORISE.update(hote=parametres["hote"], port=parametres["port"])
+    try:
+        yield parametres
+    finally:
+        _AUTORISE.update(hote=None, port=None)
 
 
 def _installer_profil():

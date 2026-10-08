@@ -314,75 +314,182 @@ def _resoudre_payeur(DB, IDindividu, participation):
     return None, None
 
 
+class VerrouIndisponible(Exception):
+    pass
+
+
+class TransactionsNonSupportees(Exception):
+    pass
+
+
+# Attente maximale du verrou d'une autre sauvegarde (secondes).
+DELAI_VERROU = 10
+TABLES_ECRITES = ("cotisations", "prestations", "historique")
+
+
+class _AccesStrict(object):
+    """ Accès à la connexion d'écriture sans erreur avalée : dans la section
+    protégée, une lecture en échec ne doit jamais valoir « aucune adhésion ». """
+
+    def __init__(self, DB):
+        if getattr(DB, "echec", 0) == 1:
+            raise RuntimeError(u"Base inaccessible : %s" % getattr(DB, "erreur", u""))
+        self.DB = DB
+        self.cursor = DB.cursor
+
+    def ExecuterReq(self, req):
+        self.cursor.execute(req)
+        return 1
+
+    def ResultatReq(self):
+        return list(self.cursor.fetchall())
+
+    def Inserer(self, table, donnees):
+        marque = "%s" if self.DB.isNetwork else "?"
+        req = "INSERT INTO %s (%s) VALUES (%s)" % (
+            table, ", ".join(nom for nom, _valeur in donnees), ", ".join([marque] * len(donnees)))
+        self.cursor.execute(req, tuple(valeur for _nom, valeur in donnees))
+        ID = self.cursor.lastrowid
+        if not ID:
+            raise RuntimeError(u"Insertion dans %s sans identifiant." % table)
+        return ID
+
+    def Modifier(self, req, valeurs):
+        if self.DB.isNetwork:
+            req = req.replace("?", "%s")
+        self.cursor.execute(req, valeurs)
+        if self.cursor.rowcount != 1:
+            raise RuntimeError(u"Mise à jour inattendue (%s ligne(s)) : %s" % (self.cursor.rowcount, req))
+
+
+def _Verrouiller(DB, IDindividu, IDtype_cotisation):
+    """ Sérialise, entre postes, le contrôle d'existant et la création pour un
+    individu et un type d'adhésion. Retourne la fonction de libération.
+
+    - SQLite : BEGIN IMMEDIATE prend le verrou d'écriture du fichier avant le
+      contrôle ; une autre sauvegarde attend (délai de la connexion) puis
+      relit l'état validé. Garantie limitée à un verrouillage de fichier
+      fiable (disque local ; un partage réseau n'en offre pas toujours).
+    - MySQL : verrou nommé GET_LOCK, partagé par toutes les connexions au
+      serveur. Les trois tables doivent être transactionnelles (InnoDB) pour
+      qu'un échec n'écrive rien ; sinon la création automatique est refusée. """
+    if DB.isNetwork:
+        DB.cursor.execute("""SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('cotisations', 'prestations', 'historique');""")
+        moteurs = dict((str(nom).lower(), str(moteur or "").lower()) for nom, moteur in DB.cursor.fetchall())
+        if sorted(moteurs) != sorted(TABLES_ECRITES) or any(moteur != "innodb" for moteur in moteurs.values()):
+            raise TransactionsNonSupportees(moteurs)
+        nom = "CONCAT('noethys_adhesion_', LEFT(MD5(DATABASE()), 12), '_%d_%d')" % (IDindividu, IDtype_cotisation)
+        DB.cursor.execute("SELECT GET_LOCK(%s, %d);" % (nom, DELAI_VERROU))
+        obtenu = DB.cursor.fetchall()
+        if not obtenu or obtenu[0][0] != 1:
+            raise VerrouIndisponible()
+        # Nouveau cliché de lecture après l'attente : voir ce qu'une autre
+        # sauvegarde a validé pendant que ce poste attendait le verrou.
+        DB.connexion.commit()
+
+        def liberer():
+            try:
+                DB.cursor.execute("SELECT RELEASE_LOCK(%s);" % nom)
+                DB.cursor.fetchall()
+            except Exception:
+                pass  # libéré de toute façon à la fermeture de la connexion
+        return liberer
+
+    import sqlite3
+    if DB.connexion.in_transaction:
+        DB.connexion.commit()
+    try:
+        DB.connexion.execute("BEGIN IMMEDIATE")
+    except sqlite3.OperationalError as err:
+        if "locked" in str(err).lower() or "busy" in str(err).lower():
+            raise VerrouIndisponible()
+        raise
+    return lambda: None
+
+
 def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutilisateur=None):
     """ Crée UNE adhésion (cotisation + prestation `cotisation` + historique)
     dans une seule transaction, avec exactement les champs écrits par
     DLG_Saisie_cotisation.CTRL_Parametres.Sauvegarde pour une cotisation
-    individuelle facturée. Re-vérifie l'absence d'adhésion valide à la date
-    de début juste avant d'écrire (idempotence).
+    individuelle facturée.
+
+    Le contrôle d'existant (couverture, chevauchement, adhésion à venir) et la
+    création sont protégés ensemble par _Verrouiller : deux postes qui
+    sauvegardent en même temps ne créent jamais deux adhésions. Toute erreur
+    d'écriture annule l'ensemble (aucune cotisation sans prestation, aucune
+    prestation en double).
 
     Retourne {"statut": STATUT_CREE|STATUT_RIEN|STATUT_A_VERIFIER, ...}. """
     date_reference = _en_date(date_reference) or datetime.date.today()
     date_debut = _en_date(participation["date"])
     date_fin = CalculerDateFin(date_debut, config["duree"])
+    periode = {"date_debut": date_debut, "date_fin": date_fin}
 
     DB = GestionDB.DB()
+    liberer = None
     try:
-        # Re-vérification dans la connexion d'écriture (idempotence)
-        DB.ExecuterReq("""SELECT IDcotisation FROM cotisations
+        acces = _AccesStrict(DB)
+        try:
+            liberer = _Verrouiller(DB, IDindividu, config["IDtype_cotisation"])
+        except VerrouIndisponible:
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="verrou_indisponible")
+        except TransactionsNonSupportees:
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="transactions_non_supportees")
+
+        # Re-vérification sous verrou (idempotence)
+        acces.ExecuterReq("""SELECT IDcotisation FROM cotisations
         WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s';"""
-                       % (IDindividu, config["IDtype_cotisation"], date_debut, date_debut))
-        if DB.ResultatReq():
+                          % (IDindividu, config["IDtype_cotisation"], date_debut, date_debut))
+        if acces.ResultatReq():
             return {"statut": STATUT_RIEN, "motif": "adhesion_deja_valide"}
 
         # Aucune adhésion ne doit chevaucher la période à créer, y compris une
         # adhésion future déjà enregistrée : la situation est laissée à vérifier.
-        DB.ExecuterReq("""SELECT IDcotisation, date_debut, date_fin FROM cotisations
+        acces.ExecuterReq("""SELECT IDcotisation, date_debut, date_fin FROM cotisations
         WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s'
         ORDER BY date_debut, IDcotisation;"""
-                       % (IDindividu, config["IDtype_cotisation"], date_fin, date_debut))
-        chevauchements = [(ID, _en_date(debut), _en_date(fin)) for ID, debut, fin in DB.ResultatReq()]
+                          % (IDindividu, config["IDtype_cotisation"], date_fin, date_debut))
+        chevauchements = [(ID, _en_date(debut), _en_date(fin)) for ID, debut, fin in acces.ResultatReq()]
         if chevauchements:
-            return {"statut": STATUT_A_VERIFIER, "motif": "chevauchement", "date_debut": date_debut,
-                    "date_fin": date_fin, "chevauchements": chevauchements}
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="chevauchement", chevauchements=chevauchements)
 
         # Au plus une adhésion à venir : une participation plus lointaine attend
         # qu'une prochaine réconciliation la trouve sans adhésion à venir.
         if date_debut > date_reference:
-            DB.ExecuterReq("""SELECT IDcotisation FROM cotisations
+            acces.ExecuterReq("""SELECT IDcotisation FROM cotisations
             WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut>'%s';"""
-                           % (IDindividu, config["IDtype_cotisation"], date_reference))
-            if DB.ResultatReq():
+                              % (IDindividu, config["IDtype_cotisation"], date_reference))
+            if acces.ResultatReq():
                 return {"statut": STATUT_RIEN, "motif": "adhesion_a_venir_existante"}
 
-        if _periode_verrouillee(DB, date_reference):
-            return {"statut": STATUT_A_VERIFIER, "motif": "periode_verrouillee", "date_debut": date_debut, "date_fin": date_fin}
+        if _periode_verrouillee(acces, date_reference):
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="periode_verrouillee")
 
-        IDcompte_payeur, IDfamille_payeur = _resoudre_payeur(DB, IDindividu, participation)
+        IDcompte_payeur, IDfamille_payeur = _resoudre_payeur(acces, IDindividu, participation)
         if IDcompte_payeur is None:
-            return {"statut": STATUT_A_VERIFIER, "motif": "payeur_indeterminable", "date_debut": date_debut, "date_fin": date_fin}
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="payeur_indeterminable")
 
         label = config["label_prestation"] or u"%s - %s" % (config["nom_type"], config["nom_unite"])
         observations = u"%s Créée automatiquement le %s à partir de la participation du %s (%s %s)." % (
             MARQUEUR_AUTO, date_reference, date_debut, participation["source"], participation["id"])
 
-        IDcotisation = DB.ReqInsert("cotisations", [
-            ("IDfamille", None),
-            ("IDindividu", IDindividu),
-            ("IDtype_cotisation", config["IDtype_cotisation"]),
-            ("IDunite_cotisation", config["IDunite_cotisation"]),
-            ("date_saisie", str(date_reference)),
-            ("IDutilisateur", IDutilisateur),
-            ("date_creation_carte", None),
-            ("numero", None),
-            ("date_debut", str(date_debut)),
-            ("date_fin", str(date_fin)),
-            ("observations", observations),
-            ("activites", None),
-        ], commit=False)
-        IDprestation = None
-        if IDcotisation is not None:
-            IDprestation = DB.ReqInsert("prestations", [
+        try:
+            IDcotisation = acces.Inserer("cotisations", [
+                ("IDfamille", None),
+                ("IDindividu", IDindividu),
+                ("IDtype_cotisation", config["IDtype_cotisation"]),
+                ("IDunite_cotisation", config["IDunite_cotisation"]),
+                ("date_saisie", str(date_reference)),
+                ("IDutilisateur", IDutilisateur),
+                ("date_creation_carte", None),
+                ("numero", None),
+                ("date_debut", str(date_debut)),
+                ("date_fin", str(date_fin)),
+                ("observations", observations),
+                ("activites", None),
+            ])
+            IDprestation = acces.Inserer("prestations", [
                 ("IDcompte_payeur", IDcompte_payeur),
                 ("date", str(date_reference)),
                 ("categorie", "cotisation"),
@@ -392,25 +499,24 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 ("IDfamille", IDfamille_payeur),
                 ("IDindividu", IDindividu),
                 ("date_valeur", str(date_reference)),
-            ], commit=False)
-        if IDcotisation is None or IDprestation is None:
+            ])
+            acces.Modifier("UPDATE cotisations SET IDprestation=? WHERE IDcotisation=?", (IDprestation, IDcotisation))
+            maintenant = datetime.datetime.now()
+            acces.Inserer("historique", [
+                ("date", str(date_reference)),
+                ("heure", maintenant.strftime("%H:%M:%S")),
+                ("IDutilisateur", IDutilisateur),
+                ("IDfamille", None),
+                ("IDindividu", IDindividu),
+                ("IDcategorie", 21),
+                ("action", u"Saisie de la cotisation ID%d '%s' pour la période du %s au %s (création automatique)" % (
+                    IDcotisation, label, date_debut.strftime("%d/%m/%Y"), date_fin.strftime("%d/%m/%Y"))),
+            ])
+            DB.Commit()
+        except Exception:
+            traceback.print_exc()
             DB.connexion.rollback()
-            return {"statut": STATUT_A_VERIFIER, "motif": "echec_ecriture", "date_debut": date_debut, "date_fin": date_fin}
-
-        DB.ReqMAJ("cotisations", [("IDprestation", IDprestation)], "IDcotisation", IDcotisation, commit=False)
-
-        maintenant = datetime.datetime.now()
-        DB.ReqInsert("historique", [
-            ("date", str(date_reference)),
-            ("heure", maintenant.strftime("%H:%M:%S")),
-            ("IDutilisateur", IDutilisateur),
-            ("IDfamille", None),
-            ("IDindividu", IDindividu),
-            ("IDcategorie", 21),
-            ("action", u"Saisie de la cotisation ID%d '%s' pour la période du %s au %s (création automatique)" % (
-                IDcotisation, label, date_debut.strftime("%d/%m/%Y"), date_fin.strftime("%d/%m/%Y"))),
-        ], commit=False)
-        DB.Commit()
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="echec_ecriture")
         return {"statut": STATUT_CREE, "IDcotisation": IDcotisation, "IDprestation": IDprestation,
                 "date_debut": date_debut, "date_fin": date_fin}
     except Exception:
@@ -420,6 +526,14 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             pass
         raise
     finally:
+        # Fin de transaction (rien d'écrit si on n'a pas validé) puis libération.
+        try:
+            if getattr(DB, "connexion", None) is not None and getattr(DB.connexion, "in_transaction", False):
+                DB.connexion.rollback()
+        except Exception:
+            pass
+        if liberer is not None:
+            liberer()
         DB.Close()
 
 
@@ -549,6 +663,8 @@ _LIBELLES_MOTIFS = {
     "periode_verrouillee": u"la période de gestion est verrouillée",
     "payeur_indeterminable": u"le payeur ne peut pas être déterminé (aucune famille ou plusieurs familles possibles)",
     "echec_ecriture": u"l'écriture en base a échoué",
+    "verrou_indisponible": u"une autre sauvegarde traitait la même personne au même moment ; relancez la sauvegarde",
+    "transactions_non_supportees": u"la base MySQL n'utilise pas de tables transactionnelles (InnoDB) : création automatique désactivée",
     "facturee_ou_reglee": u"elle n'a plus de participation, mais sa prestation est facturée ou réglée : aucune suppression automatique",
     "non_demontrable": u"elle n'a plus de participation sur sa période : à confirmer avant toute suppression manuelle",
 }
