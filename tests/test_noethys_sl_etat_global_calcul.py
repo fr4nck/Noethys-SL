@@ -29,7 +29,18 @@ import sys
 import unittest
 from pathlib import Path
 
-import pytest
+try:
+    import pytest
+except ImportError:  # exécution par « python -m unittest », comme en CI
+    pytest = None
+
+
+def _echec_attendu_connu(reason, strict=False):
+    """ pytest : XFAIL non strict. unittest : expectedFailure (un succès
+    inattendu y est signalé ; retirer alors ce marqueur). """
+    if pytest is not None:
+        return pytest.mark.xfail(reason=reason, strict=strict)
+    return unittest.expectedFailure
 
 NOETHYS_DIR = Path(__file__).resolve().parents[1] / "noethys"
 if str(NOETHYS_DIR) not in sys.path:
@@ -519,7 +530,7 @@ class BugPorteeUniteNTests(BaseCalculEtatGlobalTests):
     un jour le faire passer (XPASS). Rien ici ne fige le bug comme contrat --
     c'est l'inverse : ce test fige l'exigence métier correcte."""
 
-    @pytest.mark.xfail(
+    @_echec_attendu_connu(
         reason=(
             "Anomalie connue, non corrigée : self.dict_unites est indexé "
             "uniquement par date, pas par individu (cf. docstring de "
