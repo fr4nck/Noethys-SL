@@ -5660,7 +5660,31 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                         if IDindividu not in depuis or str(date) < str(depuis[IDindividu]) :
                             depuis[IDindividu] = date
         if depuis :
-            UTILS_Adhesions.ReconcilierSansEchec(list(depuis.keys()), depuis=depuis, IDutilisateur=self.IDutilisateur)
+            resultats = UTILS_Adhesions.ReconcilierSansEchec(list(depuis.keys()), depuis=depuis, IDutilisateur=self.IDutilisateur)
+            self.SignalerAdhesionsAVerifier(resultats)
+
+    def SignalerAdhesionsAVerifier(self, resultats):
+        """ Ne laisse jamais ignorer une adhésion automatique à vérifier :
+        fenêtre récapitulative si un opérateur est présent, sinon trace dans
+        l'historique de la personne (badgeage, synchronisation Nomadhys). """
+        try :
+            if not getattr(self, "signaler_adhesions_interactif", True) :
+                UTILS_Adhesions.JournaliserAVerifier(resultats, IDutilisateur=self.IDutilisateur)
+                return
+            messages = UTILS_Adhesions.MessagesAVerifier(resultats)
+        except Exception :
+            traceback.print_exc()
+            messages = [_(u"Le contrôle des adhésions automatiques n'a pas pu être affiché. Vérifiez les adhésions des personnes modifiées.")]
+        if not messages :
+            return
+        maximum = 15
+        texte = u"\n\n".join(u"- %s" % message for message in messages[:maximum])
+        if len(messages) > maximum :
+            texte += u"\n\n" + _(u"... et %d autre(s) situation(s).") % (len(messages) - maximum)
+        dlg = wx.MessageDialog(self, _(u"Les consommations sont enregistrées, mais des adhésions automatiques sont à vérifier :") + u"\n\n" + texte,
+                               _(u"Adhésions à vérifier"), wx.OK | wx.ICON_EXCLAMATION)
+        dlg.ShowModal()
+        dlg.Destroy()
 
 
     def SauvegardeTransports(self):

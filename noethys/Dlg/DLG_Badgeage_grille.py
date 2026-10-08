@@ -127,7 +127,10 @@ class CTRL(wx.Panel):
         self.panel_etiquettes = Panel_Etiquettes(self) 
         self.panel_grille = PanelGrille(self)
         self.grille = self.panel_grille.grille
-        
+        # Sans opérateur (borne de badgeage, synchronisation Nomadhys) : les adhésions
+        # à vérifier sont tracées dans l'historique au lieu d'ouvrir une fenêtre.
+        self.grille.signaler_adhesions_interactif = usage not in ("badgeage", "nomadhys")
+
         # Layout
         sizer1 = wx.BoxSizer(wx.VERTICAL)
         sizer1.Add(self.ctrl_titre, 0, wx.ALL|wx.EXPAND)

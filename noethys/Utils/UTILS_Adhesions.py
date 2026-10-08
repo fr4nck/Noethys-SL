@@ -51,6 +51,7 @@ STATUT_CREE = "cree"
 STATUT_RIEN = "rien_a_faire"
 STATUT_A_VERIFIER = "a_verifier"
 STATUT_CONFIG_INVALIDE = "configuration_invalide"
+STATUT_ERREUR = "erreur"
 
 # Marque posée dans cotisations.observations : seules les adhésions portant
 # cette marque sont évaluées par EvaluerAdhesionsAutomatiques().
@@ -58,9 +59,17 @@ MARQUEUR_AUTO = u"[adhesion-auto]"
 
 _MAX_CREATIONS_PAR_APPEL = 50
 
+# Clé du résultat de ReconcilierSansEchec portant une exception inattendue.
+CLE_ERREUR = "erreur"
+
 
 class ConfigurationAdhesionInvalide(Exception):
-    pass
+    """ `ambigue` : plusieurs choix possibles (erreur de paramétrage à signaler),
+    par opposition à une adhésion automatique simplement non configurée. """
+
+    def __init__(self, message, ambigue=False):
+        Exception.__init__(self, message)
+        self.ambigue = ambigue
 
 
 # ---------------------------------------------------------------- utilitaires
@@ -123,7 +132,8 @@ def ResoudreConfiguration(IDtype_cotisation=None, IDunite_cotisation=None):
         candidats = [t for t in types if t[2] == "individu" and t[4] == 1]
         if len(candidats) != 1:
             raise ConfigurationAdhesionInvalide(
-                u"Impossible de résoudre le type d'adhésion : %d type(s) individuel(s) par défaut." % len(candidats))
+                u"Impossible de résoudre le type d'adhésion : %d type(s) individuel(s) par défaut." % len(candidats),
+                ambigue=len(candidats) > 1)
         type_retenu = candidats[0]
     else:
         candidats = [t for t in types if t[0] == IDtype_cotisation]
@@ -143,7 +153,8 @@ def ResoudreConfiguration(IDtype_cotisation=None, IDunite_cotisation=None):
             candidats = unites_duree if len(unites_duree) == 1 else []
         if len(candidats) != 1:
             raise ConfigurationAdhesionInvalide(
-                u"Impossible de résoudre l'unité d'adhésion du type %s (unité à durée par défaut absente ou ambiguë)." % ID_type)
+                u"Impossible de résoudre l'unité d'adhésion du type %s (unité à durée par défaut absente ou ambiguë)." % ID_type,
+                ambigue=True)
         unite = candidats[0]
     else:
         candidats = [u for u in unites if u[0] == IDunite_cotisation]
@@ -326,11 +337,14 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
 
         # Aucune adhésion ne doit chevaucher la période à créer, y compris une
         # adhésion future déjà enregistrée : la situation est laissée à vérifier.
-        DB.ExecuterReq("""SELECT IDcotisation FROM cotisations
-        WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s';"""
+        DB.ExecuterReq("""SELECT IDcotisation, date_debut, date_fin FROM cotisations
+        WHERE IDindividu=%d AND IDtype_cotisation=%d AND date_debut<='%s' AND date_fin>='%s'
+        ORDER BY date_debut, IDcotisation;"""
                        % (IDindividu, config["IDtype_cotisation"], date_fin, date_debut))
-        if DB.ResultatReq():
-            return {"statut": STATUT_A_VERIFIER, "motif": "chevauchement"}
+        chevauchements = [(ID, _en_date(debut), _en_date(fin)) for ID, debut, fin in DB.ResultatReq()]
+        if chevauchements:
+            return {"statut": STATUT_A_VERIFIER, "motif": "chevauchement", "date_debut": date_debut,
+                    "date_fin": date_fin, "chevauchements": chevauchements}
 
         # Au plus une adhésion à venir : une participation plus lointaine attend
         # qu'une prochaine réconciliation la trouve sans adhésion à venir.
@@ -342,11 +356,11 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 return {"statut": STATUT_RIEN, "motif": "adhesion_a_venir_existante"}
 
         if _periode_verrouillee(DB, date_reference):
-            return {"statut": STATUT_A_VERIFIER, "motif": "periode_verrouillee"}
+            return {"statut": STATUT_A_VERIFIER, "motif": "periode_verrouillee", "date_debut": date_debut, "date_fin": date_fin}
 
         IDcompte_payeur, IDfamille_payeur = _resoudre_payeur(DB, IDindividu, participation)
         if IDcompte_payeur is None:
-            return {"statut": STATUT_A_VERIFIER, "motif": "payeur_indeterminable"}
+            return {"statut": STATUT_A_VERIFIER, "motif": "payeur_indeterminable", "date_debut": date_debut, "date_fin": date_fin}
 
         label = config["label_prestation"] or u"%s - %s" % (config["nom_type"], config["nom_unite"])
         observations = u"%s Créée automatiquement le %s à partir de la participation du %s (%s %s)." % (
@@ -381,7 +395,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             ], commit=False)
         if IDcotisation is None or IDprestation is None:
             DB.connexion.rollback()
-            return {"statut": STATUT_A_VERIFIER, "motif": "echec_ecriture"}
+            return {"statut": STATUT_A_VERIFIER, "motif": "echec_ecriture", "date_debut": date_debut, "date_fin": date_fin}
 
         DB.ReqMAJ("cotisations", [("IDprestation", IDprestation)], "IDcotisation", IDcotisation, commit=False)
 
@@ -427,7 +441,7 @@ def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=Non
         try:
             config = ResoudreConfiguration()
         except ConfigurationAdhesionInvalide as err:
-            resultat.update({"statut": STATUT_CONFIG_INVALIDE, "motif": str(err)})
+            resultat.update({"statut": STATUT_CONFIG_INVALIDE, "motif": str(err), "ambigue": err.ambigue})
             return resultat
 
     for _i in range(_MAX_CREATIONS_PAR_APPEL):
@@ -440,7 +454,9 @@ def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=Non
             resultat["statut"] = STATUT_CREE
             continue
         if creation["statut"] == STATUT_A_VERIFIER:
-            resultat.update({"statut": STATUT_A_VERIFIER, "motif": creation["motif"]})
+            resultat.update({"statut": STATUT_A_VERIFIER, "motif": creation["motif"],
+                             "date_debut": creation.get("date_debut"), "date_fin": creation.get("date_fin"),
+                             "chevauchements": creation.get("chevauchements", [])})
         elif creation.get("motif"):
             resultat["motif"] = creation["motif"]
         break
@@ -456,7 +472,8 @@ def ReconcilierIndividus(liste_individus, date_reference=None, depuis=None, IDut
     try:
         config = ResoudreConfiguration()
     except ConfigurationAdhesionInvalide as err:
-        return {ID: {"IDindividu": ID, "statut": STATUT_CONFIG_INVALIDE, "motif": str(err), "cotisations_creees": []}
+        return {ID: {"IDindividu": ID, "statut": STATUT_CONFIG_INVALIDE, "motif": str(err), "ambigue": err.ambigue,
+                     "cotisations_creees": []}
                 for ID in set(liste_individus)}
     resultats = {}
     for IDindividu in sorted(set(liste_individus)):
@@ -467,12 +484,15 @@ def ReconcilierIndividus(liste_individus, date_reference=None, depuis=None, IDut
 
 
 def ReconcilierSansEchec(liste_individus, date_reference=None, depuis=None, IDutilisateur=None):
-    """ Point d'entrée pour les hooks : n'interrompt jamais l'appelant. """
+    """ Point d'entrée pour les hooks : n'interrompt jamais l'appelant.
+    En cas d'exception, le résultat contient la clé CLE_ERREUR afin que
+    l'appelant la signale (voir MessagesAVerifier). """
     try:
         return ReconcilierIndividus(liste_individus, date_reference=date_reference, depuis=depuis, IDutilisateur=IDutilisateur)
-    except Exception:
+    except Exception as err:
         traceback.print_exc()
-        return {}
+        return {CLE_ERREUR: {"IDindividu": None, "statut": STATUT_ERREUR, "motif": u"%s" % err,
+                             "individus": sorted(set(liste_individus)), "cotisations_creees": []}}
 
 
 # ----------------------------------------------------------------- annulation
@@ -515,7 +535,110 @@ def EvaluerAdhesionsAutomatiques(IDindividu, config=None):
                 facturee_ou_reglee = any(ligne[0] for ligne in lignes)
         a_verifier.append({
             "IDcotisation": adhesion["IDcotisation"],
+            "date_debut": adhesion["date_debut"],
+            "date_fin": adhesion["date_fin"],
             "statut": STATUT_A_VERIFIER,
             "motif": "facturee_ou_reglee" if facturee_ou_reglee else "non_demontrable",
         })
     return a_verifier
+
+
+# ------------------------------------------------------------ signalement
+
+_LIBELLES_MOTIFS = {
+    "periode_verrouillee": u"la période de gestion est verrouillée",
+    "payeur_indeterminable": u"le payeur ne peut pas être déterminé (aucune famille ou plusieurs familles possibles)",
+    "echec_ecriture": u"l'écriture en base a échoué",
+    "facturee_ou_reglee": u"elle n'a plus de participation, mais sa prestation est facturée ou réglée : aucune suppression automatique",
+    "non_demontrable": u"elle n'a plus de participation sur sa période : à confirmer avant toute suppression manuelle",
+}
+
+
+def _date_fr(valeur):
+    valeur = _en_date(valeur)
+    return valeur.strftime("%d/%m/%Y") if valeur else u"?"
+
+
+def _noms_individus(liste_ids):
+    ids = sorted({int(ID) for ID in liste_ids if ID is not None})
+    if not ids:
+        return {}
+    lignes = _lire("SELECT IDindividu, nom, prenom FROM individus WHERE IDindividu IN %s;" % _liste_sql(ids))
+    return {ID: u" ".join(x for x in (nom, prenom) if x) or u"Individu %d" % ID for ID, nom, prenom in lignes}
+
+
+def ElementsAVerifier(resultats):
+    """ Liste à plat des situations à signaler dans un résultat de
+    ReconcilierIndividus/ReconcilierSansEchec :
+    [{"IDindividu", "nom", "texte", "date_debut", "date_fin", "motif"}].
+    Une configuration simplement absente n'est pas signalée ; une configuration
+    ambiguë l'est une seule fois. Ne modifie rien. """
+    resultats = resultats or {}
+    elements = []
+    erreur = resultats.get(CLE_ERREUR)
+    if erreur:
+        elements.append({"IDindividu": None, "nom": u"", "date_debut": None, "date_fin": None, "motif": STATUT_ERREUR,
+                         "texte": u"La vérification automatique des adhésions a échoué : %s. "
+                                  u"Les adhésions des personnes concernées doivent être contrôlées manuellement." % erreur["motif"]})
+    individus = [r for cle, r in resultats.items() if cle != CLE_ERREUR]
+    noms = _noms_individus([r["IDindividu"] for r in individus])
+    config_signalee = False
+    for r in sorted(individus, key=lambda r: (noms.get(r["IDindividu"], u""), r["IDindividu"])):
+        ID = r["IDindividu"]
+        nom = noms.get(ID, u"Individu %s" % ID)
+        if r.get("statut") == STATUT_CONFIG_INVALIDE:
+            if r.get("ambigue") and not config_signalee:
+                config_signalee = True
+                elements.append({"IDindividu": None, "nom": u"", "date_debut": None, "date_fin": None, "motif": STATUT_CONFIG_INVALIDE,
+                                 "texte": u"Adhésion automatique désactivée : paramétrage ambigu. %s" % r["motif"]})
+            continue
+        if r.get("statut") == STATUT_A_VERIFIER:
+            periode = u"du %s au %s" % (_date_fr(r.get("date_debut")), _date_fr(r.get("date_fin")))
+            if r["motif"] == "chevauchement":
+                existantes = u", ".join(u"du %s au %s" % (_date_fr(debut), _date_fr(fin)) for _ID, debut, fin in r.get("chevauchements", []))
+                raison = u"elle chevaucherait l'adhésion déjà enregistrée %s" % existantes
+            else:
+                raison = _LIBELLES_MOTIFS.get(r["motif"], r["motif"])
+            elements.append({"IDindividu": ID, "nom": nom, "date_debut": r.get("date_debut"), "date_fin": r.get("date_fin"),
+                             "motif": r["motif"],
+                             "texte": u"%s : adhésion %s non créée, %s." % (nom, periode, raison)})
+        for evaluation in r.get("a_verifier", []):
+            periode = u"du %s au %s" % (_date_fr(evaluation.get("date_debut")), _date_fr(evaluation.get("date_fin")))
+            elements.append({"IDindividu": ID, "nom": nom, "date_debut": evaluation.get("date_debut"),
+                             "date_fin": evaluation.get("date_fin"), "motif": evaluation["motif"],
+                             "texte": u"%s : adhésion automatique %s à vérifier, %s." % (
+                                 nom, periode, _LIBELLES_MOTIFS.get(evaluation["motif"], evaluation["motif"]))})
+    return elements
+
+
+def MessagesAVerifier(resultats):
+    """ Textes lisibles (personne, période, motif) des situations à vérifier. """
+    return [element["texte"] for element in ElementsAVerifier(resultats)]
+
+
+def JournaliserAVerifier(resultats, IDutilisateur=None):
+    """ Trace les situations à vérifier dans l'historique de chaque personne,
+    pour les sauvegardes sans opérateur (badgeage, synchronisation). Écrit
+    uniquement dans `historique`. Retourne le nombre de lignes écrites. """
+    elements = ElementsAVerifier(resultats)
+    if not elements:
+        return 0
+    maintenant = datetime.datetime.now()
+    DB = GestionDB.DB()
+    try:
+        for element in elements:
+            action = u"Adhésion automatique à vérifier : %s" % element["texte"]
+            DB.ReqInsert("historique", [
+                ("date", str(maintenant.date())),
+                ("heure", maintenant.strftime("%H:%M:%S")),
+                ("IDutilisateur", IDutilisateur),
+                ("IDfamille", None),
+                ("IDindividu", element["IDindividu"]),
+                ("IDcategorie", 21),
+                ("action", action[:495]),
+            ], commit=False)
+        DB.Commit()
+    finally:
+        DB.Close()
+    return len(elements)
+
