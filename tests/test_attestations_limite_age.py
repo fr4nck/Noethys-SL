@@ -1,4 +1,7 @@
 """Exerce les méthodes de date sans connexion à une base de production."""
+import sys as _sys_garde, pathlib as _pathlib_garde
+_sys_garde.path.insert(0, str(_pathlib_garde.Path(__file__).resolve().parent))
+import _garde_reseau  # noqa: E402,F401  aucune connexion à une base réseau (voir _garde_reseau)
 import ast
 import datetime
 from pathlib import Path

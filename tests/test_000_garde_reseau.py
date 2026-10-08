@@ -20,6 +20,14 @@ class GardeReseauTests(unittest.TestCase):
         self.assertEqual(db.echec, 1)
         self.assertIsInstance(db.erreur, _garde_reseau.ConnexionReseauInterdite)
 
+    def test_configuration_de_test_explicite(self):
+        import os
+        from Utils import UTILS_Config
+        chemin = os.path.abspath(UTILS_Config.GetNomFichierConfig())
+        self.assertTrue(chemin.startswith(os.path.abspath(_garde_reseau.PROFIL_TEST)), chemin)
+        self.assertNotIn("Portable", chemin)
+        self.assertEqual(UTILS_Config.FichierConfig().GetItemConfig("nomFichier"), "")
+
 
 if __name__ == "__main__":
     unittest.main()

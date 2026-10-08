@@ -17,6 +17,9 @@ identifié.
 """
 from __future__ import annotations
 
+import sys as _sys_garde, pathlib as _pathlib_garde
+_sys_garde.path.insert(0, str(_pathlib_garde.Path(__file__).resolve().parent))
+import _garde_reseau  # noqa: E402,F401  aucune connexion à une base réseau (voir _garde_reseau)
 import datetime
 import sys
 import unittest
