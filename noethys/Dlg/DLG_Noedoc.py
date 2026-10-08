@@ -3645,6 +3645,21 @@ def XYSauvegarde(objet):
     return xy
 
 
+class CanvasNoedoc(FloatCanvas.FloatCanvas):
+    def GetHitTestColor(self, xy):
+        # Le relâchement du double-clic qui ouvre Noedoc peut arriver avant
+        # le premier dessin, lorsque le tampon de sélection fait encore
+        # 20 x 20 pixels. AlphaPixelData ne vérifie pas les bornes et une
+        # lecture hors tampon provoque une violation native sous Windows.
+        bitmap = self._ForegroundHTBitmap or self._HTBitmap
+        if not bitmap or not bitmap.IsOk():
+            return (0, 0, 0)
+        x, y = xy
+        if not (0 <= x < bitmap.GetWidth() and 0 <= y < bitmap.GetHeight()):
+            return (0, 0, 0)
+        return super().GetHitTestColor(xy)
+
+
 class Panel_canvas(wx.Panel):
     def __init__(self, parent, IDmodele=None, categorie=None, infosCategorie=None,
                  taille_page=None, couleur_zone_travail=COULEUR_ZONE_TRAVAIL,
@@ -3672,7 +3687,7 @@ class Panel_canvas(wx.Panel):
         self.mode = mode # edition ou visualisation
         
         # FloatCanvas
-        self.canvas = FloatCanvas.FloatCanvas(self, Debug=0, BackgroundColor=couleur_zone_travail, style=wx.WANTS_CHARS)
+        self.canvas = CanvasNoedoc(self, Debug=0, BackgroundColor=couleur_zone_travail, style=wx.WANTS_CHARS)
 
         # AJout le zoom avec la molette de la souris
         self.canvas.SetMode(MyGUIMouse())
