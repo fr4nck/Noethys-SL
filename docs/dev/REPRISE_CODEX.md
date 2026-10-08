@@ -145,3 +145,13 @@ Référence : PMSL-Arch `docs/REGLES_ADHESION_ACTIVITES.md` ; implémentation `d
 Validation du correctif : suite `python -m unittest discover -s tests` terminée
 avec code 0. Des avertissements de nettoyage de bases temporaires et les
 exceptions volontairement simulées restent imprimés par les tests existants.
+
+
+Nouveau portable local construit avec le commit source `db27767b` :
+`C:\Users\Ordi\Documents\GitHub\Noethys\dist\Noethys-SL-0.1.0-rc.2+db27767b-local-Windows-portable.zip`.
+SHA-256 : `8ca961a436cc73ae5e5233de91e593293fb4cc702e3caf89b48715ab8c5ebc05`.
+Intégrité ZIP vérifiée ; aucun profil Portable ni base inclus dans l'archive.
+Le nouvel exécutable démarre et propose l'ouverture du fichier fictif Recette.
+La validation graphique de sa fermeture attend l'identification manuelle
+par Franck ; la fermeture depuis les sources est validée par le test.
+Le titre reste RC2 : aucune nouvelle version publique ni release créée.
