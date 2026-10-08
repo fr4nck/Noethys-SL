@@ -99,12 +99,12 @@ Référence : PMSL-Arch `docs/REGLES_ADHESION_ACTIVITES.md` ; implémentation `d
 
 **P0**
 1. Diagnostic réel d'Arthur (famille 688) **non effectué** : exécuter en lecture seule `docs/diagnostics/diagnostic_adhesions.sql` (identification par rattachement, puis par IDindividu) ; ne corriger aucune donnée.
-2. Recette par le comptable dans le portable : **boutons Mode / Émetteur depuis la saisie d'un règlement** (fiche famille > Règlements) — vérifiés sur les sources et via les menus de paramétrage de l'artefact, pas encore par ce parcours exact dans l'exécutable. Ne jamais ouvrir la production avec le candidat.
+2. **Validé en recette fictive par Codex** : boutons Mode / Émetteur depuis la saisie d'un règlement dans le portable, avec création effective des deux éléments. La recette par le comptable sur données fictives reste possible ; ne jamais ouvrir la production avec le candidat.
 3. Contrôle en lecture seule de la ligne `parametres` de l'incident (requêtes 9 / 9 bis).
 
 **P1**
 4. Mise à l'échelle Windows **125 % et 150 %** : Noedoc, saisie d'un règlement, devis (non testé).
-5. **Crash à la fermeture** (code 0xC0000005 après « Rappel de sauvegarde ») : présent aussi dans la RC2.1 publiée ; piste : gestionnaire AUI de `DLG_Noedoc` non désinstallé quand le dialogue est fermé par `EndModal` puis détruit par l'appelant.
+5. **Corrigé et validé** : crash à la fermeture après « Rappel de sauvegarde ». Arrêt des timers du bandeau avant destruction (commit source `db27767b`) ; nouveau portable testé sur Recette, fermeture normale avec code 0. Voir § 12.
 6. **Aucune recette Connecthys réelle** : seul le traitement d'une demande de réservation a été simulé localement (grille, adhésion, signalement).
 7. Avant publication officielle : numéro de version (RC3), notes de version, reciblage du workflow `noethys-sl-windows.yml` (déclencheur actuel `release/noethys-sl-0.1.0`), Setup via la CI.
 
@@ -152,6 +152,8 @@ Nouveau portable local construit avec le commit source `db27767b` :
 SHA-256 : `8ca961a436cc73ae5e5233de91e593293fb4cc702e3caf89b48715ab8c5ebc05`.
 Intégrité ZIP vérifiée ; aucun profil Portable ni base inclus dans l'archive.
 Le nouvel exécutable démarre et propose l'ouverture du fichier fictif Recette.
-La validation graphique de sa fermeture attend l'identification manuelle
-par Franck ; la fermeture depuis les sources est validée par le test.
+Après identification manuelle par Franck, la fermeture graphique du nouveau
+portable sur le fichier fictif Recette a été validée : croix de la fenêtre,
+« Pas maintenant » au rappel de sauvegarde, processus terminé avec code 0.
+La fermeture depuis les sources est également validée par le test.
 Le titre reste RC2 : aucune nouvelle version publique ni release créée.
