@@ -55,7 +55,7 @@ jobs:
           if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
           $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'
           if (-not (Test-Path $splash)) { throw 'Splash Pêle-Mêle absent du paquet' }
-          if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC3 - suite du 01/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
+          if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC3 - suite du 08/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
           if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
           $identity = Get-Content 'noethys/Identite.py' -Raw
           if ($identity -notmatch 'PRODUCT_VERSION = "0\.1\.0-rc\.3"') { throw 'Version publique RC3 incorrecte' }
