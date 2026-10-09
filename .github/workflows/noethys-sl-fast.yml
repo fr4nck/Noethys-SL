@@ -1,0 +1,94 @@
+name: Noethys SL wx - CI rapide
+
+# La CI rapide qualifie les changements sans fabriquer un executable.
+# Les builds Windows complets restent dans noethys-sl-windows.yml.
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - 'noethys/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'packaging/**'
+      - '.github/workflows/noethys-sl-fast.yml'
+      - '.github/workflows/noethys-sl-windows.yml'
+  pull_request:
+    branches:
+      - wx
+    paths:
+      - 'noethys/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'packaging/**'
+      - '.github/workflows/noethys-sl-fast.yml'
+      - '.github/workflows/noethys-sl-windows.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Tests rapides ou suite complete, sans packaging'
+        required: true
+        default: rapide
+        type: choice
+        options:
+          - rapide
+          - complete
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-wx-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  syntax:
+    name: Syntaxe Python (sans dependances)
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Compiler le code et les tests
+        run: python -m compileall -q noethys tests
+
+  tests-windows:
+    name: Contrats metier et wxPython - Windows
+    needs: syntax
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de test
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Recette rapide - reseau isole, adhesions, reglements, devis
+        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'complete'
+        run: >-
+          python -m unittest -v
+          tests.test_000_garde_reseau
+          tests.test_noethys_sl_adhesions
+          tests.test_noethys_sl_adhesions_concurrence
+          tests.test_noethys_sl_adhesions_titulaire
+          tests.test_noethys_sl_devis_adresse_incomplete
+          tests.test_noethys_sl_parametrage_reglement
+          tests.test_noethys_sl_ui_assets
+          tests.test_noethys_sl_py3_wx_hardening
+          tests.test_vanilla_candidate_contract
+          tests.test_vanilla_crash_recipient
+      - name: Suite complete - sur demande
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
