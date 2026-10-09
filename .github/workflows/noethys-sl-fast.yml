@@ -5,6 +5,7 @@ name: Noethys SL wx - CI rapide
 on:
   push:
     branches:
+      - main
       - wx
     paths:
       - 'noethys/**'
@@ -15,6 +16,7 @@ on:
       - '.github/workflows/noethys-sl-windows.yml'
   pull_request:
     branches:
+      - main
       - wx
     paths:
       - 'noethys/**'
