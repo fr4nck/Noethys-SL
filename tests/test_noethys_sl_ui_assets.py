@@ -8,6 +8,7 @@ import _garde_reseau  # noqa: E402,F401  aucune connexion à une base réseau (v
 import ast
 import importlib.util
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -100,6 +101,28 @@ class LightStartupContractTests(unittest.TestCase):
             source,
         )
         self.assertGreaterEqual(source.count("UTILS_Interface.GetTheme()"), 2)
+
+
+class ObjectListViewImportPathTests(unittest.TestCase):
+    def test_chemins_ne_masque_pas_le_paquet_vendore(self):
+        """Chemins doit laisser le package prioritaire meme si noethys est loin dans sys.path."""
+        programme = (
+            "import importlib.util, os, pathlib, sys\n"
+            "noethys = pathlib.Path(sys.argv[1]).resolve()\n"
+            "sys.path[:] = [p for p in sys.path "
+            "if os.path.normcase(os.path.abspath(p)) != os.path.normcase(str(noethys))]\n"
+            "sys.path.insert(4, str(noethys))\n"
+            "import Chemins\n"
+            "spec = importlib.util.find_spec('ObjectListView')\n"
+            "attendu = noethys / 'ObjectListView' / '__init__.py'\n"
+            "assert spec is not None and spec.origin is not None, spec\n"
+            "assert pathlib.Path(spec.origin).resolve() == attendu, (spec.origin, attendu)\n"
+        )
+        resultat = subprocess.run(
+            [sys.executable, "-c", programme, str(ROOT / "noethys")],
+            cwd=str(ROOT), capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(resultat.returncode, 0, resultat.stdout + resultat.stderr)
 
 
 if __name__ == "__main__":

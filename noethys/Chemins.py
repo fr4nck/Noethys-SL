@@ -21,6 +21,10 @@ if REP_COURANT not in sys.path :
 
 for rep in os.listdir(REP_COURANT) :
     chemin = os.path.join(REP_COURANT, rep)
+    # Le dossier ObjectListView contient un package ET un module du meme nom.
+    # Son ajout a sys.path masquerait le package (imports relatifs invalides).
+    if rep == "ObjectListView":
+        continue
     if os.path.isdir(chemin) and chemin not in sys.path :
         sys.path.insert(2, chemin)
 
