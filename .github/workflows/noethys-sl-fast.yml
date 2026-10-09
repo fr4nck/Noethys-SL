@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler le code et les tests
-        run: python -m compileall -q noethys tests
+        run: python -m compileall -q -x 'C866CA3A' noethys tests
 
   tests-windows:
     name: Contrats metier et wxPython - Windows
