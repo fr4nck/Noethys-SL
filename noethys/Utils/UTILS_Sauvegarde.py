@@ -264,6 +264,11 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
     fichierZip = zipfile.ZipFile(fichier, "r")
     #fichierZip = MyZipFile(fichier, "r")
 
+    # Refuser une restauration reseau sans connexion, avant toute extraction.
+    if len(listeFichiersReseau) > 0 and dictConnexion is None:
+        fichierZip.close()
+        return False
+
     # Restauration des fichiers locaux Sqlite ------------------------------------------------------------------------------
     if len(listeFichiersLocaux) > 0 :
 
