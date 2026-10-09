@@ -48,6 +48,11 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
     # Si aucun fichier à sauvegarder
     if len(listeFichiersLocaux) == 0 and len(listeFichiersReseau) == 0 : 
         return False
+
+    # Refuser une sauvegarde reseau qui serait silencieusement incomplete.
+    # Aucun ZIP ou fichier temporaire n est encore cree a ce stade.
+    if len(listeFichiersReseau) > 0 and dictConnexion is None:
+        return False
     
     # Initialisation de la barre de progression
     nbreEtapes = 3
