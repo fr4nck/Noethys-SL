@@ -247,11 +247,8 @@ def VerificationZip(fichier=""):
     
 def GetListeFichiersZIP(fichier):
     """ Récupère la liste des fichiers du ZIP """
-    listeFichiers = []
-    fichierZip = zipfile.ZipFile(fichier, "r")
-    for fichier in fichierZip.namelist() :
-        listeFichiers.append(fichier)
-    return listeFichiers
+    with zipfile.ZipFile(fichier, "r") as fichierZip:
+        return list(fichierZip.namelist())
     
 def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersReseau=[], dictConnexion=None):
     """ Restauration à partir des listes de fichiers locaux et réseau """
