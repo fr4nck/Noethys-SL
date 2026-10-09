@@ -119,7 +119,7 @@ class ObjectListViewImportPathTests(unittest.TestCase):
             "assert pathlib.Path(spec.origin).resolve() == attendu, (spec.origin, attendu)\n"
         )
         resultat = subprocess.run(
-            [sys.executable, "-c", programme, str(ROOT / "noethys")],
+            [_sys_garde.executable, "-c", programme, str(ROOT / "noethys")],
             cwd=str(ROOT), capture_output=True, text=True, timeout=15,
         )
         self.assertEqual(resultat.returncode, 0, resultat.stdout + resultat.stderr)
