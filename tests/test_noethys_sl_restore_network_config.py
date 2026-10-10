@@ -190,7 +190,7 @@ class RestaurationArchiveCleanupTests(unittest.TestCase):
         )
         resultat = restauration(
             fichier="archive-fictive.nod",
-            listeFichiersReseau=["base-fictive"],
+            listeFichiersReseau=["base-fictive.sql"],
             dictConnexion={"hote": "fictif.invalid"},
         )
         self.assertIs(resultat, False)
