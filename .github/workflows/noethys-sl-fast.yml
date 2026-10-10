@@ -86,6 +86,7 @@ jobs:
           tests.test_noethys_sl_adhesions_concurrence
           tests.test_noethys_sl_adhesions_titulaire
           tests.test_noethys_sl_backup_zip_lifecycle
+          tests.test_noethys_sl_backup_missing_file
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_restore_network_config
           tests.test_noethys_sl_devis_adresse_incomplete

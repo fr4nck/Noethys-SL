@@ -107,6 +107,8 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             dlgErreur = wx.MessageDialog(None, _(u"Le fichier '%s' n'existe plus sur cet ordinateur. \n\nVeuillez ôter ce fichier de la procédure de sauvegarde automatique (Menu Fichier > Sauvegardes automatiques)") % nomFichier, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
             dlgErreur.ShowModal() 
             dlgErreur.Destroy()
+            fichierZip.close()
+            os.remove(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp))
             return False
         
     # Intégration des fichiers réseau
