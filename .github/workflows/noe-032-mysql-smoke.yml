@@ -24,6 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Convertir l'image historique MySQL 5.5 pour Docker actuel
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo copy --format v2s2 \
+            docker://docker.io/library/mysql@sha256:d404d78aa797c87c255e5ae2beb5d8d0e4d095f930b1f20dc208eaa957477b74 \
+            docker-daemon:noethys-mysql55:converted
+          docker image inspect noethys-mysql55:converted --format '{{.Id}}'
+
       - name: Préparer la configuration jetable
         shell: pwsh
         run: |
@@ -33,6 +43,7 @@ jobs:
           NOETHYS_DB_USER=$env:NOETHYS_DB_USER
           NOETHYS_DB_PASSWORD=$env:NOETHYS_DB_PASSWORD
           NOETHYS_DB_PORT=$env:NOETHYS_DB_PORT
+          NOETHYS_MYSQL55_IMAGE=noethys-mysql55:converted
           "@ | Set-Content -Encoding ascii dev/db/.env
 
       - name: Qualifier démarrage, dump --databases, remappage et postconditions
