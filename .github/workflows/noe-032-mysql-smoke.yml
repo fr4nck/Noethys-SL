@@ -1,0 +1,59 @@
+name: Noe-032 MySQL 5.5 synthetic smoke
+
+on:
+  pull_request:
+    paths:
+      - "dev/db/**"
+      - ".github/workflows/noe-032-mysql-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql55-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NOETHYS_DB_ROOT_PASSWORD: noe032_root_synthetic_only
+      NOETHYS_DB_NAME: noethys_dev
+      NOETHYS_DB_USER: noethys
+      NOETHYS_DB_PASSWORD: noe032_user_synthetic_only
+      NOETHYS_DB_PORT: "3308"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convertir l'image historique MySQL 5.5 pour Docker actuel
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo copy --format v2s2 \
+            docker://docker.io/library/mysql@sha256:d404d78aa797c87c255e5ae2beb5d8d0e4d095f930b1f20dc208eaa957477b74 \
+            docker-daemon:noethys-mysql55:converted
+          docker image inspect noethys-mysql55:converted --format '{{.Id}}'
+
+      - name: Préparer la configuration jetable
+        shell: pwsh
+        run: |
+          @"
+          NOETHYS_DB_ROOT_PASSWORD=$env:NOETHYS_DB_ROOT_PASSWORD
+          NOETHYS_DB_NAME=$env:NOETHYS_DB_NAME
+          NOETHYS_DB_USER=$env:NOETHYS_DB_USER
+          NOETHYS_DB_PASSWORD=$env:NOETHYS_DB_PASSWORD
+          NOETHYS_DB_PORT=$env:NOETHYS_DB_PORT
+          NOETHYS_MYSQL55_IMAGE=noethys-mysql55:converted
+          "@ | Set-Content -Encoding ascii dev/db/.env
+
+      - name: Qualifier démarrage, dump --databases, remappage et postconditions
+        shell: pwsh
+        run: ./dev/db/smoke.ps1
+
+      - name: Diagnostic Docker en cas d'échec
+        if: failure()
+        run: docker compose --env-file dev/db/.env -f dev/db/compose.yml logs --no-color
+
+      - name: Détruire la base jetable
+        if: always()
+        run: docker compose --env-file dev/db/.env -f dev/db/compose.yml down -v --remove-orphans

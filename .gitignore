@@ -40,6 +40,12 @@ Thumbs.db
 /noethys/Portable/
 /Noethys-configuration*.json
 
+# Environnement local de développement/recette
+dev/db/.env
+dev/db/anonymization-report.txt
+dev/db/imports/
+dev/db/exports/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
