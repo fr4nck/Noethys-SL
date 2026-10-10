@@ -16,9 +16,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Échec du démarrage Docker Compose.' }
 
 Write-Host 'Attente de MySQL 5.5...' -ForegroundColor Cyan
 $status = ''
-for ($i = 0; $i -lt 30; $i++) {
+# compose.yml autorise 20 s de start_period puis 20 contrôles espacés de 5 s.
+# Garder une marge pour les premiers démarrages Docker Desktop/WSL2.
+for ($i = 0; $i -lt 75; $i++) {
     $status = (& docker inspect --format '{{.State.Health.Status}}' noethys-mysql55 2>$null)
     if ($status -eq 'healthy') { break }
+    if ($status -eq 'unhealthy') { break }
     Start-Sleep -Seconds 2
 }
 if ($status -ne 'healthy') { throw "MySQL n'est pas sain (état : $status)." }

@@ -20,13 +20,28 @@ Connexion par défaut :
 
 Le port est lié uniquement à `127.0.0.1`. L'image MySQL 5.5.62 est ancienne et destinée exclusivement à la reproduction locale d'un environnement historique.
 
-## Import d'une copie
+## Qualification Noe-032 : données synthétiques uniquement
 
-Conserver le dump **hors du dépôt Git** puis :
+Tant que l'anonymiseur Noethys n'a pas été audité, **aucun dump réel ou issu de la production ne doit être importé dans cet environnement**.
+
+Le smoke test crée lui-même une base fictive, la sauvegarde avec `mysqldump --databases`, la réimporte dans la base jetable configurée puis contrôle une table et une vue :
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File dev\db\import.ps1 -DumpPath "C:\Sauvegardes\noethys.sql"
+powershell -ExecutionPolicy Bypass -File dev\db\smoke.ps1
 ```
+
+## Import d'un dump synthétique
+
+```powershell
+powershell -ExecutionPolicy Bypass -File dev\db\import.ps1 -DumpPath "C:\Temp\noethys-synthetique.sql" -SyntheticData
+```
+
+Les sauvegardes Noethys réseau utilisent `mysqldump --databases`, qui inscrit le nom de la base source dans le dump. L'import :
+
+- refuse les dumps qui contiennent plusieurs bases source ;
+- retire les directives `CREATE DATABASE` et `USE` ;
+- réimporte les objets dans `MYSQL_DATABASE`, la base jetable configurée ;
+- échoue si aucun objet SQL n'est présent après l'import.
 
 Pour effacer complètement la base Docker et repartir d'un volume vierge :
 
@@ -38,13 +53,13 @@ powershell -ExecutionPolicy Bypass -File dev\db\reset.ps1 -Force
 
 Noethys contient des données familles/enfants, facturation, coordonnées, inscriptions et parfois des commentaires ou documents. Son anonymisation ne doit donc **pas** réutiliser aveuglément l'outil Teamworks.
 
-Le profil Docker est utilisable immédiatement avec des données synthétiques. Un dump réel reste une donnée de production tant qu'un anonymiseur Noethys spécifique, audité sur le schéma courant, n'a pas neutralisé les données directement et indirectement identifiantes.
+Un dump réel reste une donnée de production tant qu'un anonymiseur Noethys spécifique, audité sur le schéma courant, n'a pas neutralisé les données directement et indirectement identifiantes.
 
 L'outil d'anonymisation Noethys fera l'objet d'un lot séparé : inventaire du schéma, classification des champs, transformations déterministes, contrôle des pièces/fichiers externes et rapport résiduel.
 
 ## Relation avec PMSL-Arch
 
-Cette organisation applique la décision transversale `ADR-004 — Environnements de développement et de recette reproductibles` :
+Cette organisation applique la décision transversale `ADR-006` :
 
 - production jamais utilisée comme bac à sable ;
 - services de données reproductibles ;
