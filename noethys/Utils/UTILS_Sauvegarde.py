@@ -287,6 +287,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
             reponse = dlg.ShowModal()
             dlg.Destroy()
             if reponse != wx.ID_YES :
+                fichierZip.close()
                 return False
         
         # Restauration
@@ -308,6 +309,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                 dlg = wx.MessageDialog(None, _(u"La restauration du fichier '%s' a rencontré l'erreur suivante : \n%s") % (fichier, err), "Erreur", wx.OK| wx.ICON_ERROR)  
                 dlg.ShowModal()
                 dlg.Destroy()
+                fichierZip.close()
                 return False
             
             listeFichiersRestaures.append(fichier[:-4])
@@ -324,6 +326,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
             dlgErreur = wx.MessageDialog(None, _(u"Noethys n'a pas réussi à localiser MySQL sur votre ordinateur.\nNotez bien que MySQL doit être installé obligatoirement pour créer une restauration réseau."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
             dlgErreur.ShowModal() 
             dlgErreur.Destroy()
+            fichierZip.close()
             return False
 
         # Vérifie qu'on les remplace bien
@@ -342,6 +345,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
             reponse = dlg.ShowModal()
             dlg.Destroy()
             if reponse != wx.ID_YES :
+                fichierZip.close()
                 return False
 
         # Création du répertoire temporaire
@@ -395,6 +399,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                     dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de restauration !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                     dlgErreur.ShowModal() 
                     dlgErreur.Destroy()
+                    fichierZip.close()
                     return False
             
                 listeFichiersRestaures.append(fichier)
