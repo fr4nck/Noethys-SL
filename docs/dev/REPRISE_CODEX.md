@@ -299,3 +299,68 @@ restent une anomalie non attribuée. L'affichage Windows est actuellement
 à 125 % ; la valeur habituelle de Franck reste à confirmer pour restauration.
 Arthur réel, contrôle de l'incident et recette Connecthys réelle restent
 en attente. Aucun tag, release ou déploiement ; anciens travaux préservés.
+
+
+## 14. Propagation ciblée Nomadhys — 11/10/2026
+
+Périmètre : seul correctif de validation des catégories/actions/états importés,
+commit source `694ccacc2d37ba71298b56e7ddb6901be6a55d2d`, confirmé comme tête
+distante de main avant intervention. Cherry-pick avec provenance (-x), sans
+fusion générale, nouvelle branche distante ni réécriture d'historique.
+Une trace documentaire séparée accompagne chaque correctif.
+
+### Matrice des preuves
+
+| Correctif | main | wx | qt |
+| --- | --- | --- | --- |
+| Validation Nomadhys | VALIDÉ : 694ccacc2d37ba71298b56e7ddb6901be6a55d2d | VALIDÉ : d95fb660de4fc226603d3a9e36a54946455eb1fc | VALIDÉ : 508d5f4f119542e954d3744f06287a46d5f06c5a |
+| Rail 1, quarantaine, TLS Connecthys et contrat vaccins | VALIDÉ dans les tests ciblés de ce lot | VALIDÉ dans les tests ciblés de ce lot | VALIDÉ dans les tests ciblés de ce lot |
+| Secteur famille sans titulaire, déplacement Noedoc sans delta, mode statistiques invalide | Présents dans l'arbre main ; EN ATTENTE de réexécution de leurs tests dans cette session | ABSENTS ; hors périmètre Nomadhys | ABSENTS ; hors périmètre Nomadhys |
+
+Têtes avant intervention : main `694ccacc2d37ba71298b56e7ddb6901be6a55d2d`,
+wx `5538488b0ff03edcef81198a4f97998b675e2ef6`,
+qt `6d0c84e78efbe3497e8d2100bc9b6250b8e635fb`.
+Parent du correctif source : `b5aa605b916c556885d3d3ed36271c6973746b89`.
+Ancêtre commun main/wx et main/qt : `44fd8096506f7362706bb95ef1fbee3dae790a59`.
+Les arbres wx et qt initiaux sont identiques. Par rapport au parent source,
+ils diffèrent sur les trois protections citées et leurs trois fichiers de tests
+(six fichiers, 231 lignes absentes). Ces écarts existants sont conservés.
+Le delta de chaque cherry-pick est strictement celui des deux fichiers Nomadhys
+(63 insertions, 10 suppressions), sans perte d'autres apports de la cible.
+
+### Empreintes Git identiques pour wx et qt
+
+| Fichier | Avant cherry-pick | Après cherry-pick, identique à main |
+| --- | --- | --- |
+| noethys/Dlg/DLG_Synchronisation_donnees.py | d31f6d221664600e850c936b9772879a6375c462 | 32d7a32979e1a3cbcb903e68c1b82af95cbacf8c |
+| tests/test_audit_reseau_nomadhys.py | 64e43f1914b2d86006f7d06187b22e0fc3d7847d | 95aa7b8d8441be1f66e8fc8d53e2de328f421f85 |
+
+### Validation et publication
+
+Python 3.11 Windows : 55 tests réussis sur chacune des trois têtes de correctif,
+165 exécutions au total, aucun échec ni test ignoré :
+audit réseau Nomadhys 37, format chiffrement 7, quarantaine 1,
+isolation TLS Connecthys 5, contrat vaccins 5.
+Garde réseau explicite sur connect/connect_ex/create_connection/getaddrinfo :
+zéro tentative réelle. Tests AST, dépendances factices et fichiers temporaires ;
+copie isolée sans profil Portable, aucune base de production utilisée.
+Diff et empreintes vérifiés avant/après ; contrôle des espaces Git réussi.
+La trace documentaire ne modifie aucun fichier de runtime ni de test.
+
+Publication autorisée uniquement après ces contrôles, en fast-forward non forcé
+sur les seules refs existantes wx et qt, avec vérification des SHA attendus
+et envoi atomique. Le résultat distant et les SHA de documentation seront
+confirmés dans le compte rendu de session ; cette note ne présume pas le succès
+du push. main, master, branches historiques, tags/releases et PR ne sont pas
+modifiés. PR ouvertes relevées : #422, #384, #369, #366, #355, #112, #104, #102 ;
+aucune n'a wx ou qt comme tête ou base.
+
+Dépôt original conservé sur main : ses 11 fichiers non suivis sont inventoriés
+avec SHA-256 pour comparaison finale, sans copie de profils dans les tests.
+Stashes et worktrees historiques conservés. Logs et preuves détaillées gardés
+dans l'espace de travail local de la session (nomadhys-evidence.json et logs).
+CI distante : aucun résultat revendiqué ici ; aucun build de packaging demandé.
+Qualification globale wx/qt : EN ATTENTE / STOP-GATE pour une release, compte
+tenu des écarts ci-dessus et des recettes réseau/Windows restant hors de ce lot.
+Prochaine étape : qualifier séparément les correctifs communs manquants et
+les parcours métier réels avant de déclarer une branche stable.
