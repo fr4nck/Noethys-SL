@@ -357,3 +357,108 @@ historiques par petits lots ; comparer les sources WIP de Noethys-RC2-clean
 avec main avant archivage/retrait éventuel. Ne pas restaurer le fichier .git
 de l'archive du worktree tel quel ; utiliser la sauvegarde Git et recréer un
 worktree historique seulement sur décision explicite de restauration.
+
+
+## 15. Qualification des branches historiques et élagage distant — 11/10/2026
+Suite explicitement demandée par Franck après l’élagage local. Les 49 branches
+historiques hors références canoniques et têtes/bases de PR ont été examinées
+contre les 14 références protégées. Inventaire de 325 PR, dont huit ouvertes.
+Une PR fermée sans fusion n’a jamais été traitée comme une preuve d’intégration.
+
+Méthode : pour chaque source/cible, calcul de l’ancêtre commun puis liste
+complète des fichiers modifiés dans le delta source. Comparaison des blobs Git,
+des modes de fichier et des suppressions avec l’arbre de la cible conservée.
+Critère de retrait : tous les fichiers du delta final sont identiques dans
+une même référence protégée. L’archivage de l’historique complet couvre aussi
+les commits intermédiaires. Ceci qualifie la conservation du contenu pour
+élagage, sans qualification métier globale ni annonce de synchronisation.
+
+### Cinq suppressions distantes réellement effectuées
+
+| Branche supprimée | SHA source | Contenu conservé dans | SHA cible | Fichiers identiques |
+| --- | --- | --- | --- | --- |
+| candidate/vanilla-20260907 | 451e8e35635aeb8179566ae7175a784387282f2b | feature/vanilla-conventions | c2c3e87a5b7dd883d397b6b1a7d8965997bd34ed | 1 |
+| fix/rc2-fiscal-age-reference-year | 82128134e3070efc13e5c977fff39c774c5bee65 | rc/noethys-sl-0.1.0-rc.2 | 91d9e625d96c5a1460d42dda053db509fa28d181 | 8 |
+| fix/rc2-fiscal-reportlab-import | 0a6e217da224fb3f2daddb5b74ad1154eb4da007 | main | 694ccacc2d37ba71298b56e7ddb6901be6a55d2d | 1 |
+| fix/rc2-network-users-list-index | ec7389322b697122be8c11220942a7b84f3cc8a9 | rc/noethys-sl-0.1.0-rc.2 | 91d9e625d96c5a1460d42dda053db509fa28d181 | 4 |
+| fix/wx-period-controller-final | 243b87aab71129e200cdf165815ac507f52abbde | design-form-density-standard | f96fa35865462500f12ad2caee98027e488f3955 | 2 |
+
+Suppression atomique, sans force. Contrôle de l’ensemble des refs distantes
+avant exécution et garde pre-push vérifiant les SHA annoncés pour chacune
+des cinq suppressions ; la garde accepte le SHA attendu et rejette un SHA
+modifié dans ses deux vérifications. Les cinq têtes sont présentes dans
+github-all-refs.bundle, dont l’intégrité et les refs sont revérifiées.
+Après suppression : **58 branches distantes**, toutes aux SHA inchangés ;
+huit PR ouvertes inchangées (titres, descriptions, brouillons, têtes/bases) :
+#102, #104, #112, #355, #366, #369, #384, #422. Aucun nouveau nom de branche,
+aucune fusion, aucun changement de branche par défaut, tag ou release.
+Références de suivi locales obsolètes nettoyées par fetch --prune.
+
+### Matrice des 44 branches conservées
+
+Ces branches présentent encore au moins un fichier différent des références
+comparées. Une différence ne signifie pas automatiquement un correctif absent :
+elle peut être un apport unique, une variante ou une évolution ultérieure.
+Leur retrait est donc EN ATTENTE de qualification ciblée des comportements.
+
+| Branche conservée | SHA source | Meilleure comparaison | Fichiers différents / delta | Statut de retrait |
+| --- | --- | --- | --- | --- |
+| agent/windows-ci-audit | 7df621ea3a30 | master | 7/9 | EN ATTENTE |
+| agent/windows11-pyinstaller | f85f77266eec | master | 60/63 | EN ATTENTE |
+| audit/vanilla-black-ui-rex | bcee84abff89 | main | 1/1 | EN ATTENTE |
+| audit/vanilla-deep-scan-20260826 | cacafa37eb31 | main | 4/4 | EN ATTENTE |
+| audit/vanilla-final-undefined-names | 8ae3a36f9394 | feature/vanilla-conventions | 3/8 | EN ATTENTE |
+| audit/vanilla-ui-command-inventory | eef718234412 | main | 7/7 | EN ATTENTE |
+| audit/vanilla-upstream-630ef | 58dcab19fd0e | main | 2/2 | EN ATTENTE |
+| build/vanilla-windows-portable | 4d5dda48269b | rc/noethys-sl-0.1.0-rc.2 | 22/50 | EN ATTENTE |
+| chatgpt/noethys-convention-ui-activites-20260929 | 7cd062c3f634 | rc/noethys-sl-0.1.0-rc.2 | 23/51 | EN ATTENTE |
+| chore/noethys-sl-requirements-documentation | d3964671af35 | main | 1/1 | EN ATTENTE |
+| chore/workflows-consolidation | f28861260cf2 | master | 1/4 | EN ATTENTE |
+| claude/noethys-windows-ci-audit-qy5m9t | 3b847c6b2957 | master | 25/25 | EN ATTENTE |
+| diagnostic/vanilla-ui-black-surfaces | f7362db86d47 | main | 1/1 | EN ATTENTE |
+| feat/noethys-sl-afas-previsionnel | 108dc5f5e61e | main | 1/2 | EN ATTENTE |
+| feat/noethys-sl-rc1-convention-finalise | f6cac3302a2f | main | 18/28 | EN ATTENTE |
+| feat/noethys-sl-vacances-sportives | 77f2be447110 | main | 1/2 | EN ATTENTE |
+| feat/rc2-reception-quotient | f48450935bb1 | rc/noethys-sl-0.1.0-rc.2 | 1/15 | EN ATTENTE |
+| feature/extensions-registry | 9174ba32a45e | master | 4/4 | EN ATTENTE |
+| feature/noe-060-reporting | dcfce2954011 | master | 1/1 | EN ATTENTE |
+| feature/noe-062-conventions | f85fd51ee404 | master | 2/2 | EN ATTENTE |
+| feature/noe-062-mises-a-disposition | c69f3c80325e | master | 8/8 | EN ATTENTE |
+| feature/noe-062b-groupes-structures | 203fff34134c | master | 4/4 | EN ATTENTE |
+| feature/noe-062b-roles-contacts | 177b4c3dcd1b | master | 4/4 | EN ATTENTE |
+| feature/noe-063-portail-consolide | 55b2b129e67e | master | 21/21 | EN ATTENTE |
+| feature/noe-063b-rss-atom-connecthys | 8f84f5edb72b | master | 12/12 | EN ATTENTE |
+| feature/noe-063d-tarifs-ui | 20d5b15c1adb | master | 21/21 | EN ATTENTE |
+| fix/noe-062b-hardening | 752645c5a772 | master | 4/4 | EN ATTENTE |
+| fix/noethys-sl-aui-docking-minimize | aac763f24480 | rc/noethys-sl-0.1.0-rc.2 | 3/12 | EN ATTENTE |
+| fix/noethys-sl-aui-guides-fantomes | 7704ee753687 | rc/noethys-sl-0.1.0-rc.2 | 4/12 | EN ATTENTE |
+| fix/noethys-sl-light-only | ccdfb82bcf1b | master | 3/3 | EN ATTENTE |
+| fix/noethys-sl-mailjet-consolidation | 51ee128a60de | rc/noethys-sl-0.1.0-rc.2 | 2/16 | EN ATTENTE |
+| fix/noethys-sl-mailjet-email-confirmation | 9e0945b5d0a4 | rc/noethys-sl-0.1.0-rc.2 | 6/16 | EN ATTENTE |
+| fix/rc2-network-stopgate-1 | cf5f9fbe6ccd | rc/noethys-sl-0.1.0-rc.2 | 40/40 | EN ATTENTE |
+| fix/rc2-pr385-compatible | ba67c6b9a5fc | rc/noethys-sl-0.1.0-rc.2 | 3/13 | EN ATTENTE |
+| fix/vanilla-no-black | 7c39f16ab148 | main | 15/15 | EN ATTENTE |
+| fix/windows-installable-config | fbdebc8b6ef4 | master | 5/5 | EN ATTENTE |
+| noe-041-portable-mode | 3cf6cbfe5d6f | design-form-density-standard | 5/9 | EN ATTENTE |
+| noe-042-rc-gate | 085115c40fa5 | design-form-density-standard | 1/3 | EN ATTENTE |
+| noe-062-programmation-occurrences | 88904fc780a0 | master | 4/4 | EN ATTENTE |
+| noe-062c-lieux-execution-seances | be059ccd4804 | master | 5/7 | EN ATTENTE |
+| poc/qt-theme-isole | cba459cd62cb | master | 54/54 | EN ATTENTE |
+| refactor/ui-list-tools-repens | 52ed49bf888b | master | 14/23 | EN ATTENTE |
+| refactor/ui-navigation-repens | 6bf8a4cceb8b | master | 1/2 | EN ATTENTE |
+| test/vanilla-windows-ui-driver-prototype | be87c00ea51a | main | 10/10 | EN ATTENTE |
+
+Preuves détaillées : content-audit.json (chaque fichier, blobs source/cible,
+ancêtres communs et cibles), pr-history.json, remote-cleanup-plan.json et
+remote-cleanup-result.json, dans le dossier local de sauvegarde indiqué au §14.
+Le bundle sauvegarde aussi les 44 branches conservées.
+
+Les arbres de main/wx/qt/master distants sont inchangés : aucune nouvelle
+exécution de tests ni CI requise pour une suppression de refs sans changement
+de contenu. Les 55 tests par branche du lot Nomadhys ne sont pas présentés
+comme qualification de ces travaux historiques.
+Localement : Portable, tags, trois stashes, branches master/wx/qt et worktree
+WIP Noethys-RC2-clean préservés. main reçoit uniquement cette note documentaire,
+en second commit local non publié après e59f3400. Seul Portable reste non suivi.
+Suite : revue par lots des différences restantes ; aucune suppression de
+travail non qualifié ni réimportation métier implicite.
