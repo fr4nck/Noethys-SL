@@ -312,6 +312,8 @@ class HTML():
         DB.Close() 
         
     def GetHTML(self, rubrique=None, page=None, mode="affichage", selectionsCodes=[]):
+        if mode not in ("affichage", "impression") :
+            raise ValueError("Mode GetHTML non supporté : %r" % (mode,))
         if rubrique == None and page == None : 
             tout = True
         else : 
