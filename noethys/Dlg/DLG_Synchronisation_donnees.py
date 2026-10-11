@@ -389,6 +389,29 @@ class Traitement(Thread):
                     listeAnomalies.append(track.anomalie)
 
                 else :
+                    # Validate before accessing the grid or database.
+                    motif = None
+                    if track.categorie not in ("consommation", "memo_journee"):
+                        motif = _(u"Categorie inconnue : %s") % track.categorie
+                    elif track.action not in ("ajouter", "modifier", "supprimer"):
+                        motif = _(u"Action inconnue : %s") % track.action
+                    elif (track.categorie == "consommation"
+                          and track.action in ("ajouter", "modifier")
+                          and track.etat not in (
+                              "reservation", "attente", "refus",
+                              "present", "absenti", "absentj"
+                          )):
+                        motif = _(u"Etat inconnu : %s") % track.etat
+
+                    if motif is not None:
+                        texte = track.detail + u" -> " + motif
+                        AppelSynchroneUI(self.parent.EcritLog, texte)
+                        AppelSynchroneUI(self.parent.SetStatut, track, "erreur")
+                        listeAnomalies.append(texte)
+                        if self.stop:
+                            raise Abort
+                        self.index += 1
+                        continue
 
                     # ------------------- Traitement d'une consommation -------------------
                     if track.categorie == "consommation" :
