@@ -82,6 +82,19 @@ if platform.system() != 'Linux' :
     patch_crypto_be_discovery()
 
 
+def ContexteSSLConnecthys(dict_parametres=None):
+    if dict_parametres and dict_parametres.get("accept_all_cert", False):
+        import ssl
+        return ssl._create_unverified_context()
+    return None
+
+
+def UrlopenConnecthys(req, contexte_ssl=None):
+    if contexte_ssl is None:
+        return urlopen(req)
+    return urlopen(req, context=contexte_ssl)
+
+
 class Synchro():
     def __init__(self, dict_parametres=None, log=None):
         # Récupération des données de config du portail si besoin
@@ -94,9 +107,8 @@ class Synchro():
         self.num_etape = 0
         self.nbre_etapes = 25
 
-        if self.dict_parametres["accept_all_cert"] == True :
-            import ssl
-            ssl._create_default_https_context = ssl._create_unverified_context
+        # Keep certificate exceptions local to Connecthys.
+        self.contexte_ssl = ContexteSSLConnecthys(self.dict_parametres)
 
 
     def Pulse_gauge(self, num=None):
@@ -1503,7 +1515,7 @@ class Synchro():
             print("URL syncup =", url)
 
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
 
         except Exception as err :
@@ -1599,7 +1611,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             liste_actions = json.loads(page)
 
@@ -1760,7 +1772,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1795,7 +1807,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1829,7 +1841,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
@@ -1863,7 +1875,7 @@ class Synchro():
 
             # Récupération des données au format json
             req = Request(url)
-            reponse = urlopen(req)
+            reponse = UrlopenConnecthys(req, self.contexte_ssl)
             page = reponse.read()
             data = json.loads(page)
 
