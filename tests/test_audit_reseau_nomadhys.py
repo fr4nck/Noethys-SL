@@ -728,21 +728,51 @@ class TraitementTests(unittest.TestCase):
         self.assertFalse(t.is_alive())
         return t, parent
 
-    def test_action_inconnue_reutilise_le_resultat_precedent(self):
-        tracks = [self.base.FauxTrack("A"), self.base.FauxTrack("B", action="dupliquer")]
+    def test_action_inconnue_rejetee_sans_faux_succes(self):
+        tracks = [
+            self.base.FauxTrack("A"),
+            self.base.FauxTrack("B", action="dupliquer"),
+        ]
         t, parent = self.lancer(tracks)
         self.assertTrue(t.succes)
-        self.assertIn(("statut", "B", "ok"), parent.journal)     # faux succès
-        self.assertEqual(parent.journal.count(("grille", "Sauvegarde")), 2)
+        self.assertIn(("statut", "A", "ok"), parent.journal)
+        self.assertIn(("statut", "B", "erreur"), parent.journal)
+        self.assertNotIn(("statut", "B", "ok"), parent.journal)
+        self.assertEqual(parent.journal.count(("grille", "Sauvegarde")), 1)
+        self.assertEqual(len(self.bilans), 1)
+        self.assertEqual(len(self.bilans[0][1]), 1)
+        self.assertIn("dupliquer", self.bilans[0][1][0])
+        self.assertEqual(self.erreurs, [])
 
-    def test_etat_inconnu_tue_le_thread_sans_bilan(self):
+    def test_etat_inconnu_signale_sans_crash(self):
         track = self.base.FauxTrack("A")
         track.etat = "demande"
         t, parent = self.lancer([track])
-        self.assertFalse(t.succes)
-        self.assertEqual(self.bilans, [])
-        self.assertNotIn(("fermer", True), parent.journal)
-        self.assertTrue(self.erreurs)           # UnboundLocalError remontée au threading.excepthook
+        self.assertTrue(t.succes)
+        self.assertIn(("statut", "A", "erreur"), parent.journal)
+        self.assertNotIn(("grille", "InitGrille"), parent.journal)
+        self.assertEqual(len(self.bilans), 1)
+        self.assertIn("demande", self.bilans[0][1][0])
+        self.assertEqual(self.erreurs, [])
+
+    def test_categorie_inconnue_rejetee(self):
+        track = self.base.FauxTrack("C", categorie="inconnue")
+        t, parent = self.lancer([track])
+        self.assertTrue(t.succes)
+        self.assertIn(("statut", "C", "erreur"), parent.journal)
+        self.assertFalse(any(item[0] == "grille" for item in parent.journal))
+        self.assertEqual(len(self.bilans[0][1]), 1)
+        self.assertEqual(self.erreurs, [])
+
+    def test_memo_action_inconnue_sans_acces_base(self):
+        track = self.base.FauxTrack(
+            "Memo", categorie="memo_journee", action="dupliquer"
+        )
+        t, parent = self.lancer([track])
+        self.assertTrue(t.succes)
+        self.assertIn(("statut", "Memo", "erreur"), parent.journal)
+        self.assertEqual(len(self.bilans[0][1]), 1)
+        self.assertEqual(self.erreurs, [])
 
 
 if __name__ == "__main__":
