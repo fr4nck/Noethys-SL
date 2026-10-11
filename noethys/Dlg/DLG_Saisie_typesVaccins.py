@@ -204,7 +204,7 @@ class Dialog(wx.Dialog):
             self.spin_jours.SetFocus()
             return
         
-        if self.ctrl_maladies.GetIDcoches() == 0:
+        if not self.ctrl_maladies.GetIDcoches():
             dlg = wx.MessageDialog(self, _(u"Vous devez associer des maladies à ce vaccin"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
@@ -230,6 +230,9 @@ class Dialog(wx.Dialog):
         self.ctrl_nom.SetValue(nom)
 
     def SetValidite(self, validite=None):
+        jours = 0
+        mois = 0
+        annees = 0
         if validite != None :
             posM = validite.find("m")
             posA = validite.find("a")
