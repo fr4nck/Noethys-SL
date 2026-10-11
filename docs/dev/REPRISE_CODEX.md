@@ -299,3 +299,61 @@ restent une anomalie non attribuée. L'affichage Windows est actuellement
 à 125 % ; la valeur habituelle de Franck reste à confirmer pour restauration.
 Arthur réel, contrôle de l'incident et recette Connecthys réelle restent
 en attente. Aucun tag, release ou déploiement ; anciens travaux préservés.
+
+
+## 14. Élagage local vérifié — 11/10/2026
+
+Demande de Franck : élaguer les branches/worktrees et les fichiers locaux
+d'audit. Aucun changement de code métier ni de branche distante.
+
+- Trois branches locales supprimées par `git branch -d`, après preuve qu'elles
+  sont des ancêtres de main `694ccacc2d37ba71298b56e7ddb6901be6a55d2d` :
+  `integration/rc2-convention-recovery-20261004` (`a78c6581`),
+  `release/noethys-sl-0.1.0` (`aa88f53a`),
+  `rescue/noethys-sl-20261004` (`d9b70c2b`). Aucun travail unique à perdre.
+- Worktree propre `C:\Users\Ordi\Documents\GitHub\Noethys-RC2` retiré par
+  `git worktree remove`, sans forçage. Ses 2 760 fichiers, dont 272 caches
+  ignorés, sont archivés et vérifiés par SHA-256 avant retrait.
+- Neuf fichiers d'audit archivés puis retirés du dossier principal : les cinq
+  fichiers de `audit-branches-20261011-022224/`, `local-diff.txt`,
+  `local-status.txt`, `portable-inventory.txt`, `tracked-files.txt`.
+- Archives conservées dans
+  `C:\Users\Ordi\.codex\.chatgpt-projects\g-p-6a9e93a502648191a942e5ece9d8ebea\elagage-20261011` :
+  `original-all-refs.bundle`, `github-all-refs.bundle`, `audits-locaux.zip`,
+  `Noethys-RC2-clean-integrated-worktree.zip` (ce dernier contient le worktree
+  propre **Noethys-RC2**, pas le worktree WIP **Noethys-RC2-clean**).
+  Les bundles sont vérifiés par Git, les ZIP contrôlés entrée par entrée et
+  les empreintes enregistrées dans `backup-manifest.json`.
+
+Préservés et vérifiés après retrait : main/master/wx/qt locaux, tags, trois
+stashes, les deux profils Portable (empreintes inchangées), et le worktree
+`Noethys-RC2-clean` à HEAD détaché `8b3789d9` avec ses 32 fichiers suivis
+modifiés et ses fichiers non suivis. Ses différences et son inventaire restent
+identiques. Aucun test sur base ou profil réel, aucune migration.
+
+GitHub : 63 branches distantes inventoriées et toutes revérifiées aux mêmes
+SHA après intervention ; huit PR toujours ouvertes avec mêmes têtes/bases :
+#422, #384, #369, #366, #355, #112, #104, #102. Les noms canoniques et toutes les
+têtes/bases de PR sont protégés. Parmi les 49 autres branches, aucune n'est
+entièrement ancêtre d'une référence protégée. Ceci ne prouve pas l'absence
+d'une intégration squash : leur qualification fichier/comportement reste
+EN ATTENTE, donc aucune suppression distante effectuée.
+
+État du dossier principal après nettoyage, avant ce commit documentaire :
+seul `?? noethys/Portable/`, aucune modification suivie. Branches locales
+restantes : main, master, wx, qt ; worktrees restants : Noethys et
+Noethys-RC2-clean. La copie isolée Codex de propagation Nomadhys est conservée
+comme espace de preuves, distincte des worktrees historiques.
+
+Têtes distantes inchangées : main `694ccacc2d37ba71298b56e7ddb6901be6a55d2d`,
+wx `dcede8170874dd79cd9a5b5825bc3b4ed85feb62`,
+qt `8902e655f93cebabdc84ff3ab8ea1f1ac89b73e0`,
+master `b0be3c7ebdf2d69d6028eb4fd6fc08e340a68b9e`.
+La présente note est un commit documentaire local sur main, non publié.
+CI : aucune nouvelle exécution demandée, aucun packaging ou release.
+
+Suite : qualifier les apports squash et les travaux uniques des 49 branches
+historiques par petits lots ; comparer les sources WIP de Noethys-RC2-clean
+avec main avant archivage/retrait éventuel. Ne pas restaurer le fichier .git
+de l'archive du worktree tel quel ; utiliser la sauvegarde Git et recréer un
+worktree historique seulement sur décision explicite de restauration.
