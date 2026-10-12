@@ -1150,3 +1150,30 @@ réutiliser les anciens plans sur un nouveau SHA sans requalification.
 - **Prochaine action concrete** : executer la recette manuelle sur runner/sandbox isole avec donnees 100 % synthétiques (aucune base PMSL) ; qualifier les 25 tests historiques Noe-032 et les protections de master par comportement avant portage cible sur main puis adaptations wx/qt. Les anciennes branches ne pourront etre supprimees qu'apres preuve d'integration ou arbitrage explicite.
 
 - **Tentative de qualification CI one-shot :** commit `c186aede04cac7f6b087eb18a181d42a7cfbc0ce` ajoute provisoirement un declenchement push restreint a main + dev/db/workflow ; commit `6b6edefbe9dc6621ae4b2230fb04f004d3f7e42d` restaure immediatement le declenchement manuel. Les endpoints de verification disponibles ne retournent pas de run ni statut de checks sur le commit de tentative : **resultat d'execution NON VERIFIE**, pas de succes CI revendique. Rechercher run/logs GitHub de ces SHA avant toute promotion de statut. Aucun workflow permanent sur chaque push.
+
+
+## 23. Noe-032 — codes de retour SQL et isolation Docker (12/10/2026)
+
+**Source de verite lue avant modification :** main `0f8bfc63`, wx `033b3a0e`, qt `2132b964`, master `b0be3c7e`. Aucune nouvelle branche, aucun merge global, aucune operation sur master, aucun profil reel, aucune migration SQL.
+
+**Defaut de sauvegarde CONFIRME dans les sources :** la fonction Sauvegarde se basait sur une sortie stdout/stderr non vide pour determiner l'echec de mysqldump ; un code de retour non nul avec sortie vide pouvait etre traite comme un succes, eventuellement produire une archive partielle. La fonction Restauration utilisait la meme detection par texte. master possede deja un test explicite sur `proc.returncode` ainsi que d'autres defenses encore absentes ; ne pas recopier son module entier.
+
+**Portage cible dans les trois branches :**
+- Dans `noethys/Utils/UTILS_Sauvegarde.py`, chaque subprocess MySQL refuse maintenant `proc.returncode != 0`, meme si stdout/stderr est vide ; diagnostic avec code retour, message d'erreur affiche ; sur echec mysqldump le ZIP temporaire est ferme puis supprime.
+- Options mysqldump remises dans l'ordre historique master `--opt --single-transaction --skip-lock-tables` pour neutraliser le verrouillage par defaut implique par `--opt`.
+- Un test AST/fixtures `tests/test_noethys_sl_mysql_returncode.py` simule les deux echec silencieux (dump et restauration), sans MySQL, profil ni reseau, et verifie refus/nettoyage du ZIP et des fichiers temporaires. Ajout a la liste explicite CI rapide Windows dans `.github/workflows/noethys-sl-fast.yml`.
+- Dans `dev/db/guard.ps1`, refus des overrides `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_TLS_VERIFY` et `DOCKER_CERT_PATH` : ces variables pouvaient contourner le contexte local Docker selectionne.
+
+**Propagation observee dans GitHub :** les blobs des quatre fichiers ci-dessus sont identiques sur main/wx/qt :
+- UTILS_Sauvegarde.py : `2aac43686b361cbd0c5c4953191e5ce96404bbca`
+- test_noethys_sl_mysql_returncode.py : `026d5013461fa9795756da9c173899ab2a1cbda3`
+- noethys-sl-fast.yml : `90d3bfef9beee153bf1000d23e5ce8409bd5826d`
+- guard.ps1 : `43033a2e400b49d45cad6a489ab828475074b2fd`
+
+**HEAD avant la note documentaire :** main `ffeb65448a6590df384f7d9fa28940afe022f77d`, wx `37cba326634d431a3b59c8fbc81ebf83051e5133`, qt `fe7f08105f3fa60a090d3431e1e927fb8a5e9edb`.
+
+**Qualification :** test source ecrit et inclus dans le workflow, sans resultat de test d'execution verifiable dans cet environnement. L'endpoint des statuts de commit retourne une liste vide sur les trois HEAD ; cela ne prouve ni reussite ni echec d'Actions. Pas de `pwsh`, client MySQL ou Docker disponibles pour recette locale dans cet environnement. Ne pas annoncer CI verte ni version stable. Les correctifs sont PUBLIES, execution Windows/MySQL EN ATTENTE.
+
+**STOP-GATE toujours en vigueur :** les fonctions et suites historiques de master pour le manifeste SHA-256 SQL, l'analyse syntaxique, les objets SQL, le marqueur final et les postconditions de restauration ne sont pas integrees. Les 25 tests historiques de master ne sont pas portes comme test runtime avant la qualification du comportement et la vraie recette de base completement synthetique. Aucun changement de branche par defaut ou suppression de source historique. Six PR encore ouvertes a la derniere verification, dont #104.
+
+**Prochaine action :** confirmer CI rapide Windows pour les trois arbres, qualifier MySQL 5.5/Docker avec uniquement la fixture synthétique, puis isoler les protections manifeste et restauration de master avec tests historiques avant integration. Requalifier sur tout signal nouveau.
