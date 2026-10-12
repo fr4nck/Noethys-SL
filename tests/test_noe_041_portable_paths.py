@@ -21,35 +21,38 @@ def _load_utils_files(root, config_root=None):
     (root / "outside-user-data").mkdir(parents=True, exist_ok=True)
     config_root.mkdir(parents=True, exist_ok=True)
 
-    chemins = types.ModuleType("Chemins")
-    chemins.GetMainPath = lambda fichier="": str(root / fichier)
-    chemins.GetStaticPath = lambda fichier="": str(root / "Static" / fichier)
-    sys.modules["Chemins"] = chemins
+    # Faux modules limites au chargement : sys.modules est restaure ensuite pour
+    # ne pas casser les tests suivants du meme processus (vrais six/Utils).
+    with mock.patch.dict(sys.modules):
+        chemins = types.ModuleType("Chemins")
+        chemins.GetMainPath = lambda fichier="": str(root / fichier)
+        chemins.GetStaticPath = lambda fichier="": str(root / "Static" / fichier)
+        sys.modules["Chemins"] = chemins
 
-    utils_pkg = types.ModuleType("Utils")
-    utils_pkg.__path__ = []
-    sys.modules["Utils"] = utils_pkg
+        utils_pkg = types.ModuleType("Utils")
+        utils_pkg.__path__ = []
+        sys.modules["Utils"] = utils_pkg
 
-    customize = types.ModuleType("Utils.UTILS_Customize")
-    customize.GetValeur = lambda *args, **kwargs: ""
-    sys.modules["Utils.UTILS_Customize"] = customize
-    utils_pkg.UTILS_Customize = customize
+        customize = types.ModuleType("Utils.UTILS_Customize")
+        customize.GetValeur = lambda *args, **kwargs: ""
+        sys.modules["Utils.UTILS_Customize"] = customize
+        utils_pkg.UTILS_Customize = customize
 
-    appdirs = types.ModuleType("appdirs")
-    appdirs.site_data_dir = lambda **kwargs: str(root / "outside-site-data")
-    appdirs.user_data_dir = lambda **kwargs: str(root / "outside-user-data")
-    appdirs.user_config_dir = lambda **kwargs: str(config_root)
-    sys.modules["appdirs"] = appdirs
+        appdirs = types.ModuleType("appdirs")
+        appdirs.site_data_dir = lambda **kwargs: str(root / "outside-site-data")
+        appdirs.user_data_dir = lambda **kwargs: str(root / "outside-user-data")
+        appdirs.user_config_dir = lambda **kwargs: str(config_root)
+        sys.modules["appdirs"] = appdirs
 
-    six = types.ModuleType("six")
-    six.PY2 = False
-    six.PY3 = True
-    sys.modules["six"] = six
+        six = types.ModuleType("six")
+        six.PY2 = False
+        six.PY3 = True
+        sys.modules["six"] = six
 
-    path = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Fichiers.py"
-    spec = importlib.util.spec_from_file_location("noe041_utils_fichiers", str(path))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+        path = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Fichiers.py"
+        spec = importlib.util.spec_from_file_location("noe041_utils_fichiers", str(path))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
     return module
 
 
