@@ -51,6 +51,7 @@ nav:
   - Développer:
       - Reprise et état des branches: dev/REPRISE_CODEX.md
       - Fonctionnalités reportées: dev/FONCTIONNALITES_REPORTEES.md
+      - Inventaire de la lignée master: dev/INVENTAIRE_MASTER.md
       - Modèles de conventions: dev/CONVENTION_MODELES_GESTION.md
       - Contribuer à la documentation: CONTRIBUTING_DOCS.md
   - Interface:
