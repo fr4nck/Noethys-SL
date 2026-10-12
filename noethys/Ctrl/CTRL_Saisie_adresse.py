@@ -18,6 +18,7 @@ import wx.lib.masked as masked
 import sqlite3
 import sys
 from Utils import UTILS_Config
+from Utils import UTILS_Villes
 import GestionDB
 
     
@@ -102,11 +103,9 @@ class TextCtrlCp(masked.TextCtrl):
         textCode = self.GetValue()
         # On vérifie que la ville n'est pas déjà dans la case ville
         villeSelect = self.ctrlVille.GetValue()
-        if villeSelect != '':
-            for ville, cp in self.listeVilles:
-                if ville == villeSelect and cp == textCode :
-                    event.Skip()
-                    return
+        if villeSelect != '' and UTILS_Villes.CoupleExiste(self.listeVilles, villeSelect, textCode):
+            event.Skip()
+            return
         
         # On recherche si plusieurs villes ont ce même code postal
         ReponsesVilles = []
@@ -195,26 +194,26 @@ class TextCtrlVille(wx.TextCtrl):
             event.Skip()
             return
 
-        # On recherche le nombre de villes ayant un nom identique
-        nbreCodes = self.listeNomsVilles.count(villeSelect)
+        # Un couple explicitement sélectionné est atomique : perdre le focus ne
+        # doit jamais remplacer silencieusement son code postal par un homonyme.
+        if UTILS_Villes.CoupleExiste(self.listeVilles, villeSelect, self.ctrlCp.GetValue()):
+            event.Skip()
+            return
 
-        if nbreCodes > 1:
-            listeCodes = []
-            for ville, cp in self.listeVilles :
-                if villeSelect == ville:
-                    listeCodes.append(cp)
-                    
+        listeCodes = UTILS_Villes.CodesPourVille(self.listeVilles, villeSelect)
+        if len(listeCodes) > 1:
             # Chargement de la fenêtre de choix des codes
             resultat = self.ChoixCodes(villeSelect, listeCodes)
             if resultat != '':
                 self.ctrlCp.SetValue(resultat)
-
-        # Si la ville saisie n'existe pas
-        if nbreCodes == 0:
+        elif len(listeCodes) == 1:
+            self.ctrlCp.SetValue(listeCodes[0])
+        else:
+            # Si la ville saisie n'existe pas
             dlg = wx.MessageDialog(self, _(u"Cette ville n'est pas répertoriée dans la base de données. \nVérifiez que vous n'avez pas fait d'erreur de saisie."), "Information", wx.OK | wx.ICON_INFORMATION)
             dlg.ShowModal()
             dlg.Destroy()
-        
+
         event.Skip()
 
     def OnChar(self, event):
@@ -227,26 +226,32 @@ class TextCtrlVille(wx.TextCtrl):
         if self.autoComplete == False :
             event.Skip()
             return
-        
+
         if self.ignoreEvtText:
             self.ignoreEvtText = False
             event.Skip()
             return
-        currentText = event.GetString().upper()
-        found = False
-        for ville, cp in self.listeVilles :
-            if ville.startswith(currentText):
-                self.ignoreEvtText = True
-                self.SetValue(ville)
-                self.SetInsertionPoint(len(currentText))
-                self.SetSelection(len(currentText), len(ville))
-                self.ctrlCp.SetValue(cp)
-                found = True
-                break
-        
-        if not found:
-            self.ctrlCp.SetValue('')
+        currentText = event.GetString()
+
+        # Préserve un couple déjà choisi, notamment lorsque la ville est
+        # homonyme. L'autocomplétion ne réécrit le CP que si le préfixe ne
+        # correspond qu'à un seul couple ville + code postal.
+        if UTILS_Villes.CoupleExiste(self.listeVilles, currentText, self.ctrlCp.GetValue()):
             event.Skip()
+            return
+
+        resultat = UTILS_Villes.AutocompletionUnique(self.listeVilles, currentText)
+        if resultat is not None:
+            ville, cp = resultat
+            self.ignoreEvtText = True
+            self.SetValue(ville)
+            self.SetInsertionPoint(len(currentText))
+            self.SetSelection(len(currentText), len(ville))
+            self.ctrlCp.SetValue(cp)
+            return
+
+        self.ctrlCp.SetValue('')
+        event.Skip()
 
     def ChoixCodes(self, ville, listeReponses):
         """ Boîte de dialogue pour donner le choix entre plusieurs villes possédant le même nom """
