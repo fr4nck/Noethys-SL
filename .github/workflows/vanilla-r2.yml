@@ -1,22 +1,9 @@
 name: Vanilla r2 - portable et installateur
 
 on:
-  pull_request:
-    paths:
-      - 'noethys/Utils/UTILS_Fichiers.py'
-      - 'noethys/Utils/UTILS_Rapport_bugs.py'
-      - 'noethys/Ctrl/CTRL_Grille_periode.py'
-      - 'noethys/Ctrl/CTRL_Attente.py'
-      - 'noethys/Dlg/DLG_Liste_consommations.py'
-      - 'tests/test_vanilla_crash_recipient.py'
-      - 'tests/test_vanilla_candidate_contract.py'
-      - 'packaging/vanilla-installer.iss'
-      - 'packaging/vanilla-noethys.spec'
-      - '.github/workflows/vanilla-r2.yml'
-      - 'requirements.txt'
-  push:
-    branches:
-      - maintenance/vanilla
+  # Build Windows uniquement sur demande explicite (workflow_dispatch) ; les
+  # anciennes branches de declenchement n'existent plus depuis la consolidation
+  # sur main / wx / qt (12/10/2026).
   workflow_dispatch:
 
 permissions:
