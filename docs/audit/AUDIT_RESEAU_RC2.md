@@ -499,7 +499,7 @@ Nouveaux constats postérieurs à cet état initial (rail 1) : MAIL-FAM-01, MAIL
 
 | Id | Où | Constat |
 |---|---|---|
-| EMAIL-12 | `UTILS_Envoi_email.py:430` | PJ `text/*` ouvertes sans `encoding` (cp1252 sous Windows vs `sms.txt` UTF-8) — PROBABLE sous Windows. |
+| EMAIL-12 | `UTILS_Envoi_email.py:430` | PJ `text/*` ouvertes sans `encoding` (cp1252 sous Windows vs `sms.txt` UTF-8) — PROBABLE sous Windows. **CORRIGÉ** sur `main` (repris de master 910cc8f5 : lecture en octets, décodage explicite, MIME UTF-8 ; test `test_audit_reseau_emails.PieceJointeTexteTests` inversé). |
 | EMAIL-15 / EMAIL-16 | `UTILS_Envoi_email.py:503-508, 1000-1011` | Erreur Mailjet opaque `'Messages'` + JSON (adresses) dans le journal ; secret contenant `==` → `ValueError`. |
 | EMAIL-17 | Rapport_bugs l.377, Sauvegarde l.213, test d'adresse l.717, SMS l.1191 | `Fermer()` hors `finally` (sockets ouvertes ; sauvegarde laissée dans Temp sur échec d'envoi). |
 | EMAIL-19 / NET-13 | `SmtpV1`, `DLG_Traductions`, `sendTextMail`, `DLG_Updater`, `UTILS_Meteo`, `UTILS_Icalendar`, `UTILS_Internet` FTP/HTTP, `fetch_bulletins` | Code réseau mort ou cassé (dangereux s'il était réactivé : exe HTTP sans signature, `os.system` non quoté). |
