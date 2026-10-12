@@ -1763,7 +1763,8 @@ class MainFrame(wx.Frame):
                 listeFichiersRestaures = dlg.GetFichiersRestaures()
             dlg.Destroy()
             # Ferme le fichier ouvert si c'est celui-ci qui est restauré
-            nomFichier = self.userConfig["nomFichier"]
+            nomFichierOuvert = self.userConfig["nomFichier"]
+            nomFichier = nomFichierOuvert
             if "[RESEAU]" in nomFichier :
                 nomFichier = nomFichier[nomFichier.index("[RESEAU]") + 8:]
             if nomFichier in listeFichiersRestaures :
@@ -1771,7 +1772,8 @@ class MainFrame(wx.Frame):
                 dlg.ShowModal()
                 dlg.Destroy()
                 self.Fermer(sauvegarde_auto=False) 
-                self.OuvrirDernierFichier() 
+                # Rouvrir le fichier restaure, pas celui ouvert au demarrage (nomDernierFichier).
+                self.OuvrirFichier(nomFichierOuvert)
 
     def On_fichier_Sauvegardes_auto(self, event):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("fichier_sauvegardes_auto", "consulter") == False : return
