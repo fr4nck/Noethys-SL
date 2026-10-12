@@ -1025,3 +1025,77 @@ inconnue. Aucun envoi à une famille n'est autorisé par cette qualification.
 Contrats fournisseur consultés : [erreurs Send API v3.1](https://dev.mailjet.com/docs/email-api/send-api-v31/send-api-errors)
 et [SandboxMode, succès de validation sans livraison](https://dev.mailjet.com/docs/email-api/send-api-v31/sandbox.mode).
 Les tests utilisent uniquement des doublures locales, jamais ce mode distant.
+
+
+## 21. Qualification et retrait des deux branches Mailjet — 12/10/2026
+
+L'utilisateur confirme : appliquer dans le dépôt uniquement, puis supprimer
+les branches qualifiées. Aucune mise à jour de C:\Noethys ni opération sur un
+profil réel. Départ : 44 branches et huit PR ouvertes ; main
+`544e1d37865c8bec4524142ac6e3ea5ed83a8a64`, wx
+`99a423e6aa7b1a3628c04554dd9e3e27babf4e8c`, qt
+`87db1dd4f2cee05306ed3f814ea4cd65c1a03223`.
+
+### Deux références qualifiées, sans recopier un code plus ancien
+
+| Référence | SHA attendu | Apports propres conservés |
+| --- | --- | --- |
+| fix/noethys-sl-mailjet-consolidation | `51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5` | Base64 ASCII, cycle de progression, confirmation manuelle, erreurs Python 3, protections de thread et mots de passe ; code/tests conservés, parent visible de progression plus protecteur sur main. |
+| fix/noethys-sl-mailjet-email-confirmation | `9e0945b5d0a411ef8d03a7179df5abb4a18919c1` | Dépendance Mailjet, conversion d'erreur Python 3, confirmation manuelle, art providers clairs et désactivation dark mode ; fonctions et instructions propres conservées dans les implémentations actuelles. |
+
+Ancêtre commun de comparaison : `3f6e5d0f7fab1396458f048ba8a7a538c41a16e2`.
+L'analyse porte sur les changements propres, y compris imports, instructions,
+fonctions supprimées, docs et tests, et pas sur la seule différence des arbres.
+
+Preuves du signal nouveau → requalification :
+- Tous les fichiers sources comparés aux 14 têtes protégées ; ceux ayant des
+  blobs identiques sont indexés avec leur référence de conservation.
+- `DLG_Mailer.Dialog.Envoyer` identique par AST après trois remplacements
+  explicitement justifiés : helper de formatage Python 3 déjà testé, propriétaire
+  réellement visible de la ProgressDialog, exception de destruction limitée à
+  RuntimeError. Aucun appel métier abandonné ni retour à parent=None.
+- `DLG_Saisie_portail_demande.Dialog.Envoyer` au même AST. Les autres différences
+  du fichier sont héritées ; elles ne justifient pas de réintroduire l'ancienne
+  réception autorisant les formats chiffrés non SV2.
+- Dans Noethys.py, chaque instruction terminale ajoutée par la source dans les
+  cinq méthodes concernées est présente dans la cible ; les instructions
+  retirées (ancien ModernDockArt, ForceApparenceClaireAUI, accès thème ancien)
+  restent absentes. Conditions et garde MSW/claire couvertes par la suite actuelle.
+- Chaque nœud AST de l'ancien UTILS_AUI_Apparence est conservé identiquement ;
+  les définitions nouvelles du manager sont additives.
+- L'apport propre de l'ancien Mailjet.Envoyer_lot est exclusivement la conversion
+  Python 2/3 de l'erreur, désormais assurée par _TexteUtf8 et vérifiée en comportement.
+  Les prédicats statiques des anciens tests exigeant un bloc inline six.PY2 sont
+  archivés intacts ; aucun test actuel affaibli ou retiré pour rendre la CI verte.
+
+Les apports étaient déjà appliqués/qualifiés lors des lots antérieurs : aucun
+runtime ni test modifié dans ce lot de retrait. Sur un nouvel export isolé du
+SHA main actuel, 91 tests ciblés réussissent (mails, art providers, thème clair,
+tooltip et thread wx/Python 3). Profil temporaire, garde DB et socket, aucune
+connexion réelle. Les sources/tests/workflows de main/wx/qt sont identiques.
+La dernière CI de code reste verte : 121 tests, 119 réussites et deux MySQL
+ignorés pour chacune des trois branches (section 20). Pas de recette graphique
+exhaustive ni preuve de réception des mails de l'incident.
+
+### Conservation préalable et retrait contrôlé
+
+Les 32 fichiers des deux deltas historiques sont archivés à l'octet près sous
+`docs/archives/branches-20261012-mailjet`, avec commits, blobs et SHA-256 dans
+qualification.json. Les anciens tests et docs sont conservés même lorsque leur
+forme d'implémentation est remplacée. Aucun fichier d'archive n'est exécuté.
+
+`github-all-refs.bundle` revérifié ; les deux SHA y figurent exactement.
+Empreinte SHA-256 :
+`1898e49973c9abf8832c3e6b01b816f7813df94e7d10e96d8cec3e89146890eb`.
+Les deux branches ne sont ni tête ni base d'une des huit PR ouvertes. master,
+RC2/RC3, feature/vanilla-conventions et les autres références nécessaires aux
+PR restent protégées.
+
+Ce commit prépare un push atomique : archive et note sur main, plus deux
+retraits distants. Le hook de pré-push vérifie les SHA annoncés par le serveur,
+le périmètre exact et l'absence de force-push ; un changement de ref bloque
+l'opération pour requalification. Le résultat réel sera consigné après contrôle.
+Si le push réussit, il restera 42 branches : 14 protégées et 28 sources encore
+conservées. Aucun merge global, nouvelle branche, historique réécrit, publication
+de binaire, tag ou release. Les variantes restantes sont des stop-gates, notamment
+réseau, SQL, interventions, Qt, packaging et historique durable des mails.

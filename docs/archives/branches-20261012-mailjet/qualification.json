@@ -1,0 +1,706 @@
+{
+  "heads": {
+    "agent/windows11-pyinstaller": "f85f77266eec49ec02d6a24e0e130d463123b8d5",
+    "agent/windows-ci-audit": "7df621ea3a3034819142c633f5f4c9149c17fa68",
+    "audit/vanilla-final-undefined-names": "8ae3a36f939460a36b9d7b4f86cfa1147208e1b0",
+    "build/vanilla-windows-portable": "4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a",
+    "chatgpt/noethys-convention-ui-activites-20260929": "7cd062c3f634cff137f20af469ff7ded5e407e42",
+    "claude/noethys-windows-ci-audit-qy5m9t": "3b847c6b2957a5d4a7d118ad7384f8bdc971baaf",
+    "design-form-density-standard": "f96fa35865462500f12ad2caee98027e488f3955",
+    "dev-db-docker": "b7dc7c195022949626f8a7e9a55d2677e710d107",
+    "docs/mkdocs-wiki": "e43492b156a92551579faa6c606333c98f2bf280",
+    "docs/open-development-policy": "d218e2980fbc7ab5b6577ec50c74931aae836c93",
+    "feat/noethys-sl-rc1-convention-finalise": "f6cac3302a2ff3946f1f389071accec151a5b542",
+    "feature/extensions-registry": "9174ba32a45e8788a6ba456aae722360425371ae",
+    "feature/noe-062-conventions": "f85fd51ee40429415819e01284bf9deba6406b13",
+    "feature/noe-062-mises-a-disposition": "c69f3c80325e6aeef27bdec82a03ef257ff552a8",
+    "feature/noe-062b-groupes-structures": "203fff34134ceb7a9676f877e5901e0bb74dfc4f",
+    "feature/noe-062b-roles-contacts": "177b4c3dcd1b2055f4a595512c71ab6305a55b8b",
+    "feature/noe-063-portail-consolide": "55b2b129e67ed295f59b161ebb6896c06348a101",
+    "feature/noe-063b-rss-atom-connecthys": "8f84f5edb72b8becd3a58a44994fb23be0117630",
+    "feature/noe-063d-tarifs-ui": "20d5b15c1adb4a460d7ff0ed87ed22120ebec0dc",
+    "feature/session-attendance-consumer-2026-09-19": "74410a3ef4ef8b618a2214487453d379ff596f3a",
+    "feature/vanilla-conventions": "c2c3e87a5b7dd883d397b6b1a7d8965997bd34ed",
+    "feature/vanilla-entites-fonctions": "4e2c615bcbee669b08e12f1580e2e81fb4351295",
+    "fix/noe-062b-hardening": "752645c5a772a822226b1494d908400d85a79c4a",
+    "fix/noethys-sl-aui-docking-minimize": "aac763f24480e98608cfd2ccc918d87ef26594db",
+    "fix/noethys-sl-aui-guides-fantomes": "7704ee753687159ee7173e33f86f538bc483c75c",
+    "fix/noethys-sl-light-only": "ccdfb82bcf1b1f5d4cd06a9d6382176cd91f6629",
+    "fix/noethys-sl-mailjet-consolidation": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+    "fix/noethys-sl-mailjet-email-confirmation": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+    "fix/rc2-network-stopgate-1": "cf5f9fbe6ccd9472a061ceaf81ab6358effc00b3",
+    "fix/rc2-pr385-compatible": "ba67c6b9a5fc488ff8ba3c15d3cd6bd7826c12d8",
+    "fix/vanilla-no-black": "7c39f16ab1489ce4bcd96e2fc1b44995b8d237fa",
+    "fix/windows-installable-config": "fbdebc8b6ef4ef906bfb8d23246be5eeb1820203",
+    "main": "544e1d37865c8bec4524142ac6e3ea5ed83a8a64",
+    "master": "b0be3c7ebdf2d69d6028eb4fd6fc08e340a68b9e",
+    "noe-041-portable-mode": "3cf6cbfe5d6fcd631f21fc821bbecc4988caa7b2",
+    "noe-062-programmation-occurrences": "88904fc780a052a90598f5bde23aa2dffd686a93",
+    "noe-062-secure-secret-provider": "04f7886cfd8d5f62bc02b243f6d57ebfff8b6297",
+    "noe-062c-lieux-execution-seances": "be059ccd480468f76c2b50f3ee000200e2e9bb4f",
+    "poc/qt-theme-isole": "cba459cd62cb2d71f43f89825287295d2ead6492",
+    "qt": "87db1dd4f2cee05306ed3f814ea4cd65c1a03223",
+    "rc/noethys-sl-0.1.0-rc.2": "91d9e625d96c5a1460d42dda053db509fa28d181",
+    "rc/noethys-sl-0.1.0-rc.3": "28c2294cead7aa09f6d04c3bbdd9339593377e5b",
+    "refactor/ui-list-tools-repens": "52ed49bf888bc381d92e46a87eca7f6a5fc66e65",
+    "wx": "99a423e6aa7b1a3628c04554dd9e3e27babf4e8c"
+  },
+  "proof": [
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "base": "3f6e5d0f7fab1396458f048ba8a7a538c41a16e2",
+      "files": [
+        {
+          "path": "noethys/Ctrl/CTRL_Portail_serveur.py",
+          "source_blob": "5a698c7b086a09e3a4c409919ccd8e112f8f19ba",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Ctrl/CTRL_Serveur_nomade.py",
+          "source_blob": "195bbd266271943968cbc5b003b19eff96b8e634",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Envoi_sms.py",
+          "source_blob": "90d9b1b1c82703c24dc07b776ee6d901646e122f",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Export_helios.py",
+          "source_blob": "46cc53f15e8b33d898f059e3da9b2e9e5bd0628c",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Mailer.py",
+          "source_blob": "72e67ee5004fa0c01cb2dd636879b2b6245b3e80",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Dlg/DLG_Portail_config.py",
+          "source_blob": "d0c5a70c5a2d35d88ed6da908a12b39d58c8443d",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Portail_demandes.py",
+          "source_blob": "8762c7ec4c32507d6cff57a7f18cf196cd508c35",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+          "source_blob": "6bafc086f99a071ab06d2694643dc660ee499097",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Dlg/DLG_Synchronisation.py",
+          "source_blob": "c10f74efbf8b55d7014487fa508a3166f613048e",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "noethys/Utils/UTILS_Envoi_email.py",
+          "source_blob": "0cb1af101f877ab97c62f968be3ac18c86fa3f60",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "source_blob": "618f2f06ad2e598e96a06489e540428ed93177de",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "tests/test_noethys_sl_connecthys_wx_thread.py",
+          "source_blob": "f68360950158a08599a08097345d87b43c47f802",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_noethys_sl_mailer_errors.py",
+          "source_blob": "a3120e0a9ca4100a4e10db3203387ce418536b2a",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_noethys_sl_py3_wx_hardening.py",
+          "source_blob": "ef7f7145d162a7b92f95055a6db1766ca2c9d862",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_vanilla_mailjet_email_confirmation.py",
+          "source_blob": "9ce10392e9d9520ee43dcbd70178609d80325594",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_vanilla_mailjet_progress_lifecycle.py",
+          "source_blob": "0863c21cb77167448c5a62e158ebcb18b20bcdbe",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        }
+      ],
+      "method_proofs": [
+        {
+          "path": "noethys/Dlg/DLG_Mailer.py",
+          "proof": "Exact method AST after three explicit improvements: formatting helper, visible owner, RuntimeError-only destruction guard."
+        },
+        {
+          "path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+          "proof": "Owned Dialog.Envoyer AST identical. Other endpoint changes do not undo newer reception security."
+        }
+      ]
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "base": "3f6e5d0f7fab1396458f048ba8a7a538c41a16e2",
+      "files": [
+        {
+          "path": "docs/noethys_sl_wx_pr375_apparence_claire.md",
+          "source_blob": "ceb7509b3fc035cb313fcc9d02749bc9fbf4f8d6",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Chemins.py",
+          "source_blob": "5b810a9a4c7995866c87823b7fb9d807abc30533",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "noethys/Ctrl/CTRL_Bouton_image.py",
+          "source_blob": "070c133c523c98912926760aa3a62d407488cbd5",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Ctrl/CTRL_ObjectListView.py",
+          "source_blob": "fd5ecc98151d82e4d51313a87916ba9bb9d85418",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Dlg/DLG_Mailer.py",
+          "source_blob": "9c28f425e6a8cc2c655ad35306c452fd0ea7bf6d",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+          "source_blob": "6bafc086f99a071ab06d2694643dc660ee499097",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Noethys.py",
+          "source_blob": "bcba8c34953a158dba9e3d1c6e860b53b1727348",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Utils/UTILS_AUI_Apparence.py",
+          "source_blob": "5f5b978dce24dc37543f505a4680711e99c38f5c",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Utils/UTILS_Adaptations.py",
+          "source_blob": "556084ab43d27c5fd5603e70d4b6528bb3f37fa8",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "noethys/Utils/UTILS_Envoi_email.py",
+          "source_blob": "ed0723621c5e307cf7e062fbf6427e8fbbe5463d",
+          "exact_blob_in": []
+        },
+        {
+          "path": "noethys/Utils/UTILS_Interface.py",
+          "source_blob": "c46c15ee88f275b465f953e2417ae17397b0641f",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "source_blob": "618f2f06ad2e598e96a06489e540428ed93177de",
+          "exact_blob_in": [
+            "main",
+            "qt",
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3",
+            "wx"
+          ]
+        },
+        {
+          "path": "tests/test_noethys_sl_ui_assets.py",
+          "source_blob": "6dd723c80161ba99ace488bf560c9606c218cb57",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_vanilla_apparence_claire.py",
+          "source_blob": "1ac01e239d68f3fe5f2f1d65170b022ad9218686",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        },
+        {
+          "path": "tests/test_vanilla_mailjet_email_confirmation.py",
+          "source_blob": "32443c39c1a0edac6609f0e9938d2f4342bcf21b",
+          "exact_blob_in": []
+        },
+        {
+          "path": "tests/test_vanilla_supertooltip_hauteur.py",
+          "source_blob": "e392e14561ff1339b7e3819a50dcb297ace50328",
+          "exact_blob_in": [
+            "rc/noethys-sl-0.1.0-rc.2",
+            "rc/noethys-sl-0.1.0-rc.3"
+          ]
+        }
+      ],
+      "method_proofs": [
+        {
+          "path": "noethys/Dlg/DLG_Mailer.py",
+          "proof": "Exact method AST after three explicit improvements: formatting helper, visible owner, RuntimeError-only destruction guard."
+        },
+        {
+          "path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+          "proof": "Owned Dialog.Envoyer AST identical. Other endpoint changes do not undo newer reception security."
+        },
+        {
+          "path": "noethys/Noethys.py",
+          "proof": [
+            {
+              "method": "MainFrame.__init__",
+              "added_leaf_statements_preserved": 1,
+              "removed_statements_absent": 1
+            },
+            {
+              "method": "MainFrame.Initialisation",
+              "added_leaf_statements_preserved": 1,
+              "removed_statements_absent": 3
+            },
+            {
+              "method": "MainFrame.CreationBarresOutils",
+              "added_leaf_statements_preserved": 4,
+              "removed_statements_absent": 0
+            },
+            {
+              "method": "MainFrame.CreerBarreOutils",
+              "added_leaf_statements_preserved": 2,
+              "removed_statements_absent": 0
+            },
+            {
+              "method": "MyApp.OnInit",
+              "added_leaf_statements_preserved": 3,
+              "removed_statements_absent": 1
+            }
+          ]
+        },
+        {
+          "path": "noethys/Utils/UTILS_AUI_Apparence.py",
+          "proof": "Every original module-level AST node is unchanged in main; new manager definitions are additive."
+        },
+        {
+          "path": "noethys/Utils/UTILS_Envoi_email.py",
+          "proof": "Only owned method delta is Python 2/3 exception conversion. Current _TexteUtf8 protects the same contract, with existing behavioral tests."
+        },
+        {
+          "path": "tests/test_vanilla_mailjet_email_confirmation.py",
+          "proof": "Original file archived byte-for-byte. Implementation predicates requiring inline six.PY2 are superseded by tested formatting helpers; dependency, connection failure, zero false successes and manual confirmation covered by the current behavioral suite without weakening existing assertions."
+        }
+      ]
+    }
+  ],
+  "protected": [
+    "design-form-density-standard",
+    "dev-db-docker",
+    "docs/mkdocs-wiki",
+    "docs/open-development-policy",
+    "feature/session-attendance-consumer-2026-09-19",
+    "feature/vanilla-conventions",
+    "feature/vanilla-entites-fonctions",
+    "main",
+    "master",
+    "noe-062-secure-secret-provider",
+    "qt",
+    "rc/noethys-sl-0.1.0-rc.2",
+    "rc/noethys-sl-0.1.0-rc.3",
+    "wx"
+  ],
+  "archive_files": [
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Ctrl/CTRL_Portail_serveur.py",
+      "source_blob": "5a698c7b086a09e3a4c409919ccd8e112f8f19ba",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Ctrl/CTRL_Portail_serveur.py",
+      "sha256": "0ee26b0c15240668e77065887e1066dc95e44031028212c601a2104ae4176615",
+      "bytes": 19190
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Ctrl/CTRL_Serveur_nomade.py",
+      "source_blob": "195bbd266271943968cbc5b003b19eff96b8e634",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Ctrl/CTRL_Serveur_nomade.py",
+      "sha256": "74b1541ec550264268e0962df06155b89d016ee98c65af314ed4642791a1c8ef",
+      "bytes": 15407
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Envoi_sms.py",
+      "source_blob": "90d9b1b1c82703c24dc07b776ee6d901646e122f",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Envoi_sms.py",
+      "sha256": "cf0911eb36cd10940d91b2a07a52d29a716c110f4702513d92b99e0177506568",
+      "bytes": 50830
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Export_helios.py",
+      "source_blob": "46cc53f15e8b33d898f059e3da9b2e9e5bd0628c",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Export_helios.py",
+      "sha256": "eb725d3658721910d615dcd31ecfa3c0ed0dd20c7e56813bda902e9e499d025f",
+      "bytes": 36193
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Mailer.py",
+      "source_blob": "72e67ee5004fa0c01cb2dd636879b2b6245b3e80",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Mailer.py",
+      "sha256": "20db682859715f76720b852ab077fde5ba47a1cc39dcd05785b312092aaa46d9",
+      "bytes": 29612
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Portail_config.py",
+      "source_blob": "d0c5a70c5a2d35d88ed6da908a12b39d58c8443d",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Portail_config.py",
+      "sha256": "46626732de1063758c4d8e11dde84fed422fdf701f15d0d10bc7a00a0c0f00e3",
+      "bytes": 108934
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Portail_demandes.py",
+      "source_blob": "8762c7ec4c32507d6cff57a7f18cf196cd508c35",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Portail_demandes.py",
+      "sha256": "c7e052adce1ea4d389584975855ddfe5eb5a83c0d47246c0e573632e54232e88",
+      "bytes": 13839
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "source_blob": "6bafc086f99a071ab06d2694643dc660ee499097",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "sha256": "243794df8f20bcdc7c906e58bfe94d39218ef7155fc6c30aa9f22650e894d9cb",
+      "bytes": 89185
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Dlg/DLG_Synchronisation.py",
+      "source_blob": "c10f74efbf8b55d7014487fa508a3166f613048e",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Dlg/DLG_Synchronisation.py",
+      "sha256": "5df19b3368d727e66d21423f046e7f8598f900f58c7d2be976de92abb1ffb490",
+      "bytes": 41525
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "noethys/Utils/UTILS_Envoi_email.py",
+      "source_blob": "0cb1af101f877ab97c62f968be3ac18c86fa3f60",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/noethys/Utils/UTILS_Envoi_email.py",
+      "sha256": "c5e53de0d7631faca4a7328741949f4312918b8a5485acebec6c135028626f82",
+      "bytes": 49932
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "requirements.txt",
+      "source_blob": "618f2f06ad2e598e96a06489e540428ed93177de",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/requirements.txt",
+      "sha256": "8c4c6e498a51ba5ca3c0b4c65b097b778b2d7b088e83375761dd2bd882b4e3b5",
+      "bytes": 225
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "tests/test_noethys_sl_connecthys_wx_thread.py",
+      "source_blob": "f68360950158a08599a08097345d87b43c47f802",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/tests/test_noethys_sl_connecthys_wx_thread.py",
+      "sha256": "34bd232cbec73245325d952f91f5d37ca4bd29284f4cf0a4baee2c70296f278f",
+      "bytes": 2292
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "tests/test_noethys_sl_mailer_errors.py",
+      "source_blob": "a3120e0a9ca4100a4e10db3203387ce418536b2a",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/tests/test_noethys_sl_mailer_errors.py",
+      "sha256": "b50150c7680a57e49a6635684fb02dab865b70df7e0f9406c60126bfb60e941f",
+      "bytes": 1124
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "tests/test_noethys_sl_py3_wx_hardening.py",
+      "source_blob": "ef7f7145d162a7b92f95055a6db1766ca2c9d862",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/tests/test_noethys_sl_py3_wx_hardening.py",
+      "sha256": "c034c7c4fd5a741b10d900219ba14108001488dc1156940b18c4a1fdd4200017",
+      "bytes": 4614
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "tests/test_vanilla_mailjet_email_confirmation.py",
+      "source_blob": "9ce10392e9d9520ee43dcbd70178609d80325594",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/tests/test_vanilla_mailjet_email_confirmation.py",
+      "sha256": "fa23690e7ef9938f8f7c25b27e0db8ff10b8bce83dc477f840089fcb002c19b9",
+      "bytes": 11417
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-consolidation",
+      "sha": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+      "source_path": "tests/test_vanilla_mailjet_progress_lifecycle.py",
+      "source_blob": "0863c21cb77167448c5a62e158ebcb18b20bcdbe",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-consolidation/tests/test_vanilla_mailjet_progress_lifecycle.py",
+      "sha256": "00f2a33241f6d3727932aa033b5c4ef49151c3110f447b33a476acbc469cab12",
+      "bytes": 23402
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "docs/noethys_sl_wx_pr375_apparence_claire.md",
+      "source_blob": "ceb7509b3fc035cb313fcc9d02749bc9fbf4f8d6",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/docs/noethys_sl_wx_pr375_apparence_claire.md",
+      "sha256": "25ae6e04b6aaf914d62918f794c54c065366f9d93c1d02c794f6eb627d4fd9d9",
+      "bytes": 4789
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Chemins.py",
+      "source_blob": "5b810a9a4c7995866c87823b7fb9d807abc30533",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Chemins.py",
+      "sha256": "57090f8b074c3266f924e0b3dcfe086947b7dd6492b3b2f37a0478b5d48d165a",
+      "bytes": 1975
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Ctrl/CTRL_Bouton_image.py",
+      "source_blob": "070c133c523c98912926760aa3a62d407488cbd5",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Ctrl/CTRL_Bouton_image.py",
+      "sha256": "bf46771c646fccc826f16e6a64b1027ba0e9776b22253cb4c399bad606615b04",
+      "bytes": 12939
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Ctrl/CTRL_ObjectListView.py",
+      "source_blob": "fd5ecc98151d82e4d51313a87916ba9bb9d85418",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Ctrl/CTRL_ObjectListView.py",
+      "sha256": "d39301cc3e969ebe45ac5651aaf6710d5d7e18a188044dd33dc25409b1ea86ad",
+      "bytes": 48635
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Dlg/DLG_Mailer.py",
+      "source_blob": "9c28f425e6a8cc2c655ad35306c452fd0ea7bf6d",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Dlg/DLG_Mailer.py",
+      "sha256": "8172ef8f71f7460ac0a3dd8a57d60d85b2c8981adc13ed69a0972fcd870fa1e6",
+      "bytes": 29014
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "source_blob": "6bafc086f99a071ab06d2694643dc660ee499097",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "sha256": "243794df8f20bcdc7c906e58bfe94d39218ef7155fc6c30aa9f22650e894d9cb",
+      "bytes": 89185
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Noethys.py",
+      "source_blob": "bcba8c34953a158dba9e3d1c6e860b53b1727348",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Noethys.py",
+      "sha256": "c73786303b084408dbcd6ca6e6a8e47431be1146e6f1ff1edbe50a39a9e1825d",
+      "bytes": 244917
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Utils/UTILS_AUI_Apparence.py",
+      "source_blob": "5f5b978dce24dc37543f505a4680711e99c38f5c",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Utils/UTILS_AUI_Apparence.py",
+      "sha256": "0b2e3051f8752ea1b9ceb97e0e0cb2cab4a6a97155b83b3fd29b8683059dd6ad",
+      "bytes": 4983
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Utils/UTILS_Adaptations.py",
+      "source_blob": "556084ab43d27c5fd5603e70d4b6528bb3f37fa8",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Utils/UTILS_Adaptations.py",
+      "sha256": "7d0952232d5d6627fae5b7ea3be926d685ce1a6091c3a20f6621f70592ae51f1",
+      "bytes": 4725
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Utils/UTILS_Envoi_email.py",
+      "source_blob": "ed0723621c5e307cf7e062fbf6427e8fbbe5463d",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Utils/UTILS_Envoi_email.py",
+      "sha256": "45b3df7e25fd90980b13f15d9969c409fcc48e615dfc2840e498df913399da82",
+      "bytes": 43706
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "noethys/Utils/UTILS_Interface.py",
+      "source_blob": "c46c15ee88f275b465f953e2417ae17397b0641f",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/noethys/Utils/UTILS_Interface.py",
+      "sha256": "dfd7f64e3befd63d9be74e4c00603bd511b5df80473fe0cea21fe3ac04ed6c91",
+      "bytes": 2463
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "requirements.txt",
+      "source_blob": "618f2f06ad2e598e96a06489e540428ed93177de",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/requirements.txt",
+      "sha256": "8c4c6e498a51ba5ca3c0b4c65b097b778b2d7b088e83375761dd2bd882b4e3b5",
+      "bytes": 225
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "tests/test_noethys_sl_ui_assets.py",
+      "source_blob": "6dd723c80161ba99ace488bf560c9606c218cb57",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/tests/test_noethys_sl_ui_assets.py",
+      "sha256": "baf8ca8fa877c2553349a5ee894072dc165708f4cbced5ab0303a6ea2bbecba0",
+      "bytes": 4126
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "tests/test_vanilla_apparence_claire.py",
+      "source_blob": "1ac01e239d68f3fe5f2f1d65170b022ad9218686",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/tests/test_vanilla_apparence_claire.py",
+      "sha256": "e7e47b12545d02458c89fe80672c7ae999fda6cecb1ed1c64233d6c7d069951a",
+      "bytes": 10128
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "tests/test_vanilla_mailjet_email_confirmation.py",
+      "source_blob": "32443c39c1a0edac6609f0e9938d2f4342bcf21b",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/tests/test_vanilla_mailjet_email_confirmation.py",
+      "sha256": "f2dca835d00d5495c111423bc9fb3b8283da2894c417bb60abd3ddb57675595c",
+      "bytes": 12619
+    },
+    {
+      "branch": "fix/noethys-sl-mailjet-email-confirmation",
+      "sha": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1",
+      "source_path": "tests/test_vanilla_supertooltip_hauteur.py",
+      "source_blob": "e392e14561ff1339b7e3819a50dcb297ace50328",
+      "archive_path": "docs/archives/branches-20261012-mailjet/fix__noethys-sl-mailjet-email-confirmation/tests/test_vanilla_supertooltip_hauteur.py",
+      "sha256": "a2c19a3c061b73b5911cb102edc1a829e65d2c0e25af7528d646039f58200855",
+      "bytes": 4922
+    }
+  ],
+  "backup_sha256": "1898e49973c9abf8832c3e6b01b816f7813df94e7d10e96d8cec3e89146890eb",
+  "qualification_log": "91 tests passed on isolated current main; runtime/tests/workflows identical on main/wx/qt",
+  "delete": {
+    "fix/noethys-sl-mailjet-consolidation": "51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5",
+    "fix/noethys-sl-mailjet-email-confirmation": "9e0945b5d0a411ef8d03a7179df5abb4a18919c1"
+  }
+}
