@@ -399,13 +399,16 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                 proc = subprocess.Popen(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
                 out, temp = proc.communicate()
 
-                if out not in ("", b"") :
+                # Une sortie vide ne prouve pas que la restauration a reussi.
+                if proc.returncode != 0:
+                    if isinstance(out, bytes):
+                        out = out.decode("utf8", "replace")
+                    if not out:
+                        out = u"mysql a echoue avec le code %s, sans diagnostic." % proc.returncode
                     print(("subprocess de restauration mysql :", out))
-                    if six.PY2:
-                        out = str(out).decode("utf8")
                     dlgprogress.Destroy()
                     dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de restauration !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
-                    dlgErreur.ShowModal() 
+                    dlgErreur.ShowModal()
                     dlgErreur.Destroy()
                     fichierZip.close()
                     return False
