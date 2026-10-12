@@ -28,7 +28,7 @@ mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e 'DROP DATABASE IF EXISTS noethys_dev; C
 '@
     $FixtureScript | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh
     if ($LASTEXITCODE -ne 0) { throw 'Creation de la fixture en echec.' }
-    & docker cp "\${Container}:/tmp/noethys-fixture.sql" $DumpPath
+    & docker cp "${Container}:/tmp/noethys-fixture.sql" $DumpPath
     if ($LASTEXITCODE -ne 0) { throw 'Extraction de la fixture en echec.' }
     & (Join-Path $Here 'import.ps1') -DumpPath $DumpPath -SyntheticData
     $VerifyScript = @'
