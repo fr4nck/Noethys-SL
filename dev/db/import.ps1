@@ -21,7 +21,10 @@ if ($sql.Length -gt 1048576) {
     throw 'Dump trop volumineux pour le petit jeu de recette synthetique.'
 }
 $schemas = [regex]::Matches($sql, '(?im)^\s*USE\s+`([^`]+)`\s*;')
-if ($schemas.Count -ne 1 -or $schemas[0].Groups[1].Value -cne 'noethys_fixture_source') {
+# mysqldump --databases repete USE avant la definition finale des vues :
+# exiger une base unique, pas une instruction USE unique.
+$schemaNames = @($schemas | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique -CaseSensitive)
+if ($schemas.Count -lt 1 -or $schemaNames.Count -ne 1 -or $schemaNames[0] -cne 'noethys_fixture_source') {
     throw 'Dump refuse : base source de recette non unique ou inattendue.'
 }
 $tables = [regex]::Matches($sql, '(?im)^\s*CREATE TABLE\s+`([^`]+)`')
@@ -33,9 +36,14 @@ if ('fixture_data' -cnotin $names -or @($names | Where-Object { $_ -cnotin @('fi
 if ($sql -notmatch 'fixture_view' -or $sql -notmatch 'fixture_data') {
     throw 'Dump refuse : objets de la fixture incomplets.'
 }
+# Chaque CREATE DATABASE/SCHEMA, ou qu'il soit, doit nommer la base source ;
+# l'ancien motif revenait sur le backtick fermant et refusait tout dump.
+$createdDatabases = @([regex]::Matches($sql,
+    '(?i)\bCREATE\s+(?:DATABASE|SCHEMA)\s+(?:/\*!\d+\s*IF\s+NOT\s+EXISTS\s*\*/\s*|IF\s+NOT\s+EXISTS\s+)?(`[^`]*`|[^\s;]*)') |
+    ForEach-Object { $_.Groups[1].Value.Trim('`') })
 if ($sql -match '(?im)^\s*(DROP|ALTER)\s+DATABASE\b' -or
     $sql -match '(?i)\b(INTO\s+OUTFILE|LOAD\s+DATA|CREATE\s+USER|GRANT\s+|INSTALL\s+PLUGIN)\b' -or
-    $sql -match '(?im)^\s*CREATE\s+DATABASE\b[^\r\n]*`(?!noethys_fixture_source`)') {
+    @($createdDatabases | Where-Object { $_ -cne 'noethys_fixture_source' }).Count -gt 0) {
     throw 'Dump refuse : instruction SQL non autorisee.'
 }
 
@@ -54,7 +62,8 @@ test "$MYSQL_DATABASE" = noethys_dev
 sed '/^CREATE DATABASE /d; /^USE `/d' /tmp/noethys-fixture-import.sql |
   mysql -uroot -p"$MYSQL_ROOT_PASSWORD" noethys_dev
 '@
-    $Script | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh
+    # Checkout Windows (CRLF) : retirer les \r avant sh, sinon 'set -eu' echoue.
+    $Script | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh -c 'tr -d ''\r'' | sh'
     if ($LASTEXITCODE -ne 0) { throw 'Import de la fixture echoue.' }
     $row = & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" noethys_dev -Nse "SELECT COUNT(*) FROM fixture_data;"'
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($row | Out-String))) {

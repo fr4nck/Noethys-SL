@@ -26,7 +26,8 @@ mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --opt --databases
 # Destination fixe et jetable. Aucun nom de base issu d'un dump utilisateur.
 mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e 'DROP DATABASE IF EXISTS noethys_dev; CREATE DATABASE noethys_dev CHARACTER SET utf8 COLLATE utf8_general_ci;'
 '@
-    $FixtureScript | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh
+    # Checkout Windows (CRLF) : retirer les \r avant sh, sinon 'set -eu' echoue.
+    $FixtureScript | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh -c 'tr -d ''\r'' | sh'
     if ($LASTEXITCODE -ne 0) { throw 'Creation de la fixture en echec.' }
     & docker cp "${Container}:/tmp/noethys-fixture.sql" $DumpPath
     if ($LASTEXITCODE -ne 0) { throw 'Extraction de la fixture en echec.' }
@@ -39,7 +40,7 @@ test "$rows" = 2
 test "$views" = 1
 printf 'NOE-032 SYNTHETIC MYSQL: PASS (%s rows; %s view)\n' "$rows" "$views"
 '@
-    $VerifyScript | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh
+    $VerifyScript | & docker compose --project-name $Project --env-file $EnvFile -f $ComposeFile exec -T mysql55 sh -c 'tr -d ''\r'' | sh'
     if ($LASTEXITCODE -ne 0) { throw 'Postconditions synthetiques en echec.' }
 }
 finally {

@@ -1,7 +1,8 @@
 # Noe-032 — bac a sable MySQL 5.5, donnees synthetiques
 
 Source : PR historique #104, reprise ciblee sur main / wx / qt.
-**Statut : code disponible, execution Docker/Windows encore a qualifier.**
+**Statut : smoke execute avec succes sur Windows 11 / Docker Desktop 29.8 le
+12/10/2026 (MySQL 5.5.62, PASS 2 lignes / 1 vue). Workflow CI manuel non rejoue.**
 
 Ce dossier prepare un MySQL 5.5.62 **strictement jetable** pour la
 qualification Noethys. Il ne constitue NI une validation des restaurations
@@ -48,9 +49,9 @@ Set-Location "$env:USERPROFILE\Documents\GitHub\Noethys-SL"
 ```
 
 Docker Desktop et PowerShell sont requis. Le script refuse un moteur Docker
-distant. Les versions de Docker recentes peuvent ne plus lire directement
-l'ancien manifeste MySQL 5.5 : la CI dediee prepare une image convertie par
-Skopeo, sans jamais pointer une base de production.
+distant. Docker Hub ne sert plus le manifeste schema v1 historique
+(`d404d78a...`, refuse meme par Skopeo) : l'image est epinglee sur le digest v2
+linux/amd64 officiel du meme tag `mysql:5.5.62` (`c9c671d0...`).
 
 ## CI et gates
 

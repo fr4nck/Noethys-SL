@@ -2,7 +2,7 @@ name: noethys-sl-noe032
 
 services:
   mysql55:
-    image: ${NOETHYS_MYSQL55_IMAGE:-mysql:5.5.62@sha256:d404d78aa797c87c255e5ae2beb5d8d0e4d095f930b1f20dc208eaa957477b74}
+    image: ${NOETHYS_MYSQL55_IMAGE:-mysql:5.5.62@sha256:c9c671d0c959183154313d6830d46f9a00d5937f97415c15ebd3c6844f6f1467}
     platform: linux/amd64
     container_name: noethys-sl-noe032-mysql55
     restart: "no"
