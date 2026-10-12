@@ -391,6 +391,7 @@ def GetListeFamilles(listview=None, listeActivites=None, presents=None, IDfamill
             cp = u""
             ville = u""
             listeMails = []
+            secteur = u""
         dictTemp = {
             "IDfamille" : IDfamille, "titulaires" : nomTitulaires, "nomRegime" : nomRegime, 
             "nomCaisse" : nomCaisse, "numAlloc" : numAlloc, "secteur": secteur,
