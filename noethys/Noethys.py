@@ -1435,6 +1435,7 @@ class MainFrame(wx.Frame):
         if hasattr(self, "ctrl_serveur_nomade") : self.ctrl_serveur_nomade.MAJ()
         if hasattr(self, "ctrl_serveur_portail") : self.ctrl_serveur_portail.MAJ()
         if hasattr(self, "ctrl_individus") : wx.CallAfter(self.ctrl_individus.ctrl_recherche.SetFocus)
+        if hasattr(self, "ctrl_accueil") : self.ctrl_accueil.MAJ(fichier_ouvert=self.userConfig["nomFichier"] != "")
 
     def On_fichier_Nouveau(self, event):
         """ Créé une nouvelle base de données """
@@ -1722,6 +1723,7 @@ class MainFrame(wx.Frame):
         # change le nom de fichier
         self.userConfig["nomFichier"] = ""
         self.SetTitleFrame()
+        if hasattr(self, "ctrl_accueil") : self.ctrl_accueil.MAJ(fichier_ouvert=False)
         
         # Cache tous les panneaux
         for pane in self._mgr.GetAllPanes() :

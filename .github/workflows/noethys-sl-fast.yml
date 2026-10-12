@@ -132,6 +132,7 @@ jobs:
           tests.test_rail1_mail_lot
           tests.test_audit_reseau_emails
           tests.test_audit_reseau_connecthys
+          tests.test_accueil_logo_organisateur
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v

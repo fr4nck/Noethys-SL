@@ -26,8 +26,9 @@ def GetNom():
         nom = ""
     return nom
 
-def RecadreImg(img=None, tailleImage=(40, 40)):
-    # Recadre l'image en fonction de la taille du staticBitmap
+def RecadreImg(img=None, tailleImage=(40, 40), fondBlanc=True):
+    # Recadre l'image en fonction de la taille du staticBitmap (ratio conservé,
+    # petits logos non agrandis).
     tailleMaxi = max(tailleImage)
     largeur, hauteur = img.GetSize()
     if max(largeur, hauteur) > tailleMaxi :
@@ -42,10 +43,19 @@ def RecadreImg(img=None, tailleImage=(40, 40)):
         hauteur = int(hauteur)
     img.Rescale(width=largeur, height=hauteur, quality=wx.IMAGE_QUALITY_HIGH)
     position = (int((tailleImage[0] - largeur) / 2), int((tailleImage[1] - hauteur) / 2))
-    img.Resize(tailleImage, position, 255, 255, 255)
-    return img
+    if fondBlanc or not img.HasAlpha():
+        img.Resize(tailleImage, position, 255, 255, 255)
+        return img
 
-def GetDonnees(tailleLogo=(40, 40)) :
+    # Logo transparent posé sur un fond coloré (accueil) : conserver le canal
+    # alpha au lieu de cuire un fond blanc, source d'un cadre ou d'un halo.
+    canvas = wx.Image(tailleImage[0], tailleImage[1])
+    canvas.InitAlpha()
+    canvas.SetAlpha(bytes(bytearray(tailleImage[0] * tailleImage[1])))
+    canvas.Paste(img, position[0], position[1])
+    return canvas
+
+def GetDonnees(tailleLogo=(40, 40), fondLogoBlanc=True) :
     DB = GestionDB.DB()
     req = """SELECT nom, rue, cp, ville, tel, fax, mail, site, num_agrement, num_siret, code_ape, logo, logo_update
     FROM organisateur WHERE IDorganisateur=1;"""
@@ -74,7 +84,7 @@ def GetDonnees(tailleLogo=(40, 40)) :
             img = wx.Image(io, wx.BITMAP_TYPE_ANY)
         else :
             img = wx.ImageFromStream(io, wx.BITMAP_TYPE_ANY)
-        img = RecadreImg(img, tailleLogo)
+        img = RecadreImg(img, tailleLogo, fondBlanc=fondLogoBlanc)
         logo = img.ConvertToBitmap()
     dictDonnees = {
         "nom":nom, "rue":rue, "cp":cp, "ville":ville, "tel":tel, "fax":fax, "mail":mail, "site":site, 
