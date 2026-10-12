@@ -31,7 +31,8 @@ MESSAGE_ATTENDU = u"Cette famille n'a pas de compte payeur rattaché. Cette opé
 MENUS_VENTILATION = [
     ("MenuImprimerReleve", "DLG_Releve_prestations"),
     ("MenuGenererAttestation", "DLG_Impression_attestation"),
-    ("MenuGenererDevis", "DLG_Impression_devis"),
+    # MenuGenererDevis exclu : main edite un devis sans ventilation ni compte payeur
+    # (choix RC2, couvert par test_devis_sans_ventilation).
     ("MenuGenererRappel", "DLG_Rappels_generation"),
 ]
 
