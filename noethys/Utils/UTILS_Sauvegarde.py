@@ -402,8 +402,9 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
 
                 # Anciens dumps : autorises (pas de manifeste).
                 # Dumps V1 : integrite SHA-256 et taille obligatoirement valides.
-                # Refus AVANT toute creation de base ou execution mysql.
-                avecManifeste, erreurManifeste = UTILS_SQL_Integrite.VerifierIntegriteSQL(fichierRestore)
+                # Tous : analyse syntaxique (dump tronque, instruction incomplete,
+                # aucun objet a restaurer). Refus AVANT toute creation de base ou execution mysql.
+                analyseSQL, erreurManifeste = UTILS_SQL_Integrite.AnalyserDumpSQL(fichierRestore)
                 if erreurManifeste is not None:
                     dlgprogress.Destroy()
                     dlgErreur = wx.MessageDialog(None, _(u"Dump SQL invalide ou incomplet : %s") % erreurManifeste, _(u"Erreur"), wx.OK | wx.ICON_ERROR)

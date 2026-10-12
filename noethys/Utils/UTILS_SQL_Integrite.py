@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Validation independante des manifestes SQL Noethys V1 (sans wx ni base)."""
+"""Validation independante des dumps SQL Noethys : manifeste V1 et analyse
+syntaxique (sans wx ni base)."""
 
 import hashlib
+import io
 import os
 import re
 import tempfile
@@ -112,3 +114,279 @@ def VerifierIntegriteSQL(fichier):
             return True, None
     except OSError as erreur:
         return False, "lecture du dump SQL impossible : %s" % erreur
+
+
+# ---------------------------------------------------------------------------
+# Analyse syntaxique des dumps (Noe-032).
+# Recopie a l'identique depuis master (origin/master b0be3c7e, UTILS_Sauvegarde.py) :
+# constantes et fonctions _NettoyerSQLPourAnalyse, _NouvelInventaireObjetsSQL,
+# _ClasserInstructionSQL, _DecouperInstructionsSQL, _NomObjetSQL. Seule l'entree
+# AnalyserDumpSQL est propre a ce module : elle reutilise VerifierIntegriteSQL.
+# ---------------------------------------------------------------------------
+
+_TAILLE_PREFIXE_INSTRUCTION_SQL = 16 * 1024
+_IDENTIFIANT_SQL = r'(?:`(?:``|[^`])+`|"(?:""|[^"])+"|[A-Za-z0-9_$]+)'
+_NOM_QUALIFIE_SQL = r"(?:(?:%s)\s*\.\s*)?(?P<nom>%s)" % (_IDENTIFIANT_SQL, _IDENTIFIANT_SQL)
+_MODIFICATEURS_CREATE_SQL = (
+    r"(?P<modificateurs>(?:(?:OR\s+REPLACE|TEMPORARY|ALGORITHM\s*=\s*\S+|"
+    r"DEFINER\s*=\s*\S+(?:\s*@\s*\S+)?|SQL\s+SECURITY\s+\w+)\s+)*)"
+)
+_CREATE_OBJET_SQL_RE = re.compile(
+    r"\bCREATE\s+%s(?P<type>TABLE|VIEW|TRIGGER|PROCEDURE|FUNCTION|EVENT)\s+"
+    r"(?:IF\s+NOT\s+EXISTS\s+)?%s" % (_MODIFICATEURS_CREATE_SQL, _NOM_QUALIFIE_SQL),
+    re.IGNORECASE,
+)
+_ECRITURE_TABLE_SQL_RE = re.compile(
+    r"\b(?:INSERT(?:\s+(?:LOW_PRIORITY|DELAYED|HIGH_PRIORITY|IGNORE))*|"
+    r"REPLACE(?:\s+(?:LOW_PRIORITY|DELAYED))*)\s+INTO\s+%s" % _NOM_QUALIFIE_SQL,
+    re.IGNORECASE,
+)
+
+
+def _NettoyerSQLPourAnalyse(texte):
+    """ Retire commentaires et littéraux sans masquer les identifiants SQL quotés. """
+    texte = re.sub(r"/\*!\d{5,6}\s*(.*?)\*/", r"\1", texte, flags=re.S)
+    resultat = io.StringIO()
+    index = 0
+    longueur = len(texte)
+
+    while index < longueur:
+        caractere = texte[index]
+
+        if caractere == u"'":
+            quote = caractere
+            resultat.write(u" __NOETHYS_SQL_STRING__ ")
+            index += 1
+            ferme = False
+            while index < longueur:
+                caractere = texte[index]
+                if caractere == u"\\":
+                    index += 2
+                    continue
+                if caractere == quote:
+                    if index + 1 < longueur and texte[index + 1] == quote:
+                        index += 2
+                        continue
+                    index += 1
+                    ferme = True
+                    break
+                index += 1
+            if ferme == False:
+                return resultat.getvalue(), False
+            continue
+
+        if caractere in (u"`", u'"'):
+            quote = caractere
+            debut = index
+            index += 1
+            ferme = False
+            while index < longueur:
+                if texte[index] == quote:
+                    if index + 1 < longueur and texte[index + 1] == quote:
+                        index += 2
+                        continue
+                    index += 1
+                    ferme = True
+                    break
+                if texte[index] == u"\\":
+                    index += 2
+                    continue
+                index += 1
+            resultat.write(texte[debut:index])
+            if ferme == False:
+                return resultat.getvalue(), False
+            continue
+
+        if caractere == u"/" and index + 1 < longueur and texte[index + 1] == u"*":
+            finCommentaire = texte.find(u"*/", index + 2)
+            if finCommentaire == -1:
+                return resultat.getvalue(), False
+            resultat.write(u" ")
+            index = finCommentaire + 2
+            continue
+
+        if caractere == u"#":
+            finLigne = texte.find(u"\n", index + 1)
+            if finLigne == -1:
+                break
+            resultat.write(u"\n")
+            index = finLigne + 1
+            continue
+
+        if caractere == u"-" and index + 1 < longueur and texte[index + 1] == u"-":
+            suivant = texte[index + 2:index + 3]
+            if suivant == u"" or suivant.isspace():
+                finLigne = texte.find(u"\n", index + 2)
+                if finLigne == -1:
+                    break
+                resultat.write(u"\n")
+                index = finLigne + 1
+                continue
+
+        resultat.write(caractere)
+        index += 1
+
+    return resultat.getvalue(), True
+
+
+def _NouvelInventaireObjetsSQL():
+    return {
+        "tables": set(),
+        "vues": set(),
+        "triggers": set(),
+        "procedures": set(),
+        "fonctions": set(),
+        "evenements": set(),
+    }
+
+
+def _ClasserInstructionSQL(instruction, objets):
+    correspondances = {
+        "TABLE": "tables",
+        "VIEW": "vues",
+        "TRIGGER": "triggers",
+        "PROCEDURE": "procedures",
+        "FUNCTION": "fonctions",
+        "EVENT": "evenements",
+    }
+
+    correspondance = _CREATE_OBJET_SQL_RE.match(instruction)
+    if correspondance is not None:
+        typeObjet = correspondance.group("type").upper()
+        modificateurs = correspondance.group("modificateurs") or u""
+        if typeObjet != "TABLE" or re.search(r"\bTEMPORARY\b", modificateurs, re.IGNORECASE) is None:
+            objets[correspondances[typeObjet]].add(_NomObjetSQL(correspondance.group("nom")))
+        return
+
+    correspondance = _ECRITURE_TABLE_SQL_RE.match(instruction)
+    if correspondance is not None:
+        objets["tables"].add(_NomObjetSQL(correspondance.group("nom")))
+
+
+def _DecouperInstructionsSQL(texte):
+    """ Classe les instructions de premier niveau en respectant DELIMITER, avec mémoire bornée par instruction. """
+    objets = _NouvelInventaireObjetsSQL()
+    tampon = []
+    tailleTampon = 0
+    tamponSignificatif = False
+    delimiteur = u";"
+    index = 0
+    debutLigne = True
+    longueur = len(texte)
+
+    while index < longueur:
+        if debutLigne and tamponSignificatif == False:
+            finLigne = texte.find(u"\n", index)
+            if finLigne == -1:
+                finLigne = longueur
+            ligne = texte[index:finLigne]
+            correspondance = re.match(r"^[ \t]*DELIMITER[ \t]+(\S+)[ \t\r]*$", ligne, re.IGNORECASE)
+            if correspondance is not None:
+                delimiteur = correspondance.group(1)
+                tampon = []
+                tailleTampon = 0
+                index = finLigne + (1 if finLigne < longueur else 0)
+                debutLigne = True
+                continue
+
+        caractere = texte[index]
+        if caractere in (u"`", u'"'):
+            quote = caractere
+            debut = index
+            index += 1
+            while index < longueur:
+                if texte[index] == quote:
+                    if index + 1 < longueur and texte[index + 1] == quote:
+                        index += 2
+                        continue
+                    index += 1
+                    break
+                if texte[index] == u"\\":
+                    index += 2
+                    continue
+                index += 1
+            fragment = texte[debut:index]
+            if tailleTampon < _TAILLE_PREFIXE_INSTRUCTION_SQL:
+                fragmentPrefixe = fragment[:_TAILLE_PREFIXE_INSTRUCTION_SQL - tailleTampon]
+                tampon.append(fragmentPrefixe)
+                tailleTampon += len(fragmentPrefixe)
+            tamponSignificatif = True
+            debutLigne = fragment.endswith(u"\n")
+            continue
+
+        if delimiteur and texte.startswith(delimiteur, index):
+            instruction = u"".join(tampon).strip()
+            if tamponSignificatif and instruction:
+                _ClasserInstructionSQL(instruction, objets)
+            tampon = []
+            tailleTampon = 0
+            tamponSignificatif = False
+            index += len(delimiteur)
+            debutLigne = False
+            continue
+
+        if tailleTampon < _TAILLE_PREFIXE_INSTRUCTION_SQL:
+            tampon.append(caractere)
+            tailleTampon += 1
+        if not caractere.isspace():
+            tamponSignificatif = True
+        debutLigne = caractere == u"\n"
+        index += 1
+
+    # Un objet explicitement créé comme vue ne doit pas être accepté comme table ordinaire.
+    objets["tables"].difference_update(objets["vues"])
+    return objets, tamponSignificatif, delimiteur
+
+
+def _NomObjetSQL(valeur):
+    valeur = valeur.strip()
+    if valeur.startswith(u"`") and valeur.endswith(u"`"):
+        valeur = valeur[1:-1].replace(u"``", u"`")
+    elif valeur.startswith(u'"') and valeur.endswith(u'"'):
+        valeur = valeur[1:-1].replace(u'""', u'"')
+    return valeur.lower()
+
+
+def _LireChargeSQL(chemin, avec_manifeste):
+    """Retourne la charge SQL brute, sans l'enveloppe V1 deja verifiee."""
+    with open(chemin, "rb") as source:
+        contenu = source.read()
+    if not avec_manifeste:
+        return contenu
+    debut = contenu.find(b"\n") + 1
+    fin = contenu.rfind(b"\n" + _FIN)
+    return contenu[debut:fin]
+
+
+def AnalyserDumpSQL(fichier):
+    """Retourne (analyse, erreur) ; analyse = {"avec_manifeste", "objets"}.
+
+    Refuse avant toute commande mysql : manifeste invalide, dump vide, chaine,
+    identifiant ou commentaire non ferme, derniere instruction incomplete,
+    delimiteur non retabli et dump sans objet persistant ni chargement de table.
+    """
+    chemin = os.fspath(fichier)
+    avec_manifeste, erreur = VerifierIntegriteSQL(chemin)
+    if erreur is not None:
+        return None, erreur
+    try:
+        charge = _LireChargeSQL(chemin, avec_manifeste)
+    except (IOError, OSError) as err:
+        return None, "lecture du dump SQL impossible : %s" % err
+    if not charge or not charge.strip():
+        return None, "dump SQL vide"
+
+    texte = charge.decode("utf-8", "ignore")
+    texteNettoye, ferme = _NettoyerSQLPourAnalyse(texte)
+    if ferme == False:
+        return None, "dump SQL termine dans une chaine, un identifiant ou un commentaire non ferme"
+
+    objets, reste, delimiteur = _DecouperInstructionsSQL(texteNettoye)
+    if reste:
+        return None, "derniere instruction SQL incomplete"
+    if delimiteur != u";":
+        return None, "delimiteur standard non retabli en fin de dump SQL"
+    if not any(objets.values()):
+        return None, "aucun objet persistant ni chargement de table dans le dump SQL"
+
+    return {"avec_manifeste": avec_manifeste, "objets": objets}, None

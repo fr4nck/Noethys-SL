@@ -93,6 +93,27 @@ class RestaurationManifesteTests(unittest.TestCase):
             self.assertTrue(archive.exists())
             self.assertFalse((rep / "restoretemp").exists())
 
+    def test_ancien_dump_tronque_refuse_avant_sql(self):
+        with tempfile.TemporaryDirectory(prefix="noe032-analyse-tronque-") as dossier:
+            rep = Path(dossier)
+            archive = rep / "tronque.nod"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("base_fictive.sql", b"CREATE TABLE fictive (id INT);\nINSERT INTO fictive VALUES (1),(")
+            resultat = self._executer(archive, rep, processus_interdit=True, base_interdite=True)
+            self.assertIs(resultat, False)
+            self.assertTrue(archive.exists())
+            self.assertFalse((rep / "restoretemp").exists())
+
+    def test_dump_sans_objet_restaurable_refuse_avant_sql(self):
+        with tempfile.TemporaryDirectory(prefix="noe032-analyse-noop-") as dossier:
+            rep = Path(dossier)
+            archive = rep / "noop.nod"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("base_fictive.sql", b"-- vide\nSELECT 1;\n")
+            resultat = self._executer(archive, rep, processus_interdit=True, base_interdite=True)
+            self.assertIs(resultat, False)
+            self.assertFalse((rep / "restoretemp").exists())
+
     def test_ancien_dump_sans_manifeste_reste_lisible(self):
         with tempfile.TemporaryDirectory(prefix="noe032-manifest-ancien-") as dossier:
             rep = Path(dossier)
