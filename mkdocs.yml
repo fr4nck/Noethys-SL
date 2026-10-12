@@ -41,6 +41,7 @@ nav:
   - Accueil: index.md
   - Exploiter Noethys SL:
       - Récupération d'un dump SQL: exploitation/RECUPERATION_DUMP_SQL.md
+      - Mode portable: exploitation/MODE_PORTABLE.md
       - Adhésions automatiques: metier/ADHESIONS_AUTOMATIQUES.md
       - AFAS — actualisation de septembre: afas/actualisation-septembre.md
   - Recettes:

@@ -42,6 +42,13 @@ La liste complète des branches archivées, avec SHA et empreintes, est dans
 | Consommateur `session-attendance/1` (pointage de séance) | #369 | #424 | `feature/session-attendance-consumer-2026-09-19` @ `74410a3e` | interventions Noe-062 de la lignée `master` ; table `interventions_attendance_inbox` |
 | `SecretProvider` Windows du client mailbox inter-domaines | #355 | #424 | `noe-062-secure-secret-provider` @ `04f7886c` | client mailbox de la lignée `master` |
 
+## Packaging
+
+| Sujet | Archive | Motif du report |
+|---|---|---|
+| ZIP livré avec un dossier `Portable` déjà présent (mode portable par défaut) | `noe-041-portable-mode` @ `3cf6cbfe` | décision du 12/10/2026 : conserver ZIP et Setup sans imposer un nouveau packaging ; activation manuelle documentée dans [Mode portable](../exploitation/MODE_PORTABLE.md) |
+| Smoke test non interactif de l'exécutable gelé (Noe-040 : `eeaa998c`, `ca40c11c`, `6f1de516`, `2116562b`) | `noe-041-portable-mode` @ `3cf6cbfe` | outillage de qualification Windows à reprendre avec le prochain chantier de build (le workflow de `main` vérifie déjà le démarrage de l'exécutable) |
+
 ## Prototypes
 
 | Sujet | Archive | État |
