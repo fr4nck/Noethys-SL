@@ -1135,3 +1135,16 @@ de familles/tiers/interventions, Qt, packaging, et la recette de remise effectiv
 Mailjet. Aucun changement nouveau permettant un autre retrait n'est revendiqué.
 Suite : intégrer/qualifier ces domaines par lots avant leur retrait ; ne pas
 réutiliser les anciens plans sur un nouveau SHA sans requalification.
+
+
+## 22. Reprise du bac a sable MySQL #104 et cloture documentaire — 12/10/2026
+
+- **Branches autorisees uniquement :** main, wx, qt. Anciennes branches conservees tant que non qualifiees. `master` reste la branche par defaut, non modifiee. Aucun nouveau branchement, merge global, force-push, migration, packaging ou consultation de donnees PMSL.
+- **Source historique :** PR #104 (branche `dev-db-docker`) ; reprise adaptee, non fusionnee. L'environnement MySQL 5.5 conserve la reference digest historique, la liaison locale 127.0.0.1:3308 et une base strictement fictive.
+- **Apports publies :** .gitignore, dev/db/.env.example, dev/db/compose.yml, dev/db/guard.ps1, dev/db/start.ps1, dev/db/reset.ps1, dev/db/import.ps1, dev/db/smoke.ps1, dev/db/README.md, .github/workflows/noe-032-mysql-smoke.yml.
+- **Securite ajoutee :** nom du projet/conteneur Docker fixe, restart refuse, verifications fichier .env et surcharge d'environnement, contexte Docker local impose, image epinglee ou convertie CI, reset limite au projet avec double confirmation, blocage de tout import generique Noethys au profit de la fixture synthetique unique.
+- **Propagation verifiee** : SHA Git blob strictement identique pour chacun des dix fichiers sur main/wx/qt, controle via GitHub apres publication. Les commit SHA des trois branches divergent volontairement et ne signifient pas une difference de contenu de ce lot.
+- **Qualification** : verification des fichiers Git reussie ; scripts PowerShell et Docker NON EXECUTES dans cet environnement, Windows reel, ancienne image MySQL et restitution de bases fictives EN ATTENTE. Le workflow est manuel pour preserver les minutes Actions. Ce lot ne leve PAS les stop-gates restauration SQL avancee, schema complet, dump tronque, postconditions, reseau ou rollback. Aucune conclusion sur l'installation d'exploitation.
+- **PR documentaires :** #102 et #112 reprennent chacune un seul fichier; les blobs uniques ont ete integres identiquement aux trois branches lors du lot precedent. Les deux PR ont recu une note de provenance et sont fermees comme reprises/supplantees (non mergees), sans modification de master. #104 reste ouverte, non qualifiee.
+- **References distantes** : 42 branches au dernier inventaire, aucun retrait supplementaire dans ce lot. PR ouvertes passees de 8 a 6 apres cloture #102/#112 ; recontroler cet inventaire avant toute operation ulterieure.
+- **Prochaine action concrete** : executer la recette manuelle sur runner/sandbox isole avec donnees 100 % synthétiques (aucune base PMSL) ; qualifier les 25 tests historiques Noe-032 et les protections de master par comportement avant portage cible sur main puis adaptations wx/qt. Les anciennes branches ne pourront etre supprimees qu'apres preuve d'integration ou arbitrage explicite.
