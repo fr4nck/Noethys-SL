@@ -539,6 +539,7 @@ class MailjetTests(unittest.TestCase):
         'Réessayer' re-POST le même message sans avertissement."""
         m = self._mailjet()
         reponse_ok = mock.MagicMock()
+        reponse_ok.status_code = 200  # main exige un statut HTTP 200/201
         reponse_ok.json.return_value = {"Messages": [{"Status": "success"}]}
         connexion = mock.MagicMock()
         connexion.send.create.side_effect = [TimeoutError("Request to Mailjet API timed out"), reponse_ok]
