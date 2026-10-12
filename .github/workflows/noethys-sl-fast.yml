@@ -104,6 +104,8 @@ jobs:
           tests.test_vanilla_candidate_contract
           tests.test_vanilla_boutons_places
           tests.test_vanilla_consommations_fermeture
+          tests.test_vanilla_gestionnaire_conso_fermeture
+          tests.test_vanilla_recette_menus
           tests.test_vanilla_crash_recipient
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
