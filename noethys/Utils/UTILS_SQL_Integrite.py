@@ -40,6 +40,8 @@ def AjouterManifesteIntegriteSQL(fichier):
                     empreinte.update(bloc)
                     taille += len(bloc)
                     destination.write(bloc)
+                if taille == 0:
+                    raise ValueError("dump SQL vide : manifeste non ajoute")
                 destination.write(b"\n" + _FIN + jeton + b" " + str(taille).encode("ascii")
                                   + b" " + empreinte.hexdigest().encode("ascii") + b"\n")
         os.replace(temporaire, chemin)
@@ -92,6 +94,8 @@ def VerifierIntegriteSQL(fichier):
                 return True, "identifiants du manifeste SQL differents"
             fin_charge = debut_queue + marqueur
             taille_reelle = fin_charge - depart_charge
+            if taille_reelle == 0:
+                return True, "charge SQL vide dans le manifeste"
             if taille_reelle != int(taille_declaree):
                 return True, "taille du dump SQL differente du manifeste"
             source.seek(depart_charge)
