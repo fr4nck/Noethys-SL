@@ -158,3 +158,6 @@ dev/db/.env
 dev/db/anonymization-report.txt
 dev/db/imports/
 dev/db/exports/
+
+# Site MkDocs construit
+/site/

@@ -1,0 +1,67 @@
+site_name: Documentation Noethys SL
+site_description: Documentation de Noethys SL — socle commun et interfaces wx / Qt
+site_url: https://fr4nck.github.io/Noethys-SL/
+repo_url: https://github.com/fr4nck/Noethys-SL
+repo_name: fr4nck/Noethys-SL
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+# Les archives historiques (chemins longs, contenus figés) et les fichiers
+# techniques ne sont pas publiés ; ils restent consultables dans le dépôt.
+exclude_docs: |
+  archives/
+  *.sql
+  *.ndc
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Accueil: index.md
+  - Exploiter Noethys SL:
+      - Récupération d'un dump SQL: exploitation/RECUPERATION_DUMP_SQL.md
+      - Adhésions automatiques: metier/ADHESIONS_AUTOMATIQUES.md
+      - AFAS — actualisation de septembre: afas/actualisation-septembre.md
+  - Recettes:
+      - Recette du candidat du 08/10/2026: recette/RECETTE_CANDIDAT_2026-10-08.md
+      - Recette des conventions: recette_conventions/README.md
+      - Recette « Aujourd'hui »: ephemerides/recette.md
+  - Développer:
+      - Reprise et état des branches: dev/REPRISE_CODEX.md
+      - Fonctionnalités reportées: dev/FONCTIONNALITES_REPORTEES.md
+      - Modèles de conventions: dev/CONVENTION_MODELES_GESTION.md
+      - Contribuer à la documentation: CONTRIBUTING_DOCS.md
+  - Interface:
+      - Stabilisation Vanilla: VANILLA_STABILISATION.md
+      - Audit des commandes de l'interface: VANILLA_UI_COMMAND_AUDIT.md
+      - Densité informationnelle des formulaires: FORMULAIRES_DENSITE_INFORMATIONNELLE.md
+      - Apparence claire (PR 375): noethys_sl_wx_pr375_apparence_claire.md
+  - Audits et incidents:
+      - Audit réseau RC2: audit/AUDIT_RESEAU_RC2.md
+      - Contrat Connecthys: audit/CONTRAT_CONNECTHYS.md
+      - Contre-qualification du rail 1: audit/CONTRE_QUALIFICATION_RAIL1.md
+      - Diagnostic Mailjet: audit/DIAGNOSTIC_MAILJET.md
+      - Incident du 08/10/2026 — tests et base réseau: incidents/2026-10-08-tests-base-reseau.md
+  - Gouvernance:
+      - Stratégie du projet: governance/PROJECT_STRATEGY.md
