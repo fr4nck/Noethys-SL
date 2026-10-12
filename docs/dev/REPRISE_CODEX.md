@@ -504,3 +504,26 @@ Liste des 37 sources conservées dans qualification.json de la session du
 de la session précédente. Les 37 sources portent des variantes, outils,
 protections ou fonctionnalités qui demandent une décision ciblée ; elles ne
 sont pas déclarées absentes du moteur sur la seule différence de fichier.
+
+
+### Résultat distant confirmé du lot du 12/10/2026
+
+L’envoi atomique a réussi : publication des deux notes locales e59f3400,
+aa74aa87 et du commit d’archives e9c9398fc544a5698753a3fda6e8dcf13c84822b
+sur main, plus retrait effectif des sept branches du tableau ci-dessus.
+Après cette opération : 51 branches distantes, dont 37 historiques conservées.
+Toutes les autres têtes distantes sont inchangées ; huit PR ouvertes inchangées.
+Aucun code runtime ni test modifié, aucune nouvelle branche ni force-push.
+Les références locales obsolètes sont nettoyées par fetch --prune.
+
+Vérifications finales : profils Portable, tags, trois stashes, branches locales
+master/wx/qt et le worktree WIP Noethys-RC2-clean (diff binaire et inventaire
+non suivi) inchangés. Le dossier principal ne présente que Portable comme
+non suivi. Les 18 tests ciblés réussis, leurs logs, les empreintes des archives
+et la liste des 37 branches conservées sont dans elagage-20261012 dans l’espace
+de sauvegarde de cette session. Les sources archivées sont consultables dans
+docs/archives/branches-20261012 ; aucune consigne historique n’est activée.
+Cette confirmation est publiée comme commit documentaire séparé sur main.
+CI distante : aucun succès revendiqué ; aucun packaging ni release demandé.
+La poursuite implique une qualification de variantes de code, surtout réseau,
+interventions, Qt et packaging ; aucune réintégration automatique autorisée.
