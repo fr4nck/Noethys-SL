@@ -168,18 +168,21 @@ class ListView(FastObjectListView):
         encaissement_attente, 
         reglements.IDdepot, depots.date, depots.nom, depots.verrouillage, 
         date_saisie, IDutilisateur,
-        SUM(ventilation.montant) AS total_ventilation,
+        ventilation_totaux.total_ventilation,
         reglements.IDprelevement,
         comptes_payeurs.IDfamille
         FROM reglements
-        LEFT JOIN ventilation ON reglements.IDreglement = ventilation.IDreglement
+        LEFT JOIN (
+            SELECT IDreglement, SUM(montant) AS total_ventilation
+            FROM ventilation
+            GROUP BY IDreglement
+        ) ventilation_totaux ON reglements.IDreglement = ventilation_totaux.IDreglement
         LEFT JOIN modes_reglements ON reglements.IDmode=modes_reglements.IDmode
         LEFT JOIN emetteurs ON reglements.IDemetteur=emetteurs.IDemetteur
         LEFT JOIN payeurs ON reglements.IDpayeur=payeurs.IDpayeur
         LEFT JOIN depots ON reglements.IDdepot=depots.IDdepot
         LEFT JOIN comptes_payeurs ON comptes_payeurs.IDcompte_payeur = reglements.IDcompte_payeur
         %s
-        GROUP BY reglements.IDreglement
         ;""" % criteres
         db.ExecuterReq(req)
         listeDonnees = db.ResultatReq()
