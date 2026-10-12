@@ -478,11 +478,13 @@ class DestinatairesEtErreursTests(_BaseSMTP):
 
 
 class PieceJointeTexteTests(unittest.TestCase):
-    def test_anomalie_pj_texte_ouverte_sans_encodage_explicite(self):
-        """EMAIL-12 : AttacheFichiersJoints() (UTILS_Envoi_email.py:430)
-        ouvre les PJ text/* avec open(fichier) sans encoding => encodage
-        de la locale (cp1252 sous Windows) pour le sms.txt écrit en UTF-8
-        par DLG_Envoi_sms."""
+    def test_pj_texte_lue_en_octets_et_decodee_explicitement(self):
+        """CORRIGÉ (EMAIL-12, repris de master 910cc8f5) :
+        AttacheFichiersJoints() lisait les PJ text/* avec open(fichier) sans
+        encoding => encodage de la locale (cp1252 sous Windows) pour le
+        sms.txt écrit en UTF-8 par DLG_Envoi_sms. Elle lit désormais les
+        octets ('rb') et les décode explicitement (UTF-8 d'abord), puis
+        attache le texte en UTF-8 : plus de mojibake."""
         appels = []
         vrai_open = open
 
@@ -505,8 +507,12 @@ class PieceJointeTexteTests(unittest.TestCase):
         finally:
             del UTILS_Envoi_email.open
         self.assertEqual(len(appels), 1)
-        self.assertEqual(appels[0][1], ())
-        self.assertNotIn("encoding", appels[0][2])
+        self.assertEqual(appels[0][1], ("rb",))
+        piece = conteneur.attach.call_args[0][0]
+        self.assertEqual(piece.get_content_charset(), "utf-8")
+        # Fichier écrit en mode texte : fins de ligne de la plate-forme.
+        self.assertEqual(piece.get_payload(decode=True).decode("utf-8").replace("\r\n", "\n"),
+                         u"T-Réunion à 18h\n#-0600000000")
 
 
 # ---------------------------------------------------------------------------
