@@ -1355,3 +1355,68 @@ SHA relu juste avant, archive vérifiée (`verify` « is okay », restauration d
 
 - **Branche par défaut** : bascule `master` → `main` **non effectuée** (`master` n'est pas supprimée). Points qualifiés : `master` est protégée (pas de suppression ni de force-push) alors que `main`, `wx`, `qt` ne le sont pas (protection recommandée) ; le workflow planifié « Entretien historique GitHub Actions » n'existe que sur `master` et purge les anciens runs au-delà de 100 : il cessera de tourner à la bascule (ce qui préserve les runs cités comme preuves) ; les PR ouvertes vers `master` ne sont pas modifiées par la bascule.
 - **Prochaine étape** : arbitrages de Franck sur les blocages ci-dessus ; puis build Windows candidat sur demande.
+
+
+## 33. Fin du nettoyage Git : trois branches, reprises de master, bascule sur main — 12-13/10/2026
+
+- **Arbitrages de Franck (12/10/2026)** : objectif `main`, `wx`, `qt` sans perte ; prototype Qt à réintégrer isolé dans `qt` ; #422 fermée après archivage ; #384 reportée avec issue de reprise ; #369 et #355 archivées sans intégration ; #366 (MkDocs) reprise dans `main` ; mode portable sans nouveau packaging ; logo organisateur repris avec test ; master inventorié par ensembles (A corriger, B intégrer si qualifié, C archiver et reporter, D abandon justifié), jamais supprimé en bloc ; protections, workflows, bascule de la branche par défaut, seconde copie des archives. Aucun build Windows, aucune automatisation graphique sur le poste.
+- **Comptage** : 25 branches au début de ce lot, **3 à la fin** (`main`, `wx`, `qt`). `git ls-remote --heads origin` (13/10/2026) : `main` `b32ec308`, `wx` `8a7adbc0`, `qt` `d24d0cf1`.
+
+### Pull requests
+
+| PR | Décision | Traçabilité |
+|---|---|---|
+| #422 (RC3 → RC2) | fermée | contenu RC2 dans main/wx ; tag `noethys-sl-0.1.0-rc.3` et pré-release conservés ; bundles RC2/RC3 |
+| #384 (fonctions des individus dans les entités) | fermée, **reportée** | issue #423 ; bundles `feature/vanilla-entites-fonctions`, `feature/vanilla-conventions` ; `refs/pull/384/head` |
+| #369 (pointage `session-attendance/1`), #355 (`SecretProvider`) | fermées, **reportées** (réseau, non qualifiées) | issue #424 ; bundles ; `refs/pull/369/head`, `refs/pull/355/head` |
+| #366 (MkDocs) | fermée, **reprise** | main `e0a82d71`, `16aa6a9f` ; `mkdocs build --strict` vert en CI ; publication Pages seulement si `DOCS_PAGES_ENABLED=true` (issue #365 ouverte) |
+
+Aucune pull request ouverte.
+
+### Reprises dans les branches canoniques (blobs identiques main/wx/qt sauf mention)
+
+- **Logo de l'organisateur sur l'accueil** (de `fix/vanilla-no-black`) : main `47e20b24` ; transparence conservée, chargé après ouverture d'un fichier, retiré à la fermeture ; `test_accueil_logo_organisateur` (11 tests, 10 échouent sans le correctif).
+- **Mode portable** : packaging inchangé (ZIP et Setup) ; activation documentée dans `docs/exploitation/MODE_PORTABLE.md` (main `16aa6a9f`).
+- **Prototype Qt** (de `poc/qt-theme-isole`) : **qt uniquement**, `55c35a0b` ; paquet `noethys_qt/` isolé, non activé, absent du packaging, `requirements-qt.txt` optionnel ; **garde ajoutée** : sans `--sqlite`, la base configurée (production possible) n'est ouverte que si `NOETHYS_QT_BASE_CONFIGUREE=1` (`test_garde_base_configuree`) ; workflow `qt-prototype.yml` sur `qt` : **102 tests OK** hors écran (run 38311587090). Reste : recette utilisateur en VM, revue des écritures, décision produit (`docs/qt/README.md`).
+- **26 corrections de master** (A01-A19, A21, A23-A25, A27, A28), avec tests : SQL strict (règlements, Quadra/Cerig), frontières texte/binaire et encodages des exports PES/Corail/JVS/Magnus/prélèvements/exports internes, export NoethysWeb en échec, données absentes, imports individus/vacances/badgeage, TIPI, ventilation stricte des paiements en ligne, titulaires multiples, restrictions utilisateur, filtres de tarification, archivage, badgeage (questionnaire, événement), filiation, extensions confinées, hébergement Connecthys inconnu, répertoire de données, `nomFichier` vide, communes homonymes. Détail et SHA : `docs/dev/INVENTAIRE_MASTER.md`. Outils `scripts/audit_branch_assignment_gaps.py` et `scripts/audit_source_coverage.py` repris (requis par les tests de contrat). Une partie (11 correctifs) a été réalisée par un agent dans un worktree isolé puis relue avant intégration ; `chardet` reste facultatif (`FonctionsPerso.DecoderTexteFichier`) ; `test_audit_reseau_emails` inversé pour EMAIL-12 corrigé.
+- **Non repris, avec motif** : A20 `isAlive` (déjà couvert par l'alias de `UTILS_Adaptations` ; un commit erroné en ce sens a été retiré avant publication), gardes IndexError partielles de `ce979bbd` (non vérifiées) ; A22 `ast.literal_eval` (EN ATTENTE : contrôle sur copie de base) ; A26 double-clic de grille (EN ATTENTE : recette Windows isolée). Fonctionnalités B (écritures transactionnelles, évaluateur d'expressions, commande de repas automatique, recherche tolérante, chargement différé) et ensembles C/D : reportés, listés dans `docs/dev/FONCTIONNALITES_REPORTEES.md`.
+- **Recette** : suite rapide sans interface **516 tests OK** (4 ignorés) sur main, wx et qt ; CI rapide verte (main `a60e805b` run 38314409244, wx `d4d4aaae` run 38314517665) ; MkDocs vert (main `b32ec308` run 38314727754). Chaque test repris ou écrit a été vérifié en échec sans son correctif.
+
+### GitHub
+
+- **Protections** : `main`, `wx`, `qt` interdisent suppression et force-push (aucune revue ni contrôle obligatoire : les fast-forward directs restent possibles).
+- **Workflows** : `noethys-sl-windows`, `vanilla-r2`, `vanilla-release`, `vanilla-windows-package` ne se lancent plus que sur demande (`workflow_dispatch`) ; leurs déclencheurs visaient des branches supprimées (main `4a571a5f`). `docs.yml` construit sur `main`. Le workflow planifié « Entretien historique GitHub Actions » n'existait que sur `master` : il ne s'exécute plus.
+- **Branche par défaut** : `main` (13/10/2026, API : `default_branch=main`).
+- **master** : archivé (`master.bundle`, SHA-256 `c0e925a900b5da94db1a36b7d5475d5c86016e6d916b8cbf273512d5e6ba865e`, deux copies), protection retirée puis branche supprimée ; absente de `git ls-remote` ensuite. La branche locale `master` du poste n'a pas été touchée.
+
+### Archives
+
+- 39 bundles vérifiés (verify, restauration au SHA exact, `fsck`) dans `C:\Users\Ordi\Documents\Sauvegardes-Noethys\branches-supprimees-20261012\` et **seconde copie** `C:\Users\Ordi\OneDrive\Sauvegardes-Noethys\branches-supprimees-20261012\` (39/39 empreintes contrôlées par `sha256sum -c`). Un bundle n'étant pas reproductible octet pour octet, une archive déjà documentée n'est jamais régénérée.
+- Branches supprimées dans ce lot (SHA ; bundle SHA-256) :
+  - `rc/noethys-sl-0.1.0-rc.3` `28c2294c` ; `ec370a4d3cf94b31c748e0588c32e7db4f435c836aa9cf2510ef734cb0d1655a`
+  - `rc/noethys-sl-0.1.0-rc.2` `91d9e625` ; `205d3fa38e0bbddad6c22d803217443257e09df1c7c76b02260d5e9b0f800465`
+  - `feature/vanilla-entites-fonctions` `4e2c615b` ; `8c95224b15a047653e4f861ee6ea25917c3d6e4b009d53e2cd104c38aa191fda`
+  - `feature/vanilla-conventions` `c2c3e87a` ; `aac52b7f836e4289cad894961da72befadfea90508543623a2258d54e68fa94f`
+  - `feature/session-attendance-consumer-2026-09-19` `74410a3e` ; `ea7fc45768e06a107fb4385f2a80dcd9f8448a8eb2c54db8f4df60a838aa7d20`
+  - `noe-062-secure-secret-provider` `04f7886c` ; `4f81b7bdf1a4fbe2b475cc933dcb7e2ba9a45e2f2b754d2f829692eea816c9d4`
+  - `docs/mkdocs-wiki` `e43492b1` ; `77606fd02f0c1589e098ee9100e76383c21f70aa49501381cffde2b62a65b15c`
+  - `noe-041-portable-mode` `3cf6cbfe` ; `4754adb1b6f233e738556bc9fca411d5c18c4050d443a4ab3491419d73c6a0dc`
+  - `fix/vanilla-no-black` `7c39f16a` ; `b109f732c4635182edac3eb9dceb802a53498429c8138abffaebb06a117c4ca7`
+  - `feature/extensions-registry` `9174ba32` ; `686c3f20865da672884a3fc62ad1bd9b780bd7ed5fad43dcd01cddb52ed30fa8`
+  - `feature/noe-062-conventions` `f85fd51e` ; `724083acfe98cdee7cc6704404ba0b68b9bbe7bb180b3cd0bb7260b906bd6574`
+  - `feature/noe-062-mises-a-disposition` `c69f3c80` ; `70deb97706eee358056f4da1975df0ece7fe768f6c66847fc73911b983a066fb`
+  - `feature/noe-062b-groupes-structures` `203fff34` ; `9b380db77f7caa5c87a2ee5657f048e601b821e3b15763aa0abc3235258235bb`
+  - `feature/noe-062b-roles-contacts` `177b4c3d` ; `46cd2fa2d34afaf433f86b2e5b0cda85ae620b0734e8647b48877e5ffe3fc273`
+  - `feature/noe-063-portail-consolide` `55b2b129` ; `76d9c5c978fbd52003df1302d9a8a60f8229e91c1950b74fd6779bc9ddc18ca1`
+  - `feature/noe-063b-rss-atom-connecthys` `8f84f5ed` ; `770abe162e23253e3cfe855b15c3bc846978869905a4d8fdd6372200ae93ae78`
+  - `feature/noe-063d-tarifs-ui` `20d5b15c` ; `0965604f9596cf407227bc1f45dc5e6b5230128023e83a2e19ade6c7c471a722`
+  - `fix/noe-062b-hardening` `752645c5` ; `4f7463bfa4413d22a55840fb6f3f21bd61c5bb818b2c29a09b4521d41ed00209`
+  - `noe-062-programmation-occurrences` `88904fc7` ; `507493a94ed5a4d385755a9659c53b45e99fcbc93028495c2d6b10250f059988`
+  - `noe-062c-lieux-execution-seances` `be059ccd` ; `206af2ce4770039b2a32a22f387ea1e2363bb28d98fb652358cf18ac8c886f95`
+  - `refactor/ui-list-tools-repens` `52ed49bf` ; `62cda39a542ecc94fcbff2004b73f4ff5211b1b47475840a88f4ef1d3a9c83cc`
+  - `master` `b0be3c7e` ; `c0e925a900b5da94db1a36b7d5475d5c86016e6d916b8cbf273512d5e6ba865e`
+- Worktree WIP `Noethys-RC2-clean` (HEAD détachée `8b3789d9`, commit pointé par le tag `noethys-sl-0.1.0-rc.2`) : non touché ; son commit reste dans le dépôt local et dans le tag.
+
+### Prochaine étape
+
+Reprise de la fabrication du candidat Vanilla depuis `wx`, **sur demande de Franck** (build Windows non lancé). Restent EN ATTENTE : A22, A26, gardes partielles de A20, recette utilisateur du prototype Qt.
