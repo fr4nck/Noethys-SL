@@ -179,25 +179,35 @@ class Export:
             self.liste_objets.extend(table.Get_objets())
 
     def Finaliser(self):
-        # Création du fichier json
-        nom_fichier_json = os.path.join(self.rep, "core.json")
-        with open(nom_fichier_json, 'w', encoding='utf-8') as outfile:
-            json.dump(self.liste_objets, outfile, indent=4, cls=MyEncoder)
+        fichier_zip = None
+        self.erreur_export = None
+        try:
+            # Création du fichier json
+            nom_fichier_json = os.path.join(self.rep, "core.json")
+            with open(nom_fichier_json, 'w', encoding='utf-8') as outfile:
+                json.dump(self.liste_objets, outfile, indent=4, cls=MyEncoder)
 
-        # Création du ZIP
-        fichier_zip = shutil.make_archive(UTILS_Fichiers.GetRepTemp("exportweb"), 'zip', self.rep)
+            # Création du ZIP
+            fichier_zip = shutil.make_archive(UTILS_Fichiers.GetRepTemp("exportweb"), 'zip', self.rep)
 
-        # Crypte le fichier
-        if self.mdp:
-            UTILS_Cryptage_fichier.CrypterFichier(fichier_zip, self.nom_fichier, self.mdp, ancienne_methode=False)
-        else:
-            shutil.copyfile(fichier_zip, self.nom_fichier)
-
-        # Nettoyage
-        shutil.rmtree(self.rep)
-        os.remove(fichier_zip)
-
-        return True
+            # Crypte ou copie le fichier final
+            if self.mdp:
+                UTILS_Cryptage_fichier.CrypterFichier(fichier_zip, self.nom_fichier, self.mdp, ancienne_methode=False)
+            else:
+                shutil.copyfile(fichier_zip, self.nom_fichier)
+            return True
+        except Exception as err:
+            self.erreur_export = str(err)
+            return False
+        finally:
+            # Les temporaires ne doivent pas survivre à une réussite ou à un échec.
+            if os.path.isdir(self.rep):
+                shutil.rmtree(self.rep, ignore_errors=True)
+            if fichier_zip and os.path.isfile(fichier_zip):
+                try:
+                    os.remove(fichier_zip)
+                except OSError:
+                    pass
 
 class Export_all(Export):
     def __init__(self, *args, **kwds):
@@ -497,7 +507,7 @@ class Export_all(Export):
                                             exclure_champs=["IDlocation_portail", "partage", "description"]))
 
         self.DB.Close()
-        self.Finaliser()
+        self.resultat = self.Finaliser()
 
 
 class Table_structures(Table):
