@@ -125,6 +125,13 @@ jobs:
           tests.test_ol_inscriptions_scolaires_entity_lookup_guard_contract
           tests.test_noethys_sl_fermeture_windows
           tests.test_vanilla_crash_recipient
+          tests.test_rail1_reportlab5
+          tests.test_rail1_mail_familles
+          tests.test_rail1_recu_reglement
+          tests.test_rail1_portail_recu
+          tests.test_rail1_mail_lot
+          tests.test_audit_reseau_emails
+          tests.test_audit_reseau_connecthys
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
