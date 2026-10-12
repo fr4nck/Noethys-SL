@@ -1,0 +1,2 @@
+# Historical snapshots: retain source bytes and legacy whitespace.
+** -text -whitespace

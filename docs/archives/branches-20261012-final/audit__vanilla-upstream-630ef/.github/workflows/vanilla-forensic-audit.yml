@@ -1,0 +1,51 @@
+name: Vanilla forensic audit
+
+on:
+  push:
+    branches:
+      - audit/vanilla-upstream-630ef
+    paths:
+      - '.github/workflows/vanilla-forensic-audit.yml'
+      - 'scripts/vanilla_forensic_audit.py'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Installer Ruff hors dépendances applicatives
+        run: python -m pip install --disable-pip-version-check ruff
+
+      - name: Vérifier la syntaxe
+        continue-on-error: true
+        run: python -m compileall -q -x 'C866CA3A' noethys/
+
+      - name: Chercher les noms non définis et lectures locales avant affectation
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p tmp
+          ruff check noethys --select F821,F823 --output-format json > tmp/ruff-undefined.json || true
+          ruff check noethys --select F821,F823 --output-format concise > tmp/ruff-undefined.txt || true
+          cat tmp/ruff-undefined.txt
+
+      - name: Audit sémantique complémentaire
+        run: python scripts/vanilla_forensic_audit.py --json tmp/vanilla-forensic.json
+
+      - name: Conserver les diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-forensic-diagnostics
+          path: tmp/*
+          if-no-files-found: error
+          retention-days: 14

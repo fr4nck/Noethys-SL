@@ -1,0 +1,392 @@
+{
+  "files": [
+    {
+      "branch": "audit/vanilla-deep-scan-20260826",
+      "sha": "cacafa37eb31e35f60ae1b6eb2e96237274159c6",
+      "source_path": ".github/workflows/audit-vanilla-deep-scan-pr.yml",
+      "source_blob": "3789883d365629d3ce25f200011ab93e51c57d05",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-deep-scan-20260826/.github/workflows/audit-vanilla-deep-scan-pr.yml",
+      "sha256": "2db3c24a29715b229f7f554a1ba6e9eee444f2ead5fab309069de87bc56debc2",
+      "bytes": 706
+    },
+    {
+      "branch": "audit/vanilla-deep-scan-20260826",
+      "sha": "cacafa37eb31e35f60ae1b6eb2e96237274159c6",
+      "source_path": ".github/workflows/audit-vanilla-deep-scan.yml",
+      "source_blob": "4594e80ca76b0c0b985c4d2ecbaa233b4db1ffff",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-deep-scan-20260826/.github/workflows/audit-vanilla-deep-scan.yml",
+      "sha256": "397fec846ec72cf605108c5c5865c94e970191213415beef341fa5b91aedac6f",
+      "bytes": 9894
+    },
+    {
+      "branch": "audit/vanilla-deep-scan-20260826",
+      "sha": "cacafa37eb31e35f60ae1b6eb2e96237274159c6",
+      "source_path": ".github/workflows/vanilla-windows-package.yml",
+      "source_blob": "e5148207575438f17aef844c9b81949f8bdce771",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-deep-scan-20260826/.github/workflows/vanilla-windows-package.yml",
+      "sha256": "8292510a84822709c925758f6c0eb8527feee7cec8348318ebce4e3def911471",
+      "bytes": 4583
+    },
+    {
+      "branch": "audit/vanilla-deep-scan-20260826",
+      "sha": "cacafa37eb31e35f60ae1b6eb2e96237274159c6",
+      "source_path": "scripts/audit_vanilla_deep.py",
+      "source_blob": "25d4c22d6b87d045281e106e9d4ef43b223e67b4",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-deep-scan-20260826/scripts/audit_vanilla_deep.py",
+      "sha256": "867455307880843d36141788b238a86ace3c5bdf84e7314d6731bdb67dba25bc",
+      "bytes": 7832
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": ".github/workflows/vanilla-ui-command-audit.yml",
+      "source_blob": "7076ce8a789121435bbbabc8795d9e5d9e7e6132",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/.github/workflows/vanilla-ui-command-audit.yml",
+      "sha256": "fdeafc88aa03e160901837df761e4e5d44fc02b69016c350a96f8d94ef69df1c",
+      "bytes": 2445
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "docs/VANILLA_UI_COMMAND_AUDIT.md",
+      "source_blob": "ffcd13dce94dc9fa894a0fa712706583e9956d7d",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/docs/VANILLA_UI_COMMAND_AUDIT.md",
+      "sha256": "a1a6482d533d0a46117a0f0393ed38b628ac7f223988828c74a1f5ca8719bb9c",
+      "bytes": 2212735
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "tests/test_vanilla_ui_command_audit.py",
+      "source_blob": "8344931a79bb57c658f97ac9e7bcbc19c728196a",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/tests/test_vanilla_ui_command_audit.py",
+      "sha256": "cc0a570ed13065447fbf0df8564243f28f577a4315d8ac87292f0c8337f9d009",
+      "bytes": 6583
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "tests/test_vanilla_ui_second_pass.py",
+      "source_blob": "7f5059a73ec1be7b2cd4dabbd75f8eb05b629332",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/tests/test_vanilla_ui_second_pass.py",
+      "sha256": "b1d0203b9033aec0e86491356adff518031d9c594d1f40b56d485e13d9a75cb5",
+      "bytes": 7874
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "tools/audit_ui_commands.py",
+      "source_blob": "c9b724940b59b693a538691723846093b46d6f8d",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/tools/audit_ui_commands.py",
+      "sha256": "3212841d9657c29708d2d26df1d289887b7c14772c35c8a19fd64e872b566a37",
+      "bytes": 32320
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "tools/audit_ui_execution.py",
+      "source_blob": "2ab66d0e5777936f850934679ac812845ad8fa18",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/tools/audit_ui_execution.py",
+      "sha256": "7eb1ef7a6120bd056b4d707fd5aeec73f704511742e514df6c91eee0a7bc689d",
+      "bytes": 10067
+    },
+    {
+      "branch": "audit/vanilla-ui-command-inventory",
+      "sha": "eef718234412ddf98867a2a4bbdbf29241b18397",
+      "source_path": "tools/audit_ui_second_pass.py",
+      "source_blob": "bf8979396a7b21caf97946c41a3036d43651cb90",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-ui-command-inventory/tools/audit_ui_second_pass.py",
+      "sha256": "3b1054fdb6339a9895805d6c43fa73dee0a43155afaeb1f3096bf4999da5493a",
+      "bytes": 36395
+    },
+    {
+      "branch": "audit/vanilla-upstream-630ef",
+      "sha": "58dcab19fd0e2b542ce3c06c28f60422742c79ed",
+      "source_path": ".github/workflows/vanilla-forensic-audit.yml",
+      "source_blob": "17ce0938c6c5db0720d0c5fcfa289cb044f24b32",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-upstream-630ef/.github/workflows/vanilla-forensic-audit.yml",
+      "sha256": "7f9aab40d4c71eb9439d77a4324c84a707ae918d4420d1a0228792b2da96e144",
+      "bytes": 1492
+    },
+    {
+      "branch": "audit/vanilla-upstream-630ef",
+      "sha": "58dcab19fd0e2b542ce3c06c28f60422742c79ed",
+      "source_path": "scripts/vanilla_forensic_audit.py",
+      "source_blob": "b320ebde405a8ea3ab63e421e86eeda0420675b4",
+      "archive_path": "docs/archives/branches-20261012-final/audit__vanilla-upstream-630ef/scripts/vanilla_forensic_audit.py",
+      "sha256": "771e91bcd93e710f1484d476b1aa6dd8043942d03da8ed3143027127032118f5",
+      "bytes": 7838
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": ".github/workflows/vanilla-windows-ui-recipe.yml",
+      "source_blob": "707d0c689ef9940d88f3dcb04e6625841dcd4498",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/.github/workflows/vanilla-windows-ui-recipe.yml",
+      "sha256": "e54816b37bb4c326234934ef18494fb52a10e9764941edf00ae83b37274c9a44",
+      "bytes": 4294
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tests/test_windows_ui_recipe_contract.py",
+      "source_blob": "4d0dd9c23b2576cb68679e384e407e80a0c73de4",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tests/test_windows_ui_recipe_contract.py",
+      "sha256": "1208c7268262bd11f59ade31a543920a3fcbbf344e7a5ec797bbab5108d06ae2",
+      "bytes": 3049
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/README.md",
+      "source_blob": "a70f476040936a2692b773dca79c23bbf0565504",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/README.md",
+      "sha256": "8b4bde2ed6e34ed368be8f80e7963418713d67904b99031060cd16b7e0cef0ec",
+      "bytes": 8123
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/interaction_extensions.py",
+      "source_blob": "34c89bf69c53a36dbc7cc5118fa2cbd16c3dbd16",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/interaction_extensions.py",
+      "sha256": "b62a4f06924cd337f47cb180a46b6403b0d3c5622c154848f925c4058d5ec4e6",
+      "bytes": 5687
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/noethys_ui_driver.py",
+      "source_blob": "731eb17892e611a78c5d967fe5bd9e7b18a16819",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/noethys_ui_driver.py",
+      "sha256": "8e5ebe131384deaebc4d61b3b2f3be0753c956dd740e501ec5f5d36f417efb7b",
+      "bytes": 26155
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/prepare_profile.ps1",
+      "source_blob": "f476fda0ea6901334e4d19cb0020f099a006362b",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/prepare_profile.ps1",
+      "sha256": "09b2c55ae085ef23ad85fb804647034874c4289ed76e571a4d7e281b30eff3b0",
+      "bytes": 972
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/recipe_recorder.py",
+      "source_blob": "968a15cb917ee192d5fb8f96e58e0c464269fd51",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/recipe_recorder.py",
+      "sha256": "fd50de50f9e9721fa712258e730e84f21619808efb37a91480f39e5e52e900b1",
+      "bytes": 7102
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/requirements.txt",
+      "source_blob": "bc2ba198cb54e6194a522d9348f5af0dbd4337fd",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/requirements.txt",
+      "sha256": "f31947b50e7356ca04e23c373978608b463afdeb480d844ef76c8fd677667321",
+      "bytes": 76
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/run.ps1",
+      "source_blob": "ea417901b4cd8180b3a2e7419521b9f785ad1a49",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/run.ps1",
+      "sha256": "5d9269839dd46eb1f65821b5feba3f12bef4c3bd0fe7c9e6aa7980025fdd680e",
+      "bytes": 697
+    },
+    {
+      "branch": "test/vanilla-windows-ui-driver-prototype",
+      "sha": "be87c00ea51a6fef8ad33cf2ae848eaa6b676a85",
+      "source_path": "tools/windows_ui_recipe/scenario_minimal.py",
+      "source_blob": "3ccfaf1f1bac1f878c9fd6ba7b17943f91cb34cf",
+      "archive_path": "docs/archives/branches-20261012-final/test__vanilla-windows-ui-driver-prototype/tools/windows_ui_recipe/scenario_minimal.py",
+      "sha256": "d7ba70bd10ee1190edfa2b28d5df0a6b1217f8b8b555b27918bc447d762b6b28",
+      "bytes": 11670
+    },
+    {
+      "branch": "noe-042-rc-gate",
+      "sha": "085115c40fa5b2072bfdabebdf2f099330945b76",
+      "source_path": ".github/workflows/release-candidate.yml",
+      "source_blob": "897b8d57ca0849b0c73da0864516ff06eb8568d9",
+      "archive_path": "docs/archives/branches-20261012-final/noe-042-rc-gate/.github/workflows/release-candidate.yml",
+      "sha256": "7bdb8d4ec3860334150e1d6966c7232830feb95b9e14df9c3cabff9be1f6ae9b",
+      "bytes": 9675
+    },
+    {
+      "branch": "noe-042-rc-gate",
+      "sha": "085115c40fa5b2072bfdabebdf2f099330945b76",
+      "source_path": "docs/NOE-042-RC-GATE.md",
+      "source_blob": "b5a0426fa89a2825189679b59062e36f4e0895d4",
+      "archive_path": "docs/archives/branches-20261012-final/noe-042-rc-gate/docs/NOE-042-RC-GATE.md",
+      "sha256": "71dafd846da64f230caefbdcf3b56bb7a4e06566610ea47cadf69aa7a69cae8a",
+      "bytes": 1753
+    },
+    {
+      "branch": "noe-042-rc-gate",
+      "sha": "085115c40fa5b2072bfdabebdf2f099330945b76",
+      "source_path": "tests/test_noe_042_rc_gate.py",
+      "source_blob": "fcadf7aebeab4ba7b1824887ab4a7c4971483308",
+      "archive_path": "docs/archives/branches-20261012-final/noe-042-rc-gate/tests/test_noe_042_rc_gate.py",
+      "sha256": "12f6826788e474fdd41badc0dfd3ecc708ec0c0f06b39bdf7ed0746c9b565f5d",
+      "bytes": 1469
+    },
+    {
+      "branch": "refactor/ui-navigation-repens",
+      "sha": "6bf8a4cceb8bdf0da6ea13cb20b5c98fc6402f04",
+      "source_path": "noethys/Utils/UTILS_Aui.py",
+      "source_blob": "65fd2b00219d20563e4e9514916f91b24ac080c0",
+      "archive_path": "docs/archives/branches-20261012-final/refactor__ui-navigation-repens/noethys/Utils/UTILS_Aui.py",
+      "sha256": "252f7822640001daa697b1686904c722ede89510f5e300e7c5e088e6d16d6cfa",
+      "bytes": 18244
+    },
+    {
+      "branch": "refactor/ui-navigation-repens",
+      "sha": "6bf8a4cceb8bdf0da6ea13cb20b5c98fc6402f04",
+      "source_path": "tests/test_navigation_ui_contract.py",
+      "source_blob": "f20642d1b30247273e492a72a47f110d81f69ffe",
+      "archive_path": "docs/archives/branches-20261012-final/refactor__ui-navigation-repens/tests/test_navigation_ui_contract.py",
+      "sha256": "7db24f6860af4d521de0dff28b5ac024c1adea20eb4cb095126c7ad62b157f37",
+      "bytes": 2357
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "README.md",
+      "source_blob": "4fd619d35e416766022c424fc805b4caf7f44124",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/README.md",
+      "sha256": "7c1d2702e6fe623f717c4bfe02601b2f219864c5e5684ebf0cb2798ff5607226",
+      "bytes": 2926
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Ctrl/CTRL_Accueil.py",
+      "source_blob": "c8770a30e08cc16feb67e2e3e8f4a87b816babec",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Ctrl/CTRL_Accueil.py",
+      "sha256": "d0ab33c84c2c948ec4b41ed8039409e41e36adf8187ba94be5b0dfb688d77af1",
+      "bytes": 10505
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Dlg/DLG_Preferences.py",
+      "source_blob": "bff9812ee2d867352f863fa15660cf2b65ab331a",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Dlg/DLG_Preferences.py",
+      "sha256": "6aa23a47fbab2f01dcdba37a419b5d9bffeb5fbbdef56056970cffb0a75e66dd",
+      "bytes": 43840
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Dlg/DLG_Saisie_piece.py",
+      "source_blob": "46d6393f362ca3660dbed3608d7e57c109c2ed4d",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Dlg/DLG_Saisie_piece.py",
+      "sha256": "5db0e8f737e36c00f65f4005933020e992407058df61987e5a3616fdcf61d12d",
+      "bytes": 36789
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "source_blob": "1025a691b9fd5338a0d173f936d32a6392087dd8",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Dlg/DLG_Saisie_portail_demande.py",
+      "sha256": "87f4b04e6f9540d6fa0f994020eb9cb21414783cc1236f02598948d481267dbe",
+      "bytes": 89282
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Dlg/DLG_Saisie_quotient.py",
+      "source_blob": "28c1169422d553133aa69bffc9b3c581cf864c5e",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Dlg/DLG_Saisie_quotient.py",
+      "sha256": "39e40b5b1015e3ab3961344ba82231be10bae6874c932ce63d91bc0b20d412eb",
+      "bytes": 18046
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Identite.py",
+      "source_blob": "3ea5696ba227304a63d2694e7a2a4774d6632fcd",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Identite.py",
+      "sha256": "00c0d1930d80ffe77f7a461167e80a9855523f37639adacaaa0c428e8b05fdfa",
+      "bytes": 1966
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Outils/thumbnailctrl.py",
+      "source_blob": "c1eafa669586499765e02c7a455ef86361c4c277",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Outils/thumbnailctrl.py",
+      "sha256": "f88823f6a31934a5d7ba48021ef308c0fb62ad8870db89b2c4dc9941145d7dee",
+      "bytes": 74326
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Utils/UTILS_FondAccueil.py",
+      "source_blob": "d71a04cafa99ff69198c1c808d17c369902aec48",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Utils/UTILS_FondAccueil.py",
+      "sha256": "3372b6c68430d779797a34f0550a296a4a2ee5eaa969075f9c3d8f765775f422",
+      "bytes": 1725
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "noethys/Utils/UTILS_Quotients_validite.py",
+      "source_blob": "24fb58e30b0686d259bf68c241c0e37ba4ecd66d",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/noethys/Utils/UTILS_Quotients_validite.py",
+      "sha256": "f641d46b0d3ce81979795f9b54b1621216bbfc5f2705212e9ff4c2f739470c7c",
+      "bytes": 5428
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "tests/test_noethys_sl_fond_accueil.py",
+      "source_blob": "70cd786932eb537095ffaa8a58fd77c31d627a6e",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/tests/test_noethys_sl_fond_accueil.py",
+      "sha256": "b23e186ad4ee2d4d1b938acb89a0d2202a9a7445edacd24245de6d0cf87ad20b",
+      "bytes": 2788
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "tests/test_piece_quotient_dialog.py",
+      "source_blob": "4bb214ad3cd1956536eaf9f46fba11523a7a98eb",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/tests/test_piece_quotient_dialog.py",
+      "sha256": "88170e637e0f02b880ab8f66d5f21b0fb2854eaff0a38956b9bf6cef3a47be08",
+      "bytes": 4314
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "tests/test_portail_pieces_safe_yield.py",
+      "source_blob": "00b501a8a3e4ebb65371ef19f28b2a93b68b48d4",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/tests/test_portail_pieces_safe_yield.py",
+      "sha256": "afec6916a4e810cfca5f6b7814cfa6b79c97bd0214adaaf0cfcc376130723a66",
+      "bytes": 2532
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "tests/test_quotients_validite.py",
+      "source_blob": "d66d7388b9d06d0106f15839bd59727e2dc584c8",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/tests/test_quotients_validite.py",
+      "sha256": "b56deee880dbfbd17c29339353bd027d83d5ea1b78afaac18cc9d036a52fe035",
+      "bytes": 7739
+    },
+    {
+      "branch": "feat/rc2-reception-quotient",
+      "sha": "f48450935bb18125b3b46a4e5e5346bea7804076",
+      "source_path": "tests/test_quotients_validite_dialog.py",
+      "source_blob": "d9412bb039ae3fe97cbfe537097891031fca00f5",
+      "archive_path": "docs/archives/branches-20261012-final/feat__rc2-reception-quotient/tests/test_quotients_validite_dialog.py",
+      "sha256": "11f6bb71da2f1a886943865060025fa0828241b97843ce82b5c839da6da4a8f6",
+      "bytes": 4169
+    }
+  ],
+  "source_deleted_paths": []
+}

@@ -1,0 +1,131 @@
+name: Vanilla Windows portable
+
+on:
+  push:
+    branches:
+      - maintenance/vanilla
+      - build/vanilla-windows-portable
+      - audit/vanilla-deep-scan-20260826
+    paths:
+      - '.github/workflows/vanilla-windows-package.yml'
+      - 'packaging/vanilla-noethys.spec'
+      - 'requirements.txt'
+      - 'noethys/**'
+      - 'scripts/audit_vanilla_deep.py'
+  pull_request:
+    branches:
+      - maintenance/vanilla
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Construire la Vanilla Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Audit statique profond Vanilla
+        run: python scripts/audit_vanilla_deep.py
+
+      - name: Publier le rapport d'audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: vanilla-deep-static-scan
+          path: |
+            audit_report.md
+            audit_report.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Préparer les dépendances historiques compatibles Python 3
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-vanilla-ci.txt -Encoding UTF8
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-vanilla-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+
+      - name: Compiler les sources Vanilla
+        run: python -m compileall -q noethys
+
+      - name: Vérifier wxPython sous Windows
+        shell: pwsh
+        run: |
+          python -c "import wx; app=wx.App(False); print(wx.version()); app.Destroy()"
+
+      - name: Construire le dossier portable
+        run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+
+      - name: Vérifier le contenu du paquet
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) {
+            throw 'Noethys.exe absent du résultat PyInstaller'
+          }
+          foreach ($resource in @('Static', 'Versions.txt', 'Licence.txt', 'Icone.ico')) {
+            $path = Join-Path 'dist/Noethys' $resource
+            if (-not (Test-Path $path)) {
+              throw "Ressource attendue absente : $resource"
+            }
+          }
+          if (Test-Path 'dist/Noethys/_internal') {
+            throw 'Layout PyInstaller _internal détecté : incompatible avec les chemins historiques de Noethys'
+          }
+
+      - name: Smoke de démarrage de l'exécutable
+        shell: pwsh
+        run: |
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-vanilla-profile'
+          New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+          $env:APPDATA = Join-Path $profileRoot 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
+          New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
+          New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
+
+          $process = Start-Process -FilePath 'dist/Noethys/Noethys.exe' -PassThru
+          Start-Sleep -Seconds 12
+          if ($process.HasExited) {
+            if ($process.ExitCode -ne 0) {
+              throw "Noethys.exe a quitté prématurément avec le code $($process.ExitCode)"
+            }
+          }
+          else {
+            Stop-Process -Id $process.Id -Force
+            Write-Host 'Noethys.exe est resté actif pendant le smoke de démarrage.'
+          }
+
+      - name: Écrire les informations de build
+        shell: pwsh
+        run: |
+          @(
+            'Noethys Vanilla maintenue - Windows portable'
+            "Commit: $env:GITHUB_SHA"
+            "Python: $(python --version 2>&1)"
+            "Workflow run: $env:GITHUB_RUN_ID"
+            'Base: Noethys upstream 1.3.4.2 + correctifs Vanilla'
+            'UI: interface historique, aucune refonte Upgrade'
+            "Build UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          ) | Set-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
+
+      - name: Créer l'archive Windows
+        shell: pwsh
+        run: Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'Noethys-Vanilla-Windows-portable.zip'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Noethys-Vanilla-Windows-portable
+          path: Noethys-Vanilla-Windows-portable.zip
+          if-no-files-found: error
+          retention-days: 14

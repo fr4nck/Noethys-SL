@@ -1,0 +1,77 @@
+name: Vanilla UI command audit
+
+on:
+  push:
+    branches:
+      - audit/vanilla-ui-command-inventory
+  pull_request:
+    paths:
+      - 'tools/audit_ui_commands.py'
+      - 'tools/audit_ui_execution.py'
+      - 'tools/audit_ui_second_pass.py'
+      - 'tests/test_vanilla_ui_command_audit.py'
+      - 'tests/test_vanilla_ui_second_pass.py'
+      - 'docs/VANILLA_UI_COMMAND_AUDIT.md'
+      - '.github/workflows/vanilla-ui-command-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  static-audit:
+    name: Inventorier et exercer les commandes wxPython
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Compiler les sources Python
+        run: >-
+          python -m compileall -q
+          -x 'C866CA3A-32F7-11D2-9602-00C04F8EE628x0x5x0\.py$'
+          noethys
+
+      - name: Tester les scanners d'audit
+        run: >-
+          python -m unittest
+          tests.test_vanilla_ui_command_audit
+          tests.test_vanilla_ui_second_pass
+
+      - name: Générer la matrice exhaustive du passage 2
+        shell: bash
+        run: |
+          git fetch origin maintenance/vanilla
+          BASE_SHA="$(git merge-base HEAD origin/maintenance/vanilla)"
+          python tools/audit_ui_second_pass.py \
+            --root . \
+            --baseline-sha "$BASE_SHA" \
+            --output docs/VANILLA_UI_COMMAND_AUDIT.md
+          sed -n '1,110p' docs/VANILLA_UI_COMMAND_AUDIT.md
+
+      - name: Vérifier ou publier le rapport généré
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --exit-code -- docs/VANILLA_UI_COMMAND_AUDIT.md
+            test -z "$(git ls-files --others --exclude-standard -- docs/VANILLA_UI_COMMAND_AUDIT.md)"
+            exit 0
+          fi
+
+          if [ -z "$(git status --porcelain -- docs/VANILLA_UI_COMMAND_AUDIT.md)" ]; then
+            echo "Rapport déjà à jour"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/VANILLA_UI_COMMAND_AUDIT.md
+          git commit -m "Audit: regenerate Vanilla UI command matrix pass 2 [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}

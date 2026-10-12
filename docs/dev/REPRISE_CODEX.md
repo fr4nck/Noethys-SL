@@ -527,3 +527,94 @@ Cette confirmation est publiée comme commit documentaire séparé sur main.
 CI distante : aucun succès revendiqué ; aucun packaging ni release demandé.
 La poursuite implique une qualification de variantes de code, surtout réseau,
 interventions, Qt et packaging ; aucune réintégration automatique autorisée.
+
+
+## 17. Clôture du tri des 37 sources restantes — 12/10/2026
+
+Toutes les 37 branches ont maintenant une décision de retrait motivée, et
+non un simple comptage de commits ou statut de PR. Comparaison des blobs et
+AST contre les 14 têtes protégées ; comparaison des changements propres
+à chaque branche avec son ancêtre commun (imports, variables, définitions,
+méthodes et suppressions). L’analyse distingue les divergences héritées
+des apports réellement propres. Aucune décision métier implicite.
+
+### Sept références qualifiées pour retrait
+
+| Branche | SHA | Conservation |
+| --- | --- | --- |
+| audit/vanilla-deep-scan-20260826 | cacafa37eb31e35f60ae1b6eb2e96237274159c6 | No application runtime changes in the branch delta. No protected runtime/workflow/test references to the unique tool paths or modules across all 14 protected heads. Complete changed source files, tests and workflows retained as inert documentation archives and full Git history in verified bundle. |
+| audit/vanilla-ui-command-inventory | eef718234412ddf98867a2a4bbdbf29241b18397 | No application runtime changes in the branch delta. No protected runtime/workflow/test references to the unique tool paths or modules across all 14 protected heads. Complete changed source files, tests and workflows retained as inert documentation archives and full Git history in verified bundle. |
+| audit/vanilla-upstream-630ef | 58dcab19fd0e2b542ce3c06c28f60422742c79ed | No application runtime changes in the branch delta. No protected runtime/workflow/test references to the unique tool paths or modules across all 14 protected heads. Complete changed source files, tests and workflows retained as inert documentation archives and full Git history in verified bundle. |
+| test/vanilla-windows-ui-driver-prototype | be87c00ea51a6fef8ad33cf2ae848eaa6b676a85 | No application runtime changes in the branch delta. No protected runtime/workflow/test references to the unique tool paths or modules across all 14 protected heads. Complete changed source files, tests and workflows retained as inert documentation archives and full Git history in verified bundle. |
+| noe-042-rc-gate | 085115c40fa5b2072bfdabebdf2f099330945b76 | Gate conditions and shell commands are identical in protected branch, ignoring labels/comments/action version tags. Historical gate test blob is identical and passes on the preserved workflow. Workflow build additions differ and are archived; no release or package is executed. |
+| refactor/ui-navigation-repens | 6bf8a4cceb8bdf0da6ea13cb20b5c98fc6402f04 | All five functions added/modified by this branch relative to its common ancestor have identical ASTs in protected branch. No source function deleted, module imports/globals unchanged by source. Test blob identical. Remaining file difference is ConfigurerGrille inherited from the common ancestor and subsequently delegated to Style.appliquer_grille in protected branch. |
+| feat/rc2-reception-quotient | f48450935bb18125b3b46a4e5e5346bea7804076 | All branch-owned changes preserved in protected RC2 reference. Fourteen delta files have identical blobs; in remaining file Traitement.Traitement_pieces AST is identical. No own binding was removed. Quotient atomic-write and received-file regressions pass on synthetic/memory data with network blocked. Other file differences are inherited/evolved code, retained in full source archive. |
+
+Les quatre outils ne sont appelés ni par le runtime, ni par les workflows,
+ni par les tests des 14 références protégées (recherche des chemins et noms
+de modules). Leurs originaux sont conservés, avec les tests et workflows,
+dans docs/archives/branches-20261012-final ; le bundle préserve les historiques.
+Le gate RC conserve les mêmes conditions et commandes de validation ;
+la navigation conserve les cinq fonctions propres et les tests identiques ;
+la réception de quotient conserve les 14 blobs identiques et la méthode
+Traitement.Traitement_pieces au même AST dans la référence RC2 protégée.
+
+Validation ciblée supplémentaire : gate RC 5 tests, navigation 4, quotients
+12 (SQLite mémoire/fictif, atomicité, factures inchangées), réception pièces
+4 (AST, dépendances factices) : **25 réussites**, aucune tentative réseau
+réelle. Aucun build, interaction avec une base réelle ou recette GUI complète.
+
+### Trente branches conservées avec motif précis
+
+Conserver ces références ne signifie pas que leurs fonctionnalités sont
+qualifiées en production. Leur code propre n’est pas démontré intégralement
+repris : supprimer ou intégrer ces variantes requiert une décision sur leur
+devenir. Le tri de retrait est achevé ; la qualification métier et les recettes
+sont des travaux distincts. Les exemples ci-dessous sont des différences,
+pas une annonce automatique de correctifs absents de main.
+
+| Branche | SHA | Fichier/fonction motivant le maintien |
+| --- | --- | --- |
+| agent/windows-ci-audit | 7df621ea3a30 | .github/workflows/ci.yml ; docs/CI-WINDOWS-AUDIT.md |
+| agent/windows11-pyinstaller | f85f77266eec | .github/workflows/ci.yml ; .github/workflows/windows-package.yml |
+| audit/vanilla-final-undefined-names | 8ae3a36f9394 | .github/workflows/final-undefined-name-audit.yml |
+| build/vanilla-windows-portable | 4d5dda48269b | .github/workflows/noethys-sl-windows.yml ; .github/workflows/vanilla-windows-package.yml |
+| chatgpt/noethys-convention-ui-activites-20260929 | 7cd062c3f634 | .github/workflows/noethys-sl-windows.yml ; README.md |
+| claude/noethys-windows-ci-audit-qy5m9t | 3b847c6b2957 | noethys/Dlg/DLG_Badgeage_interface.py : GetInfosActivite, CTRL_Interface.Procedure_enregistrer ; noethys/Dlg/DLG_Famille.py : Dialog.GetIDcomptePayeur, Dialog.MenuImprimerReleve |
+| feat/noethys-sl-rc1-convention-finalise | f6cac3302a2f | docs/dev/CONVENTION_DOCX.md ; noethys/Dlg/DLG_Famille.py : CreateIDfamille, Notebook.__init__ |
+| feature/extensions-registry | 9174ba32a45e | docs/EXTENSIONS.md ; noethys/Extensions/__init__.py |
+| feature/noe-062-conventions | f85fd51ee404 | noethys/Utils/UTILS_Impression_convention.py ; tests/test_convention_engine_contract.py |
+| feature/noe-062-mises-a-disposition | c69f3c80325e | docs/NOE-062-MISES-A-DISPOSITION.md ; docs/NOE-062C-PROGRAMMATION.md |
+| feature/noe-062b-groupes-structures | 203fff34134c | noethys/Utils/UTILS_Tiers.py ; noethys/Utils/UTILS_Tiers_Schema.py |
+| feature/noe-062b-roles-contacts | 177b4c3dcd1b | noethys/Utils/UTILS_Tiers.py ; noethys/Utils/UTILS_Tiers_Schema.py |
+| feature/noe-063-portail-consolide | 55b2b129e67e | docs/NOE_063C_TARIFS_PORTAIL.md ; docs/NOE_063_PORTAIL_CONTENUS_DYNAMIQUES.md |
+| feature/noe-063b-rss-atom-connecthys | 8f84f5edb72b | docs/NOE_063B_RSS_ATOM.md ; docs/NOE_063_PORTAIL_CONTENUS_DYNAMIQUES.md |
+| feature/noe-063d-tarifs-ui | 20d5b15c1adb | docs/NOE_063B_RSS_ATOM.md ; docs/NOE_063C_TARIFS_PORTAIL.md |
+| fix/noe-062b-hardening | 752645c5a772 | noethys/Dlg/DLG_Ecoles.py : from:Utils:0:UTILS_Interventions:None, import:GestionDB:None ; noethys/Dlg/DLG_Seances_sport_ecoles.py |
+| fix/noethys-sl-aui-docking-minimize | aac763f24480 | noethys/Noethys.py : MainFrame.Initialisation, MyApp.OnInit ; tests/test_vanilla_aui_docking_lifecycle.py |
+| fix/noethys-sl-aui-guides-fantomes | 7704ee753687 | docs/noethys_sl_wx_pr375_apparence_claire.md ; noethys/Chemins.py : assignment:Name(id='STATIC_IMAGE_ALIASES', ctx=Store()), GetStaticPath |
+| fix/noethys-sl-light-only | ccdfb82bcf1b | .github/workflows/windows-package.yml ; noethys/Utils/UTILS_Interface.py : GetApparence, SetApparence |
+| fix/noethys-sl-mailjet-consolidation | 51ee128a60de | noethys/Dlg/DLG_Mailer.py : Dialog.Envoyer |
+| fix/noethys-sl-mailjet-email-confirmation | 9e0945b5d0a4 | noethys/Dlg/DLG_Mailer.py : Dialog.Envoyer ; noethys/Noethys.py : MainFrame.Initialisation, MyApp.OnInit |
+| fix/rc2-network-stopgate-1 | cf5f9fbe6ccd | docs/audit/AUDIT_RESEAU_RC2.md ; docs/audit/CONTRAT_CONNECTHYS.md |
+| fix/rc2-pr385-compatible | ba67c6b9a5fc | noethys/Dlg/DLG_Saisie_portail_demande.py : Traitement.Traitement_pieces |
+| fix/vanilla-no-black | 7c39f16ab148 | .github/workflows/vanilla-release.yml ; .github/workflows/vanilla-windows-package.yml |
+| fix/windows-installable-config | fbdebc8b6ef4 | .github/workflows/windows-package.yml ; noethys/Utils/UTILS_Fichiers.py : DeplaceFichiers |
+| noe-041-portable-mode | 3cf6cbfe5d6f | .github/workflows/windows-package.yml ; noethys/Utils/UTILS_Fichiers.py : GetRepUtilisateur |
+| noe-062-programmation-occurrences | 88904fc780a0 | noethys/Data/DATA_Programmations_Structures.py ; noethys/Utils/UTILS_Programmations_Structures.py |
+| noe-062c-lieux-execution-seances | be059ccd4804 | noethys/Data/DATA_Structures.py : assignment:Name(id='DB_STRUCTURES', ctx=Store()) ; noethys/Utils/UTILS_Interventions_Execution.py : statement:Expr(value=Constant(value='Extension opérationnelle 1:1 des séances Noe-062C.\n\nLa séance canonique reste dans ``interventions``. Ce module ne duplique ni le\nréférentiel RH (Teamworks reste source de vérité), ni les lieux : il conserve\nuniquement leurs UID/IDs de référence et les écarts entre prévu et réalisé.\n')), GestionnaireExecutionInterventions.EnregistrerExecution |
+| poc/qt-theme-isole | cba459cd62cb | .github/workflows/qt-prototype.yml ; docs/QT_MIGRATION_INVENTORY.md |
+| refactor/ui-list-tools-repens | 52ed49bf888b | .github/workflows/ci.yml ; .github/workflows/windows-package.yml |
+
+Le dossier publié dossier-conservation.json sous l’archive finale contient
+les SHA complets, chaque fichier et définition concernés, les ancêtres,
+cibles et preuves. Cela couvre notamment le prototype Qt, les extensions,
+programmations/groupes/rôles/lieux, contenus/tarifs Portail, variantes de
+réception réseau et Mailjet, AUI/Noedoc, packaging et configuration.
+Ces sources restent en place ; aucune fusion générale, reprise automatique
+de schéma, fermeture de PR ou abandon de travail unique.
+
+Ce commit publie les archives avant retrait distant, en un envoi atomique
+main + sept suppressions, avec contrôle des SHA et des huit PR ouvertes.
+Si l’envoi réussit, il restera 44 branches : 14 protégées et 30 sources
+conservées avec motifs. Le résultat réel sera vérifié et consigné ensuite.

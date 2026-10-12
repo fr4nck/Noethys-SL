@@ -1,0 +1,216 @@
+name: Vanilla deep static scan
+
+on:
+  push:
+    branches:
+      - audit/vanilla-deep-scan-20260826
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Deep static scan
+        shell: bash
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+          import ast, json, re
+          from pathlib import Path
+
+          ROOT = Path('noethys')
+          findings = []
+          syntax_errors = []
+
+          def add(category, path, line, detail, severity='candidate'):
+              findings.append({
+                  'category': category,
+                  'path': str(path).replace('\\', '/'),
+                  'line': int(line or 0),
+                  'detail': detail,
+                  'severity': severity,
+              })
+
+          def call_name(node):
+              if isinstance(node, ast.Call):
+                  f = node.func
+                  if isinstance(f, ast.Name):
+                      return f.id
+                  if isinstance(f, ast.Attribute):
+                      parts = []
+                      cur = f
+                      while isinstance(cur, ast.Attribute):
+                          parts.append(cur.attr)
+                          cur = cur.value
+                      if isinstance(cur, ast.Name):
+                          parts.append(cur.id)
+                      return '.'.join(reversed(parts))
+              return ''
+
+          def assigned_name(stmt):
+              if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+                  targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
+                  for t in targets:
+                      if isinstance(t, ast.Name):
+                          return t.id
+              return None
+
+          for path in sorted(ROOT.rglob('*.py')):
+              rel = path
+              try:
+                  src = path.read_text(encoding='utf-8-sig')
+              except UnicodeDecodeError:
+                  try:
+                      src = path.read_text(encoding='latin-1')
+                  except Exception as exc:
+                      add('decode-error', rel, 0, repr(exc), 'confirmed')
+                      continue
+
+              lines = src.splitlines()
+
+              # Direct source motifs that repeatedly caused real runtime failures.
+              regexes = [
+                  ('resultatreq-index0', re.compile(r'ResultatReq\s*\(\s*\)\s*\[\s*0\s*\]')),
+                  ('legacy-isAlive', re.compile(r'\.isAlive\s*\(')),
+                  ('py2-dict-view-index', re.compile(r'\.(?:items|keys|values)\s*\(\s*\)\s*\[\s*0\s*\]')),
+              ]
+              for lineno, line in enumerate(lines, 1):
+                  for category, rx in regexes:
+                      if rx.search(line):
+                          add(category, rel, lineno, line.strip())
+                  if ('time.sleep(' in line or 'sleep(' in line) and 'def ' not in line:
+                      add('sleep-call', rel, lineno, line.strip())
+                  if '.Rescale(' in line or '.Scale(' in line:
+                      sev = 'high-candidate' if '/' in line else 'candidate'
+                      add('image-rescale-scale', rel, lineno, line.strip(), sev)
+
+              try:
+                  tree = ast.parse(src, filename=str(path))
+              except SyntaxError as exc:
+                  syntax_errors.append({'path': str(rel), 'line': exc.lineno or 0, 'msg': exc.msg})
+                  continue
+
+              # Mutable defaults and function-local resource ownership.
+              for fn in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+                  defaults = list(fn.args.defaults) + [d for d in fn.args.kw_defaults if d is not None]
+                  for d in defaults:
+                      if isinstance(d, (ast.List, ast.Dict, ast.Set)):
+                          add('mutable-default', rel, fn.lineno, f'{fn.name} has mutable default {ast.unparse(d)}')
+
+                  # All calls in this function but not nested functions/classes.
+                  nodes = []
+                  class Collector(ast.NodeVisitor):
+                      def visit_FunctionDef(self, node):
+                          if node is fn:
+                              self.generic_visit(node)
+                      def visit_AsyncFunctionDef(self, node):
+                          if node is fn:
+                              self.generic_visit(node)
+                      def visit_Lambda(self, node):
+                          return
+                      def visit_ClassDef(self, node):
+                          return
+                      def visit_Call(self, node):
+                          nodes.append(node)
+                          self.generic_visit(node)
+                  Collector().visit(fn)
+
+                  calls_by_var = {}
+                  for c in nodes:
+                      if isinstance(c.func, ast.Attribute) and isinstance(c.func.value, ast.Name):
+                          calls_by_var.setdefault(c.func.value.id, []).append((c.lineno, c.func.attr))
+
+                  # Track assignments opening GestionDB.DB / sqlite3.connect / zipfile.ZipFile.
+                  for stmt in ast.walk(fn):
+                      value = None
+                      var = None
+                      if isinstance(stmt, ast.Assign):
+                          value = stmt.value
+                          if len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+                              var = stmt.targets[0].id
+                      elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                          value, var = stmt.value, stmt.target.id
+                      if not var or not isinstance(value, ast.Call):
+                          continue
+                      cname = call_name(value)
+                      if cname in ('GestionDB.DB', 'sqlite3.connect', 'zipfile.ZipFile'):
+                          methods = calls_by_var.get(var, [])
+                          if not any(m == 'Close' for _, m in methods) and not any(m == 'close' for _, m in methods):
+                              add('resource-no-close', rel, stmt.lineno, f'{fn.name}: {var} = {cname}(...) has no explicit close in function', 'high-candidate')
+
+                  # ShowModal without Destroy for same local variable.
+                  for var, methods in calls_by_var.items():
+                      if any(m == 'ShowModal' for _, m in methods) and not any(m == 'Destroy' for _, m in methods):
+                          first = min(l for l, m in methods if m == 'ShowModal')
+                          add('modal-no-destroy', rel, first, f'{fn.name}: {var}.ShowModal() without {var}.Destroy()')
+
+                      destroy_lines = [l for l, m in methods if m == 'Destroy']
+                      if destroy_lines:
+                          first_destroy = min(destroy_lines)
+                          later = [(l, m) for l, m in methods if l > first_destroy and m not in ('Destroy',)]
+                          if later:
+                              l, m = min(later)
+                              add('use-after-destroy', rel, l, f'{fn.name}: {var}.{m}() after Destroy() at line {first_destroy}', 'high-candidate')
+
+              # Detect direct image resize args containing true division via AST.
+              for node in ast.walk(tree):
+                  if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                      continue
+                  if node.func.attr not in ('Rescale', 'Scale'):
+                      continue
+                  for arg in node.args[:2]:
+                      if any(isinstance(x, ast.BinOp) and isinstance(x.op, ast.Div) for x in ast.walk(arg)):
+                          add('image-float-dimension', rel, node.lineno, ast.get_source_segment(src, node) or node.func.attr, 'confirmed-pattern')
+                          break
+
+          findings.sort(key=lambda x: (x['category'], x['path'], x['line']))
+          counts = {}
+          for f in findings:
+              counts[f['category']] = counts.get(f['category'], 0) + 1
+
+          report = {
+              'summary': {
+                  'python_files': len(list(ROOT.rglob('*.py'))),
+                  'findings': len(findings),
+                  'syntax_errors': len(syntax_errors),
+                  'counts': counts,
+              },
+              'syntax_errors': syntax_errors,
+              'findings': findings,
+          }
+          Path('audit_report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          md = ['# Vanilla deep static scan', '', f"Python files: {report['summary']['python_files']}", f"Findings: {len(findings)}", f"Syntax errors: {len(syntax_errors)}", '', '## Counts']
+          for cat, n in sorted(counts.items()):
+              md.append(f'- {cat}: {n}')
+          if syntax_errors:
+              md += ['', '## Syntax errors']
+              for e in syntax_errors:
+                  md.append(f"- `{e['path']}:{e['line']}` — {e['msg']}")
+          md += ['', '## Findings']
+          for f in findings:
+              md.append(f"- **{f['category']}** [{f['severity']}] `{f['path']}:{f['line']}` — {f['detail']}")
+          Path('audit_report.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
+          print('\n'.join(md[:120]))
+          PY
+
+      - name: Compile Python sources
+        shell: bash
+        run: |
+          python -m compileall -q noethys || true
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-deep-static-scan
+          path: |
+            audit_report.md
+            audit_report.json
+          retention-days: 7

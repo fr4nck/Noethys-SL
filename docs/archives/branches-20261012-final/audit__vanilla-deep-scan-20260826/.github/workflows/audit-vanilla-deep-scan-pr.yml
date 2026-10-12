@@ -1,0 +1,30 @@
+name: Vanilla deep static scan PR
+
+on:
+  pull_request:
+    branches:
+      - maintenance/vanilla
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Deep static scan
+        run: python scripts/audit_vanilla_deep.py
+      - name: Compile Python sources
+        run: python -m compileall -q noethys || true
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-deep-static-scan
+          path: |
+            audit_report.md
+            audit_report.json
+          retention-days: 7

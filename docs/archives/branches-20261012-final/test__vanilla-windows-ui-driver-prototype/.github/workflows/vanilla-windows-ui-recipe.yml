@@ -1,0 +1,116 @@
+name: Vanilla Windows UI recipe
+
+on:
+  push:
+    paths:
+      - 'tools/windows_ui_recipe/**'
+      - 'tests/test_windows_ui_recipe_contract.py'
+      - '.github/workflows/vanilla-windows-ui-recipe.yml'
+  pull_request:
+    paths:
+      - 'tools/windows_ui_recipe/**'
+      - 'tests/test_windows_ui_recipe_contract.py'
+      - '.github/workflows/vanilla-windows-ui-recipe.yml'
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'Run the real interactive Noethys recipe on the dedicated self-hosted runner'
+        required: true
+        type: boolean
+        default: false
+      expected_db_host:
+        description: 'Loopback host of the local Docker recipe DB'
+        required: false
+        default: '127.0.0.1'
+      expected_db_name:
+        description: 'Exact local Docker recipe database name'
+        required: false
+        default: 'NOETHYS_RECETTE'
+      repeat:
+        description: 'Consumption close/reopen repetitions'
+        required: false
+        default: '5'
+      timeout:
+        description: 'Bounded UI wait timeout in seconds'
+        required: false
+        default: '20'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Validate Windows UI driver contract (not a functional recipe)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install driver dependencies
+        run: python -m pip install -r tools/windows_ui_recipe/requirements.txt
+      - name: Compile recipe driver
+        run: >-
+          python -m py_compile
+          tools/windows_ui_recipe/noethys_ui_driver.py
+          tools/windows_ui_recipe/recipe_recorder.py
+          tools/windows_ui_recipe/interaction_extensions.py
+          tools/windows_ui_recipe/scenario_minimal.py
+      - name: Run non-interactive contract tests
+        run: python -m unittest tests.test_windows_ui_recipe_contract
+
+  live-ui:
+    name: Real Noethys UI recipe A-E
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.live == true }}
+    needs: contract
+    runs-on: [self-hosted, Windows, vanilla-ui-recipe]
+    timeout-minutes: 30
+    concurrency:
+      group: vanilla-ui-recipe-interactive
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify an unlocked interactive Windows session
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          if ($session -eq 0) {
+            throw 'Interactive UI recipe refused: runner process is in Session 0.'
+          }
+          $explorer = Get-Process explorer -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $session }
+          if (-not $explorer) {
+            throw "Interactive UI recipe refused: no explorer.exe in runner session $session."
+          }
+          if (-not $env:NOETHYS_RECIPE_EXE) {
+            throw 'NOETHYS_RECIPE_EXE is not configured on the dedicated runner.'
+          }
+          if (-not $env:NOETHYS_RECIPE_PROFILE) {
+            throw 'NOETHYS_RECIPE_PROFILE is not configured on the dedicated runner.'
+          }
+          Write-Host "Interactive session verified: SessionId=$session"
+      - name: Install driver dependencies
+        run: python -m pip install -r tools/windows_ui_recipe/requirements.txt
+      - name: Execute pilot lot A-E against local recipe DB
+        shell: powershell
+        run: |
+          python tools/windows_ui_recipe/scenario_minimal.py `
+            --exe "$env:NOETHYS_RECIPE_EXE" `
+            --profile-root "$env:NOETHYS_RECIPE_PROFILE" `
+            --expected-db-host '${{ inputs.expected_db_host }}' `
+            --expected-db-name '${{ inputs.expected_db_name }}' `
+            --repeat '${{ inputs.repeat }}' `
+            --timeout '${{ inputs.timeout }}' `
+            --artifacts artifacts/noethys-ui
+      - name: Publish UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noethys-windows-ui-evidence-${{ github.run_id }}
+          path: artifacts/noethys-ui/**
+          if-no-files-found: warn
+          retention-days: 30
