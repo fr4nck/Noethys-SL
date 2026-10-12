@@ -353,32 +353,42 @@ class CTRL_Saison(wx.ComboBox):
 
 
 class Saison(wx.Panel):
-    """Raccourcis de période basés sur une saison de septembre à août."""
+    """Raccourcis communs d'une saison septembre -> août.
+
+    Les trimestres historiques restent compris par UTILS_PeriodesSaison pour
+    compatibilité, mais ne sont plus proposés dans l'interface : les périodes
+    périscolaires suivent réellement les vacances enregistrées dans Noethys.
+    """
+
+    LEGACY_INDEX_CODES = {
+        0: "saison",
+        1: "trimestre_1",
+        2: "trimestre_2",
+        3: "trimestre_3",
+        4: "semestre_1",
+        5: "semestre_2",
+    }
+
+    LIBELLES_PERISCOLAIRES = (
+        ("periode_1", _(u"1ère période péri")),
+        ("periode_2", _(u"2ème période péri")),
+        ("periode_3", _(u"3ème période péri")),
+        ("periode_4", _(u"4ème période péri")),
+        ("periode_5", _(u"5ème période péri")),
+    )
 
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.parent = parent
-
-        self.listePeriodes = [
-            ("saison", _(u"Saison complète (sept.-août)")),
-            ("trimestre_1", _(u"1er trimestre (sept.-déc.)")),
-            ("trimestre_2", _(u"2e trimestre (janv.-mars)")),
-            ("trimestre_3", _(u"3e trimestre (avr.-août)")),
-            ("semestre_1", _(u"1er semestre (sept.-févr.)")),
-            ("semestre_2", _(u"2e semestre (mars-août)")),
-        ]
+        self.listePeriodes = []
+        self.periodesCalculees = {}
 
         self.label_saison = wx.StaticText(self, -1, _(u"Saison :"))
         self.ctrl_annee = CTRL_Saison(self)
         self.label_periode = wx.StaticText(self, -1, _(u"Période :"))
-        self.ctrl_periode = wx.ListBox(
-            self,
-            -1,
-            choices=[label for code, label in self.listePeriodes],
-            style=wx.LB_SINGLE,
-        )
+        self.ctrl_periode = wx.ListBox(self, -1, choices=[], style=wx.LB_SINGLE)
         self.ctrl_periode.SetToolTip(
-            wx.ToolTip(_(u"Sélectionnez une saison, un trimestre ou un semestre"))
+            wx.ToolTip(_(u"Sélectionnez une saison, une période périscolaire ou un semestre"))
         )
 
         grid_sizer_saison = wx.FlexGridSizer(rows=2, cols=2, vgap=5, hgap=5)
@@ -388,12 +398,7 @@ class Saison(wx.Panel):
             wx.LEFT | wx.TOP | wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL,
             5,
         )
-        grid_sizer_saison.Add(
-            self.ctrl_annee,
-            0,
-            wx.TOP | wx.RIGHT,
-            5,
-        )
+        grid_sizer_saison.Add(self.ctrl_annee, 0, wx.TOP | wx.RIGHT, 5)
         grid_sizer_saison.Add(self.label_periode, 0, wx.ALIGN_RIGHT, 0)
         grid_sizer_saison.Add(
             self.ctrl_periode,
@@ -410,16 +415,80 @@ class Saison(wx.Panel):
         self.ctrl_periode.Bind(wx.EVT_LISTBOX, self.OnSelectionPeriode)
 
         self.ctrl_annee.SetAnnee(UTILS_PeriodesSaison.GetAnneeDebutSaison())
+        self.MAJ()
+
+    def _ChargerVacancesSaison(self):
+        annee = self.ctrl_annee.GetAnnee()
+        date_debut = datetime.date(annee, 9, 1)
+        date_fin = datetime.date(annee + 1, 8, 31)
+        DB = None
+        try:
+            DB = GestionDB.DB()
+            req = """SELECT nom, date_debut, date_fin
+            FROM vacances
+            WHERE date_debut>='%s' AND date_debut<='%s'
+            ORDER BY date_debut;""" % (date_debut, date_fin)
+            DB.ExecuterReq(req)
+            return DB.ResultatReq()
+        except Exception:
+            # Le sélecteur commun doit rester utilisable même si la table
+            # vacances est absente/incomplète : saison et semestres restent
+            # alors disponibles, sans inventer de périodes périscolaires.
+            return []
+        finally:
+            if DB is not None:
+                try:
+                    DB.Close()
+                except Exception:
+                    pass
+
+    def MAJ(self, conserve_code=None):
+        annee = self.ctrl_annee.GetAnnee()
+        vacances = self._ChargerVacancesSaison()
+        self.periodesCalculees = UTILS_PeriodesSaison.GetBornesPeriodesSaison(
+            annee,
+            liste_vacances=vacances,
+        )
+
+        liste = [("saison", _(u"Saison complète (sept.-août)"))]
+        for code, label in self.LIBELLES_PERISCOLAIRES:
+            if code in self.periodesCalculees:
+                liste.append((code, label))
+        liste.extend([
+            ("semestre_1", _(u"1er semestre (sept.-févr.)")),
+            ("semestre_2", _(u"2e semestre (mars-août)")),
+        ])
+        self.listePeriodes = liste
+        self.ctrl_periode.Set([label for code, label in liste])
+
+        if conserve_code is not None and self.SetSelectionCode(conserve_code):
+            return
         self.ctrl_periode.SetSelection(0)
 
     def _GetCodeSelectionne(self):
         index = self.ctrl_periode.GetSelection()
-        if index == wx.NOT_FOUND:
+        if index == wx.NOT_FOUND or index >= len(self.listePeriodes):
             return None
         return self.listePeriodes[index][0]
 
+    def GetLegacyCodeFromIndex(self, index):
+        try:
+            return self.LEGACY_INDEX_CODES.get(int(index))
+        except Exception:
+            return None
+
+    def SetSelectionCode(self, code):
+        for index, (code_temp, label) in enumerate(self.listePeriodes):
+            if code_temp == code:
+                self.ctrl_periode.SetSelection(index)
+                self.ctrl_periode.EnsureVisible(index)
+                return True
+        return False
+
     def OnSelectionAnnee(self, event):
+        code = self._GetCodeSelectionne()
         self.ctrl_annee.Normaliser()
+        self.MAJ(conserve_code=code)
         self.GetGrandParent().OnSelection()
         if event is not None:
             event.Skip()
@@ -445,14 +514,9 @@ class Saison(wx.Panel):
 
     def GetDatesSelections(self):
         code = self._GetCodeSelectionne()
-        if code is None:
+        if code is None or code not in self.periodesCalculees:
             return []
-        return [
-            UTILS_PeriodesSaison.GetPeriodeSaison(
-                code,
-                annee_debut=self.ctrl_annee.GetAnnee(),
-            )
-        ]
+        return [self.periodesCalculees[code]]
 
 
 class Dates(wx.Panel):
@@ -598,6 +662,7 @@ class CTRL(wx.Panel):
         listeSelections = dictDonnees["listeSelections"]
         dateDebut = dictDonnees["dateDebut"]
         dateFin = dictDonnees["dateFin"]
+        periodeCode = dictDonnees.get("periodeCode")
         
         # Recherche la page du notebook
         self.notebook.SetSelection(numPage)
@@ -638,11 +703,61 @@ class CTRL(wx.Panel):
             if dateFin != None : page.ctrl_date_fin.SetDate(dateFin)
 
         if numPage == 4 :
-            # Saison
+            # Saison. Les nouvelles préférences mémorisent un code stable.
+            # Pour une préférence plus ancienne, l'index est interprété selon
+            # l'ordre historique afin de ne jamais transformer silencieusement
+            # un ancien trimestre en période périscolaire.
             if annee != None :
                 page.ctrl_annee.SetAnnee(annee)
-            if len(listeSelections) > 0 :
-                page.SetSelectionIndex(listeSelections[0])
+            page.MAJ()
+
+            code = periodeCode
+            if code in (None, "") and len(listeSelections) > 0 :
+                code = page.GetLegacyCodeFromIndex(listeSelections[0])
+
+            restaure = False
+            if code not in (None, "") :
+                restaure = page.SetSelectionCode(code)
+
+            if not restaure and code not in (None, "") :
+                # Les trimestres ne sont plus proposés mais restent compris
+                # par le moteur. Une préférence historique est restaurée dans
+                # l'onglet Dates avec exactement ses anciennes bornes.
+                bornes = None
+                if code in ("trimestre_1", "trimestre_2", "trimestre_3") :
+                    try :
+                        bornes = UTILS_PeriodesSaison.GetPeriodeSaison(
+                            code,
+                            annee_debut=page.ctrl_annee.GetAnnee(),
+                        )
+                    except ValueError :
+                        bornes = None
+
+                # Même repli pour une période périscolaire mémorisée si les
+                # vacances ont depuis été retirées de la base : on conserve
+                # les bornes réellement mémorisées plutôt que d'inventer.
+                if bornes is None :
+                    liste_periodes_memorisees = dictDonnees.get("listePeriodes", [])
+                    if len(liste_periodes_memorisees) == 1 :
+                        bornes = liste_periodes_memorisees[0]
+
+                if bornes is not None and len(bornes) == 2 :
+                    def _date_dd(valeur) :
+                        if isinstance(valeur, datetime.datetime) :
+                            return valeur.date()
+                        if isinstance(valeur, datetime.date) :
+                            return valeur
+                        return UTILS_Dates.DateEngEnDateDD(valeur)
+
+                    try :
+                        debut = _date_dd(bornes[0])
+                        fin = _date_dd(bornes[1])
+                        if debut is not None and fin is not None :
+                            self.notebook.SetSelection(3)
+                            self.page_dates.ctrl_date_debut.SetDate(debut)
+                            self.page_dates.ctrl_date_fin.SetDate(fin)
+                    except Exception :
+                        pass
         
         self.evtActif = True
         
@@ -653,7 +768,7 @@ class CTRL(wx.Panel):
 ##        "dateFin" : None,
 
     def GetDictDonnees(self):
-        dictDonnees = {}
+        dictDonnees = {"periodeCode": None}
         numPage = self.notebook.GetSelection()
         page = self.notebook.GetPage(numPage)
         
@@ -697,6 +812,7 @@ class CTRL(wx.Panel):
                 dictDonnees["listeSelections"] = []
             else :
                 dictDonnees["listeSelections"] = [indexSelection]
+            dictDonnees["periodeCode"] = page._GetCodeSelectionne()
             dictDonnees["annee"] = page.ctrl_annee.GetAnnee()
             dictDonnees["dateDebut"] = None
             dictDonnees["dateFin"] = None
