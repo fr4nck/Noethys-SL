@@ -1,0 +1,139 @@
+# -*- coding: utf-8 -*-
+"""Frontieres texte/binaire et encodages explicites des exports.
+
+Repris de origin/master :
+- 299dbcc3 : exports protocolaires Corail, Magnus, UTILS_Corail/Jvs/Pes
+  (octets de toprettyxml(encoding=...) ecrits dans un fichier texte ->
+  TypeError) ;
+- b2ce3aef : encodages UTF-8 explicites (lot JVS, traductions,
+  prelevements) ;
+- 910cc8f5 : encodages explicites (lot PES en ISO-8859-1, FonctionsPerso,
+  UTILS_Envoi_email).
+
+Fichiers temporaires uniquement ; aucune base, aucun reseau, aucune fenetre.
+"""
+import sys as _sys_garde, pathlib as _pathlib_garde
+_sys_garde.path.insert(0, str(_pathlib_garde.Path(__file__).resolve().parent))
+import _garde_reseau  # noqa: E402,F401  aucune connexion à une base réseau (voir _garde_reseau)
+import ast  # noqa: E402
+import os  # noqa: E402
+import tempfile  # noqa: E402
+import unittest  # noqa: E402
+from pathlib import Path  # noqa: E402
+from xml.dom.minidom import Document  # noqa: E402
+
+import wx  # noqa: E402
+
+_APP = wx.App(False) if not wx.GetApp() else wx.GetApp()
+
+NOETHYS = Path(__file__).resolve().parents[1] / "noethys"
+
+
+def _arbre(relatif):
+    return ast.parse((NOETHYS / relatif).read_text(encoding="utf-8"))
+
+
+def _mot_cle(appel, nom):
+    for kw in appel.keywords:
+        if kw.arg == nom and isinstance(kw.value, ast.Constant):
+            return kw.value.value
+    return None
+
+
+def _mode(appel):
+    if len(appel.args) >= 2 and isinstance(appel.args[1], ast.Constant):
+        return appel.args[1].value
+    return _mot_cle(appel, "mode") or "r"
+
+
+def _appels_open(arbre):
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Call):
+            f = noeud.func
+            nom = f.id if isinstance(f, ast.Name) else (f.attr if isinstance(f, ast.Attribute) else None)
+            if nom == "open" and not (isinstance(f, ast.Attribute) and getattr(f.value, "id", "") in ("wx", "webbrowser")):
+                yield noeud
+
+
+def _ouvertures_texte_sans_encodage(relatif):
+    """Lignes des open() en mode texte sans encoding= explicite."""
+    fautes = []
+    for appel in _appels_open(_arbre(relatif)):
+        mode = _mode(appel)
+        if not isinstance(mode, str) or "b" in mode:
+            continue
+        if _mot_cle(appel, "encoding") is None and not any(kw.arg == "encoding" for kw in appel.keywords):
+            fautes.append(appel.lineno)
+    return fautes
+
+
+def _ouvertures_texte_pour_toprettyxml_encode(relatif):
+    """open() en mode texte dont l'objet recoit toprettyxml(encoding=...)
+    (des octets) : TypeError en Python 3."""
+    fautes = []
+    arbre = _arbre(relatif)
+    for fonction in ast.walk(arbre):
+        if not isinstance(fonction, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        modes = {}
+        for noeud in ast.walk(fonction):
+            if isinstance(noeud, ast.Assign) and isinstance(noeud.value, ast.Call) \
+                    and noeud.value in list(_appels_open(noeud.value)):
+                for cible in noeud.targets:
+                    if isinstance(cible, ast.Name):
+                        modes[cible.id] = (_mode(noeud.value), noeud.lineno)
+            if isinstance(noeud, ast.withitem) and isinstance(noeud.context_expr, ast.Call) \
+                    and isinstance(noeud.optional_vars, ast.Name) \
+                    and noeud.context_expr in list(_appels_open(noeud.context_expr)):
+                modes[noeud.optional_vars.id] = (_mode(noeud.context_expr), noeud.context_expr.lineno)
+        for noeud in ast.walk(fonction):
+            if isinstance(noeud, ast.Call) and isinstance(noeud.func, ast.Attribute) \
+                    and noeud.func.attr == "write" and isinstance(noeud.func.value, ast.Name) \
+                    and noeud.func.value.id in modes and noeud.args:
+                arg = noeud.args[0]
+                if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) \
+                        and arg.func.attr in ("toprettyxml", "toxml") \
+                        and any(kw.arg == "encoding" for kw in arg.keywords):
+                    mode, ligne = modes[noeud.func.value.id]
+                    if "b" not in mode:
+                        fautes.append(ligne)
+    return fautes
+
+
+def _doc_accentue():
+    doc = Document()
+    racine = doc.createElement("Racine")
+    racine.setAttribute("Libelle", u"Cantine éte – Noël")
+    doc.appendChild(racine)
+    return doc
+
+
+class FrontieresTexteBinaireTests(unittest.TestCase):
+    """299dbcc3"""
+
+    def _enregistrer(self, module):
+        with tempfile.TemporaryDirectory(prefix="noethys-export-") as rep:
+            chemin = os.path.join(rep, "export.xml")
+            module.EnregistrerXML(_doc_accentue(), chemin)
+            return Path(chemin).read_bytes()
+
+    def test_utils_corail_jvs_pes_ecrivent_des_octets_utf8(self):
+        from Utils import UTILS_Corail, UTILS_Jvs, UTILS_Pes
+        for module in (UTILS_Corail, UTILS_Jvs, UTILS_Pes):
+            with self.subTest(module=module.__name__):
+                contenu = self._enregistrer(module)
+                self.assertTrue(contenu.startswith(b'<?xml version="1.0" encoding="UTF-8"?>'))
+                self.assertIn(u"Cantine éte – Noël".encode("utf-8"), contenu)
+
+    def test_dialogue_corail_ouvre_le_xml_en_binaire(self):
+        for relatif in ("Dlg/DLG_Saisie_lot_tresor_public_corail.py",
+                        "Utils/UTILS_Corail.py", "Utils/UTILS_Jvs.py", "Utils/UTILS_Pes.py"):
+            with self.subTest(fichier=relatif):
+                self.assertEqual(_ouvertures_texte_pour_toprettyxml_encode(relatif), [])
+
+    def test_magnus_ecrit_ses_fichiers_texte_en_utf8_explicite(self):
+        self.assertEqual(_ouvertures_texte_sans_encodage("Dlg/DLG_Saisie_lot_tresor_public_magnus.py"), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1162,26 +1162,19 @@ class Dialog(DLG_Saisie_lot_tresor_public.Dialog):
         # Enregistrement du fichier ECRITURES
         if lignes:
             contenu_lignes = u"\n".join(lignes)
-            with open(os.path.join(repertoire, "WTAMC001.txt"), 'w') as fichier:
-                if six.PY2:
-                    contenu_lignes = contenu_lignes.encode("utf8")
+            with open(os.path.join(repertoire, "WTAMC001.txt"), 'w', encoding="utf-8") as fichier:
                 fichier.write(contenu_lignes)
 
         # Enregistrement du fichier ECRITURES_ASAP (Détail)
         if lignes_detail:
             contenu_lignes_detail = u"\n".join(lignes_detail)
-            with open(os.path.join(repertoire, "WTAMC001AS.txt"), 'w') as fichier:
-                if six.PY2:
-                    contenu_lignes_detail = contenu_lignes_detail.encode(
-                        "utf8")
+            with open(os.path.join(repertoire, "WTAMC001AS.txt"), 'w', encoding="utf-8") as fichier:
                 fichier.write(contenu_lignes_detail)
 
         # Enregistrement du fichier ECRITURES_PJ
         if lignes_pj:
             contenu_lignes_pj = u"\n".join(lignes_pj)
-            with open(os.path.join(repertoire, "WTAMC001PJ.txt"), 'w') as fichier:
-                if six.PY2:
-                    contenu_lignes_pj = contenu_lignes_pj.encode("utf8")
+            with open(os.path.join(repertoire, "WTAMC001PJ.txt"), 'w', encoding="utf-8") as fichier:
                 fichier.write(contenu_lignes_pj)
 
         return True
