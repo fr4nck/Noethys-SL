@@ -104,5 +104,62 @@ class RestaurationManifesteTests(unittest.TestCase):
             self.assertFalse((rep / "restoretemp").exists())
 
 
+    def test_sauvegarde_reseau_produit_un_manifeste_valide(self):
+        with tempfile.TemporaryDirectory(prefix="noe032-save-manifest-") as dossier:
+            rep = Path(dossier)
+            sortie = rep / "sortie"
+            sortie.mkdir()
+
+            class Processus:
+                returncode = 0
+
+                def communicate(self):
+                    return b"", None
+
+            def popen(commande, **kwargs):
+                import re
+                chemin = re.search(r'>\s*"([^"]+)"', commande).group(1)
+                Path(chemin).write_bytes(b"CREATE TABLE test_synth (id INT);\n")
+                return Processus()
+
+            wx = types.SimpleNamespace(
+                MessageDialog=_Dialogue, ProgressDialog=_Dialogue,
+                OK=0, ICON_ERROR=0, PD_SMOOTH=0, PD_AUTO_HIDE=0, PD_APP_MODAL=0,
+            )
+            deps = {
+                "zipfile": zipfile, "os": os, "shutil": shutil,
+                "wx": wx, "_": lambda texte: texte,
+                "six": types.SimpleNamespace(PY2=False, PY3=True),
+                "subprocess": types.SimpleNamespace(Popen=popen, PIPE=-1, STDOUT=-2),
+                "UTILS_SQL_Integrite": _charger_manifeste(),
+                "UTILS_Customize": types.SimpleNamespace(GetValeur=lambda *args, **kwargs: ""),
+                "UTILS_Envoi_email": types.SimpleNamespace(Message=lambda **kwargs: kwargs),
+                "UTILS_Fichiers": types.SimpleNamespace(GetRepTemp=lambda fichier: str(rep / fichier)),
+                "GetRepertoireMySQL": lambda _connection: str(rep) + os.sep,
+                "CreationFichierLoginTemp": lambda **kwargs: None,
+                "EXTENSIONS": {"decrypte": "nod", "crypte": "noc"},
+            }
+            arbre = ast.parse(SOURCE.read_text(encoding="utf-8"), filename=str(SOURCE))
+            fonction = next(noeud for noeud in arbre.body
+                            if isinstance(noeud, ast.FunctionDef) and noeud.name == "Sauvegarde")
+            exec(compile(ast.fix_missing_locations(ast.Module(body=[fonction], type_ignores=[])),
+                         str(SOURCE), "exec"), deps)
+            resultat = deps["Sauvegarde"](
+                listeFichiersReseau=["base_fictive"], nom="essai", repertoire=str(sortie),
+                dictConnexion={"port": "3308", "host": "127.0.0.1", "user": "faux", "password": "faux"},
+            )
+            self.assertTrue(resultat)
+            archive = sortie / "essai.nod"
+            self.assertTrue(archive.exists())
+            with zipfile.ZipFile(archive, "r") as z:
+                sql = z.read("base_fictive.sql")
+            self.assertTrue(sql.startswith(b"-- NOETHYS-SQL-MANIFEST-V1 "))
+            fichier_sql = rep / "resultat.sql"
+            fichier_sql.write_bytes(sql)
+            self.assertEqual(_charger_manifeste().VerifierIntegriteSQL(fichier_sql), (True, None))
+            self.assertFalse((rep / "savetemp").exists())
+
+
+
 if __name__ == "__main__":
     unittest.main()
