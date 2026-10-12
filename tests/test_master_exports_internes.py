@@ -114,5 +114,62 @@ class ExportTexteTests(unittest.TestCase):
                 self.assertIn("encoding", [kw.arg for kw in appel.keywords])
 
 
+class ExportNoethysWebEchecTests(unittest.TestCase):
+    """6f7eb0a9"""
+
+    def setUp(self):
+        _FauxDialogue.messages = []
+        self._tmp = tempfile.TemporaryDirectory(prefix="noethys-nweb-")
+        self.tmp = self._tmp.name
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _export(self, nom_fichier):
+        from Utils import UTILS_Export_noethysweb
+        rep_temp = lambda fichier="": os.path.join(self.tmp, "temp", fichier)
+        patch = mock.patch.object(UTILS_Export_noethysweb.UTILS_Fichiers, "GetRepTemp", side_effect=rep_temp)
+        patch.start()
+        self.addCleanup(patch.stop)
+        export = UTILS_Export_noethysweb.Export(nom_fichier=nom_fichier, mdp=None)
+        export.liste_objets = [{"model": "core.Structure", "pk": 1, "fields": {"nom": u"Structure fictive é"}}]
+        return export
+
+    def test_finaliser_reussite_nettoie_les_temporaires(self):
+        cible = os.path.join(self.tmp, "export.nweb")
+        export = self._export(cible)
+        self.assertIs(export.Finaliser(), True)
+        self.assertTrue(os.path.isfile(cible))
+        self.assertFalse(os.path.exists(export.rep))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "temp", "exportweb.zip")))
+
+    def test_finaliser_echec_renvoie_faux_avec_erreur_et_nettoie(self):
+        cible = os.path.join(self.tmp, "absent", "export.nweb")
+        export = self._export(cible)
+        self.assertIs(export.Finaliser(), False)
+        self.assertTrue(export.erreur_export)
+        self.assertFalse(os.path.exists(cible))
+        self.assertFalse(os.path.exists(export.rep))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "temp", "exportweb.zip")))
+
+    def test_dialogue_n_annonce_pas_un_echec_comme_reussi(self):
+        from types import SimpleNamespace
+        from Dlg import DLG_Export_noethysweb
+        valeur = lambda v: SimpleNamespace(GetValue=lambda: v, SetFocus=lambda: None)
+        faux = SimpleNamespace(ctrl_nom=valeur("export"), ctrl_mdp=valeur(""),
+                               ctrl_confirmation=valeur(""), ctrl_repertoire=valeur(self.tmp),
+                               ctrl_options=SimpleNamespace(GetIDcoches=lambda: []))
+        echec = SimpleNamespace(resultat=False, erreur_export=u"disque plein")
+        module = DLG_Export_noethysweb
+        with mock.patch.object(module.UTILS_Export_noethysweb, "Verifications", return_value=True), \
+                mock.patch.object(module.UTILS_Export_noethysweb, "Export_all", return_value=echec), \
+                mock.patch.object(module.wx, "BusyInfo", return_value=object()), \
+                mock.patch.object(module.wx, "MessageDialog", _fabrique(wx.ID_OK)):
+            resultat = module.Dialog.OnBoutonGenerer(faux, None)
+        self.assertIs(resultat, False)
+        self.assertTrue(any(u"disque plein" in m for m in _FauxDialogue.messages))
+        self.assertFalse(any(u"avec succès" in m for m in _FauxDialogue.messages))
+
+
 if __name__ == "__main__":
     unittest.main()
