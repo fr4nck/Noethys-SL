@@ -77,13 +77,17 @@ class AnalyseDumpSQLTests(unittest.TestCase):
     def tearDown(self):
         self._dossier.cleanup()
 
-    def _analyser(self, contenu):
+    def _analyser(self, contenu, **options):
         self.chemin.write_bytes(contenu)
-        return AnalyserDumpSQL(str(self.chemin))
+        return AnalyserDumpSQL(str(self.chemin), **options)
+
+    def _analyser_syntaxe(self, contenu):
+        # Couche syntaxique seule (cas master) : la ligne finale est testee a part.
+        return self._analyser(contenu, exiger_fin_mysqldump=False)
 
     def test_objets_de_premier_niveau_avec_delimiteurs_crlf(self):
         # Cas master : test_sql_analysis_tracks_only_top_level_objects_with_crlf_delimiters
-        analyse, erreur = self._analyser(
+        analyse, erreur = self._analyser_syntaxe(
             b"CREATE TABLE `base_table` (`id` INTEGER);\r\n"
             b"DELIMITER ;;\r\n"
             b"/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ "
@@ -104,7 +108,7 @@ class AnalyseDumpSQLTests(unittest.TestCase):
 
     def test_toutes_les_categories_d_objets(self):
         # Cas master : _sql_with_all_supported_objects
-        analyse, erreur = self._analyser(
+        analyse, erreur = self._analyser_syntaxe(
             b"CREATE TABLE `base_table` (`id` INTEGER);\n"
             b"CREATE VIEW `sample_view` AS SELECT `id` FROM `base_table`;\n"
             b"DELIMITER ;;\n"
@@ -150,16 +154,18 @@ class AnalyseDumpSQLTests(unittest.TestCase):
 
     def test_ancien_dump_tronque_en_pleine_instruction_refuse(self):
         # Cas master : test_network_restore_rejects_legacy_sql_truncated_mid_statement
-        analyse, erreur = self._analyser(b"CREATE TABLE `broken_table` (id INTEGER")
+        analyse, erreur = self._analyser_syntaxe(b"CREATE TABLE `broken_table` (id INTEGER")
         self.assertIsNone(analyse)
         self.assertIn("incomplete", erreur)
 
     def test_ancien_dump_tronque_dans_un_blob_refuse(self):
         complet = _dump_mysqldump_synthetique()
         coupure = complet.index(b"INSERT INTO `documents`") + 5000
-        analyse, erreur = self._analyser(complet[:coupure])
+        analyse, erreur = self._analyser_syntaxe(complet[:coupure])
         self.assertIsNone(analyse)
         self.assertIn("non ferme", erreur)
+        # Regle par defaut : refus des la ligne finale absente.
+        self.assertIn("Dump completed", self._analyser(complet[:coupure])[1])
 
     def test_troncatures_successives_jamais_acceptees_en_pleine_instruction(self):
         complet = _dump_mysqldump_synthetique()
@@ -170,8 +176,47 @@ class AnalyseDumpSQLTests(unittest.TestCase):
                 self.assertIsNone(analyse)
                 self.assertIsNotNone(erreur)
 
-    def test_delimiteur_non_retabli_refuse(self):
+    def test_ligne_finale_mysqldump_detectee(self):
+        for fin in (b"-- Dump completed on 2026-10-12 12:41:54\n",
+                    b"-- Dump completed\r\n\r\n",
+                    b"-- Dump completed on 2026-10-12  9:01:02"):
+            with self.subTest(fin=fin):
+                analyse, erreur = self._analyser(b"CREATE TABLE `t` (id INT);\n\n" + fin)
+                self.assertIsNone(erreur)
+                self.assertTrue(analyse["fin_mysqldump"])
+
+    def test_ancien_dump_coupe_entre_deux_instructions_refuse(self):
+        # Limite demontree sur MySQL 5.5 reel : coupure en frontiere d'instruction.
+        complet = _dump_mysqldump_synthetique()
+        frontiere = complet.index(b"DROP TABLE IF EXISTS `documents`")
+        self.assertIsNone(self._analyser_syntaxe(complet[:frontiere])[1])
+        analyse, erreur = self._analyser(complet[:frontiere])
+        self.assertIsNone(analyse)
+        self.assertIn("Dump completed", erreur)
+        self.assertIn("RECUPERATION_DUMP_SQL", erreur)
+
+    def test_ligne_finale_non_terminale_refusee(self):
         analyse, erreur = self._analyser(
+            b"CREATE TABLE `t` (id INT);\n-- Dump completed on 2026-10-12\nINSERT INTO `t` VALUES (1);\n")
+        self.assertIsNone(analyse)
+        self.assertIn("Dump completed", erreur)
+
+    def test_ligne_finale_imitee_refusee(self):
+        for fin in (b"-- Dump completed!", b"--Dump completed", b"/* -- Dump completed */"):
+            with self.subTest(fin=fin):
+                self.assertIsNotNone(self._analyser(b"CREATE TABLE `t` (id INT);\n" + fin)[1])
+
+    def test_dump_avec_manifeste_sans_ligne_finale_accepte(self):
+        # --compact / --skip-comments via Customize : le manifeste SHA-256 prouve la completude.
+        self.chemin.write_bytes(b"CREATE TABLE `t` (id INT);\nINSERT INTO `t` VALUES (1);\n")
+        MODULE.AjouterManifesteIntegriteSQL(str(self.chemin))
+        analyse, erreur = AnalyserDumpSQL(str(self.chemin))
+        self.assertIsNone(erreur)
+        self.assertTrue(analyse["avec_manifeste"])
+        self.assertFalse(analyse["fin_mysqldump"])
+
+    def test_delimiteur_non_retabli_refuse(self):
+        analyse, erreur = self._analyser_syntaxe(
             b"CREATE TABLE `t` (id INT);\nDELIMITER ;;\n"
             b"CREATE PROCEDURE `p`() BEGIN SELECT 1; END;;\n"
         )
@@ -179,13 +224,13 @@ class AnalyseDumpSQLTests(unittest.TestCase):
         self.assertIn("delimiteur", erreur)
 
     def test_commentaire_non_ferme_refuse(self):
-        analyse, erreur = self._analyser(b"CREATE TABLE `t` (id INT);\n/*!40101 SET NAMES utf8 ")
+        analyse, erreur = self._analyser_syntaxe(b"CREATE TABLE `t` (id INT);\n/*!40101 SET NAMES utf8 ")
         self.assertIsNone(analyse)
         self.assertIsNotNone(erreur)
 
     def test_dump_sans_objet_restaurable_refuse(self):
         # Cas master : test_network_restore_rejects_noop_sql_before_mysql
-        analyse, erreur = self._analyser(b"SELECT 1;")
+        analyse, erreur = self._analyser_syntaxe(b"SELECT 1;")
         self.assertIsNone(analyse)
         self.assertIn("aucun objet", erreur)
 
@@ -196,10 +241,114 @@ class AnalyseDumpSQLTests(unittest.TestCase):
                 self.assertIsNone(analyse)
                 self.assertIn("vide", erreur)
 
+    def test_marqueur_terminal_ajoute_en_fin_de_copie(self):
+        self.chemin.write_bytes(b"CREATE TABLE `t` (id INT);\n-- Dump completed\n")
+        marqueur = MODULE.AjouterMarqueurTerminalSQL(str(self.chemin), "base`fictive")
+        contenu = self.chemin.read_text(encoding="utf-8")
+        self.assertRegex(marqueur["jeton"], r"^[0-9a-f]{32}$")
+        self.assertEqual(marqueur["table"], "__noethys_restore_" + marqueur["jeton"])
+        self.assertTrue(contenu.rstrip().endswith("VALUES ('%s');" % marqueur["jeton"]))
+        self.assertIn("`base``fictive`.`%s`" % marqueur["table"], contenu)
+
+    def test_echappements_mysql(self):
+        self.assertEqual(MODULE.QuoteIdentifiantMySQL("a`b"), "`a``b`")
+        self.assertEqual(MODULE.EchapperLitteralMySQL("o'\\x"), "o\\'\\\\x")
+
     def test_fichier_absent_refuse_sans_exception(self):
         analyse, erreur = AnalyserDumpSQL(str(self.rep / "absent.sql"))
         self.assertIsNone(analyse)
         self.assertIsNotNone(erreur)
+
+
+class _BaseFictive:
+    """Connexion GestionDB simulee : ExecuterReq / ResultatReq."""
+
+    def __init__(self, reponses, echecs=()):
+        self.reponses = reponses
+        self.echecs = echecs
+        self.requetes = []
+        self.derniere = None
+
+    def ExecuterReq(self, requete):
+        self.requetes.append(requete)
+        self.derniere = requete
+        return 0 if any(requete.startswith(e) for e in self.echecs) else 1
+
+    def ResultatReq(self):
+        for prefixe, lignes in self.reponses.items():
+            if self.derniere.startswith(prefixe):
+                return lignes
+        return []
+
+
+def _objets(**valeurs):
+    objets = MODULE._NouvelInventaireObjetsSQL()
+    for cle, noms in valeurs.items():
+        objets[cle] = set(noms)
+    return objets
+
+
+class PostconditionMySQLTests(unittest.TestCase):
+    MARQUEUR = {"table": "__noethys_restore_" + "a" * 32, "jeton": "a" * 32}
+
+    def _verifier(self, reponses, objets, echecs=()):
+        base = _BaseFictive(reponses, echecs)
+        return MODULE.VerifierPostconditionMySQL(base, "base_fictive", self.MARQUEUR, objets), base
+
+    def test_restauration_complete_acceptee(self):
+        (ok, diagnostic), base = self._verifier({
+            "SELECT `jeton`": [("a" * 32,)],
+            "SHOW FULL TABLES": [("individus", "BASE TABLE"), ("vue_individus", "VIEW"),
+                                 (self.MARQUEUR["table"], "BASE TABLE")],
+            "SELECT TRIGGER_NAME": [("trg_nom",)],
+            "SELECT ROUTINE_NAME": [("proc_compte", "PROCEDURE"), ("fn_un", "FUNCTION")],
+        }, _objets(tables={"individus"}, vues={"vue_individus"}, triggers={"trg_nom"},
+                   procedures={"proc_compte"}, fonctions={"fn_un"}))
+        self.assertTrue(ok, diagnostic)
+        self.assertFalse(any(r.startswith("DROP") for r in base.requetes),
+                         "La verification ne doit pas supprimer le marqueur elle-meme")
+
+    def test_marqueur_absent_refuse(self):
+        (ok, diagnostic), _ = self._verifier({"SELECT `jeton`": []}, _objets(tables={"t"}))
+        self.assertFalse(ok)
+        self.assertIn("marqueur terminal", diagnostic)
+
+    def test_marqueur_illisible_refuse(self):
+        (ok, _), _ = self._verifier({}, _objets(tables={"t"}), echecs=("SELECT `jeton`",))
+        self.assertFalse(ok)
+
+    def test_table_attendue_absente_refusee(self):
+        (ok, diagnostic), _ = self._verifier({
+            "SELECT `jeton`": [("a" * 32,)],
+            "SHOW FULL TABLES": [("alpha", "BASE TABLE")],
+        }, _objets(tables={"alpha", "beta"}))
+        self.assertFalse(ok)
+        self.assertIn("beta", diagnostic)
+
+    def test_vue_restauree_comme_table_refusee(self):
+        (ok, diagnostic), _ = self._verifier({
+            "SELECT `jeton`": [("a" * 32,)],
+            "SHOW FULL TABLES": [("vue_individus", "BASE TABLE")],
+        }, _objets(vues={"vue_individus"}))
+        self.assertFalse(ok)
+        self.assertIn("vues", diagnostic)
+
+    def test_trigger_routine_evenement_absents_refuses(self):
+        for objets, reponse in (
+                (_objets(tables={"t"}, triggers={"trg"}), {"SELECT TRIGGER_NAME": []}),
+                (_objets(tables={"t"}, procedures={"p"}), {"SELECT ROUTINE_NAME": [("p", "FUNCTION")]}),
+                (_objets(tables={"t"}, evenements={"ev"}), {"SELECT EVENT_NAME": []})):
+            with self.subTest(objets=objets):
+                reponses = {"SELECT `jeton`": [("a" * 32,)], "SHOW FULL TABLES": [("t", "BASE TABLE")]}
+                reponses.update(reponse)
+                (ok, _), _ = self._verifier(reponses, objets)
+                self.assertFalse(ok)
+
+    def test_suppression_du_marqueur(self):
+        base = _BaseFictive({})
+        self.assertTrue(MODULE.SupprimerMarqueurMySQL(base, self.MARQUEUR))
+        self.assertEqual(base.requetes, ["DROP TABLE IF EXISTS `%s`;" % self.MARQUEUR["table"]])
+        self.assertFalse(MODULE.SupprimerMarqueurMySQL(_BaseFictive({}, echecs=("DROP",)), self.MARQUEUR))
 
 
 if __name__ == "__main__":

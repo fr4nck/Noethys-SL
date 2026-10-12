@@ -17,6 +17,7 @@ class ArchiveTemoin:
     def __init__(self, *args, **kwargs):
         self.fermee = False
         self.extractions = []
+        self.lectures = []
         ArchiveTemoin.derniere = self
 
     def close(self):
@@ -24,6 +25,10 @@ class ArchiveTemoin:
 
     def extract(self, *args, **kwargs):
         self.extractions.append(args)
+        raise OSError("Echec de lecture simule")
+
+    def open(self, *args, **kwargs):
+        self.lectures.append(args)
         raise OSError("Echec de lecture simule")
 
 
@@ -160,12 +165,15 @@ class RestaurationArchiveCleanupTests(unittest.TestCase):
         self.assertEqual(ArchiveTemoin.derniere.extractions, [])
 
     def test_erreur_extraction_locale_ferme_zip(self):
+        # Noe-032 : le membre illisible est detecte par la lecture de controle,
+        # avant toute extraction (donc avant tout remplacement de fichier Sqlite).
         restauration = self._restauration(self.OsAbsent)
         resultat = restauration(fichier="archive-fictive.nod",
                                listeFichiersLocaux=["fichier-fictif.dat"])
         self.assertIs(resultat, False)
         self._controle_zip_ferme()
-        self.assertEqual(len(ArchiveTemoin.derniere.extractions), 1)
+        self.assertEqual(len(ArchiveTemoin.derniere.lectures), 1)
+        self.assertEqual(ArchiveTemoin.derniere.extractions, [])
 
     def test_client_mysql_introuvable_ferme_zip(self):
         restauration = self._restauration(
@@ -213,7 +221,7 @@ class RestaurationArchiveCleanupTests(unittest.TestCase):
                             and instruction.value.value is False):
                         gardes.append((instruction.lineno,
                                        valeur[i - 1] if i else None))
-        self.assertEqual(len(gardes), 7, "Inclure le refus de manifeste avant MySQL")
+        self.assertEqual(len(gardes), 9, "Inclure controle prealable de l'archive et postconditions")
         for ligne, precedente in gardes:
             self.assertIsInstance(precedente, ast.Expr, "Retour ligne %s" % ligne)
             self.assertEqual(ast.unparse(precedente), "fichierZip.close()",

@@ -358,12 +358,33 @@ def _LireChargeSQL(chemin, avec_manifeste):
     return contenu[debut:fin]
 
 
-def AnalyserDumpSQL(fichier):
-    """Retourne (analyse, erreur) ; analyse = {"avec_manifeste", "objets"}.
+# Ligne finale ecrite par mysqldump/mariadb-dump (MySQL 5.5, 5.7, 8.0, MariaDB
+# 10.11 verifies) sauf avec --compact ou --skip-comments ; sans date si
+# --skip-dump-date.
+_FIN_MYSQLDUMP_RE = re.compile(br"-- Dump completed(?: on [^\r\n]*)?\Z")
 
-    Refuse avant toute commande mysql : manifeste invalide, dump vide, chaine,
-    identifiant ou commentaire non ferme, derniere instruction incomplete,
-    delimiteur non retabli et dump sans objet persistant ni chargement de table.
+ERREUR_FIN_MYSQLDUMP_ABSENTE = (
+    "ancienne sauvegarde sans manifeste et sans ligne finale '-- Dump completed' : "
+    "dump possiblement tronque, restauration normale refusee "
+    "(procedure de recuperation isolee : docs/exploitation/RECUPERATION_DUMP_SQL.md)"
+)
+
+
+def FinMysqldumpPresente(charge):
+    """Vrai si la derniere ligne non vide de la charge est la fin mysqldump."""
+    fin = charge.rstrip()
+    debut = fin.rfind(b"\n") + 1
+    return _FIN_MYSQLDUMP_RE.match(fin[debut:]) is not None
+
+
+def AnalyserDumpSQL(fichier, exiger_fin_mysqldump=True):
+    """Retourne (analyse, erreur) ; analyse = {"avec_manifeste", "fin_mysqldump", "objets"}.
+
+    Refuse avant toute commande mysql : manifeste invalide, dump vide, ancien
+    dump sans manifeste ni ligne finale mysqldump (le manifeste SHA-256 prouve
+    seul la completude d'un dump recent), chaine, identifiant ou commentaire non
+    ferme, derniere instruction incomplete, delimiteur non retabli et dump sans
+    objet persistant ni chargement de table.
     """
     chemin = os.fspath(fichier)
     avec_manifeste, erreur = VerifierIntegriteSQL(chemin)
@@ -375,6 +396,9 @@ def AnalyserDumpSQL(fichier):
         return None, "lecture du dump SQL impossible : %s" % err
     if not charge or not charge.strip():
         return None, "dump SQL vide"
+    fin_mysqldump = FinMysqldumpPresente(charge)
+    if exiger_fin_mysqldump and not avec_manifeste and not fin_mysqldump:
+        return None, ERREUR_FIN_MYSQLDUMP_ABSENTE
 
     texte = charge.decode("utf-8", "ignore")
     texteNettoye, ferme = _NettoyerSQLPourAnalyse(texte)
@@ -389,4 +413,143 @@ def AnalyserDumpSQL(fichier):
     if not any(objets.values()):
         return None, "aucun objet persistant ni chargement de table dans le dump SQL"
 
-    return {"avec_manifeste": avec_manifeste, "objets": objets}, None
+    return {"avec_manifeste": avec_manifeste, "fin_mysqldump": fin_mysqldump, "objets": objets}, None
+
+
+# ---------------------------------------------------------------------------
+# Marqueur terminal et postconditions de restauration MySQL (Noe-032).
+# Adaptes de master (b0be3c7e) : _AjouterMarqueurTerminalSQL,
+# _VerifierPostconditionRestaurationMySQL, _SupprimerMarqueurRestaurationMySQL.
+# La connexion est injectee (ExecuterReq / ResultatReq de GestionDB) : aucun
+# acces base dans ce module. Ces controles prouvent que l'import est alle
+# jusqu'au bout et que les objets inventories existent ; ils ne prouvent pas
+# qu'un ancien dump etait complet (voir FinMysqldumpPresente).
+# ---------------------------------------------------------------------------
+
+def QuoteIdentifiantMySQL(valeur):
+    return u"`%s`" % valeur.replace(u"`", u"``")
+
+
+def EchapperLitteralMySQL(valeur):
+    return valeur.replace(u"\\", u"\\\\").replace(u"'", u"\\'")
+
+
+def AjouterMarqueurTerminalSQL(fichier, nomBase):
+    """Ajoute a la copie extraite un objet ephemere qui n'existe que si la fin est executee."""
+    jeton = uuid.uuid4().hex
+    nomTable = u"__noethys_restore_%s" % jeton
+    tableQualifiee = u"%s.%s" % (QuoteIdentifiantMySQL(nomBase), QuoteIdentifiantMySQL(nomTable))
+    sql = (
+        u"\n-- NOETHYS-RESTORE-END-V1 %s\n"
+        u"CREATE TABLE %s (`jeton` CHAR(32) NOT NULL PRIMARY KEY);\n"
+        u"INSERT INTO %s (`jeton`) VALUES ('%s');\n"
+    ) % (jeton, tableQualifiee, tableQualifiee, jeton)
+    with open(os.fspath(fichier), "ab") as flux:
+        flux.write(sql.encode("utf-8"))
+    return {"table": nomTable, "jeton": jeton}
+
+
+def _ResultatRequete(DB, requete):
+    if DB.ExecuterReq(requete) != 1:
+        return None
+    return DB.ResultatReq()
+
+
+def _NormaliserValeurSQL(valeur):
+    if isinstance(valeur, bytes):
+        return valeur.decode("utf-8", "ignore").lower()
+    return (u"%s" % valeur).lower()
+
+
+def _DiagnosticObjetsManquants(categorie, manquants):
+    return u"%s : %s" % (categorie, u", ".join(sorted(manquants)))
+
+
+def VerifierPostconditionMySQL(DB, nomBase, marqueur, objetsAttendus):
+    """Retourne (ok, diagnostic) : marqueur terminal execute puis objets attendus presents.
+
+    Le marqueur n'est pas supprime ici (voir SupprimerMarqueurMySQL).
+    """
+    tableMarqueur = QuoteIdentifiantMySQL(marqueur["table"])
+    jeton = EchapperLitteralMySQL(marqueur["jeton"])
+    lignes = _ResultatRequete(
+        DB, u"SELECT `jeton` FROM %s WHERE `jeton`='%s' LIMIT 1;" % (tableMarqueur, jeton))
+    if lignes is None or len(lignes) != 1 or _NormaliserValeurSQL(lignes[0][0]) != marqueur["jeton"].lower():
+        return False, u"le marqueur terminal n'a pas ete execute"
+
+    lignes = _ResultatRequete(DB, u"SHOW FULL TABLES;")
+    if lignes is None:
+        return False, u"la liste des tables et vues restaurees est illisible"
+    tables = set()
+    vues = set()
+    nomMarqueur = marqueur["table"].lower()
+    for ligne in lignes:
+        if not ligne:
+            continue
+        nomObjet = _NormaliserValeurSQL(ligne[0])
+        if nomObjet == nomMarqueur:
+            continue
+        typeObjet = _NormaliserValeurSQL(ligne[1]) if len(ligne) > 1 else u"base table"
+        if typeObjet == u"view":
+            vues.add(nomObjet)
+        else:
+            tables.add(nomObjet)
+
+    manquants = []
+    if objetsAttendus["tables"] - tables:
+        manquants.append(_DiagnosticObjetsManquants(u"tables", objetsAttendus["tables"] - tables))
+    if objetsAttendus["vues"] - vues:
+        manquants.append(_DiagnosticObjetsManquants(u"vues", objetsAttendus["vues"] - vues))
+
+    schema = EchapperLitteralMySQL(nomBase)
+    if not manquants and objetsAttendus["triggers"]:
+        lignes = _ResultatRequete(
+            DB, u"SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='%s';" % schema)
+        if lignes is None:
+            manquants.append(u"triggers : verification impossible")
+        else:
+            absents = objetsAttendus["triggers"] - set(_NormaliserValeurSQL(l[0]) for l in lignes)
+            if absents:
+                manquants.append(_DiagnosticObjetsManquants(u"triggers", absents))
+
+    if not manquants and (objetsAttendus["procedures"] or objetsAttendus["fonctions"]):
+        lignes = _ResultatRequete(
+            DB, u"SELECT ROUTINE_NAME, ROUTINE_TYPE FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='%s';" % schema)
+        if lignes is None:
+            manquants.append(u"routines : verification impossible")
+        else:
+            procedures = set()
+            fonctions = set()
+            for ligne in lignes:
+                if len(ligne) < 2:
+                    continue
+                if _NormaliserValeurSQL(ligne[1]) == u"procedure":
+                    procedures.add(_NormaliserValeurSQL(ligne[0]))
+                elif _NormaliserValeurSQL(ligne[1]) == u"function":
+                    fonctions.add(_NormaliserValeurSQL(ligne[0]))
+            if objetsAttendus["procedures"] - procedures:
+                manquants.append(_DiagnosticObjetsManquants(u"procedures", objetsAttendus["procedures"] - procedures))
+            if objetsAttendus["fonctions"] - fonctions:
+                manquants.append(_DiagnosticObjetsManquants(u"fonctions", objetsAttendus["fonctions"] - fonctions))
+
+    if not manquants and objetsAttendus["evenements"]:
+        lignes = _ResultatRequete(
+            DB, u"SELECT EVENT_NAME FROM information_schema.EVENTS WHERE EVENT_SCHEMA='%s';" % schema)
+        if lignes is None:
+            manquants.append(u"evenements : verification impossible")
+        else:
+            absents = objetsAttendus["evenements"] - set(_NormaliserValeurSQL(l[0]) for l in lignes)
+            if absents:
+                manquants.append(_DiagnosticObjetsManquants(u"evenements", absents))
+
+    if manquants:
+        return False, u"des objets attendus sont absents ou de type incorrect : %s" % u" ; ".join(manquants)
+    return True, u""
+
+
+def SupprimerMarqueurMySQL(DB, marqueur):
+    """Supprime la table marqueur ; retourne True si la requete a abouti."""
+    try:
+        return DB.ExecuterReq(u"DROP TABLE IF EXISTS %s;" % QuoteIdentifiantMySQL(marqueur["table"])) == 1
+    except Exception:
+        return False
