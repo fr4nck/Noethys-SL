@@ -45,7 +45,7 @@ $Container = 'noethys-sl-noe032-mysql55'
 if ($LASTEXITCODE -ne 0) { throw 'Bac a sable non disponible.' }
 
 $ContainerDump = '/tmp/noethys-fixture-import.sql'
-& docker cp $DumpPath "\${Container}:$ContainerDump"
+& docker cp $DumpPath "${Container}:$ContainerDump"
 if ($LASTEXITCODE -ne 0) { throw 'Copie de la fixture dans Docker impossible.' }
 try {
     $Script = @'
