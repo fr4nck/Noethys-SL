@@ -185,5 +185,58 @@ class ReglementsGroupByStrictTests(unittest.TestCase):
         self.assertEqual({l[25] for l in lignes}, {7})
 
 
+TABLES_PRESTATIONS = ("prestations", "activites", "individus", "tarifs", "noms_tarifs",
+                      "categories_tarifs", "cotisations", "types_cotisations", "factures")
+
+
+class ExportComptaGroupByStrictTests(unittest.TestCase):
+    """f0256647 : exports Quadra et Cerig sans GROUP BY global ; une
+    prestation liee a plusieurs cotisations reste exportee une seule fois."""
+
+    def _capturer_requete(self, nom_classe):
+        from Dlg import DLG_Export_compta
+        classe = getattr(DLG_Export_compta, nom_classe)
+        params = {"date_debut": "2026-01-01", "date_fin": "2026-12-31",
+                  "quadra_type_ventes": 0}
+        faux = types.SimpleNamespace(Validation=lambda: True, GetParametres=lambda: dict(params))
+        _DBCapture.requetes = []
+        _DBCapture.lever_apres = 1
+        with mock.patch.object(GestionDB, "DB", _DBCapture), \
+                mock.patch.object(DLG_Export_compta.UTILS_Titulaires, "GetTitulaires", return_value={}):
+            with self.assertRaises(_Capture):
+                classe.Generation(faux)
+        _DBCapture.lever_apres = None
+        req = _DBCapture.requetes[0]
+        self.assertIn("FROM prestations", req)
+        return req
+
+    def _verifier_une_ligne_par_prestation(self, req):
+        con = _base_sqlite(TABLES_PRESTATIONS)
+        con.execute("INSERT INTO factures (IDfacture, numero, date_debut, date_fin, date_edition) VALUES (1, 101, '2026-03-01', '2026-03-31', '2026-04-01')")
+        con.execute("INSERT INTO types_cotisations (IDtype_cotisation, nom, code_comptable) VALUES (1, 'Adhesion', '706A')")
+        con.execute("INSERT INTO types_cotisations (IDtype_cotisation, nom, code_comptable) VALUES (2, 'Licence', '706B')")
+        con.execute("INSERT INTO prestations (IDprestation, date, label, montant, IDfacture) VALUES (1, '2026-03-02', 'Cotisation', 20.0, 1)")
+        con.execute("INSERT INTO prestations (IDprestation, date, label, montant, IDfacture) VALUES (2, '2026-03-03', 'Repas', 4.0, 1)")
+        con.execute("INSERT INTO cotisations (IDcotisation, IDprestation, IDtype_cotisation) VALUES (5, 1, 1)")
+        con.execute("INSERT INTO cotisations (IDcotisation, IDprestation, IDtype_cotisation) VALUES (6, 1, 2)")
+        lignes = con.execute(req).fetchall()
+        con.close()
+        self.assertEqual([l[0] for l in lignes], [1, 2])
+        # Cotisation retenue de facon deterministe : la plus ancienne (MIN)
+        cotisation = {l[0]: l[-5:-3] if len(l) == 20 else l[-4:-2] for l in lignes}
+        self.assertEqual(tuple(cotisation[1]), ("706A", "Adhesion"))
+        self.assertEqual(tuple(cotisation[2]), (None, None))
+
+    def test_quadra_conforme_only_full_group_by(self):
+        req = self._capturer_requete("CTRL_Parametres_quadracompta")
+        self.assertEqual(violations_only_full_group_by(req), [])
+        self._verifier_une_ligne_par_prestation(req)
+
+    def test_cerig_conforme_only_full_group_by(self):
+        req = self._capturer_requete("CTRL_Parametres_cerig")
+        self.assertEqual(violations_only_full_group_by(req), [])
+        self._verifier_une_ligne_par_prestation(req)
+
+
 if __name__ == "__main__":
     unittest.main()
