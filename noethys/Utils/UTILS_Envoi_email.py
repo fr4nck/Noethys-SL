@@ -812,7 +812,103 @@ def _FermerProgressDialog(dlg_progress):
     return None
 
 
+def _RetirerAnomalies(listeAnomalies, message):
+    """Après un 'Réessayer' réussi, le message ne doit plus figurer en échec."""
+    listeAnomalies[:] = [(m, e) for m, e in listeAnomalies if m is not message]
+
+
+def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, listeNonTentes, afficher_confirmation_envoi):
+    """Bilan d'un lot en trois catégories distinctes : acceptés par le
+    service d'envoi, en échec, non tentés (envoi arrêté). Mémorise aussi le
+    bilan dans messagerie.dernier_bilan pour les appelants."""
+    messagerie.dernier_bilan = {
+        "acceptes": list(listeSucces),
+        "echecs": list(listeAnomalies),
+        "non_tentes": list(listeNonTentes),
+    }
+    service = messagerie.LIBELLE_SERVICE
+
+    # Tous acceptés
+    if len(listeAnomalies) == 0 and len(listeNonTentes) == 0:
+        if afficher_confirmation_envoi == True and len(listeSucces) > 0:
+            if len(listeSucces) == 1:
+                texte = _(u"L'Email a été accepté par %s pour envoi.") % service
+            else:
+                texte = _(u"Les %d Emails ont été acceptés par %s pour envoi.") % (len(listeSucces), service)
+            texte += u"\n\n" + _(u"Noethys ne vérifie pas leur remise effective aux destinataires.")
+            dlg = wx.MessageDialog(None, texte, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+        return
+
+    # Un seul message en échec : l'erreur a déjà été affichée telle quelle
+    if len(messages) <= 1 and len(listeNonTentes) == 0:
+        return
+
+    intro = _(u"%d Email(s) accepté(s) par %s, %d en échec, %d non tenté(s).") % (
+        len(listeSucces), service, len(listeAnomalies), len(listeNonTentes))
+    lignes = []
+    if listeAnomalies:
+        lignes.append(_(u"En échec :"))
+        for message, erreur in listeAnomalies:
+            lignes.append(u"- %s : %s" % (_TexteUtf8(message.GetLabelDestinataires()), _TexteUtf8(erreur)))
+    if listeNonTentes:
+        lignes.append(_(u"Non tentés (envoi arrêté) :"))
+        for message in listeNonTentes:
+            lignes.append(u"- %s" % _TexteUtf8(message.GetLabelDestinataires()))
+    if listeSucces:
+        lignes.append(_(u"Acceptés par %s :") % service)
+        for message in listeSucces:
+            lignes.append(u"- %s" % _TexteUtf8(message.GetLabelDestinataires()))
+    dlg = DLG_Messagebox.Dialog(None, titre=_(u"Compte-rendu de l'envoi"), introduction=intro,
+                                detail=u"\n".join(lignes), icone=wx.ICON_INFORMATION, boutons=[_(u"Ok"), ])
+    dlg.ShowModal()
+    dlg.Destroy()
+
+
+class ErreurMailjet(Exception):
+    """ Refus ou réponse inexploitable de l'API Mailjet. Le texte ne contient
+    que le statut HTTP et les motifs renvoyés par Mailjet : jamais de clé
+    API, de secret, d'en-tête Authorization ni le contenu du message. """
+    pass
+
+
+def _DetailErreurMailjet(donnees=None, status_code=None, texte_brut=None):
+    """ Extrait un motif lisible d'une réponse d'erreur Mailjet (Send API
+    v3.1) : ErrorMessage / ErrorCode / ErrorRelatedTo de chaque erreur, ou
+    ErrorMessage global (ex. 401). Sans JSON exploitable, seul un extrait
+    court du corps est conservé. """
+    motifs = []
+    if isinstance(donnees, dict):
+        for message in (donnees.get("Messages") or []):
+            if not isinstance(message, dict):
+                continue
+            for erreur in (message.get("Errors") or []):
+                if not isinstance(erreur, dict):
+                    continue
+                motif = erreur.get("ErrorMessage") or erreur.get("ErrorIdentifier") or u""
+                if erreur.get("ErrorCode"):
+                    motif = u"%s [%s]" % (motif, erreur.get("ErrorCode"))
+                if erreur.get("ErrorRelatedTo"):
+                    motif = u"%s (%s)" % (motif, u", ".join(six.text_type(x) for x in erreur.get("ErrorRelatedTo")))
+                motifs.append(motif)
+        if not motifs and donnees.get("ErrorMessage"):
+            motifs.append(six.text_type(donnees.get("ErrorMessage")))
+    if not motifs and texte_brut:
+        extrait = u" ".join(six.text_type(texte_brut).split())
+        motifs.append(extrait[:200] + (u"..." if len(extrait) > 200 else u""))
+    texte = u" ; ".join(motifs) if motifs else _(u"réponse inattendue de Mailjet")
+    if status_code not in (None, 200, 201):
+        texte = _(u"Mailjet a refusé le message (HTTP %s) : %s") % (status_code, texte)
+    else:
+        texte = _(u"Mailjet n'a pas accepté le message : %s") % texte
+    return texte
+
+
+
 class Mailjet(Base_messagerie):
+    LIBELLE_SERVICE = u"Mailjet"
+
     def __init__(self, **kwds):
         Base_messagerie.__init__(self, **kwds)
 
@@ -943,6 +1039,7 @@ class Mailjet(Base_messagerie):
 
 
     def Envoyer(self, message=None):
+        message.mailjet_ids = []
         # Préparation du message
         dict_message = {
             "From": {"Email": self.email_exp, "Name": self.nom_exp},
@@ -996,20 +1093,29 @@ class Mailjet(Base_messagerie):
         # Envoi de la requête à Mailjet
         resultats = self.connection.send.create(data={"Messages": [dict_message,]})
 
-        # Analyse du résultat
+        # Une acceptation par l'API ne prouve pas la remise au destinataire.
+        status_code = getattr(resultats, "status_code", None)
         try:
-            resultat = resultats.json()["Messages"][0][u'Status']
-        except Exception as err:
-            print(err)
-            print(resultats.status_code)
-            print(resultats.json())
-            raise Exception(err)
+            donnees = resultats.json()
+        except Exception:
+            donnees = None
+        try:
+            resultat = donnees["Messages"][0][u'Status']
+        except (TypeError, KeyError, IndexError):
+            resultat = None
 
-        if resultat != u'success':
-            print("Erreur envoi avec Mailjet")
-            print(resultats.json())
-            raise Exception(resultat)
+        if resultat != u'success' or status_code not in (None, 200, 201):
+            texte_brut = getattr(resultats, "text", None) if donnees is None else None
+            detail = _DetailErreurMailjet(donnees, status_code, texte_brut)
+            print(("Erreur envoi avec Mailjet : %s" % detail))
+            raise ErreurMailjet(detail)
 
+        destinataires = donnees["Messages"][0].get("To", [])
+        if isinstance(destinataires, (list, tuple)):
+            for destinataire in destinataires:
+                if isinstance(destinataire, dict):
+                    message.mailjet_ids.append((destinataire.get("Email"), destinataire.get("MessageUUID"),
+                                               destinataire.get("MessageID")))
         return resultat
 
     def Fermer(self):
@@ -1038,6 +1144,7 @@ class Mailjet(Base_messagerie):
 
         for message in messages:
             while True:
+                accepte = False
                 try:
                     adresse = message.GetLabelDestinataires()
                     labelAdresse = _TexteUtf8(adresse)
@@ -1089,7 +1196,9 @@ class Mailjet(Base_messagerie):
                     )
 
                     self.Envoyer(message)
+                    accepte = True
                     listeSucces.append(message)
+                    _RetirerAnomalies(listeAnomalies, message)
 
                     # 4. Succès.
                     dlg_progress.Update(
@@ -1112,6 +1221,11 @@ class Mailjet(Base_messagerie):
                         # d'origine (toujours mémorisée/affichée ensuite).
                         err_texte = repr(err)
 
+                    if accepte:
+                        # Une panne d'affichage après acceptation ne justifie jamais un renvoi.
+                        print(("Message accepté par Mailjet ; affichage de progression impossible : %s" % err_texte))
+                        dlg_progress = _FermerProgressDialog(dlg_progress)
+                        break
                     listeAnomalies.append((message, err_texte))
                     print(("Erreur dans l'envoi d'un mail : %s..." % err_texte))
                     traceback.print_exc(file=sys.stdout)
@@ -1144,6 +1258,8 @@ class Mailjet(Base_messagerie):
                         if reponse == 2:
                             ne_pas_signaler_erreurs = True
                         if reponse == 3:
+                            _AfficherCompteRendu(self, messages, listeSucces, listeAnomalies, messages[index:],
+                                                afficher_confirmation_envoi)
                             return listeSucces
                 break
 
@@ -1153,32 +1269,14 @@ class Mailjet(Base_messagerie):
 
         # Fin de la gauge
         if dlg_progress is not None:
-            dlg_progress.Update(maximum, _(u"Fin de l'envoi."))
-            dlg_progress = _FermerProgressDialog(dlg_progress)
+            try:
+                dlg_progress.Update(maximum, _(u"Fin de l'envoi."))
+            except Exception as err:
+                print(("Affichage de fin de lot Mailjet impossible : %s" % _TexteUtf8(err)))
+            finally:
+                dlg_progress = _FermerProgressDialog(dlg_progress)
 
-        # Si tous les Emails envoyés avec succès
-        if len(listeAnomalies) == 0 and afficher_confirmation_envoi == True:
-            if len(listeSucces) == 1:
-                message = _(u"L'Email a été envoyé avec succès !")
-            else:
-                message = _(u"Les %d Emails ont été envoyés avec succès !") % len(listeSucces)
-            dlg = wx.MessageDialog(None, message, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
-
-        # Si Anomalies
-        if len(listeAnomalies) > 0 and len(messages) > 1:
-            if len(listeSucces) > 0:
-                intro = _(u"%d Email(s) ont été envoyés avec succès mais les %d envois suivants ont échoué :") % ( len(listeSucces), len(listeAnomalies))
-            else:
-                intro = _(u"Tous les envois ont lamentablement échoué :")
-            lignes = []
-            for message, erreur in listeAnomalies:
-                adresse = message.GetLabelDestinataires()
-                lignes.append(u"- %s : %s" % (_TexteUtf8(adresse), _TexteUtf8(erreur)))
-            dlg = DLG_Messagebox.Dialog(None, titre=_(u"Compte-rendu de l'envoi"), introduction=intro, detail="\n".join(lignes), icone=wx.ICON_INFORMATION, boutons=[_(u"Ok"), ])
-            dlg.ShowModal()
-            dlg.Destroy()
+        _AfficherCompteRendu(self, messages, listeSucces, listeAnomalies, [], afficher_confirmation_envoi)
 
         return listeSucces
 

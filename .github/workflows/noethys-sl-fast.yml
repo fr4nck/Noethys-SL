@@ -82,6 +82,7 @@ jobs:
         run: >-
           python -m unittest -v
           tests.test_000_garde_reseau
+          tests.test_noethys_sl_mailjet_acceptation
           tests.test_etiquettes_liste_familles_contract
           tests.test_noedoc_deplacer_objet_contract
           tests.test_stats_modeles_mode_contract
