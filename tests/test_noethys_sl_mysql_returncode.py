@@ -55,12 +55,14 @@ def _charger_sauvegarde(dependances):
 
 def _charger_restauration(dependances):
     arbre = ast.parse(SOURCE.read_text(encoding="utf-8"), filename=str(SOURCE))
-    fonction = next(
+    noms = ("Restauration", "_NomFichierReseau",
+            "_VerifierPostconditionRestaurationMySQL", "_SupprimerMarqueurRestaurationMySQL")
+    fonctions = [
         noeud for noeud in arbre.body
-        if isinstance(noeud, ast.FunctionDef) and noeud.name == "Restauration"
-    )
+        if isinstance(noeud, ast.FunctionDef) and noeud.name in noms
+    ]
     namespace = dict(dependances)
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[fonction], type_ignores=[])),
+    exec(compile(ast.fix_missing_locations(ast.Module(body=fonctions, type_ignores=[])),
                  str(SOURCE), "exec"), namespace)
     return namespace["Restauration"]
 
@@ -134,7 +136,7 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             rep = Path(root)
             archive = rep / "essai.nod"
             with zipfile.ZipFile(archive, "w") as z:
-                z.writestr("base_fictive.sql", "CREATE TABLE temoin (id INTEGER);")
+                z.writestr("base_fictive.sql", "CREATE TABLE temoin (id INTEGER);\n-- Dump completed\n")
             journal = []
             messages = []
 
@@ -171,6 +173,8 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
                     GetRepTemp=lambda fichier: str(rep / fichier)
                 ),
                 "UTILS_SQL_Integrite": _charger_manifeste(),
+                "GestionDB": types.SimpleNamespace(DB=lambda **kwargs: types.SimpleNamespace(
+                    echec=0, ExecuterReq=lambda requete: 1, ResultatReq=lambda: [], Close=lambda: None)),
                 "GetListeFichiersReseau": lambda _conn: ["base_fictive"],
                 "GetRepertoireMySQL": lambda _conn: str(rep) + os.sep,
                 "CreationFichierLoginTemp": lambda **kwargs: None,
