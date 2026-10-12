@@ -1,0 +1,47 @@
+[
+  {
+    "branch": "audit/vanilla-black-ui-rex",
+    "sha": "bcee84abff892903d166d9cdcdd03627e972572b",
+    "source_path": "docs/VANILLA_BLACK_UI_DIAGNOSTIC.md",
+    "source_blob": "e1dbc297eb4d590f719ac6a7280d00ff5cf40f8f",
+    "archive_path": "docs/archives/branches-20261012/audit__vanilla-black-ui-rex/docs/VANILLA_BLACK_UI_DIAGNOSTIC.md",
+    "sha256": "14ef03341c016d4eac5f5e50dfa271c3880610c12aa5505d31acad1069f76b8e",
+    "bytes": 3467
+  },
+  {
+    "branch": "diagnostic/vanilla-ui-black-surfaces",
+    "sha": "f7362db86d4775221822996b22dae96c2de49095",
+    "source_path": "docs/VANILLA_UI_BLACK_SURFACES_DIAGNOSTIC.md",
+    "source_blob": "6007276023e0e453baf24cd39fa68c2b7b26aeb4",
+    "archive_path": "docs/archives/branches-20261012/diagnostic__vanilla-ui-black-surfaces/docs/VANILLA_UI_BLACK_SURFACES_DIAGNOSTIC.md",
+    "sha256": "c9b4e9077fd2f76092864818cea1933ae0e41a2ce2285d348e3500713e0157f5",
+    "bytes": 3462
+  },
+  {
+    "branch": "feature/noe-060-reporting",
+    "sha": "dcfce29540113562a41dba0a254dabe42c17d06a",
+    "source_path": "docs/NOE-060-REPORTING.md",
+    "source_blob": "963536c8eceed48cf19883ad6186d8776bb8eab9",
+    "archive_path": "docs/archives/branches-20261012/feature__noe-060-reporting/docs/NOE-060-REPORTING.md",
+    "sha256": "624032a559a54e1da89da91cfd2e83fc9f1bfc05a76f99b8be8dc9f4706877fa",
+    "bytes": 5525
+  },
+  {
+    "branch": "chore/noethys-sl-requirements-documentation",
+    "sha": "d3964671af351c2ebc5f0bea999fb46290dc3866",
+    "source_path": "requirements.txt",
+    "source_blob": "399d0305f768eee53c9e7744afb827123d1faf7f",
+    "archive_path": "docs/archives/branches-20261012/chore__noethys-sl-requirements-documentation/requirements.txt",
+    "sha256": "9e884e02988957f9f8d7594ef9405c9cfcea5d24f19de616bc8b187f74ff75ca",
+    "bytes": 2797
+  },
+  {
+    "branch": "chore/workflows-consolidation",
+    "sha": "f28861260cf2f23dd2027e9b20ca3a452a86fd42",
+    "source_path": ".github/workflows/python-compat.yml",
+    "source_blob": "a04aa312a54c1834de0ed066676ae454b7e80527",
+    "archive_path": "docs/archives/branches-20261012/chore__workflows-consolidation/.github/workflows/python-compat.yml",
+    "sha256": "0297614f4852b2a530baed43b6688f72b34faf2ebbfdfd6590dba5907f13432f",
+    "bytes": 5395
+  }
+]

@@ -462,3 +462,45 @@ WIP Noethys-RC2-clean préservés. main reçoit uniquement cette note documentai
 en second commit local non publié après e59f3400. Seul Portable reste non suivi.
 Suite : revue par lots des différences restantes ; aucune suppression de
 travail non qualifié ni réimportation métier implicite.
+
+
+## 16. Élagage qualifié, lot documentaire et tests — 12/10/2026
+
+Suite demandée par Franck ; publication des notes documentaires autorisée.
+Les 44 branches restantes sont triées : sept sont qualifiées pour retrait,
+37 restent en place car leur variante de code ou de comportement ne permet
+pas un retrait automatique. Aucune fusion ni modification du runtime.
+
+| Branche | SHA | Preuve de conservation |
+| --- | --- | --- |
+| audit/vanilla-black-ui-rex | bcee84abff892903d166d9cdcdd03627e972572b | Delta constitué uniquement de Markdown : originaux conservés octet pour octet dans docs/archives/branches-20261012. |
+| diagnostic/vanilla-ui-black-surfaces | f7362db86d4775221822996b22dae96c2de49095 | Delta constitué uniquement de Markdown : originaux conservés octet pour octet dans docs/archives/branches-20261012. |
+| feature/noe-060-reporting | dcfce29540113562a41dba0a254dabe42c17d06a | Delta constitué uniquement de Markdown : originaux conservés octet pour octet dans docs/archives/branches-20261012. |
+| feat/noethys-sl-afas-previsionnel | 108dc5f5e61e27c9549ebd1aeaf70b5dc46fe809 | Moteur identique à main ; AST de toutes les assertions originales conservé ; garde réseau ajoutée. Tests ciblés réussis. |
+| feat/noethys-sl-vacances-sportives | 77f2be447110ce245458427bb8b66c82821cd55d | Moteur identique à main ; AST de toutes les assertions originales conservé ; garde réseau ajoutée. Tests ciblés réussis. |
+| chore/noethys-sl-requirements-documentation | d3964671af351c2ebc5f0bea999fb46290dc3866 | Tous les paquets source sont encore déclarés dans main, qui ajoute mailjet-rest. Ordre/commentaires historiques archivés. |
+| chore/workflows-consolidation | f28861260cf2f23dd2027e9b20ca3a452a86fd42 | Lignes opérationnelles identiques à master ; seuls commentaires et noms affichés diffèrent. Original archivé sous docs/. |
+
+AFAS : 8 tests réussis ; vacances : 10 tests réussis, avec une assertion
+supplémentaire sur le samedi 31/10/2026 dans main. Toutes les assertions
+historiques sont conservées. Runtime Python 3.10 Windows existant, sources
+dans la copie isolée, APPDATA/LOCALAPPDATA temporaires, profil test vide,
+réseau bloqué ; zéro tentative réelle. Le premier essai sous Python 3.11
+n’avait pas pu importer la garde à cause de wxPython absent ; la qualification
+réussie utilise ensuite le runtime Windows disponible, sans retrait de garde.
+
+Les fichiers d’archive ne remplacent aucune documentation courante et
+n’activent aucun workflow. Chaque blob source est revérifié au moment de la
+copie et indexé dans provenance.json. Les historiques complets des sept
+branches sont dans github-all-refs.bundle (session précédente), vérifié.
+Ce commit prépare les archives avant toute suppression distante. Publication
+envisagée en un push atomique : main avance seulement par documentation,
+et les sept refs sont retirées avec contrôle de leurs SHA ; les noms et
+têtes/bases de PR restent protégés. Le résultat réellement distant sera
+consigné après vérification, sans présumer ici le succès du push.
+
+Liste des 37 sources conservées dans qualification.json de la session du
+12/10/2026 ; leurs SHA et différences détaillées restent dans content-audit.json
+de la session précédente. Les 37 sources portent des variantes, outils,
+protections ou fonctionnalités qui demandent une décision ciblée ; elles ne
+sont pas déclarées absentes du moteur sur la seule différence de fichier.

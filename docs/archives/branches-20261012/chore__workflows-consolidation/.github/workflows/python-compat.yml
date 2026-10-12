@@ -1,0 +1,158 @@
+name: Python compatibility qualification
+
+# Qualification profonde volontairement déclenchée à la demande. La CI
+# courante reste centrée sur Python 3.10 ; ce workflow regroupe les jalons
+# 3.11 et 3.12 sans dupliquer trois jobs multi-OS.
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: "Version Python à qualifier"
+        required: true
+        default: "3.11"
+        type: choice
+        options:
+          - "3.11"
+          - "3.12"
+
+permissions:
+  contents: read
+
+jobs:
+  core-audit:
+    name: Core audit Python ${{ inputs.python_version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Compiler les sources
+        run: python -m compileall -q -x 'C866CA3A' noethys/
+
+      - name: Rechercher les imports stdlib retirés en Python 3.12
+        if: inputs.python_version == '3.12'
+        shell: bash
+        run: |
+          if grep -RInE '^[[:space:]]*(from[[:space:]]+imp[[:space:]]+import|import[[:space:]]+imp([[:space:],]|$))' noethys --include='*.py' --exclude-dir=ObjectListView --exclude-dir=Outils; then
+            echo 'Import imp détecté dans le code premier niveau.'
+            exit 1
+          fi
+
+      - name: Générer la base de recette synthétique
+        run: python scripts/build_synthetic_recette_db.py --output tmp/python-compat-recette.dat
+
+      - name: Benchmark lecture seule
+        run: python scripts/benchmark_db_readonly.py --db tmp/python-compat-recette.dat --repeats 3
+
+      - name: Auditer les motifs runtime Python 2
+        run: python scripts/audit_runtime_patterns.py --fail-on PY2_BUILTINS
+
+      - name: Vérifier les modules métier critiques
+        run: python scripts/audit_critical_business_modules.py
+
+      - name: Tester le migrateur DB vers DB
+        run: python tests/test_migration_base.py
+
+  windows:
+    name: Windows Python ${{ inputs.python_version }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+
+      - name: Installer toutes les dépendances runtime et build
+        run: python -m pip install --upgrade pip wheel && python -m pip install -r requirements-build.txt
+
+      - name: Compiler les sources
+        run: python -m compileall -q noethys/
+
+      - name: Audit compatibilité wxPython Phoenix
+        if: inputs.python_version == '3.12'
+        run: python scripts/audit_wxphoenix_compat.py --runtime --fail-missing
+
+      - name: Smoke test imports non-GUI
+        run: python tests/smoke_noethys.py
+
+      - name: Smoke test configuration UTF-8 et récupération
+        run: python scripts/smoke_config_utf8_recovery.py
+
+      - name: Smoke test wx.App
+        run: python tests/smoke_wx.py
+
+      - name: Smoke test layout wx
+        run: python tests/smoke_wx_layout.py
+
+      - name: Valider les piles fonctionnelles optionnelles
+        run: python scripts/smoke_optional_feature_stacks.py
+
+      - name: Valider la génération PDF Unicode
+        if: inputs.python_version == '3.11'
+        run: python scripts/smoke_reportlab_unicode_pdf.py
+
+      - name: Valider les ressources PyInstaller essentielles
+        if: inputs.python_version == '3.11'
+        run: python scripts/smoke_packaged_resources.py
+
+      - name: Construire le portable avec Python 3.11
+        if: inputs.python_version == '3.11'
+        run: pyinstaller --noconfirm --clean packaging/noethys.spec
+
+      - name: Vérifier Noethys.exe Python 3.11
+        if: inputs.python_version == '3.11'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) {
+            throw 'Noethys.exe absent du build Python 3.11'
+          }
+
+      - name: Vérifier PyInstaller sous Python 3.12 sans construire le portable
+        if: inputs.python_version == '3.12'
+        run: pyinstaller --version
+
+  macos-smoke:
+    name: macOS smoke Python ${{ inputs.python_version }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Installer les dépendances minimales
+        run: python -m pip install --upgrade pip && python -m pip install six appdirs python-dateutil pytz wxPython pyttsx3
+
+      - name: Compiler les sources
+        run: python -m compileall -q -x 'C866CA3A' noethys/
+
+      - name: Audit compatibilité wxPython Phoenix
+        run: python scripts/audit_wxphoenix_compat.py --runtime --fail-missing
+
+      - name: Smoke test imports non-GUI
+        run: python tests/smoke_noethys.py
+
+      - name: Smoke test configuration UTF-8 et récupération
+        run: python scripts/smoke_config_utf8_recovery.py
+
+      - name: Smoke test pyttsx3
+        if: inputs.python_version == '3.11'
+        run: python -c "import sys; sys.path.insert(0, 'noethys'); import pyttsx; assert callable(pyttsx.init)"
+
+      - name: Smoke test wx.App
+        run: python tests/smoke_wx.py
+
+      - name: Smoke test layout wx
+        run: python tests/smoke_wx_layout.py

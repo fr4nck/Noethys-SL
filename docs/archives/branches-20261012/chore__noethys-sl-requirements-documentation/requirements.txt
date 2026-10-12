@@ -1,0 +1,85 @@
+# Dépendances d'exécution de Noethys SL
+#
+# Ce fichier conserve pour l'instant le jeu historique de dépendances attendu
+# par l'application. Il n'est PAS encore un lockfile : les versions ne sont
+# volontairement pas modifiées dans ce chantier.
+#
+# Classement fonctionnel provisoire, en attendant l'audit complet des imports
+# et le futur découpage Core / services-adaptateurs / Noethys SL wx / options.
+# Aucun paquet n'est ajouté ni supprimé ici : seuls l'ordre et la documentation
+# sont clarifiés.
+#
+# Particularités actuelles de la chaîne Windows :
+# - wxPython n'est pas déclaré ici ; les workflows l'installent séparément
+#   (wxPython==4.2.5 sur la ligne Noethys SL 0.1.0).
+# - les workflows remplacent actuellement le paquet historique "pyttsx" par
+#   "pyttsx3" pour la qualification Python 3.
+# - PyInstaller est une dépendance de build, installée séparément par la CI.
+#
+# TODO après stabilisation de Noethys SL 0.1.0 :
+# - vérifier chaque dépendance contre ses imports et usages réels ;
+# - distinguer dépendances Core, adaptateurs, UI wx, fonctions optionnelles
+#   et outils de build/test ;
+# - supprimer les dépendances inutilisées uniquement après preuve mécanique ;
+# - définir ensuite une politique de versions reproductible.
+
+
+# -----------------------------------------------------------------------------
+# Socle d'exécution / système
+# -----------------------------------------------------------------------------
+
+appdirs
+psutil
+setuptools
+
+
+# -----------------------------------------------------------------------------
+# Dates, fuseaux horaires et calendriers
+# -----------------------------------------------------------------------------
+
+python-dateutil
+pytz
+icalendar
+
+
+# -----------------------------------------------------------------------------
+# Données, calcul et accès base de données
+# -----------------------------------------------------------------------------
+
+numpy
+sqlalchemy
+mysqlclient
+
+
+# -----------------------------------------------------------------------------
+# Documents, imports/exports et formats structurés
+# -----------------------------------------------------------------------------
+
+Pillow
+XlsxWriter
+xlrd
+reportlab
+pystrich
+lxml
+
+
+# -----------------------------------------------------------------------------
+# Réseau, protocoles et sécurité
+# -----------------------------------------------------------------------------
+
+requests
+Twisted
+paramiko
+pycryptodome
+
+
+# -----------------------------------------------------------------------------
+# Graphique, image, voix et intégrations Windows
+# -----------------------------------------------------------------------------
+
+matplotlib
+opencv-python
+comtypes
+
+# Dépendance historique. En CI Python 3, elle est remplacée par pyttsx3.
+pyttsx
