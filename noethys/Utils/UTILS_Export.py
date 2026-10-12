@@ -137,7 +137,7 @@ def ExportTexte(listview=None, grid=None, titre=u"", listeColonnes=None, listeVa
         try :
             if "CheckState" in six.text_type(code) :
                 code = "Coche"
-        except :
+        except Exception:
             pass
         texte += labelCol + separateur
     texte = texte[:-1] + "\n"
@@ -154,11 +154,14 @@ def ExportTexte(listview=None, grid=None, titre=u"", listeColonnes=None, listeVa
     texte = texte[:-1]
 
     # Création du fichier texte
-    f = open(cheminFichier, "w")
-    if six.PY2:
-        texte = texte.encode("utf8")
-    f.write(texte)
-    f.close()
+    try:
+        with open(cheminFichier, "w", encoding="utf-8") as f:
+            f.write(texte)
+    except OSError as err:
+        dlg = wx.MessageDialog(None, _(u"Impossible d'enregistrer le fichier texte : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
+        return False
     
     # Confirmation de création du fichier et demande d'ouverture directe dans Excel
     txtMessage = _(u"Le fichier Texte a été créé avec succès. Souhaitez-vous l'ouvrir dès maintenant ?")
@@ -271,7 +274,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
         try :
             if "CheckState" in six.text_type(nomChamp) :
                 nomChamp = "Coche"
-        except :
+        except Exception:
             pass
         feuille.write(x, y, labelCol)
         feuille.set_column(y, y, largeur // 4)
@@ -291,7 +294,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
                     valeur = valeur.replace("+ ", "")
                 nbre = float(valeur[:-1]) 
                 return (nbre, format_money)
-            except :
+            except Exception:
                 pass
                 
         # Si c'est un nombre
@@ -300,7 +303,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
                 valeur = valeur.replace("- ", "-")
             nbre = float(valeur)
             return (nbre, None)
-        except :
+        except Exception:
             pass
         
         # Si c'est une date
@@ -308,7 +311,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
             if len(valeur) == 10 :
                 if valeur[2] == "/" and valeur[5] == "/" :
                     return (valeur, format_date)
-        except :
+        except Exception:
             pass
 
         if type(valeur) == datetime.timedelta :
@@ -327,7 +330,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
                     heures, minutes = valeur.split(separateur)
                     valeur = datetime.timedelta(minutes= int(heures)*60 + int(minutes))
                     return (valeur, format_heure)
-        except :
+        except Exception:
             pass
 
         return six.text_type(valeur), None
@@ -369,7 +372,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
                         heures, minutes, secondes = donnees
                     valeur = datetime.timedelta(minutes= int(heures)*60 + int(minutes))
                     return (valeur, format_heure)
-        except :
+        except Exception:
             pass
 
         if type(valeur) in (str, six.text_type) :
@@ -408,7 +411,7 @@ def ExportExcel(listview=None, grid=None, titre=_(u"Liste"), listeColonnes=None,
     # Finalisation du fichier xls
     try :
         classeur.close()
-    except :
+    except Exception:
         dlg = wx.MessageDialog(None, _(u"Il est impossible d'enregistrer le fichier Excel. Veuillez vérifier que ce fichier n'est pas déjà ouvert en arrière-plan."), "Erreur", wx.OK | wx.ICON_ERROR)
         dlg.ShowModal()
         dlg.Destroy()
