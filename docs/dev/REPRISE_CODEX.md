@@ -1292,3 +1292,66 @@ réutiliser les anciens plans sur un nouveau SHA sans requalification.
   - Restauration : `git fetch <fichier.bundle> "+refs/remotes/origin/*:refs/heads/*"` puis `git push origin <branche>`.
 - **Comptage** : 42 branches sur `origin` avant, **37 après**. Branches protégées et PR ouvertes revérifiées intactes après suppression.
 - **Écartée pour risque** : `fix/noethys-sl-light-only` (verrouillage du thème clair dans `UTILS_Interface`, mécanisme différent de main, non qualifié). Les autres branches portent un apport propre non intégré (Noe-062/063, extensions, portable, prototype Qt, audits CI, `fix/rc2-network-stopgate-1`…) : conservées.
+
+
+## 32. Finalisation du nettoyage Git : lots 2 à 5, reprises avant suppression, blocages — 12/10/2026
+
+- **Consigne de Franck** : viser `main`, `wx`, `qt` seules ; lots de 5 branches au plus ; pour chaque branche, tête, commits propres, comparaison aux trois branches, PR, dépendances, worktrees ; réintégrer avec tests les apports utiles manquants ; archive `git bundle` vérifiée (SHA-256) puis `git push origin --delete` et contrôle GitHub ; présenter les blocages au lieu de supprimer. **Aucun build Windows** pendant le nettoyage (le run `38285851819`, lancé avant cette consigne, a été annulé : « completed cancelled »). Aucun test graphique sur le poste ; aucune base réelle.
+- **Comptage** : 42 branches avant le lot 1 (§ 31), 37 au début de cette mission, **25 après**.
+
+### Reprises dans main, wx et qt avant suppression (blobs identiques sur les trois branches)
+
+| Lot | Source | main | wx | qt | Tests |
+|---|---|---|---|---|---|
+| Chemins portables (protection de migration de configuration, dans main depuis #160, sans test) | `fix/windows-installable-config` `31e6d85c` | `ec43b8cd` | propagé | propagé | `test_noe_041_portable_paths` adapté à main (`Temp/<pid>`, dossiers créés au démarrage) ; échoue si les deux gardes de `UTILS_Fichiers` sont retirées |
+| `Config.json` illisible : restauration du `.bak` valide, sinon quarantaine `Config.json.corrupt-<horodatage>`, jamais d'écrasement silencieux | `agent/windows11-pyinstaller` `cb646889` | `a2015856` | propagé | propagé | `test_noethys_sl_config_quarantaine` (5) ; échouent sans le correctif |
+| Gardes de robustesse (entité disparue : classe, location, type de pièce, activité, inscription scolaire, contrats, PSU, image interactive, inscription ; fiche famille sans compte payeur) | `claude/noethys-windows-ci-audit-qy5m9t` (10 commits) | `8e0ba9e2`…`f6a48805` | `24e53081` | `bd3eae39` | 9 contrats en CI rapide, 58 tests ; 35 échouent sans les correctifs. Devis : version de main conservée (sans ventilation) |
+| Rail réseau 1 : ReportLab 5, destinataires non résolus signalés, reçu de règlement jugé sur `listeSucces`, demande de reçu Connecthys laissée en attente si l'e-mail échoue, historique des e-mails au fil de l'eau (apostrophe échappée, MessageID Mailjet), installation Connecthys bornée, `MAJ_bouton` sur le thread wx (#376) | `fix/rc2-network-stopgate-1` | `bbc6a29a`…`75f2e1a6` | `3ebe596d` | `44685a43` | 7 modules ajoutés à la CI rapide (`test_rail1_*`, `test_audit_reseau_emails`, `test_audit_reseau_connecthys`) ; sur l'ancien main : 5 modules en échec, 1 ignoré (fonction absente), l'installation Connecthys boucle sans fin (défaut corrigé) |
+| Audit réseau RC2, contrat Connecthys, contre-qualification du rail 1, diagnostic Mailjet | idem | `db4b1476` | `0a11e66a` | `7742df06` | documentation (`docs/audit/`) |
+
+- **Défaut critique trouvé** : `requirements.txt` n'épingle pas ReportLab ; avec ReportLab 5 (installé par le build), `UTILS_Impression_recu`, `UTILS_Impression_rappel`, `UTILS_Impression_cotisation` et `DLG_Releve_prestations` ne s'importaient plus (`ShowBoundaryValue` retiré). Corrigé et verrouillé par `test_rail1_reportlab5`.
+- **Rail 1, conflit résolu** : le moteur Mailjet de main (statut HTTP 200/201 exigé, `mailjet_ids` robustes, compte rendu commun) est conservé ; seul l'appel `_NotifierSucces` est repris ; doublons de `_RetirerAnomalies`/`_AfficherCompteRendu` supprimés. Le faux Mailjet du test « Réessayer après timeout » reçoit un statut 200 (`2f5e2ca3`).
+- **Isolation des tests** : `test_noe_041_portable_paths` laissait de faux `six`/`Utils` dans `sys.modules` et cassait les modules suivants de la recette rapide ; portée limitée au chargement (`75f2e1a6`).
+- **Non repris, avec motif** : contexte TLS Connecthys et fichiers Nomadhys (main plus avancé : `FichierActionsFTPValide`, quarantaine numérotée, purge refusée sans identifiant) ; tests de caractérisation `test_audit_reseau_divers`/`secrets`/`nomadhys` de la branche (ils verrouillent des anomalies RC2, l'un exige `/bin/sh`, la version Nomadhys de main est plus récente) ; outils `scripts/audit_reseau` ; génération Word et `DialogFondu` (exclusions antérieures).
+- **Recette** : suite rapide sans interface (liste de la CI moins les 5 modules GUI) : **424 tests OK** (4 ignorés) sur main, wx et qt. **CI rapide verte** : main `f6a48805` (run 38292118236), wx `24e53081` (38292143270), main `75f2e1a6` (38294947926), wx `3ebe596d` (38295315065). `qt` n'a pas de CI rapide sur push.
+
+### Branches supprimées (lots 2 à 5)
+
+SHA relu juste avant, archive vérifiée (`verify` « is okay », restauration dans un dépôt vide au SHA exact, `fsck` sans erreur), `git ls-remote` égal au SHA attendu, puis suppression et API GitHub « HTTP 404 ».
+
+| Lot | Branche | SHA | Bundle SHA-256 | Motif |
+|---|---|---|---|---|
+| 2 | `agent/windows-ci-audit` | `7df621ea3a3034819142c633f5f4c9149c17fa68` | `066a2fbbbe58c81ce2c3580bba52a0ec3d50bc7fa4afc9910047c2c0728e6280` | code présent ; la seule variante de `UTILS_Procedures` désinscrivait toutes les inscriptions sur liste vide (main s'arrête) ; doc et script d'audit CI archivés |
+| 2 | `poc/qt-theme-isole` | `cba459cd62cb2d71f43f89825287295d2ead6492` | `c6e4cedb82cea1fee625f0b59f8f3ab8f27dec262a20c83d958457d2960aa8d7` | **voir réserve ci-dessous** |
+| 2 | `build/vanilla-windows-portable` | `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a` | `b1e74a11ef961efe41604aa8521cf5135bf5b25fc1cf07f935b7cb3c364b79a3` | périodes de saison antérieures, remplacées par la version RC2 de main (`9b0e6b71`) ; version et workflow de build dépassés |
+| 2 | `chatgpt/noethys-convention-ui-activites-20260929` | `7cd062c3f634cff137f20af469ff7ded5e407e42` | `866b81caf082f9fb4cd9a713ecabe000fd95fe26465a9b452fcdb71a07cc434b` | même base que la précédente ; README/ROADMAP anciens |
+| 2 | `fix/noethys-sl-aui-docking-minimize` | `aac763f24480e98608cfd2ccc918d87ef26594db` | `3cf3357ac661ddaea39dad0834025600b9878bbba2a685309b8d6e9fa5ca97b0` | gardes AUI présentes dans main (`NoethysSLAuiManager`) ; lignes restantes = versions antérieures de `Noethys.py` |
+| 3 | `feat/noethys-sl-rc1-convention-finalise` | `f6cac3302a2ff3946f1f389071accec151a5b542` | `cfe6ca3b1041a1c539e71a6781568acff5c2b4efbb851e0fa028bc1be20c6280` | seul écart réel : `DialogFondu` (exclu) ; le reste diffère par l'encodage |
+| 3 | `fix/noethys-sl-light-only` | `ccdfb82bcf1b1f5d4cd06a9d6382176cd91f6629` | `9635bb59617ab2c6dade49bf5891b38cb54984fa77a6fa929f050e3835b03ad2` | liste désactivée sur fond clair et neutralisation du thème Noir présentes dans main ; le verrouillage `GetApparence`/`EstSombre` vise le mode sombre de la lignée `master`, absent de main |
+| 3 | `fix/noethys-sl-aui-guides-fantomes` | `7704ee753687159ee7173e33f86f538bc483c75c` | `2d19d267e7f3971dede516334d11a176b35b801ec60010e17156eeb6db389667` | correctif des guides de dockage présent dans main (`_FenetreEncoreVivante`, `OnCaptureLost`) |
+| 4 | `fix/windows-installable-config` | `fbdebc8b6ef4ef906bfb8d23246be5eeb1820203` | `36f89be0e665f11981d95b5168ee19138eec44a02acb6ab26ed39ae94f89b255` | test repris (`ec43b8cd`) ; workflows, installateur et documents de la lignée `master` archivés |
+| 4 | `agent/windows11-pyinstaller` | `f85f77266eec49ec02d6a24e0e130d463123b8d5` | `61ee7be158c52a48fac8ee43aa7f04ca575c1572b369e1e08d396d739ff65aed` | quarantaine de configuration reprise (`a2015856`) ; scripts de smoke/préflight PyInstaller archivés, non repris |
+| 5 | `claude/noethys-windows-ci-audit-qy5m9t` | `3b847c6b2957a5d4a7d118ad7384f8bdc971baaf` | `dc4d1fc866bed7855bf1cdda4b3db22721d7c0bffa8f2d721efb40b2093fa080` | 10 correctifs repris ; restent les outils d'audit `2e3bc0a9`, `9c477166` (archivés) |
+| 5 | `fix/rc2-network-stopgate-1` | `cf5f9fbe6ccd9472a061ceaf81ab6358effc00b3` | `d03ec7ef43e008e13fdb0187ab92eef06d74a57d0e5b53cd713227dc7f68fa80` | correctifs et documents repris (ci-dessus) ; aucune PR |
+
+- **Archives** : `C:\Users\Ordi\Documents\Sauvegardes-Noethys\branches-supprimees-20261012\` et `SHA256SUMS.txt` (17 bundles avec ceux du § 31). Restauration : `git fetch <fichier.bundle> "+refs/remotes/origin/*:refs/heads/*"` puis `git push origin <branche>`.
+- **Contrôle a posteriori des lots 2 à 5** (lignes de chaque tête absentes de main, wx, qt, `master` et RC2) : écarts limités aux versions dépassées, à l'encodage et à l'outillage archivé, **sauf `poc/qt-theme-isole`** : le prototype Qt (`noethys_qt/`, `tests_qt/`, `qt-prototype.yml`, `QT_MIGRATION_INVENTORY.md`, environ 11 000 lignes) n'existe sur aucune autre branche. Rien n'est perdu (archive vérifiée), mais ce travail unique n'a pas été réintégré : **décision demandée** (le verser dans `qt`, sans migration implicite, ou le laisser en archive).
+
+### Branches restantes (25) et blocages
+
+| Branche(s) | État | Blocage |
+|---|---|---|
+| `main`, `wx`, `qt` | canoniques | — |
+| `master` (`b0be3c7e`) | branche par défaut GitHub, protégée (suppression interdite) | lignée produit divergente : 1 480 commits SL propres, environ 22 000 lignes de code absentes de main/wx/qt (Noe-062 structures, programmations, interventions, `UTILS_Migration_base`, `DLG_PMSL_Synchronisation`, interface Repens…) ; base des PR #369, #366, #355. **Décision métier** |
+| `rc/noethys-sl-0.1.0-rc.2` (`91d9e625`) | entièrement qualifiée (§ 30) | base de la PR #422 |
+| `rc/noethys-sl-0.1.0-rc.3` (`28c2294c`) | version, notes, CI de publication | PR #422 ouverte : **abandon motivé proposé** (contenu RC2 repris dans main/wx ; candidat construit depuis `wx`) |
+| `feature/vanilla-conventions`, `feature/vanilla-entites-fonctions` | PR #384 | reportée par décision (conserver branche et PR, pas de changement de schéma) |
+| `feature/session-attendance-consumer-2026-09-19` (#369), `noe-062-secure-secret-provider` (#355) | PR ouvertes vers `master` | chantiers réseau/pointage non qualifiés : hors publication |
+| `docs/mkdocs-wiki` (#366) | documentation MkDocs vers `master` | intégrer à main (adaptation au corpus de main) ou abandonner |
+| `feature/noe-062-*` (4), `fix/noe-062b-hardening`, `noe-062-programmation-occurrences`, `noe-062c-lieux-execution-seances`, `feature/noe-063-*` (3), `feature/extensions-registry` | fonctionnalités de la lignée `master` (schéma Noe-062) | dépendent du schéma de `master` : **décision métier** avec `master` |
+| `refactor/ui-list-tools-repens` | interface Repens (lignée `master`) | idem |
+| `noe-041-portable-mode` | ZIP livré avec dossier `Portable` | **décision de packaging** (le ZIP de main n'est pas portable par défaut) |
+| `fix/vanilla-no-black` | correctifs de fond noir déjà dans main | reste l'affichage du logo de l'organisateur sur l'accueil : **décision fonctionnelle** |
+
+- **Branche par défaut** : bascule `master` → `main` **non effectuée** (`master` n'est pas supprimée). Points qualifiés : `master` est protégée (pas de suppression ni de force-push) alors que `main`, `wx`, `qt` ne le sont pas (protection recommandée) ; le workflow planifié « Entretien historique GitHub Actions » n'existe que sur `master` et purge les anciens runs au-delà de 100 : il cessera de tourner à la bascule (ce qui préserve les runs cités comme preuves) ; les PR ouvertes vers `master` ne sont pas modifiées par la bascule.
+- **Prochaine étape** : arbitrages de Franck sur les blocages ci-dessus ; puis build Windows candidat sur demande.
