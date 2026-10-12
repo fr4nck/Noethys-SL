@@ -65,10 +65,34 @@ Il doit verifier :
 3. dump --databases et import strictement limite a cette fixture ;
 4. postconditions (deux lignes, une vue), destruction du volume de recette.
 
-**STOP-GATE encore actif :** tests de restauration Noethys sur un schema
-complet entierement synthetique, SQL tronque, manifeste, marqueur terminal,
-postconditions, rollback, vrais tests Windows et MySQL/MariaDB. Les protections
-SQL presentes sur master ne sont pas integrees par ce seul outillage.
+**Protections de restauration (12/10/2026) :** manifeste SHA-256, analyse
+syntaxique, ligne finale mysqldump des anciens dumps, marqueur terminal et
+postconditions sont integres dans `UTILS_Sauvegarde` / `UTILS_SQL_Integrite`
+et ont ete recettes de bout en bout sur ce MySQL 5.5 (donnees synthetiques).
+
+**STOP-GATE encore actif :** rollback transactionnel d'une restauration
+reseau, recette dans l'application Noethys complete sous Windows, schema
+Noethys complet synthetique, MariaDB/MySQL plus recents cote serveur.
+
+## Anonymisation (doctrine reprise de la PR #104)
+
+Noethys contient des donnees de familles et d'enfants, de facturation, des
+coordonnees, des inscriptions et parfois des commentaires ou documents. Son
+anonymisation ne doit **pas** reutiliser aveuglement un outil concu pour un
+autre logiciel.
+
+Un dump reel reste une donnee de production tant qu'un anonymiseur Noethys
+specifique, audite sur le schema courant, n'a pas neutralise les donnees
+directement et indirectement identifiantes. Cet outil fera l'objet d'un lot
+separe : inventaire du schema, classification des champs, transformations
+deterministes, controle des pieces et fichiers externes, rapport residuel.
+Les dossiers `dev/db/imports/`, `dev/db/exports/` et le rapport
+`dev/db/anonymization-report.txt` sont ignores par Git par anticipation.
+
+Decision transversale PMSL-Arch `ADR-006` : la production n'est jamais un bac
+a sable ; services de donnees reproductibles ; secrets hors Git ; jeux issus
+de la production non partageables avant anonymisation controlee ; une
+qualification de migration SQL ne se resume pas a la reussite d'un conteneur.
 
 **Aucune execution sur un profil Noethys reel, aucune copie de familles,
 aucune migration SQL, aucune publication de version.**
