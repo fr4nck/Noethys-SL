@@ -185,7 +185,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
 
                 # Insère le fichier Sql dans le ZIP
                 try :
-                    fichierZip.write(fichierSave.encode('utf8'), u"%s.sql" % nomFichier)
+                    fichierZip.write(fichierSave, u"%s.sql" % nomFichier)
                 except Exception as err :
                     dlgprogress.Destroy()
                     print(("insertion sql dans zip : ", err,))
