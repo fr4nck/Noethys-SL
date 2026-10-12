@@ -171,5 +171,65 @@ class ExportNoethysWebEchecTests(unittest.TestCase):
         self.assertFalse(any(u"avec succès" in m for m in _FauxDialogue.messages))
 
 
+class _DBVide:
+    """Base simulee : toutes les requetes renvoient un resultat vide."""
+
+    def __init__(self, *args, **kwargs):
+        self.requetes = []
+        self.ferme = False
+
+    def ExecuterReq(self, req, *args, **kwargs):
+        self.requetes.append(req)
+        return True
+
+    def ResultatReq(self):
+        return []
+
+    def Close(self):
+        self.ferme = True
+
+
+class ExportsDonneesAbsentesTests(unittest.TestCase):
+    """b829f184"""
+
+    def test_export_document_modele_absent_renvoie_faux(self):
+        from Utils import UTILS_Export_documents
+        bases = []
+
+        def fabrique(*args, **kwargs):
+            bases.append(_DBVide())
+            return bases[-1]
+
+        with tempfile.TemporaryDirectory(prefix="noethys-doc-") as rep, \
+                mock.patch.object(UTILS_Export_documents.GestionDB, "DB", side_effect=fabrique):
+            fichier = os.path.join(rep, "modele.ndc")
+            self.assertIs(UTILS_Export_documents.Exporter(IDmodele=999, fichier=fichier), False)
+            self.assertFalse(os.path.exists(fichier))
+        self.assertEqual(len(bases), 1)
+        self.assertTrue(bases[0].ferme)
+
+    def _table(self, classe):
+        from types import SimpleNamespace
+        table = classe.__new__(classe)
+        table.parent = SimpleNamespace(DB=_DBVide())
+        return table
+
+    def test_modele_noethysweb_logo_sans_organisateur(self):
+        from Utils import UTILS_Export_noethysweb
+        table = self._table(UTILS_Export_noethysweb.Table_documents_modeles)
+        table.dict_objets = {1: [{
+            "categorie": "image", "typeImage": "logo", "nom": "Logo", "x": 10, "y": 20,
+            "largeur": 50, "hauteur": 40, "coulRemplis": "(0, 0, 0)", "epaissTrait": 0,
+            "couleurTrait": "(0, 0, 0)", "styleTrait": "Solid", "champ": None,
+        }]}
+        self.assertEqual(table.objets(data={"pk": 1, "fields": {"hauteur": 297}}), "[]")
+
+    def test_reglement_payeur_disparu_sans_reglement(self):
+        from Utils import UTILS_Export_noethysweb
+        table = self._table(UTILS_Export_noethysweb.Table_reglements)
+        table.liste_payeurs = [1, 2]
+        self.assertEqual(table.IDpayeur(valeur=42), 42)
+
+
 if __name__ == "__main__":
     unittest.main()
