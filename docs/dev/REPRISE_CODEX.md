@@ -618,3 +618,34 @@ Ce commit publie les archives avant retrait distant, en un envoi atomique
 main + sept suppressions, avec contrôle des SHA et des huit PR ouvertes.
 Si l’envoi réussit, il restera 44 branches : 14 protégées et 30 sources
 conservées avec motifs. Le résultat réel sera vérifié et consigné ensuite.
+
+
+### Résultat final réel : tri de retrait achevé
+
+Le push atomique du lot final a réussi à main
+f95636fc94122e67caa613e690550e5f2e0aa7aa : sept références retirées,
+archives des 43 fichiers originales publiées avec blobs vérifiés, dossier de
+maintien des trente autres sources publié. Après vérification : 44 branches
+distantes, 14 références protégées et 30 variantes de code conservées avec
+motifs explicites. Huit PR ouvertes, titres/descriptions/drafts et têtes/bases
+inchangés ; les autres branches distantes restent aux mêmes SHA.
+
+Bilan de tout l’élagage dans cette conversation : 19 branches distantes
+retirées (5 + 7 + 7), trois branches locales intégrées retirées, un worktree
+propre retiré, neuf fichiers locaux d’audit archivés. Les historiques Git
+complets sont sauvegardés et vérifiés ; les sources particulières retirées
+restent consultables dans les archives documentaires de main.
+
+Contrôle final : runtime et tests de main inchangés depuis 694ccacc ; aucun
+code métier migré implicitement, aucun packaging/release, nouvelle branche,
+merge global ou force-push. Portable, tags, trois stashes, branches locales
+master/wx/qt et worktree WIP Noethys-RC2-clean vérifiés inchangés. Seul Portable
+reste non suivi dans le dossier principal. main est publié et aligné avec
+origin/main après cette confirmation documentaire.
+
+Les 37 sources ont toutes été examinées ; les trente maintiens sont des
+décisions de conservation de variantes identifiées, pas une file de branches
+encore non inventoriées. Leur intégration ou abandon demanderait de choisir
+des comportements, protections ou fonctionnalités ; ce serait un chantier
+métier distinct de l’élagage autorisé. La documentation ne revendique pas
+une qualification fonctionnelle globale de ces variantes ni une CI verte.
