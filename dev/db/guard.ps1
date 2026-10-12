@@ -45,6 +45,14 @@ $env:NOETHYS_DB_PORT = '3308'
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker absent.'
 }
+# Docker CLI peut ignorer le contexte selectionne lorsque DOCKER_HOST ou
+# DOCKER_CONTEXT est impose par l'environnement ; refuser toute redirection.
+foreach ($name in @('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH')) {
+    $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        throw "Bac a sable refuse : supprimer la variable Docker $name avant la recette."
+    }
+}
 $engine = (& docker context inspect --format '{{.Endpoints.docker.Host}}' 2>$null | Select-Object -First 1)
 if ($LASTEXITCODE -ne 0 -or
     $engine -notmatch '^(npipe://|unix://|tcp://(127\.0\.0\.1|localhost)(:\d+)?$)') {
