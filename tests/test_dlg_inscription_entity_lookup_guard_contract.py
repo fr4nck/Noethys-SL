@@ -136,7 +136,8 @@ class FakeCtrlActivite:
     rapport avec la garde testée."""
 
     def __init__(self, controller):
-        self.controller = controller
+        # main : CTRL_Activite lit son parent (pas de « controller » comme sur master).
+        self.parent = controller
         self.IDactivite = None
         self.ctrl_activite = FakeStaticText()
         self.layout_calls = 0
@@ -219,9 +220,11 @@ def _fake_page_activite(listbox_class, id_activite_selectionnee=None):
     page.mode = "saisie"
     page.date_inscription = None
     page.ancien_statut = None
-    page.controller = mock.MagicMock()
-    page.ctrl_groupes = listbox_class(parent=None, controller=page, type="groupes")
-    page.ctrl_categories = listbox_class(parent=None, controller=page, type="categories")
+    # main : Page_Activite lit mode/cp/ville sur self.parent (le dialogue).
+    page.parent = page
+    page.ctrl_statut = mock.MagicMock()  # main : self.parent.parent.ctrl_statut
+    page.ctrl_groupes = listbox_class(parent=page, type="groupes")
+    page.ctrl_categories = listbox_class(parent=page, type="categories")
     page.ctrl_activite = FakeCtrlActivite(controller=page)
     page.ctrl_check_depart = mock.MagicMock()
     page.ctrl_date_depart = mock.MagicMock()
@@ -332,11 +335,11 @@ class ListBoxImportationGuardTests(unittest.TestCase):
         controller = mock.MagicMock()
         controller.dictActivite = None
 
-        listbox_groupes = ListBox(parent=None, controller=controller, type="groupes")
+        listbox_groupes = ListBox(parent=controller, type="groupes")
         listbox_groupes.Importation_groupes()
         self.assertEqual(listbox_groupes.listeDonnees, [])
 
-        listbox_categories = ListBox(parent=None, controller=controller, type="categories")
+        listbox_categories = ListBox(parent=controller, type="categories")
         listbox_categories.Importation_categories()
         self.assertEqual(listbox_categories.listeDonnees, [])
 
@@ -348,11 +351,11 @@ class ListBoxImportationGuardTests(unittest.TestCase):
             "categories_tarifs": [{"IDcategorie_tarif": 9, "nom": "Tarif normal", "listeVilles": []}],
         }
 
-        listbox_groupes = ListBox(parent=None, controller=controller, type="groupes")
+        listbox_groupes = ListBox(parent=controller, type="groupes")
         listbox_groupes.Importation_groupes()
         self.assertEqual(listbox_groupes.listeDonnees, [{"ID": 2, "label": "GroupeA"}])
 
-        listbox_categories = ListBox(parent=None, controller=controller, type="categories")
+        listbox_categories = ListBox(parent=controller, type="categories")
         listbox_categories.Importation_categories()
         self.assertEqual(
             listbox_categories.listeDonnees,
