@@ -254,8 +254,14 @@ class Dialog(wx.Dialog):
 
         # Générer du fichier de données
         dlgAttente = wx.BusyInfo(_(u"Cette opération peut prendre quelques minutes. Veuillez patienter..."), self)
-        UTILS_Export_noethysweb.Export_all(dlg=self, nom_fichier=os.path.join(repertoire, nom + ".nweb"), mdp=motdepasse, options=options)
+        export = UTILS_Export_noethysweb.Export_all(dlg=self, nom_fichier=os.path.join(repertoire, nom + ".nweb"), mdp=motdepasse, options=options)
         del dlgAttente
+        if not export.resultat:
+            detail = export.erreur_export or _(u"Erreur inconnue")
+            dlg = wx.MessageDialog(self, _(u"Le fichier NoethysWeb n'a pas pu être généré.\n\nErreur : %s") % detail, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
 
         # Confirmation de réussite
         dlg = wx.MessageDialog(self, _(u"Le fichier a été généré avec succès."), _(u"Confirmation"), wx.OK | wx.ICON_INFORMATION)
