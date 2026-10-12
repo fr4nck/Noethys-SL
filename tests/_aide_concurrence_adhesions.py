@@ -4,7 +4,7 @@
 Lancé deux fois par test_noethys_sl_adhesions_concurrence, chaque processus
 ouvre ses propres connexions, comme deux postes Noethys distincts.
 
-Usage : _aide_concurrence_adhesions.py <sqlite|mysql> <cible> <A|B> <dossier_barriere> [IDindividu]
+Usage : _aide_concurrence_adhesions.py <sqlite|mysql> <cible> <A|B> <dossier_barriere> [IDindividu] [retard_b]
   cible : chemin du fichier SQLite, ou nom de la base MySQL de test (les
           identifiants du serveur local de test viennent de l'environnement).
 Le poste A s'arrête DANS la section protégée (après le contrôle d'existant,
@@ -37,11 +37,21 @@ def executer(cible, role, barriere, IDindividu=100):
 
         def en_pause(*args, **kwargs):
             (barriere / "A_dans_section").write_text("1")
-            limite = time.time() + 30
-            while not (barriere / "A_continuer").exists() and time.time() < limite:
+            limite = time.monotonic() + 60
+            while not (barriere / "A_continuer").exists():
+                if time.monotonic() >= limite:
+                    raise RuntimeError("Le test n'a pas libéré le poste A")
                 time.sleep(0.05)
             return original(*args, **kwargs)
         A._periode_verrouillee = en_pause
+    else:
+        verrouiller = A._Verrouiller
+
+        def annoncer_verrou(*args, **kwargs):
+            # Le contrôle préalable a eu lieu pendant que A est encore en pause.
+            (barriere / "B_avant_verrou").write_text("1")
+            return verrouiller(*args, **kwargs)
+        A._Verrouiller = annoncer_verrou
     with RedirectionGestionDB(cible):
         resultat = A.ReconcilierIndividu(IDindividu, date_reference=JOUR, depuis=datetime.date(2026, 10, 7))
     (barriere / ("%s.json" % role)).write_text(json.dumps(
@@ -51,6 +61,8 @@ def executer(cible, role, barriere, IDindividu=100):
 def main():
     mode, cible, role, barriere = sys.argv[1], sys.argv[2], sys.argv[3], Path(sys.argv[4])
     IDindividu = int(sys.argv[5]) if len(sys.argv) > 5 else 100
+    if role == "B" and len(sys.argv) > 6:
+        time.sleep(float(sys.argv[6]))  # démarrage lent volontaire du test
     if mode == "mysql":
         with _garde_reseau.ServeurMySQLDeTest() as parametres:
             executer(nom_fichier_mysql(parametres, cible), role, barriere, IDindividu)
