@@ -154,3 +154,7 @@ $RECYCLE.BIN/
 
 # Noe-032 sandbox credentials (never version local secrets)
 dev/db/.env
+# Reprise PR #104 : produits d'un futur anonymiseur et echanges de dumps, jamais versionnes.
+dev/db/anonymization-report.txt
+dev/db/imports/
+dev/db/exports/
