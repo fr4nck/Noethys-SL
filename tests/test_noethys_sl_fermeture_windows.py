@@ -25,7 +25,9 @@ def fermer_accueil():
     app.SetTopWindow(frame)
     frame.Initialisation()
     frame.Show()
-    # Panneau « Aujourd'hui » (RC2) : son timer remplace le défilant historique.
+    # Panneau « Aujourd'hui » (RC2) : timer et chargement ne demarrent qu'avec un
+    # fichier ouvert ; StartTicker reproduit cet etat (aucune base : aucun appel reseau).
+    frame.ctrl_ephemeride.StartTicker()
     assert frame.ctrl_ephemeride._timer.IsRunning()
     wx.CallLater(1200, frame.Close)
     app.MainLoop()
