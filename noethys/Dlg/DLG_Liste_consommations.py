@@ -168,6 +168,8 @@ class Dialog(wx.Dialog):
 
     def __set_properties(self):
         self.SetTitle(_(u"Liste détaillée des consommations"))
+        # Bouton hérité de l'amont, jamais placé ni relié : le masquer évite un widget orphelin en (0, 0).
+        self.bouton_modifier.Hide()
         self.ctrl_activite.SetToolTip(wx.ToolTip(_(u"Sélectionnez un filtre d'activité")))
         self.bouton_supprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour supprimer la consommation sélectionnée dans la liste")))
         self.bouton_apercu.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour créer un aperçu de la liste")))
