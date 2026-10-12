@@ -93,6 +93,7 @@ jobs:
           tests.test_noethys_sl_backup_missing_file
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_mysql_returncode
+          tests.test_noethys_sl_sql_manifest
           tests.test_noethys_sl_restore_network_config
           tests.test_noethys_sl_devis_adresse_incomplete
           tests.test_noethys_sl_parametrage_reglement
