@@ -514,8 +514,8 @@ class MainFrame(wx.Frame):
         # Panneau Ephéméride
         if CUSTOMIZE.GetValeur("ephemeride", "actif", "1") == "1" :
             self.ctrl_ephemeride = CTRL_Ephemeride.CTRL(self)
-            self._mgr.AddPane(self.ctrl_ephemeride, aui.AuiPaneInfo().Name("ephemeride").Caption(_(u"Ephéméride")).
-                          Top().Layer(0).Row(1).Position(0).CloseButton(True).MaximizeButton(True).MinimizeButton(True).MinSize((-1, 100)).BestSize((-1, 100)) )
+            self._mgr.AddPane(self.ctrl_ephemeride, aui.AuiPaneInfo().Name("ephemeride").Caption(_(u"Aujourd’hui")).
+                          Top().Layer(0).Row(1).Position(0).CloseButton(True).MaximizeButton(True).MinimizeButton(True).MinSize((-1, 100)).BestSize((-1, 280)) )
 
         # Panneau Serveur Nomadhys
         if UTILS_Config.GetParametre("synchro_serveur_activer", defaut=False) == True :
@@ -889,6 +889,7 @@ class MainFrame(wx.Frame):
                     "-",
                     "-",
                     {"code" : "affichage_barres_outils", "label" : _(u"Barres d'outils personnelles"), "infobulle" : _(u"Barres d'outils personnelles"), "image" : "Images/16x16/Barre_outils.png", "action" : self.On_affichage_barres_outils},
+                    {"code" : "affichage_aujourdhui", "label" : _(u"Personnaliser Aujourd’hui…"), "infobulle" : _(u"Personnaliser le panneau Aujourd’hui"), "action" : self.On_affichage_aujourdhui},
                     "-",
                     {"code" : "actualiser_affichage", "label" : _(u"Actualiser l'affichage\tF11"), "infobulle" : _(u"Actualiser l'affichage de la page d'accueil"), "image" : "Images/16x16/Actualiser2.png", "action" : self.On_affichage_actualiser},
                     ],
@@ -1303,7 +1304,7 @@ class MainFrame(wx.Frame):
         self.listePanneaux = [
             { "label" : _(u"Tableau de bord"), "code" : "effectifs", "IDmenu" : None },
             { "label" : _(u"Messages"), "code" : "messages", "IDmenu" : None }, 
-            { "label" : _(u"Ephéméride"), "code" : "ephemeride", "IDmenu" : None }, 
+            { "label" : _(u"Aujourd’hui"), "code" : "ephemeride", "IDmenu" : None }, 
             { "label" : _(u"Barre de raccourcis"), "code" : "barre_raccourcis", "IDmenu" : None },
             { "label" : _(u"Barre utilisateur"), "code" : "barre_utilisateur", "IDmenu" : None },
             ]
@@ -2611,6 +2612,10 @@ class MainFrame(wx.Frame):
 ##            print panneau.name
         
         
+    def On_affichage_aujourdhui(self, event):
+        if hasattr(self, "ctrl_ephemeride"):
+            self.ctrl_ephemeride.OnSettings(event)
+
     def On_affichage_actualiser(self, event):
         self.MAJ() 
 
@@ -4174,6 +4179,9 @@ class MainFrame(wx.Frame):
         tb.SetToolBitmap(ID_TB_UTILISATEUR, wx.Bitmap(Chemins.GetStaticPath("Images/Avatars/16x16/%s.png" % nomImage), wx.BITMAP_TYPE_PNG))
         tb.SetToolLabel(ID_TB_UTILISATEUR, u"%s %s" % (dictUtilisateur["nom"], dictUtilisateur["prenom"]))
         tb.Refresh() 
+        # Recharge l'affichage personnel du panneau Aujourd'hui.
+        if hasattr(self, "ctrl_ephemeride"):
+            self.ctrl_ephemeride.OnUserChanged()
         # Affiche le Toaster
         if afficheToaster == True and CUSTOMIZE.GetValeur("utilisateur", "pass", "") == "" :
             CTRL_Toaster.ToasterUtilisateur(self, prenom=dictUtilisateur["prenom"], nomImage=nomImage) 

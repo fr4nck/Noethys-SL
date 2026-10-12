@@ -25,7 +25,8 @@ def fermer_accueil():
     app.SetTopWindow(frame)
     frame.Initialisation()
     frame.Show()
-    assert frame.ctrl_ephemeride.ctrl_ticker.timer.IsRunning()
+    # Panneau « Aujourd'hui » (RC2) : son timer remplace le défilant historique.
+    assert frame.ctrl_ephemeride._timer.IsRunning()
     wx.CallLater(1200, frame.Close)
     app.MainLoop()
     assert not _garde_reseau.TENTATIVES
