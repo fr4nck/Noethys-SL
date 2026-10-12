@@ -189,5 +189,64 @@ class EncodagesUtf8ExplicitesTests(unittest.TestCase):
         self.assertEqual(_mimetext_sans_charset(relatif), [])
 
 
+class EncodagesExplicitesTests(unittest.TestCase):
+    """910cc8f5 (adapte : pas de dependance obligatoire a chardet, absent
+    des requirements de main ; moteur e-mail recent de main conserve)."""
+
+    def test_lot_pes_ecrit_un_xml_iso_8859_1_binaire(self):
+        relatif = "Dlg/DLG_Saisie_lot_tresor_public_pes.py"
+        self.assertEqual(_ouvertures_texte_pour_toprettyxml_encode(relatif), [])
+        self.assertEqual(_ouvertures_texte_sans_encodage(relatif), [])
+        self.assertEqual(_encodages_xml_ecrits(relatif), ["ISO-8859-1"])
+
+    def test_piece_jointe_texte_utf8_decodee_sans_mojibake(self):
+        from email.mime.multipart import MIMEMultipart
+        from Utils import UTILS_Envoi_email
+        with tempfile.TemporaryDirectory(prefix="noethys-pj-") as rep:
+            chemin = os.path.join(rep, "liste.txt")
+            Path(chemin).write_bytes(TEXTE_HORS_CP1252.encode("utf-8"))
+            message = UTILS_Envoi_email.Message.__new__(UTILS_Envoi_email.Message)
+            message.fichiers = [chemin]
+            email = MIMEMultipart()
+            message.AttacheFichiersJoints(email)
+        part = email.get_payload()[0]
+        self.assertEqual(part.get_content_type(), "text/plain")
+        texte = part.get_payload(decode=True).decode(part.get_content_charset())
+        self.assertEqual(texte, TEXTE_HORS_CP1252)
+
+    def test_piece_jointe_texte_cp1252_decodee(self):
+        from email.mime.multipart import MIMEMultipart
+        from Utils import UTILS_Envoi_email
+        with tempfile.TemporaryDirectory(prefix="noethys-pj-") as rep:
+            chemin = os.path.join(rep, "ancien.txt")
+            Path(chemin).write_bytes(u"Crèche Zoë".encode("cp1252"))
+            message = UTILS_Envoi_email.Message.__new__(UTILS_Envoi_email.Message)
+            message.fichiers = [chemin]
+            email = MIMEMultipart()
+            message.AttacheFichiersJoints(email)
+        part = email.get_payload()[0]
+        texte = part.get_payload(decode=True).decode(part.get_content_charset())
+        self.assertEqual(texte, u"Crèche Zoë")
+
+    def test_prepare_fichier_bic_lit_cp1252_et_ecrit_utf8(self):
+        import FonctionsPerso
+        from unittest import mock
+        source = u"1\tCrédit Agricole\tSaint-Étienne\tx\tAGRIFRPP\r\n2\tBanque Zoë\tSète\ty\tBQZOFRPP"
+        with tempfile.TemporaryDirectory(prefix="noethys-bic-") as rep:
+            Path(rep, "liste_bic_france.txt").write_bytes(source.encode("cp1252"))
+            sortie = os.path.join(rep, "liste_bic_france_new.txt")
+            cwd = os.getcwd()
+            os.chdir(rep)
+            try:
+                with mock.patch.object(FonctionsPerso.UTILS_Fichiers, "GetRepTemp", return_value=sortie):
+                    FonctionsPerso.PrepareFichierBIC()
+            finally:
+                os.chdir(cwd)
+            resultat = Path(sortie).read_bytes().decode("utf-8")
+        self.assertEqual(resultat,
+                         u'("Crédit Agricole", "Saint-Étienne", "AGRIFRPP")\n'
+                         u'("Banque Zoë", "Sète", "BQZOFRPP")\n')
+
+
 if __name__ == "__main__":
     unittest.main()
