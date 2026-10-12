@@ -910,3 +910,118 @@ mail envoyé, aucune donnée ou adresse de famille lue. Worktree WIP, trois stas
 branches locales wx/qt/master, tags/releases et fichiers non suivis existants
 restent préservés. Le principal est avancé seulement par fast-forward vers main,
 sans y exécuter de tests ni accéder au profil Portable.
+
+
+## 20. Requalification Mailjet : réponses et bilan de lot — 12/10/2026
+
+État initial revérifié : 44 branches, huit PR, main
+`7f876edd9207e88c4bad20ee3a3c599884b8017a`, wx
+`c8f26c41040b21f0324d319470c063b1f9116e47`, qt
+`06107757a4b6614908c37efa543cade1ba22412a`. Suite autorisée par l'utilisateur
+après le signal de mails non reçus. Lot borné au backend Mailjet : aucune
+requalification de livraison effective ni conclusion sur la cause de l'incident.
+
+### Provenance et reproduction
+
+Source historique de l'installation identifiée :
+`4fef6a42cfcaf1258f25209f85c22224441d7f5b`, toujours ancêtre de la source
+conservée `fix/rc2-network-stopgate-1` à
+`cf5f9fbe6ccd9472a061ceaf81ab6358effc00b3`. Le nom RC2 ne vaut pas identité
+avec la tête RC2 protégée ou un autre portable. L'installation reste intacte.
+
+Quatre éléments historiques repris à AST identique : `_RetirerAnomalies`,
+`_AfficherCompteRendu`, `ErreurMailjet`, `_DetailErreurMailjet`. Onze tests
+Mailjet sélectionnés dans `tests/test_rail1_mail_lot.py` de ce commit sont
+réutilisés avec leurs assertions intactes, sous un nouveau harnais avec garde
+réseau. SMTP, callbacks d'historique et rattachements du fichier historique
+ne sont pas importés comme fonctionnalité dans ce lot.
+
+Reproduction sur main initial : 14 tests, un succès, huit failures et cinq
+errors. Les écarts reproduits portent sur le motif d'erreur API, le bilan
+après arrêt ou réessai, les identifiants de suivi et la confirmation trop forte.
+Trois cas supplémentaires caractérisent HTTP en échec + corps "success",
+double lecture d'un JSON inexploitable, et renvoi après panne d'affichage
+postérieure à l'acceptation. Deux cas ajoutés pendant la revue protègent les
+métadonnées de suivi malformées et la panne d'affichage en fin de lot.
+
+### Résultat publié et CI
+
+| Branche existante | Commit de code | CI rapide syntaxe + Windows |
+| --- | --- | --- |
+| main | `2b8fab2eecf94bd74e065d716ccb29e67c11433a` | [SUCCÈS #38222855429](https://github.com/fr4nck/Noethys-SL/actions/runs/38222855429) |
+| wx | `99a423e6aa7b1a3628c04554dd9e3e27babf4e8c` | [SUCCÈS #38222855118](https://github.com/fr4nck/Noethys-SL/actions/runs/38222855118) |
+| qt | `87db1dd4f2cee05306ed3f814ea4cd65c1a03223` | [SUCCÈS #38222856320](https://github.com/fr4nck/Noethys-SL/actions/runs/38222856320) |
+
+- Motifs de refus Mailjet affichés (HTTP, message et code d'erreur) sans dump
+  complet de la réponse/payload. Le JSON est lu une seule fois. Un HTTP en
+  échec n'est pas compté comme succès, même avec un corps incohérent.
+- Identifiants MessageID/MessageUUID conservés sur l'objet message en mémoire ;
+  les champs de suivi optionnels malformés ne déclenchent pas de renvoi.
+  Aucun schéma ni stockage durable de ces identifiants ajouté implicitement.
+- Bilan structuré `dernier_bilan` : acceptés / échecs / non tentés. Après arrêt,
+  les messages suivants restent explicitement non tentés ; après un réessai
+  réussi, le message sort de la liste des échecs. Type de retour liste conservé.
+- Confirmation Mailjet : « accepté pour envoi », avec la limite de remise
+  effective ; aucun statut "reçu par la famille" inventé.
+- Une panne d'affichage après acceptation ou lors de la clôture de progression
+  ne renvoie pas le mail et ne détruit pas le bilan. Contre-exemple reproduit
+  avant correction : choix Réessayer après panne de progression entraînait
+  deux appels d'envoi pour le même message.
+
+Dans trois exports isolés des commits suivis : 57 tests ciblés réussis par
+branche, dont les 16 nouveaux cas et les 41 tests existants de confirmation,
+erreurs, Base64/progression et parent de fenêtre. Profils temporaires vides,
+variables MySQL retirées, garde DB et garde socket des processus ; zéro
+connexion réelle. CI rapide : 121 tests exécutés par branche, 119 réussites
+et deux tests MySQL ignorés. Aucun mail réel, serveur SMTP, compte Mailjet,
+base réelle, profil Portable, famille réelle ou secret utilisé.
+
+### Matrice et préservation
+
+| Périmètre | main | wx | qt |
+| --- | --- | --- | --- |
+| Réponses Mailjet, erreurs utiles, IDs en mémoire, bilan, réessai, arrêt | VALIDÉ simulations + CI | IDENTIQUE + CI | IDENTIQUE code commun + CI |
+| Absence de renvoi après panne d'affichage post-acceptation | VALIDÉ | IDENTIQUE | IDENTIQUE |
+| SMTP, adresses/rattachements, historique durable au fil de l'eau | NON PORTÉ / EN ATTENTE | NON PORTÉ / EN ATTENTE | NON PORTÉ / EN ATTENTE |
+| Réception des mails de l'incident / recette GUI réelle | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+
+AST des classes SMTP et de toutes les autres définitions préexistantes du
+module inchangés ; Mailer, Connecthys, Nomadhys, SQL et schémas inchangés.
+Modifications limitées à UTILS_Envoi_email.py, une suite de tests et son
+inclusion dans la CI rapide. Les sources, tests et workflows sont identiques
+entre main/wx/qt, les historiques et documents propres restent conservés.
+
+Publication atomique par trois avances normales, chacune ayant pour parent
+direct sa tête initiale. Aucune création/suppression de branche, force-push,
+réécriture, merge global, clôture/reciblage de PR, tag, release ou build.
+Signal nouveau → requalification : nouvelle comparaison des 30 sources aux
+14 têtes protégées ; chaque source demeure au même SHA et garde des apports
+non démontrés intégralement repris. Zéro candidate supplémentaire sûre.
+**44 branches, huit PR préservées.** Sources Mailjet historiques et réseau
+maintenues ; ce portage partiel ne justifie pas leur suppression.
+
+Documentation sur main et avance du dossier principal uniquement par
+fast-forward. Worktree WIP, stashes, branches locales master/wx/qt, tags,
+releases et fichiers non suivis existants préservés. Preuves de la session :
+`mail-qualification-20261012` dans l'espace Codex (logs avant/après, différences,
+SHA, résultats CI et nouvelle requalification des sources).
+
+### Obstacles et prochaine qualification
+
+Le signal utilisateur concerne le dernier candidat fourni la semaine
+précédente. L'utilisateur confirme pendant cette session que le service utilisé
+était Mailjet. La version/date lors de l'incident et le résultat affiché restent
+à préciser ; aucun accès aux paramètres du profil
+réel. Ni les simulations ni la CI ne prouvent que les mails manqués sont arrivés.
+Un déploiement du code dans l'installation RC2 n'est pas effectué.
+
+Poursuite : qualifier séparément les adresses configurées/rattachements et
+l'historique au fil de l'eau, puis la remise uniquement par éléments de recette
+autorisés et statuts fournisseur. SMTP et absence de callback durable restent
+des stop-gates, avec master/SQL, les 30 variantes historiques et la recette Qt.
+Ne pas réémettre automatiquement des mails dont l'acceptation/livraison est
+inconnue. Aucun envoi à une famille n'est autorisé par cette qualification.
+
+Contrats fournisseur consultés : [erreurs Send API v3.1](https://dev.mailjet.com/docs/email-api/send-api-v31/send-api-errors)
+et [SandboxMode, succès de validation sans livraison](https://dev.mailjet.com/docs/email-api/send-api-v31/sandbox.mode).
+Les tests utilisent uniquement des doublures locales, jamais ce mode distant.
