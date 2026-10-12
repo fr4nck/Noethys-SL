@@ -114,6 +114,15 @@ jobs:
           tests.test_connecthys_reservations_progress
           tests.test_noe_041_portable_paths
           tests.test_noethys_sl_config_quarantaine
+          tests.test_badgeage_entity_lookup_guard_contract
+          tests.test_dlg_famille_compte_payeur_guard_contract
+          tests.test_dlg_image_interactive_entity_lookup_guard_contract
+          tests.test_dlg_inscription_entity_lookup_guard_contract
+          tests.test_dlg_saisie_contrat_entity_lookup_guard_contract
+          tests.test_dlg_saisie_contratpsu_entity_lookup_guard_contract
+          tests.test_dlg_saisie_inscriptions_scolaires_entity_lookup_guard_contract
+          tests.test_entity_lookup_importation_guard_contract
+          tests.test_ol_inscriptions_scolaires_entity_lookup_guard_contract
           tests.test_noethys_sl_fermeture_windows
           tests.test_vanilla_crash_recipient
       - name: Suite complete - sur demande
