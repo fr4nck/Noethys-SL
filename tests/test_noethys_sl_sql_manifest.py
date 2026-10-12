@@ -55,6 +55,13 @@ class IntegriteSQLTests(unittest.TestCase):
         self._ecrire(b'')
         self.assertIsNotNone(VerifierIntegriteSQL(self.path)[1])
 
+    def test_dumper_vide_ne_produit_pas_un_faux_manifeste(self):
+        self._ecrire(b'')
+        with self.assertRaises(ValueError):
+            AjouterManifesteIntegriteSQL(self.path)
+        self.assertEqual(self.path.read_bytes(), b'')
+        self.assertEqual(list(pathlib.Path(self.temp.name).iterdir()), [self.path])
+
     def test_deuxieme_enveloppement_refuse_et_source_preservee(self):
         self._ecrire(b'CREATE TABLE demo (id INT);\n')
         AjouterManifesteIntegriteSQL(self.path)
