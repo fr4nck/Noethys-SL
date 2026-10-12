@@ -5,6 +5,7 @@ Test local avec AST et sous-processus fictif ; aucun wx, MySQL, reseau ou
 profil Noethys ne sont importes ni utilises.
 """
 import ast
+import importlib.util
 import os
 import shutil
 import tempfile
@@ -14,6 +15,15 @@ import zipfile
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Sauvegarde.py"
+MANIFESTE = SOURCE.with_name("UTILS_SQL_Integrite.py")
+
+
+def _charger_manifeste():
+    # Module pur (sans wx ni base) : le vrai controle du manifeste est exerce.
+    spec = importlib.util.spec_from_file_location("noe032_sql_integrite", MANIFESTE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class _Dialog:
@@ -100,6 +110,7 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
                 ),
                 "GetRepertoireMySQL": lambda conn: str(rep) + os.sep,
                 "CreationFichierLoginTemp": lambda **kwargs: None,
+                "UTILS_SQL_Integrite": _charger_manifeste(),
             }
             resultat = _charger_sauvegarde(dep)(
                 listeFichiersReseau=["base_fictive"],
@@ -159,6 +170,7 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
                 "UTILS_Fichiers": types.SimpleNamespace(
                     GetRepTemp=lambda fichier: str(rep / fichier)
                 ),
+                "UTILS_SQL_Integrite": _charger_manifeste(),
                 "GetListeFichiersReseau": lambda _conn: ["base_fictive"],
                 "GetRepertoireMySQL": lambda _conn: str(rep) + os.sep,
                 "CreationFichierLoginTemp": lambda **kwargs: None,
