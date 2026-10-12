@@ -113,6 +113,23 @@ def GetAnnonce():
     
 
 
+TAILLE_LOGO_ACCUEIL = (80, 80)
+MARGE_LOGO_ACCUEIL = 20
+
+
+def PositionLogoAccueil(taille_zone=(0, 0), taille_logo=(0, 0), marge=MARGE_LOGO_ACCUEIL):
+    """Position du logo de l'organisateur : coin supérieur droit de la zone
+    visible. None si le logo ne tient pas (zone trop petite) : l'accueil reste
+    alors inchangé plutôt que de recouvrir l'annonce. """
+    largeur_zone, hauteur_zone = taille_zone
+    largeur_logo, hauteur_logo = taille_logo
+    if largeur_logo <= 0 or hauteur_logo <= 0:
+        return None
+    if largeur_zone < largeur_logo + 2 * marge or hauteur_zone < hauteur_logo + 2 * marge:
+        return None
+    return (int(largeur_zone - largeur_logo - marge), int(marge))
+
+
 class Panel(wx.Panel):
     def __init__(self, parent, size=(-1, -1)):
         wx.Panel.__init__(self, parent, name="panel_accueil", id=-1, size=size, style=wx.TAB_TRAVERSAL)
@@ -138,10 +155,27 @@ class Panel(wx.Panel):
         self._cle_fond_cache = None
         self.SetBackgroundColour(wx.Colour(242, 242, 242))
 
+        # Logo de l'organisateur : chargé par MAJ() une fois un fichier ouvert,
+        # jamais au démarrage (aucun accès à la base avant l'ouverture).
+        self.logo_organisateur = None
+
         # Binds
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda x:None)
         self.Bind(wx.EVT_SIZE, self.OnSize)
+
+    def MAJ(self, fichier_ouvert=True):
+        """Recharge le logo de l'organisateur du fichier ouvert (aucun logo
+        configuré ou fichier fermé : accueil inchangé). """
+        logo = None
+        if fichier_ouvert:
+            try:
+                from Utils import UTILS_Organisateur
+                logo = UTILS_Organisateur.GetDonnees(tailleLogo=TAILLE_LOGO_ACCUEIL, fondLogoBlanc=False).get("logo")
+            except Exception:
+                logo = None
+        self.logo_organisateur = logo if logo is not None and logo.IsOk() else None
+        self.Refresh()
 
     def OnSize(self, event):
         self._bitmap_fond_cache = None
@@ -206,6 +240,12 @@ class Panel(wx.Panel):
                 # transparence si le fond passe ultérieurement en PNG.
                 dc.DrawBitmap(bitmap, x, y, True)
                 self._DessinerAttenuation(dc, largeur_zone, hauteur_zone)
+
+        # Logo de l'organisateur, transparence conservée
+        if self.logo_organisateur is not None:
+            position = PositionLogoAccueil((largeur_zone, hauteur_zone), self.logo_organisateur.GetSize())
+            if position is not None:
+                dc.DrawBitmap(self.logo_organisateur, position[0], position[1], True)
 
         # Récupére l'annonce
         dictAnnonce = GetAnnonce()
