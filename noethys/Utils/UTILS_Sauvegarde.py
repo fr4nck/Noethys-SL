@@ -141,24 +141,30 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 fichierSave = u"%s/%s.sql" % (repTemp, nomFichier)
                 options = UTILS_Customize.GetValeur("sauvegarde", "options", "", ajouter_si_manquant=False)
 
-                args = u""""%sbin/mysqldump" --defaults-extra-file="%s" --single-transaction --opt %s --databases %s > "%s" """ % (repMySQL, nomFichierLoginTemp, options or "", nomFichier, fichierSave)
+                # --opt re-active --lock-tables ; placer les options transactionnelles ensuite.
+                args = u""""%sbin/mysqldump" --defaults-extra-file="%s" --opt --single-transaction --skip-lock-tables %s --databases %s > "%s" """ % (repMySQL, nomFichierLoginTemp, options or "", nomFichier, fichierSave)
                 print(("Chemin mysqldump =", args))
                 if six.PY2:
                     args = args.encode('utf8')
                 proc = subprocess.Popen(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
                 out, temp = proc.communicate()
 
-                if out not in ("", b""):
+                # La sortie texte n'est pas un indicateur fiable du succes MySQL.
+                if proc.returncode != 0:
+                    if isinstance(out, bytes):
+                        out = out.decode("utf8", "replace")
+                    if not out:
+                        out = u"mysqldump a echoue avec le code %s, sans diagnostic." % proc.returncode
                     print((out,))
-                    try :
-                        if six.PY2:
-                            out = str(out).decode("utf8")
-                    except :
-                        pass
                     dlgprogress.Destroy()
                     dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
-                    dlgErreur.ShowModal() 
+                    dlgErreur.ShowModal()
                     dlgErreur.Destroy()
+                    # Ne laisser ni ZIP partiel ni sauvegarde trompeusement valide.
+                    fichierZip.close()
+                    fichierTemp = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
+                    if os.path.isfile(fichierTemp):
+                        os.remove(fichierTemp)
                     return False
 
                 # Insère le fichier Sql dans le ZIP
