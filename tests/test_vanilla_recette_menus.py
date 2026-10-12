@@ -82,6 +82,19 @@ class CsvUnicodeTests(unittest.TestCase):
                 self.assertTrue(hasattr(module.csv, "reader"))
 
 
+class ReouvertureApresRestaurationTests(unittest.TestCase):
+    """Recette Fichier > Restaurer : rouvrir le fichier restaure, pas celui ouvert au demarrage."""
+
+    def test_le_fichier_ouvert_est_rouvert(self):
+        source = (RACINE / "Noethys.py").read_text(encoding="utf-8")
+        classe = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == "MainFrame")
+        fonction = next(n for n in classe.body if isinstance(n, ast.FunctionDef) and n.name == "On_fichier_Restaurer")
+        code = ast.unparse(fonction)
+        self.assertIn("nomFichierOuvert = self.userConfig['nomFichier']", code)
+        self.assertIn("self.OuvrirFichier(nomFichierOuvert)", code)
+        self.assertNotIn("OuvrirDernierFichier", code)
+
+
 class VuesDictionnaireTests(unittest.TestCase):
     def test_aucun_tri_sur_une_vue_de_dictionnaire(self):
         fautes = []
