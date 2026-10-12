@@ -29,8 +29,7 @@ N'invente aucune règle métier :
   à 0, jamais le dict_options fourni par l'appelant (qui n'est jamais
   muté) -- le run réel, lui, conserve intégralement le dict_options du
   profil, forfait midi compris ;
-- les bornes de la phase viennent de UTILS_AFAS.GetCycleAFAS(annee)[phase],
-  jamais recalculées ici ;
+- le réalisé des actualisations s'arrête à la date de situation ;
 - les individus AEEH applicables à la phase viennent de
   UTILS_AEEH_Periodes.GetIndividusActifsADate(date_situation), jamais de
   individus.aeeh ;
@@ -68,8 +67,8 @@ def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUni
     resultat = calculateur.CalculerEtatGlobal(
         date_debut=date_debut,
         date_fin=date_fin,
-        listeActivites=[IDactivite],
-        listeGroupes=[IDgroupe],
+        listeActivites=IDactivite if isinstance(IDactivite, list) else [IDactivite],
+        listeGroupes=IDgroupe if isinstance(IDgroupe, list) else [IDgroupe],
         dictUnites=dictUnites,
         dict_options=options_individu,
         dictInfosIndividus=dictInfosIndividus_aeeh,
@@ -132,6 +131,24 @@ def GetDonneesAFAS(IDactivite, IDgroupe, annee, phase, dictUnites_reel, dictUnit
     date_fin = cycle["date_fin"]
     date_situation = cycle["date_situation"]
 
+    if phase in (UTILS_AFAS.PHASE_ACTUALISATION_JUIN, UTILS_AFAS.PHASE_ACTUALISATION_SEPTEMBRE):
+        date_fin = date_situation
+    return GetDonneesPeriodeAFAS([(IDactivite, IDgroupe)], date_debut, date_fin,
+                                date_situation, dictUnites_reel, dictUnites_facture, dict_options)
+
+
+def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
+                         dictUnites_reel, dictUnites_facture, dict_options):
+    """Un équipement peut réunir plusieurs activités/groupes.
+
+    Une seule exécution par métrique conserve la déduplication des prestations
+    et les plafonds individuels entre groupes. Les jours ouverts sont une union.
+    Les IDs de groupe sont uniques dans la base.
+    """
+    if not perimetres or date_fin < date_debut:
+        raise ValueError("Périmètre ou période invalide")
+    IDactivite = sorted(set(activite for activite, groupe in perimetres))
+    IDgroupe = sorted(set(groupe for activite, groupe in perimetres))
     liste_individus_aeeh = UTILS_AEEH_Periodes.GetIndividusActifsADate(date_situation)
     dictInfosIndividus_aeeh = {IDindividu: {"INDIVIDU_NOM_COMPLET": _LABEL_AEEH} for IDindividu in liste_individus_aeeh}
 
@@ -149,7 +166,9 @@ def GetDonneesAFAS(IDactivite, IDgroupe, annee, phase, dictUnites_reel, dictUnit
         IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, dict_options_facture, dictInfosIndividus_aeeh,
     )
 
-    jours_ouverts = UTILS_Ouvertures.GetNombreJoursOuverture(IDactivite, IDgroupe, date_debut, date_fin)
+    jours_ouverts = len(set(date for activite, groupe in perimetres
+                           for date in UTILS_Ouvertures.GetDatesOuverture(
+                               activite, groupe, date_debut, date_fin)))
 
     return {
         "heures_reelles": heures_reelles,
