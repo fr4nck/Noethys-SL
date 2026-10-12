@@ -28,6 +28,7 @@ from Utils import UTILS_Cryptage_fichier
 from Utils import UTILS_Fichiers
 from Utils import UTILS_Envoi_email
 from Utils import UTILS_Customize
+from Utils import UTILS_SQL_Integrite
 
 LISTE_CATEGORIES = [
     (_(u"Données de base"), "DATA"),
@@ -161,6 +162,21 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                     dlgErreur.ShowModal()
                     dlgErreur.Destroy()
                     # Ne laisser ni ZIP partiel ni sauvegarde trompeusement valide.
+                    fichierZip.close()
+                    fichierTemp = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
+                    if os.path.isfile(fichierTemp):
+                        os.remove(fichierTemp)
+                    return False
+
+                # Ajout compatible avec les restaurations historiques : deux commentaires SQL.
+                # En cas d'echec, aucun ZIP partiel ne doit etre publie.
+                try:
+                    UTILS_SQL_Integrite.AjouterManifesteIntegriteSQL(fichierSave)
+                except Exception as err:
+                    dlgprogress.Destroy()
+                    dlgErreur = wx.MessageDialog(None, _(u"Impossible de fiabiliser le dump SQL : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                    dlgErreur.ShowModal()
+                    dlgErreur.Destroy()
                     fichierZip.close()
                     fichierTemp = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
                     if os.path.isfile(fichierTemp):
@@ -375,12 +391,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
             for fichier in listeFichiersReseau:
                 fichier = fichier[:-4]
             
-                # Création de la base si elle n'existe pas
-                if fichier not in listeFichiersExistants :
-                    nomFichier = u"%s;%s;%s;%s[RESEAU]%s" % (dictConnexion["port"], dictConnexion["host"], dictConnexion["user"], dictConnexion["password"], fichier)
-                    DB = GestionDB.DB(suffixe=None, nomFichier=nomFichier, modeCreation=True)
-                    DB.Close()
-
+                # Ne pas creer de base MySQL avant d'avoir controle le dump.
                 # Copie du fichier SQL dans le répertoire Temp / restoretemp
                 # buffer = fichierZip.read(u"%s.sql" % fichier)
                 # f = open(fichierRestore, "wb")
@@ -388,6 +399,24 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                 # f.close()
                 fichierZip.extract(u"%s.sql" % fichier, repTemp)
                 fichierRestore = u"%s/%s.sql" % (repTemp, fichier)
+
+                # Anciens dumps : autorises (pas de manifeste).
+                # Dumps V1 : integrite SHA-256 et taille obligatoirement valides.
+                # Refus AVANT toute creation de base ou execution mysql.
+                avecManifeste, erreurManifeste = UTILS_SQL_Integrite.VerifierIntegriteSQL(fichierRestore)
+                if erreurManifeste is not None:
+                    dlgprogress.Destroy()
+                    dlgErreur = wx.MessageDialog(None, _(u"Dump SQL invalide ou incomplet : %s") % erreurManifeste, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                    dlgErreur.ShowModal()
+                    dlgErreur.Destroy()
+                    fichierZip.close()
+                    return False
+
+                # Création de la base si elle n'existe pas, apres verification.
+                if fichier not in listeFichiersExistants :
+                    nomFichier = u"%s;%s;%s;%s[RESEAU]%s" % (dictConnexion["port"], dictConnexion["host"], dictConnexion["user"], dictConnexion["password"], fichier)
+                    DB = GestionDB.DB(suffixe=None, nomFichier=nomFichier, modeCreation=True)
+                    DB.Close()
 
                 # Importation du fichier SQL dans MySQL
                 dlgprogress.Update(numEtape, _(u"Restauration du fichier %s...") % fichier);numEtape += 1
