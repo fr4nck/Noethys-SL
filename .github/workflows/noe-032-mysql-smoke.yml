@@ -1,0 +1,57 @@
+name: Noe-032 MySQL 5.5 - recette synthetique manuelle
+
+# Execution volontaire uniquement, pour economiser les minutes Actions.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql55-synthetique:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NOETHYS_DB_ROOT_PASSWORD: noe032_root_synthetic_only
+      NOETHYS_DB_NAME: noethys_dev
+      NOETHYS_DB_USER: noethys
+      NOETHYS_DB_PASSWORD: noe032_user_synthetic_only
+      NOETHYS_DB_PORT: "3308"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convertir l'ancien manifeste de l'image MySQL 5.5
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo copy --format v2s2 \
+            docker://docker.io/library/mysql@sha256:d404d78aa797c87c255e5ae2beb5d8d0e4d095f930b1f20dc208eaa957477b74 \
+            docker-daemon:noethys-mysql55:converted
+
+      - name: Creer le fichier de configuration jetable
+        shell: pwsh
+        run: |
+          @"
+          NOETHYS_DB_ROOT_PASSWORD=$env:NOETHYS_DB_ROOT_PASSWORD
+          NOETHYS_DB_NAME=$env:NOETHYS_DB_NAME
+          NOETHYS_DB_USER=$env:NOETHYS_DB_USER
+          NOETHYS_DB_PASSWORD=$env:NOETHYS_DB_PASSWORD
+          NOETHYS_DB_PORT=$env:NOETHYS_DB_PORT
+          NOETHYS_MYSQL55_IMAGE=noethys-mysql55:converted
+          "@ | Set-Content -Encoding ascii dev/db/.env
+
+      - name: Lancer le jeu synthetique et verifier les postconditions
+        shell: pwsh
+        run: ./dev/db/smoke.ps1
+
+      - name: Diagnostic du seul projet de recette si echec
+        if: failure()
+        shell: bash
+        run: docker compose --project-name noethys-sl-noe032 --env-file dev/db/.env -f dev/db/compose.yml logs --no-color
+
+      - name: Detruire seulement le volume jetable du projet
+        if: always()
+        shell: bash
+        run: docker compose --project-name noethys-sl-noe032 --env-file dev/db/.env -f dev/db/compose.yml down --volumes
