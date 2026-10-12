@@ -447,13 +447,9 @@ class Dialog(DLG_Saisie_lot_tresor_public.Dialog):
                 dlg.Destroy()
 
         # Création du fichier texte
-        f = open(cheminFichier, "w")
+        f = open(cheminFichier, "wb")
         try:
-            if six.PY2:
-                f.write(doc.toxml(encoding="UTF-8"))
-            else:
-                #f.write(doc.toprettyxml(indent="  "))
-                f.write(doc.toxml())
+            f.write(doc.toxml(encoding="UTF-8"))
         finally:
             f.close()
 
