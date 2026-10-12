@@ -23,7 +23,9 @@ foreach ($name in @('NOETHYS_DB_ROOT_PASSWORD', 'NOETHYS_DB_PASSWORD')) {
 if ($config['NOETHYS_DB_USER'] -cne 'noethys') {
     throw 'Utilisateur de recette inattendu.'
 }
-$knownImage = 'mysql:5.5.62@sha256:d404d78aa797c87c255e5ae2beb5d8d0e4d095f930b1f20dc208eaa957477b74'
+# Docker Hub ne sert plus le manifeste schema v1 historique (d404d78a...) :
+# digest v2 linux/amd64 officiel du meme tag mysql:5.5.62.
+$knownImage = 'mysql:5.5.62@sha256:c9c671d0c959183154313d6830d46f9a00d5937f97415c15ebd3c6844f6f1467'
 if ($config.ContainsKey('NOETHYS_MYSQL55_IMAGE') -and
     $config['NOETHYS_MYSQL55_IMAGE'] -cnotin @($knownImage, 'noethys-mysql55:converted')) {
     throw 'Image MySQL non approuvee pour la recette.'
@@ -53,8 +55,12 @@ foreach ($name in @('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKE
         throw "Bac a sable refuse : supprimer la variable Docker $name avant la recette."
     }
 }
-$engine = (& docker context inspect --format '{{.Endpoints.docker.Host}}' 2>$null | Select-Object -First 1)
-if ($LASTEXITCODE -ne 0 -or
+# Capturer toute la sortie avant de filtrer : Select-Object -First 1 dans le
+# pipeline interrompt docker et laisse $LASTEXITCODE vide ou obsolete.
+$engineOutput = @(& docker context inspect --format '{{.Endpoints.docker.Host}}' 2>$null)
+$engineExit = $LASTEXITCODE
+$engine = $engineOutput | Select-Object -First 1
+if ($engineExit -ne 0 -or
     $engine -notmatch '^(npipe://|unix://|tcp://(127\.0\.0\.1|localhost)(:\d+)?$)') {
     throw "Contexte Docker distant ou non reconnu : $engine."
 }
