@@ -143,3 +143,13 @@ Le premier changement runtime recommandé après validation de ce rapport est **
 - **Liste d'attente sans effet : NON REPRODUCTIBLE** sur le code actuel. Parcours réel (contrôle des effectifs → `OuvrirListeAttente` → `DLG_Attente`) rejoué en SQLite et sur MySQL 5.5 fictif, avec et sans activité sélectionnée : dialogue ouvert, lignes correctes, aucune exception. Le correctif de dates Python 3 (#360) explique probablement l'observation sur l'ancien candidat. Recette humaine à confirmer.
 - **Code `liste_pieces_fournies` partagé : DÉJÀ CORRIGÉ** (`5e559d24`, #379 : `liste_pieces_manquantes`), présent et testé sur les trois branches.
 - **`wx.CallLater` de la fiche famille et du remplissage : DÉJÀ CORRIGÉS** (#379, testés). Recensement des 55 `CallLater` : délais 0-10 ms à la construction, ou parcours rares ; `CTRL_Grille_renderers.Flash` (1 s) est du code mort. Timer d'info-bulle de `CTRL_Timeline` : aucun crash reproduit, ancienne version comprise, donc non modifié.
+
+## Addendum du 12/10/2026 (3) — qualification Windows de l'application
+
+Méthode : vraie `MainFrame` Noethys (sources de `main`, Python 3.10 / wxPython 4.2.5, Windows 11), profil Portable **fictif** dans un worktree détaché, aucune connexion réseau hors bac à sable 127.0.0.1:3308, boîtes natives neutralisées. Pas encore exécuté sur le `Noethys.exe` packagé.
+
+- **Toutes les actions de menu** : 262 entrées, 217 exécutées (45 exclues : fichier, purge, suppression, réseau, web, console), chaque dialogue fermé par la croix. 4 défauts corrigés (`1ad18300`) : Organisateur (`SetValue(None)`), imports CSV familles/individus et badgeage (`unicodecsv` absent, repli Python 2), Synthèse des déductions (`dict_keys.sort`). Restent **P2 hors parcours quotidien** : planning et chronologie des locations (coordonnées `float` dans `Outils/wxDrawer` et la Timeline).
+- **Parcours quotidien, consultation** : fiche famille (11 pages) et fiche individu (10 pages) ouvertes et enregistrées, dialogue d'inscription, grille avec saisie enregistrée en base, liste détaillée, gestionnaire fermé par la croix : **0 exception**.
+- **Parcours quotidien, création** : nouvelle famille → représentant titulaire → enfant → inscription → consommation, contrôles métier actifs (civilité obligatoire, homonyme) : **0 exception**, écritures vérifiées en base.
+- **Crash des consommations par la commande de menu réelle** : 90 cycles (recherche saisie, croix, réouverture immédiate) sans crash.
+- **Sauvegarde/restauration (Noe-032) par l'interface** sur base réseau fictive : 4/4 conformes. Défaut amont corrigé (`b25f8b5e`) : après restauration, Noethys rouvrait le fichier du démarrage au lieu du fichier restauré.
