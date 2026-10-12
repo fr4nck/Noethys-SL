@@ -449,7 +449,7 @@ class Dialog(DLG_Saisie_lot_tresor_public.Dialog):
 
         # Génération du fichier XML
         doc = UTILS_Corail.GetXML(dictDonnees)
-        f = open(os.path.join(rep_temp, nom_fichier + ".xml"), "w")
+        f = open(os.path.join(rep_temp, nom_fichier + ".xml"), "wb")
         try:
             f.write(doc.toprettyxml(indent="  ", encoding="UTF-8"))
         finally:

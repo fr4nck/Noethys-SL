@@ -539,7 +539,7 @@ def GetXML(dictDonnees={}):
 
 def EnregistrerXML(doc=None, nomFichier=""):
     """ Enregistre le fichier XML """
-    f = open(nomFichier, "w")
+    f = open(nomFichier, "wb")
     try:
         f.write(doc.toprettyxml(indent="  ", encoding="UTF-8"))
     finally:
