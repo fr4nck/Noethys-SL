@@ -213,7 +213,7 @@ class RestaurationArchiveCleanupTests(unittest.TestCase):
                             and instruction.value.value is False):
                         gardes.append((instruction.lineno,
                                        valeur[i - 1] if i else None))
-        self.assertEqual(len(gardes), 6, "Verifier les nouvelles sorties anticipées")
+        self.assertEqual(len(gardes), 7, "Inclure le refus de manifeste avant MySQL")
         for ligne, precedente in gardes:
             self.assertIsInstance(precedente, ast.Expr, "Retour ligne %s" % ligne)
             self.assertEqual(ast.unparse(precedente), "fichierZip.close()",
