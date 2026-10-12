@@ -1267,3 +1267,28 @@ réutiliser les anciens plans sur un nouveau SHA sans requalification.
 - **Non repris, avec motif** : variante Word RC2 et `DialogFondu`/`UTILS_Transitions` (exclusions antérieures ; main a sa génération Word `a78c6581`) ; texte PMSL RC2 à `\n` littéraux (main correct) ; fondu de la boîte d'identification. **Décision métier en attente** : répéter les objets fixes du modèle (en-tête…) sur les pages 2+ d'une convention (RC2, sauf cadre `cadre_pages_suivantes`) ou non (main `a900c7f7`, conservé).
 - **Inventaire final RC2** (part des lignes ajoutées par chaque commit déjà présente dans main) : #406 (dont SafeYield), QF #407/#408, attestations fiscales #410, listes wx #411, vacances #412, AFAS, Connecthys, mailer, périodes : **100 %**. Commits intermédiaires « Aujourd'hui » à 82-94 % : lignes réécrites ensuite par RC2 elle-même, version finale reprise. RC3 (`28c2294c`) n'ajoute que version, notes et CI de publication (PR #422). **Déductions** : aucun commit RC2 ; `CTRL_Synthese_deductions` déjà corrigé en Python 3 dans main. Les écarts sur déductions/attestations des branches `claude/noethys-windows-ci-audit-qy5m9t` et `design-form-density-standard` viennent d'un audit de robustesse basé sur `master` (écritures atomiques…) : hors RC2, EN ATTENTE de qualification séparée.
 - **CI verte** : main `0f4896d4` (run 38280531242, tests mailer et Connecthys exécutés sur runner : ok), wx `8fcfb8e0` (run 38281403311). Tests sans interface en local : Connecthys 26, conventions 52, mailer statique.
+
+
+## 31. Nettoyage des branches GitHub, premier lot autorisé (5 branches) — 12/10/2026
+
+- **Autorisation de Franck** : jusqu'à 5 branches historiques ; ne pas toucher `main`, `wx`, `qt`, `master`, RC2, RC3 ni les branches des PR ouvertes (#422, #384, #369, #366, #355 : têtes et bases) ; aucune suppression risquée ; archive `git bundle` vérifiée hors dépôt avant chaque suppression.
+- **Méthode** : pour chaque branche, apport propre = commits absents de toutes les références protégées (`main`, `wx`, `qt`, `master`, RC2, RC3) ; part des lignes encore présentes en tête de branche et absentes de ces références. PR de toutes états (325 PR examinées), branches qui les contiennent, worktrees.
+- **Branches supprimées** (SHA relu juste avant, `git push origin --delete`, API GitHub : 404) :
+
+| Branche | SHA | Apport propre | Motif |
+|---|---|---|---|
+| `design-form-density-standard` | `f96fa35865462500f12ad2caee98027e488f3955` | 1 commit, 0 ligne manquante | Document de la PR #112 (fermée) déjà dans main à l'identique |
+| `docs/open-development-policy` | `d218e2980fbc7ab5b6577ec50c74931aae836c93` | 1 commit, 0 ligne manquante | `CONTRIBUTING.md` de la PR #102 (fermée) déjà dans main |
+| `fix/rc2-pr385-compatible` | `ba67c6b9a5fc488ff8ba3c15d3cd6bd7826c12d8` | 13 commits, 1 ligne de commentaire | Lot #406 (PR #406 et #407 fermées) : 100 % dans main ; panneau remplacé par Aujourd'hui RC2 |
+| `dev-db-docker` | `b7dc7c195022949626f8a7e9a55d2677e710d107` | 4 commits | PR #104 qualifiée et fermée (§ 26) : outillage repris durci dans main/wx/qt ; import générique exclu volontairement |
+| `audit/vanilla-final-undefined-names` | `8ae3a36f939460a36b9d7b4f86cfa1147208e1b0` | 9 commits | Correctifs de code (synthèse des déductions, zoom chronologie, défauts runtime) présents ; seul manque un workflow d'audit `ruff` F821 déclenché uniquement sur cette branche |
+
+- **Archives** : `C:\Users\Ordi\Documents\Sauvegardes-Noethys\branches-supprimees-20261012\` (hors dépôt), un bundle autonome par branche (`refs/remotes/origin/<branche>`), `git bundle verify` « is okay », restauration réelle dans un dépôt vide (SHA de tête exact, `fsck` sans erreur), empreintes dans `SHA256SUMS.txt` :
+  - `audit_vanilla-final-undefined-names.bundle` `9061fc82ca8ca53b201aa92c99025c614e687f1ced6dd667e2747c16a6b43cf2`
+  - `design-form-density-standard.bundle` `7a6b3bb29ed043fa0ec849ef6d8344660f4cceb9d1261cc051f37a81f2baaeb1`
+  - `dev-db-docker.bundle` `d7e9a3054f12021a5eb003fa28c68626e499b309d7be6259e67579a2af11c4b9`
+  - `docs_open-development-policy.bundle` `251219b0f1301e25af75f33199599486fec5c76e6f799daaee8c4d7992822d84`
+  - `fix_rc2-pr385-compatible.bundle` `df75b105caf8722069298c9b2731a22189d70bdcf144e3a765daea9f1a322d9f`
+  - Restauration : `git fetch <fichier.bundle> "+refs/remotes/origin/*:refs/heads/*"` puis `git push origin <branche>`.
+- **Comptage** : 42 branches sur `origin` avant, **37 après**. Branches protégées et PR ouvertes revérifiées intactes après suppression.
+- **Écartée pour risque** : `fix/noethys-sl-light-only` (verrouillage du thème clair dans `UTILS_Interface`, mécanisme différent de main, non qualifié). Les autres branches portent un apport propre non intégré (Noe-062/063, extensions, portable, prototype Qt, audits CI, `fix/rc2-network-stopgate-1`…) : conservées.
