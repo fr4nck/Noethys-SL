@@ -268,20 +268,21 @@ class Dialog(wx.Dialog):
         if len(listeDonnees) == 0 : return
         organisateur = listeDonnees[0]
         
-        self.ctrl_nom.SetValue(organisateur[0])
+        # Champs NULL en base (site, numeros...) : wx refuse None dans SetValue.
+        self.ctrl_nom.SetValue(organisateur[0] or u"")
         
-        self.ctrl_rue.SetValue(organisateur[1])
+        self.ctrl_rue.SetValue(organisateur[1] or u"")
         self.ctrl_adresse.SetValueCP(organisateur[2])
         self.ctrl_adresse.SetValueVille(organisateur[3])
         self.ctrl_tel.SetNumero(organisateur[4])
         self.ctrl_fax.SetNumero(organisateur[5])
         self.ctrl_mail.SetMail(organisateur[6])
-        self.ctrl_site.SetValue(organisateur[7])
+        self.ctrl_site.SetValue(organisateur[7] or u"")
         
         # Numéros
-        self.ctrl_agrement.SetValue(organisateur[8])
-        self.ctrl_siret.SetValue(organisateur[9])
-        self.ctrl_ape.SetValue(organisateur[10])
+        self.ctrl_agrement.SetValue(organisateur[8] or u"")
+        self.ctrl_siret.SetValue(organisateur[9] or u"")
+        self.ctrl_ape.SetValue(organisateur[10] or u"")
         
         # Logo
         img = organisateur[11]

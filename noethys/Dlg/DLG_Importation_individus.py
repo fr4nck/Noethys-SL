@@ -24,8 +24,12 @@ import wx.lib.agw.hyperlink as Hyperlink
 import xlrd
 try:
     import unicodecsv as csv
-except:
-    from Outils import unicodecsvpy2 as csv
+except ImportError:
+    import sys as _sys_csv
+    if _sys_csv.version_info[0] >= 3:
+        from Utils import UTILS_Csv_unicode as csv
+    else:
+        from Outils import unicodecsvpy2 as csv
 import os
 import datetime
 import GestionDB
