@@ -49,9 +49,10 @@ class EphemeridesUI(unittest.TestCase):
         self.assertIn('2026-10-05', self.panel.weather.GetLabel())
         self.assertNotIn('2026-10-06', self.panel.weather.GetLabel())
         self.assertTrue(self.panel.detail.IsEnabled())
-        self.assertEqual(self.panel.book.GetPageCount(), 3)
-        texts = [child.GetLabel() for child in self.panel.GetChildren() if isinstance(child, wx.StaticText)]
-        self.assertTrue(any('Source préfectorale indisponible' in ' '.join(text.split()) for text in texts))
+        # 0cc84814 (RC2) a remplace le classeur d'evenements par une liste et retire
+        # volontairement les flux prefectoraux : verifier la liste reelle des dates.
+        self.assertFalse(hasattr(self.panel, 'book'))
+        self.assertGreaterEqual(self.panel.events_content.GetItemCount(), 10)
         self.frame.SetSize((460, 650))
         self.frame.Show()
         _APP.Yield()
@@ -68,7 +69,8 @@ class EphemeridesUI(unittest.TestCase):
             dialog.Destroy()
 
     def test_settings_round_trip_keeps_events_and_territories(self):
-        dialog = ui.Settings(self.frame, dict(self.result['settings'], latitude='47.94', longitude='-1.23'))
+        dialog = ui.Settings(self.frame, dict(self.result['settings'], latitude='47.94', longitude='-1.23'),
+                             ui.data.normalize_dashboard_layout())
         try:
             values = dialog.values()
             self.assertEqual(values['territories'], 'Bais')
