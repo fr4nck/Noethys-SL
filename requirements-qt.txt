@@ -1,0 +1,5 @@
+# Dépendances exclusives au chantier Qt isolé.
+# Ne pas fusionner dans la ligne Vanilla.
+PySide6>=6.8,<7
+mysql-connector-python>=9,<10
+XlsxWriter>=3.2,<4

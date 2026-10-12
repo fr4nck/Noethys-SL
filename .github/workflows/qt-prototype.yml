@@ -1,0 +1,46 @@
+name: Qt prototype — Noethys
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qt
+    paths:
+      - "noethys_qt/**"
+      - "tests_qt/**"
+      - "requirements-qt.txt"
+      - ".github/workflows/qt-prototype.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-qt-smoke:
+    name: Windows / PySide6 / smoke
+    runs-on: windows-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer Qt
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-qt.txt
+
+      - name: Compiler le rail Qt
+        run: python -m compileall -q noethys_qt tests_qt
+
+      - name: Tests Qt hors écran
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests_qt -p "test_*.py" -v
