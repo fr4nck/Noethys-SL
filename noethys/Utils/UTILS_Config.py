@@ -15,9 +15,9 @@ import os
 import six
 import shutil
 import random
+import datetime
 from Utils import UTILS_Fichiers
 from Utils import UTILS_Json
-
 
 
 
@@ -92,18 +92,47 @@ class FichierConfig():
         if six.PY2:
             nomFichier = nomFichier.encode("utf8")
         self.nomFichier = nomFichier
+
+    def _MettreEnQuarantaine(self):
+        """Conserve une configuration illisible pour diagnostic sans l'écraser."""
+        if not os.path.isfile(self.nomFichier):
+            return None
+        horodatage = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        nom_quarantaine = "%s.corrupt-%s" % (self.nomFichier, horodatage)
+        try:
+            os.replace(self.nomFichier, nom_quarantaine)
+            print("Configuration corrompue mise en quarantaine : %s" % nom_quarantaine)
+            return nom_quarantaine
+        except OSError as err:
+            print("Impossible de mettre la configuration corrompue en quarantaine : %s" % err)
+            return None
         
     def GetDictConfig(self):
         """ Recupere une copie du dictionnaire du fichier de config """
-        data = {}
-        try :
+        try:
             data = UTILS_Json.Lire(self.nomFichier)
-        except:
-            nom_fichier_bak = self.nomFichier + ".bak"
-            if os.path.isfile(nom_fichier_bak):
-                print("Recuperation de config.json.bak")
+            if isinstance(data, dict):
+                return data
+            raise ValueError("Le contenu de Config.json n'est pas un dictionnaire")
+        except Exception as err_principal:
+            print("Lecture de Config.json impossible : %s" % err_principal)
+
+        nom_fichier_bak = self.nomFichier + ".bak"
+        if os.path.isfile(nom_fichier_bak):
+            try:
                 data = UTILS_Json.Lire(nom_fichier_bak)
-        return data
+                if not isinstance(data, dict):
+                    raise ValueError("Le contenu de Config.json.bak n'est pas un dictionnaire")
+                print("Recuperation de config.json.bak")
+                self._MettreEnQuarantaine()
+                shutil.copyfile(nom_fichier_bak, self.nomFichier)
+                return data
+            except Exception as err_sauvegarde:
+                print("Lecture de Config.json.bak impossible : %s" % err_sauvegarde)
+
+        self._MettreEnQuarantaine()
+        print("Aucune configuration exploitable : utilisation des valeurs par defaut")
+        return {}
 
     def SetDictConfig(self, dictConfig={}):
         """ Remplace le fichier de config présent sur le disque dur par le dict donné """
@@ -232,4 +261,3 @@ def SetParametres(dictParametres=None):
 if __name__ == u"__main__":
     print("GET :", GetParametres( {"impression_factures_impayes" : 0} ))
     #print("SET :", SetParametres( {"test1" : True, "test2" : True} ))
-
