@@ -21,10 +21,10 @@ from Ctrl import CTRL_Bandeau
 import wx.lib.agw.hyperlink as Hyperlink
 import wx.lib.filebrowsebutton as filebrowse
 
-try :
+try:
     import xlrd
-except :
-    pass
+except ImportError:
+    xlrd = None
 
 try:
     import unicodecsv as csv
@@ -577,9 +577,14 @@ class Page_excel(wx.Panel):
             return False
         
         # Lecture du fichier XLS
-        try :
+        if xlrd is None:
+            dlg = wx.MessageDialog(self, _(u"L'import Excel nécessite le module xlrd, qui n'est pas disponible."), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+        try:
             classeur = xlrd.open_workbook(nomFichier)
-        except :
+        except Exception:
             dlg = wx.MessageDialog(self, _(u"Le fichier Excel ne semble pas valide !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
@@ -596,6 +601,8 @@ class Page_excel(wx.Panel):
             if dlg.ShowModal() == wx.ID_OK:
                 feuille = classeur.sheet_by_index(dlg.GetSelection())
             dlg.Destroy()
+            if feuille is None:
+                return False
         
         # Lecture des données de la feuille
         listeDonnees = []
@@ -710,17 +717,18 @@ class Page_csv(wx.Panel):
         
             indexColonne = 0
             for texteColonne in format.split(delimiteur) :
-                try :
+                try:
                     position = texteColonne.index(code)
                     dictFormat[code] = (indexColonne, position)
-                except :
+                except ValueError:
                     pass
                 indexColonne += 1        
         
         # Lecture du fichier CSV
-        try :
-            fichier = csv.reader(open(nomFichier,"rb"), encoding="utf8", delimiter=delimiteur)
-        except :
+        try:
+            fichier_source = open(nomFichier, "rb")
+            fichier = csv.reader(fichier_source, encoding="utf8", delimiter=delimiteur)
+        except (OSError, UnicodeError):
             dlg = wx.MessageDialog(self, _(u"Le fichier CSV ne semble pas valide !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
@@ -748,12 +756,14 @@ class Page_csv(wx.Panel):
                 heure = u"%02d:%02d" % (int(Decodage("HH")), int(Decodage("MN")))
                 # Mémorisation
                 listeDonnees.append((codebarres, date, heure))
-        except Exception as err :
+        except Exception as err:
             listeDonnees = []
             dlg = wx.MessageDialog(self, _(u"Noethys n'a pas réussi à lire les données !\n\nVérifiez peut-être le format de la ligne.\n\nErreur : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
             return False
+        finally:
+            fichier_source.close()
         
         return listeDonnees
 
