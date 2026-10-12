@@ -1,18 +1,9 @@
 name: Vanilla Windows portable
 
 on:
-  push:
-    branches:
-      - maintenance/vanilla
-      - build/vanilla-windows-portable
-    paths:
-      - '.github/workflows/vanilla-windows-package.yml'
-      - 'packaging/vanilla-noethys.spec'
-      - 'requirements.txt'
-      - 'noethys/**'
-  pull_request:
-    branches:
-      - maintenance/vanilla
+  # Build Windows uniquement sur demande explicite (workflow_dispatch) ; les
+  # anciennes branches de declenchement n'existent plus depuis la consolidation
+  # sur main / wx / qt (12/10/2026).
   workflow_dispatch:
 
 permissions:

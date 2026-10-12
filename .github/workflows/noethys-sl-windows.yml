@@ -1,17 +1,9 @@
 name: Noethys SL RC - Windows portable et Setup
 
 on:
-  pull_request:
-    branches:
-      - release/noethys-sl-0.1.0
-    paths:
-      - 'noethys/Noethys.py'
-      - 'noethys/Versions.txt'
-      - 'noethys/Static/Images/Interface/NoethysSL/**'
-      - 'packaging/vanilla-noethys.spec'
-      - 'packaging/vanilla-installer.iss'
-      - 'requirements.txt'
-      - '.github/workflows/noethys-sl-windows.yml'
+  # Build Windows uniquement sur demande explicite (workflow_dispatch) ; les
+  # anciennes branches de declenchement n'existent plus depuis la consolidation
+  # sur main / wx / qt (12/10/2026).
   workflow_dispatch:
 
 permissions:
