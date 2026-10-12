@@ -165,10 +165,13 @@ def DateEngFr(textDate):
 class Importation_Excel() :
     def __init__(self, nomFichier=""):
         self.fichierValide = True
+        self.classeur = None
+        self.feuille = None
         try :
             self.classeur = xlrd.open_workbook(nomFichier)
-        except :
+        except Exception:
             self.fichierValide = False
+            return
         self.feuille = self.SelectionFeuille() 
     
     def SelectionFeuille(self):

@@ -377,8 +377,14 @@ class Dialog(wx.Dialog):
         FROM organisateur
         WHERE IDorganisateur=1;"""
         DB.ExecuterReq(req)
-        cp, ville = DB.ResultatReq()[0]
+        liste_organisateur = DB.ResultatReq()
         DB.Close()
+        if not liste_organisateur:
+            dlg = wx.MessageDialog(self, _(u"Impossible de rechercher la zone scolaire : les coordonnées de l'organisateur sont absentes."), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+        cp, ville = liste_organisateur[0]
         
         # Recherche sur internet
         try :
