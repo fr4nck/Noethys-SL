@@ -352,8 +352,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
             index += 1
 
         # Création des lignes
-        listeRegroupement = dictResultats.keys()
-        listeRegroupement.sort()
+        listeRegroupement = sorted(dictResultats.keys())
         self.AppendRows(len(listeRegroupement))
 
         index = 0
