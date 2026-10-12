@@ -142,6 +142,9 @@ jobs:
           tests.test_branch_contracts_batch_19
           tests.test_badgeage_evenement_contract
           tests.test_composition_filiation_layout
+          tests.test_villes
+          tests.test_saisie_adresse_homonymes
+          tests.test_master_gardes_runtime
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
