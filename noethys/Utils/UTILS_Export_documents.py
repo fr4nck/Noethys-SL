@@ -34,6 +34,9 @@ def Exporter(IDmodele=None, fichier="", depuisFichierDefaut=False):
     ;""" % IDmodele
     DB.ExecuterReq(req)
     listeDonnees = DB.ResultatReq()
+    if not listeDonnees:
+        DB.Close()
+        return False
     nom, categorie, largeur, hauteur, IDfond, defaut = listeDonnees[0]
 
     # Récupération des champs de la table des objets
