@@ -145,6 +145,11 @@ jobs:
           tests.test_villes
           tests.test_saisie_adresse_homonymes
           tests.test_master_gardes_runtime
+          tests.test_master_sql_strict
+          tests.test_master_exports_encodage
+          tests.test_master_exports_internes
+          tests.test_master_imports
+          tests.test_master_portail_tipi
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
