@@ -826,6 +826,7 @@ class BarreRecherche(wx.SearchCtrl):
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.Recherche, self.timer)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroyRecherche)
 
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.OnSearch)
@@ -838,6 +839,16 @@ class BarreRecherche(wx.SearchCtrl):
             if isinstance(child, wx.TextCtrl): 
                 child.Bind(wx.EVT_CHAR, self.OnKeyDown) 
                 break 
+
+    def OnDestroyRecherche(self, event):
+        # Vanilla : ne jamais laisser le timer de recherche viser un controle detruit.
+        if event.GetEventObject() is self:
+            try:
+                if self.timer.IsRunning():
+                    self.timer.Stop()
+            except (AttributeError, RuntimeError):
+                pass
+        event.Skip()
 
     def OnKeyDown(self, event):
         """ Efface tout si touche ECHAP """

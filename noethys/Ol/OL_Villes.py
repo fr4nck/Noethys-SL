@@ -375,6 +375,18 @@ class BarreRecherche(wx.SearchCtrl):
         self.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self.OnCancel)
         self.Bind(wx.EVT_TEXT_ENTER, self.OnDoSearch)
         self.Bind(wx.EVT_TEXT, self.OnDoSearch)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroy)
+        self.appelDiffere = None
+
+    def OnDestroy(self, event):
+        # Vanilla : annuler la recherche differee si la fenetre se ferme avant son execution.
+        if event.GetEventObject() is self and self.appelDiffere is not None:
+            try:
+                self.appelDiffere.Stop()
+            except RuntimeError:
+                pass
+            self.appelDiffere = None
+        event.Skip()
 
     def OnSearch(self, evt):
         self.Recherche()
@@ -385,7 +397,7 @@ class BarreRecherche(wx.SearchCtrl):
 
     def OnDoSearch(self, evt):
         if self.rechercheEnCours == False :
-            wx.CallLater(1000, self.Recherche)
+            self.appelDiffere = wx.CallLater(1000, self.Recherche)
             self.rechercheEnCours = True
         
     def Recherche(self):
