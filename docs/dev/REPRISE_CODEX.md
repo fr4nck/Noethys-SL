@@ -1099,3 +1099,39 @@ Si le push réussit, il restera 42 branches : 14 protégées et 28 sources encor
 conservées. Aucun merge global, nouvelle branche, historique réécrit, publication
 de binaire, tag ou release. Les variantes restantes sont des stop-gates, notamment
 réseau, SQL, interventions, Qt, packaging et historique durable des mails.
+
+
+### Résultat réel confirmé du lot Mailjet
+
+Push atomique réussi au commit d'archives
+`e7cb1c9122746df408d004f83563077fc7186f47` : les deux références Mailjet du
+tableau ont été retirées aux SHA attendus. Après lecture réelle de GitHub :
+**42 branches distantes, 14 références protégées et 28 sources conservées**.
+Les huit PR (102, 104, 112, 355, 366, 369, 384, 422), leurs titres/descriptions,
+drafts, têtes et bases sont inchangés. Toutes les autres têtes distantes sont
+inchangées ; seul main avance par documentation/archives. Tags et releases
+revérifiés inchangés. Aucune modification de runtime, de tests ou d'installation.
+
+Les 32 fichiers archivés et le dossier de qualification sont publiés avant le
+retrait dans la même transaction Git ; blobs et empreintes revérifiés. Le hook
+de contrôle des SHA annoncés a aussi été vérifié en contre-épreuve : un SHA
+périmé est refusé avant toute mutation. Pas de flag force ni force-with-lease.
+Le journal exact de qualification contient 91 tests réussis ; ce chiffre corrige
+le comptage provisoire annoncé oralement de 87. La note préparatoire porte déjà
+le chiffre exact.
+
+Le dossier principal est avancé par fast-forward uniquement et les deux refs
+locales origin obsolètes sont retirées seulement à leur ancien SHA attendu.
+Les quatre branches locales durables (master/main/wx/qt), les trois stashes,
+le worktree WIP détaché et les fichiers non suivis existants restent préservés ;
+seul main avance. Le contenu du profil Portable n'est pas consulté.
+
+Les 28 sources encore conservées sont les lignes de la section 18 à l'exception
+des deux références retirées ci-dessus, détaillées dans dossier-conservation.json
+et le dossier de qualification de cette session. Les deux suppressions n'effacent
+ni les sources réseau de l'installation historique, ni les callbacks d'historique
+et les règles d'adresses non portés. Restent les stop-gates réseau/SQL, traitements
+de familles/tiers/interventions, Qt, packaging, et la recette de remise effective
+Mailjet. Aucun changement nouveau permettant un autre retrait n'est revendiqué.
+Suite : intégrer/qualifier ces domaines par lots avant leur retrait ; ne pas
+réutiliser les anciens plans sur un nouveau SHA sans requalification.
