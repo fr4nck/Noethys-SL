@@ -801,3 +801,112 @@ release. Les stop-gates ci-dessus empêchent une réduction honnête à main/wx/
 Preuves détaillées de la reprise dans `audit-reprise-20261012` de l'espace Codex.
 Tout nouveau SHA, résultat CI ou signal métier invalide la décision concernée
 jusqu'à sa requalification ; ne pas relancer un ancien plan de suppression.
+
+
+## 19. Levée ciblée des écarts communs et du défaut de synchronisation du test — 12/10/2026
+
+Reprise autorisée après la section 18. État relu : 44 branches et huit PR,
+main `dbc0f1df34bf37981397138691b83761ada53aec`, wx `dcede8170874dd79cd9a5b5825bc3b4ed85feb62`,
+qt `8902e655f93cebabdc84ff3ab8ea1f1ac89b73e0`. Aucun historique divergent fusionné.
+
+### Corrections publiées
+
+| Branche existante | Commit de code publié | CI rapide Windows et syntaxe |
+| --- | --- | --- |
+| main | `fcb729a4baa9f20c22af20a92af9f7deec0465a1` | [SUCCÈS #38220003741](https://github.com/fr4nck/Noethys-SL/actions/runs/38220003741) |
+| wx | `c8f26c41040b21f0324d319470c063b1f9116e47` | [SUCCÈS #38220003760](https://github.com/fr4nck/Noethys-SL/actions/runs/38220003760) |
+| qt | `06107757a4b6614908c37efa543cade1ba22412a` | [SUCCÈS #38220005442](https://github.com/fr4nck/Noethys-SL/actions/runs/38220005442) |
+
+- `main` : aucun code métier modifié. Stabilisation du test d'adhésions
+  concurrentes et ajout en CI des trois suites de contrats déjà présentes.
+- `wx` et `qt` : adaptation ciblée des trois correctifs communs déjà qualifiés
+  sur main : secteur d'une famille sans titulaire, delta d'un déplacement
+  Noedoc, refus d'un mode GetHTML invalide. Seulement six lignes runtime ajoutées
+  dans trois fichiers ; les trois suites de tests sont reprises sans changement.
+- La CI est exécutée par les pushes sur main/wx et par workflow_dispatch
+  `mode=rapide` sur qt. Aucun packaging ni validation d'une interface Qt native.
+
+### Cause reproduite de l'échec de concurrence
+
+Le parent libérait A deux secondes après le lancement de B, sans preuve que B
+avait atteint `_Verrouiller`. Avec un démarrage B retardé de trois secondes,
+l'ancien test reproduit exactement `('rien_a_faire', None)` au lieu de
+`('rien_a_faire', 'adhesion_deja_valide')` : B arrive après l'écriture et n'exerce
+pas le scénario sous verrou. Cela démontre un défaut du harnais capable de
+produire l'échec observé ; ce n'est pas une preuve universelle d'absence de bugs
+d'adhésion ni une qualification MySQL réelle.
+
+Correction : B annonce son arrivée immédiatement avant le verrou ; le parent
+attend ce signal pendant la pause de A avant de vérifier le blocage puis de
+libérer A. Le délai de garde de A échoue explicitement, sans reprise silencieuse.
+Un cas avec B retardé de trois secondes exerce désormais ce scénario.
+Toutes les assertions historiques de `verifier` sont conservées à AST identique,
+dont une seule cotisation, prestation et ligne d'historique. Le moteur et ses
+verrous restent inchangés. Contre-épreuve locale : en neutralisant le verrou
+uniquement dans les processus fictifs, le test corrigé échoue bien sur
+« le poste B n'a pas attendu le poste A ».
+
+### Preuves de non-régression et matrice
+
+Exports des commits suivis dans un nouvel espace isolé, sans profil Portable,
+sans nouvelle branche ni worktree. Runtime Python 3.10 Windows existant, profils
+APPDATA/LOCALAPPDATA temporaires, variables MySQL de test retirées, garde DB et
+garde socket héritée par les enfants. Chaque arbre candidat passe 62 tests
+ciblés : 60 réussites, deux tests MySQL ignorés faute de serveur déclaré, zéro
+tentative de connexion réseau réelle. La CI rapide confirme ensuite les trois
+commits ci-dessus : 105 tests exécutés par branche, 103 réussites et deux MySQL
+ignorés, sans affaiblissement d'assertion ni recette sur données réelles.
+
+Comparaison exacte des arbres publiés : aucun écart sous `noethys/`, `tests/`
+ou `.github/` entre main/wx/qt ; les divergences documentaires et les historiques
+propres sont conservés. Six lignes de correctifs sont transférées et les commits
+Nomadhys/TLS/vaccins précédemment adaptés ne sont pas remplacés par un historique
+ancien. Il ne s'agit pas d'une séparation effective des moteurs wx et Qt.
+
+| Périmètre | main | wx | qt |
+| --- | --- | --- | --- |
+| Étiquettes sans titulaire, déplacements Noedoc, mode GetHTML | VALIDÉ tests + CI | VALIDÉ, blobs identiques + CI | VALIDÉ code commun, blobs identiques + CI |
+| Synchronisation du test de concurrence SQLite | VALIDÉ, assertions conservées + CI | IDENTIQUE + CI | IDENTIQUE + CI |
+| Correctifs communs Nomadhys/TLS/vaccins déjà présents | CONSERVÉS | IDENTIQUES, CONSERVÉS | IDENTIQUES, CONSERVÉS |
+| Adhésions MySQL réelles / protections SQL avancées Noe-032 | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+| Mails aux familles non reçus, signal utilisateur | EN ATTENTE de requalification | EN ATTENTE | EN ATTENTE |
+| Interface Qt native / recette GUI exhaustive | NON APPLICABLE | Recette exhaustive EN ATTENTE | EN ATTENTE |
+
+### Conservation et obstacles restants
+
+Publication atomique de trois avancées normales, chacune ayant sa tête initiale
+pour parent direct. Aucune nouvelle branche, force-push, réécriture, suppression,
+fusion globale, fermeture/reciblage de PR, tag, release ou bascule de défaut.
+**44 branches et huit PR inchangées hors les trois têtes canoniques.**
+
+Signal nouveau → requalification appliqué aux nouvelles têtes : nouvelle
+comparaison des blobs des 30 sources aux 14 têtes protégées ; chaque source
+reste à son SHA précédent et conserve des fichiers distincts. Les AST runtime
+nouvellement présents dans wx/qt étaient déjà accessibles dans main ; aucune
+variante historique n'est réputée abandonnée ou entièrement intégrée sur cette
+seule base. Zéro nouvelle suppression sûre. Détail de cette vérification dans
+`consolidation-suite-20261012/requalification.json` de l'espace Codex ; le dossier
+de provenance publié de la section 17 et les bundles demeurent les références.
+
+Les stop-gates CI et trois écarts communs de la section 18 sont levés pour le
+périmètre testé. Restent les 30 variantes historiques, master/SQL/métier, le
+signal des mails non reçus et la recette Qt. Pour les mails, l'utilisateur indique
+la dernière version fournie la semaine précédente, sans certitude RC2/RC3.
+Les notes historiques distinguent un candidat local titré RC2 et une RC3 publique ;
+Lecture du seul `C:\Noethys\BUILD-INFO.txt` (aucun profil consulté) : installation
+présente identifiée « Noethys SL 0.1.0 RC2 - Windows », commit
+`4fef6a42cfcaf1258f25209f85c22224441d7f5b`, workflow `37724018307`.
+Version exacte lors de l'incident, date et résultat affiché restent à établir.
+Ce commit est ancêtre de la source conservée `fix/rc2-network-stopgate-1`
+(`cf5f9fbe6ccd9472a061ceaf81ab6358effc00b3`), pas de la tête RC2 protégée ni
+du tag RC3 : ne pas déduire le contenu du seul libellé RC2/RC3. Le code source
+de cette installation possède `_AfficherCompteRendu`, `_DetailErreurMailjet`,
+`callback_succes` et `mailjet_ids`, absents sous ces noms des modules Mailer/
+Envoi_email de main. Ce sont des contrats de bilan/traçabilité à requalifier,
+pas une preuve que leur absence a causé l'incident ni que l'installation
+exécute exactement ses métadonnées. Aucune modification de l'installation.
+Aucune livraison ni cause présumée, aucun
+mail envoyé, aucune donnée ou adresse de famille lue. Worktree WIP, trois stashes,
+branches locales wx/qt/master, tags/releases et fichiers non suivis existants
+restent préservés. Le principal est avancé seulement par fast-forward vers main,
+sans y exécuter de tests ni accéder au profil Portable.
