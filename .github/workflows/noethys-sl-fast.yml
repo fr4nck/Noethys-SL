@@ -94,6 +94,7 @@ jobs:
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_mysql_returncode
           tests.test_noethys_sl_sql_manifest
+          tests.test_noethys_sl_sql_analyse
           tests.test_noethys_sl_sql_integration
           tests.test_noethys_sl_restore_network_config
           tests.test_noethys_sl_devis_adresse_incomplete
