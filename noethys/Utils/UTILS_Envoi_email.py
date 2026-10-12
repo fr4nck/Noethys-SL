@@ -466,10 +466,11 @@ class Message():
                 ctype = 'application/octet-stream'
             maintype, subtype = ctype.split('/', 1)
             if maintype == 'text':
-                fp = open(fichier)
-                # Note : we should handle calculating the charset
-                part = MIMEText(fp.read(), _subtype=subtype)
-                fp.close()
+                # Lecture en octets puis décodage explicite (UTF-8, sinon
+                # détection) : ne dépend plus de l'encodage local du poste.
+                with open(fichier, 'rb') as fp:
+                    texte, encodage = FonctionsPerso.DecoderTexteFichier(fp.read())
+                part = MIMEText(texte, _subtype=subtype, _charset="utf-8")
             elif maintype == 'image':
                 fp = open(fichier, 'rb')
                 part = MIMEImage(fp.read(), _subtype=subtype)
