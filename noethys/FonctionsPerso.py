@@ -1261,15 +1261,39 @@ def ReplacementChaine(chaine="", avant="", apres="", remplacement=""):
     import re
     return re.sub(r'%s.*?%s' % (avant, apres), '%s%s%s' % (avant, remplacement, apres), chaine)
 
+def DecoderTexteFichier(contenu=b""):
+    """ Décode le contenu brut d'un fichier texte sans dépendre de l'encodage
+    local du poste : UTF-8 d'abord (BOM toléré), puis détection chardet si
+    le module est présent, enfin cp1252 en remplaçant les octets invalides.
+    Renvoie (texte, encodage_detecte). """
+    try:
+        return contenu.decode("utf-8-sig"), "utf-8"
+    except UnicodeDecodeError:
+        pass
+    encodage = None
+    try:
+        import chardet
+        encodage = chardet.detect(contenu).get("encoding")
+    except Exception:
+        encodage = None
+    if encodage:
+        try:
+            return contenu.decode(encodage), encodage
+        except (LookupError, UnicodeDecodeError):
+            pass
+    return contenu.decode("cp1252", errors="replace"), "cp1252"
+
 def PrepareFichierBIC():
-    fichier = open("liste_bic_france.txt", 'r')
-    nouveauFichier = open(UTILS_Fichiers.GetRepTemp(fichier="liste_bic_france_new.txt"), 'w')
-    for ligne in fichier :
-        ID, nom, ville, divers, bic = ligne.split("\t")
-        nouvelleLigne = """("%s", "%s", "%s")\n""" % (nom, ville, bic[:-1])
-        nouveauFichier.write(nouvelleLigne)
-    nouveauFichier.close()
-    fichier.close()
+    with open("liste_bic_france.txt", "rb") as fichier:
+        texte, encodage = DecoderTexteFichier(fichier.read())
+
+    with open(UTILS_Fichiers.GetRepTemp(fichier="liste_bic_france_new.txt"), "w", encoding="utf-8", newline="") as nouveauFichier:
+        for ligne in texte.splitlines():
+            if not ligne.strip():
+                continue
+            ID, nom, ville, divers, bic = ligne.split("\t")
+            nouvelleLigne = """("%s", "%s", "%s")\n""" % (nom, ville, bic)
+            nouveauFichier.write(nouvelleLigne)
 
 def RechercheModules(nomFichier="Noethys.py") :
     """ Recherche les modules dépendants d'un script """

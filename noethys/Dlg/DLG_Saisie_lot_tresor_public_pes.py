@@ -488,16 +488,11 @@ class Dialog(DLG_Saisie_lot_tresor_public.Dialog):
             else:
                 dlg.Destroy()
 
-        # Création du fichier texte
-        f = open(cheminFichier, "w")
-        try:
-            if six.PY2:
-                f.write(doc.toxml(encoding="ISO-8859-1"))
-            else:
-                #f.write(doc.toprettyxml(indent="  "))
-                f.write(doc.toxml())
-        finally:
-            f.close()
+        # Création du fichier PES. Le format historique Noethys est
+        # explicitement ISO-8859-1 ; en Python 3, toxml(encoding=...) renvoie
+        # des octets, donc on écrit en binaire pour conserver ce contrat.
+        with open(cheminFichier, "wb") as f:
+            f.write(doc.toxml(encoding="ISO-8859-1"))
 
         # Confirmation de création du fichier et demande d'ouverture directe
         txtMessage = _(u"Le fichier xml PES Recette ORMC a été créé avec succès.\n\nSouhaitez-vous visualiser son contenu maintenant ?")
