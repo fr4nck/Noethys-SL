@@ -1,9 +1,9 @@
 name: Publish Vanilla release
 
 on:
-  push:
-    branches:
-      - maintenance/vanilla
+  # Build Windows uniquement sur demande explicite (workflow_dispatch) ; les
+  # anciennes branches de declenchement n'existent plus depuis la consolidation
+  # sur main / wx / qt (12/10/2026).
   workflow_dispatch:
 
 permissions:
