@@ -151,3 +151,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Noe-032 sandbox credentials (never version local secrets)
+dev/db/.env
