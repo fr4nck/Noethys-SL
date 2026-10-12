@@ -572,11 +572,7 @@ class Export():
     def Enregistrer(self, nomFichier=""):
         """ Enregistre le fichier XML """
         pretty_xml = self.GetPrettyXML()
-        if six.PY2:
-            flag = "w"
-        else:
-            flag = "wb"
-        f = open(nomFichier, flag)
+        f = open(nomFichier, "wb")
         try:
             f.write(pretty_xml)
         finally:
