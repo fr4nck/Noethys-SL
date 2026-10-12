@@ -2,12 +2,6 @@ name: Noe-032 MySQL 5.5 - recette synthetique manuelle
 
 # Execution volontaire uniquement, pour economiser les minutes Actions.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'dev/db/**'
-      - '.github/workflows/noe-032-mysql-smoke.yml'
   workflow_dispatch:
 
 permissions:
