@@ -649,3 +649,155 @@ encore non inventoriées. Leur intégration ou abandon demanderait de choisir
 des comportements, protections ou fonctionnalités ; ce serait un chantier
 métier distinct de l’élagage autorisé. La documentation ne revendique pas
 une qualification fonctionnelle globale de ces variantes ni une CI verte.
+
+
+## 18. Reprise réelle et requalification des stop-gates — 12/10/2026
+
+Contrôle autonome après le tri déjà publié, sans reprendre un plan ancien.
+Consignes AGENTS.md et présent document lus avant toute action. GitHub réel :
+**44 branches, huit PR ouvertes, master toujours par défaut**. Point de départ
+main `621b904f533ee0e20dec8657740634313c033167`, wx
+`dcede8170874dd79cd9a5b5825bc3b4ed85feb62`, qt
+`8902e655f93cebabdc84ff3ab8ea1f1ac89b73e0`, master
+`b0be3c7ebdf2d69d6028eb4fd6fc08e340a68b9e`.
+
+### Résultat du tri de retrait
+
+**Zéro branche supprimée dans cette reprise ; zéro candidate sûre restante.**
+Les 19 suppressions des lots précédents ne sont pas comptées comme opérations
+de cette reprise. Les 30 branches conservées ont exactement les SHA du dossier
+publié en section 17 ; les 13 autres têtes protégées sont inchangées et main
+n'a ajouté que de la documentation depuis la comparaison `ee234ada`.
+Relecture du dossier, vérification des blobs source et comparaison à chacune
+des 14 têtes protégées actuelles : des variantes demeurent. Le maintien est
+reconfirmé ; aucune différence de blob n'est à elle seule interprétée comme
+fonctionnalité absente. Les analyses AST et décisions précédentes restent
+applicables puisque leurs entrées runtime sont inchangées. La sauvegarde ne
+constitue pas une autorisation d'abandonner un apport non intégré.
+
+### PR et références protégées
+
+Les huit PR suivantes restent ouvertes, avec leurs têtes et bases conservées :
+
+| PR | Tête et SHA | Base |
+| --- | --- | --- |
+| #422 | rc/noethys-sl-0.1.0-rc.3 — `28c2294cead7aa09f6d04c3bbdd9339593377e5b` | rc/noethys-sl-0.1.0-rc.2 |
+| #384 | feature/vanilla-entites-fonctions — `4e2c615bcbee669b08e12f1580e2e81fb4351295` | feature/vanilla-conventions |
+| #369 | feature/session-attendance-consumer-2026-09-19 — `74410a3ef4ef8b618a2214487453d379ff596f3a` | master |
+| #366 | docs/mkdocs-wiki — `e43492b156a92551579faa6c606333c98f2bf280` | master |
+| #355 | noe-062-secure-secret-provider — `04f7886cfd8d5f62bc02b243f6d57ebfff8b6297` | master |
+| #112 | design-form-density-standard — `f96fa35865462500f12ad2caee98027e488f3955` | master |
+| #104 | dev-db-docker — `b7dc7c195022949626f8a7e9a55d2677e710d107` | master |
+| #102 | docs/open-development-policy — `d218e2980fbc7ab5b6577ec50c74931aae836c93` | master |
+
+Cela représente 14 références distinctes en comptant main/wx/qt et master.
+Les PR ne sont ni fermées, ni fusionnées, ni reciblées. Les bases
+feature/vanilla-conventions et RC2 restent notamment nécessaires.
+
+### Conservation revérifiée
+
+- `original-all-refs.bundle` : 57 749 065 octets, SHA-256
+  `cbb419ae17192d7e05ff8b1f18b5349656480d86a6e86a0fbfbe80fb2b2c5e8d`.
+- `github-all-refs.bundle` : 59 138 549 octets, SHA-256
+  `1898e49973c9abf8832c3e6b01b816f7813df94e7d10e96d8cec3e89146890eb`.
+- Empreintes identiques au manifeste précédent, `git bundle verify` réussi
+  pour les deux. Les 30 SHA des sources maintenues figurent tous exactement
+  dans les références du bundle GitHub. Bundles dans `elagage-20261011` de
+  l'espace Codex ; aucune nouvelle sauvegarde contenant des données réelles.
+- Les 48 fichiers indexés par les deux provenance.json des archives
+  `branches-20261012` et `branches-20261012-final` sont identiques octet par
+  octet aux blobs de leurs commits source et aux SHA-256 documentés.
+- GitHub expose neuf tags et neuf releases ; les références locales possèdent
+  aussi des tags historiques/archives. Aucune modification ni assimilation
+  d'une release à la qualification de main. RC3 reste une préversion historique
+  au commit `6ab134707ac48e16ee82001088234510657f1ab6`.
+- Deux worktrees : principal sur main et Noethys-RC2-clean détaché sur
+  `8b3789d9de1beeb3a47dbf6ed3be235a7df2cc12`, avec 32 fichiers suivis modifiés.
+  WIP conservé, trois stashes conservés. Branches locales master/wx/qt distinctes
+  des têtes distantes, conservées sans synchronisation implicite.
+- Dossier principal : seul `noethys/Portable/` est non suivi. Aucun accès à son
+  contenu, aucune modification des fichiers non suivis existants ou des données
+  réelles. Pas de tests applicatifs, SMTP, base, build, packaging ou migration.
+
+### Stop-gates et règle signal nouveau → requalification
+
+1. **MAIL / signal utilisateur nouveau** : travail perdu et mails aux familles
+   jamais reçus signalés dans cette conversation. Cause, dates et version exécutée
+   non établies ; ne pas inférer une panne Mailjet ou une livraison depuis une CI.
+   Les deux branches Mailjet `51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5` et
+   `9e0945b5d0a411ef8d03a7179df5abb4a18919c1` restent conservées. DLG_Mailer
+   a le même blob sur main/wx/qt (`3e1090cf8a5adf8d4bb84030dd1e9896aa825867`),
+   différent des deux variantes. Diff revu : parent de progression et affichage
+   d'erreurs Python 3 notamment ; le signal ne démontre pas leur causalité.
+   Requalification requise : résultat par destinataire, erreurs/rejets, statut
+   fournisseur et réception sur adresses de recette consenties ; aucun envoi
+   réel aux familles ni accès à leurs données dans ce lot.
+2. **CI wx rouge** : run [38171008248](https://github.com/fr4nck/Noethys-SL/actions/runs/38171008248)
+   au SHA `dcede817`. 96 tests exécutés, une failure, deux skips.
+   `test_deux_postes_simultanes_une_seule_adhesion` attend
+   `('rien_a_faire', 'adhesion_deja_valide')` et reçoit
+   `('rien_a_faire', None)`. Cause non requalifiée ; ne pas affaiblir l'assertion.
+   Le dernier run main de code [38168522698](https://github.com/fr4nck/Noethys-SL/actions/runs/38168522698)
+   réussit au SHA `694ccacc2d37ba71298b56e7ddb6901be6a55d2d` ; main n'a depuis
+   changé que docs. Aucun run au HEAD documentaire main ou au HEAD qt dans les
+   100 runs consultés : aucune CI verte revendiquée sur ces têtes.
+3. **Non-régression interbranches** : main et wx/qt divergent (16 commits propres
+   à main, cinq propres à chaque interface au départ). Les trois différences
+   runtime exactes sont DLG_Noedoc.py, OL_Etiquettes.py, UTILS_Stats_modeles.py,
+   avec leurs trois nouveaux tests présents seulement sur main. Correctifs
+   main `e8d1e7ad` (secteur), `27b988f3` (delta), `bf69d3ca` (mode GetHTML) :
+   ABSENTS sous cette forme sur wx/qt, à porter et tester par lots ciblés.
+   Les sources et tests du correctif Nomadhys `694ccacc` sont identiques sur
+   wx/qt après leurs adaptations `d95fb660` / `508d5f4f` ; aucune nouvelle
+   propagation effectuée. Aucune fusion globale ni fast-forward possible
+   présumé depuis la seule comptabilité de commits.
+4. **master / SQL / métier** : master reste divergente (1 480 commits propres,
+   271 côté main au départ), référence par défaut et base de six PR.
+   Protections Noe-032 avancées, interventions/pointage/tiers, contrats et
+   tests historiques restent à qualifier par thème ; recette MySQL/MariaDB
+   synthétique et UI/Qt requise avant publication. Aucune suppression de master.
+5. **30 sources non intégrées** : tableau ci-dessous ; conserver chaque ref
+   jusqu'à preuve nouvelle de reprise des apports ou décision explicite de
+   devenir. Le détail de provenance, ancêtres, définitions et comparaisons
+   reste dans `docs/archives/branches-20261012-final/dossier-conservation.json`.
+
+| Source conservée | SHA complet | Exemples de fichiers encore distincts |
+| --- | --- | --- |
+| agent/windows-ci-audit | `7df621ea3a3034819142c633f5f4c9149c17fa68` | .github/workflows/ci.yml ; docs/CI-WINDOWS-AUDIT.md |
+| agent/windows11-pyinstaller | `f85f77266eec49ec02d6a24e0e130d463123b8d5` | .github/workflows/ci.yml ; .github/workflows/windows-package.yml |
+| audit/vanilla-final-undefined-names | `8ae3a36f939460a36b9d7b4f86cfa1147208e1b0` | .github/workflows/final-undefined-name-audit.yml ; noethys/Dlg/DLG_Noedoc.py |
+| build/vanilla-windows-portable | `4d5dda48269b8cc9313b3a6dc5a4442f0e5c7d2a` | .github/workflows/noethys-sl-windows.yml ; .github/workflows/vanilla-windows-package.yml |
+| chatgpt/noethys-convention-ui-activites-20260929 | `7cd062c3f634cff137f20af469ff7ded5e407e42` | .github/workflows/noethys-sl-windows.yml ; README.md |
+| claude/noethys-windows-ci-audit-qy5m9t | `3b847c6b2957a5d4a7d118ad7384f8bdc971baaf` | noethys/Dlg/DLG_Badgeage_interface.py ; noethys/Dlg/DLG_Famille.py |
+| feat/noethys-sl-rc1-convention-finalise | `f6cac3302a2ff3946f1f389071accec151a5b542` | docs/dev/CONVENTION_DOCX.md ; noethys/Dlg/DLG_Famille.py |
+| feature/extensions-registry | `9174ba32a45e8788a6ba456aae722360425371ae` | docs/EXTENSIONS.md ; noethys/Extensions/__init__.py |
+| feature/noe-062-conventions | `f85fd51ee40429415819e01284bf9deba6406b13` | noethys/Utils/UTILS_Impression_convention.py ; tests/test_convention_engine_contract.py |
+| feature/noe-062-mises-a-disposition | `c69f3c80325e6aeef27bdec82a03ef257ff552a8` | docs/NOE-062-MISES-A-DISPOSITION.md ; docs/NOE-062C-PROGRAMMATION.md |
+| feature/noe-062b-groupes-structures | `203fff34134ceb7a9676f877e5901e0bb74dfc4f` | noethys/Utils/UTILS_Tiers.py ; noethys/Utils/UTILS_Tiers_Schema.py |
+| feature/noe-062b-roles-contacts | `177b4c3dcd1b2055f4a595512c71ab6305a55b8b` | noethys/Utils/UTILS_Tiers.py ; noethys/Utils/UTILS_Tiers_Schema.py |
+| feature/noe-063-portail-consolide | `55b2b129e67ed295f59b161ebb6896c06348a101` | docs/NOE_063C_TARIFS_PORTAIL.md ; docs/NOE_063_PORTAIL_CONTENUS_DYNAMIQUES.md |
+| feature/noe-063b-rss-atom-connecthys | `8f84f5edb72b8becd3a58a44994fb23be0117630` | docs/NOE_063B_RSS_ATOM.md ; docs/NOE_063_PORTAIL_CONTENUS_DYNAMIQUES.md |
+| feature/noe-063d-tarifs-ui | `20d5b15c1adb4a460d7ff0ed87ed22120ebec0dc` | docs/NOE_063B_RSS_ATOM.md ; docs/NOE_063C_TARIFS_PORTAIL.md |
+| fix/noe-062b-hardening | `752645c5a772a822226b1494d908400d85a79c4a` | noethys/Dlg/DLG_Ecoles.py ; noethys/Dlg/DLG_Seances_sport_ecoles.py |
+| fix/noethys-sl-aui-docking-minimize | `aac763f24480e98608cfd2ccc918d87ef26594db` | noethys/Noethys.py ; noethys/Utils/UTILS_AUI_Apparence.py |
+| fix/noethys-sl-aui-guides-fantomes | `7704ee753687159ee7173e33f86f538bc483c75c` | noethys/Noethys.py ; noethys/Utils/UTILS_AUI_Apparence.py |
+| fix/noethys-sl-light-only | `ccdfb82bcf1b1f5d4cd06a9d6382176cd91f6629` | .github/workflows/windows-package.yml ; noethys/Ctrl/CTRL_ObjectListView.py |
+| fix/noethys-sl-mailjet-consolidation | `51ee128a60ded8dfb4d8bcf77f28219eb1f1f6f5` | noethys/Dlg/DLG_Mailer.py ; noethys/Dlg/DLG_Saisie_portail_demande.py |
+| fix/noethys-sl-mailjet-email-confirmation | `9e0945b5d0a411ef8d03a7179df5abb4a18919c1` | noethys/Dlg/DLG_Mailer.py ; noethys/Dlg/DLG_Saisie_portail_demande.py |
+| fix/rc2-network-stopgate-1 | `cf5f9fbe6ccd9472a061ceaf81ab6358effc00b3` | docs/audit/AUDIT_RESEAU_RC2.md ; docs/audit/CONTRAT_CONNECTHYS.md |
+| fix/rc2-pr385-compatible | `ba67c6b9a5fc488ff8ba3c15d3cd6bd7826c12d8` | noethys/Ctrl/CTRL_Ephemeride.py ; noethys/Dlg/DLG_Saisie_portail_demande.py |
+| fix/vanilla-no-black | `7c39f16ab1489ce4bcd96e2fc1b44995b8d237fa` | .github/workflows/vanilla-release.yml ; .github/workflows/vanilla-windows-package.yml |
+| fix/windows-installable-config | `fbdebc8b6ef4ef906bfb8d23246be5eeb1820203` | .github/workflows/windows-package.yml ; noethys/Utils/UTILS_Fichiers.py |
+| noe-041-portable-mode | `3cf6cbfe5d6fcd631f21fc821bbecc4988caa7b2` | .github/workflows/windows-package.yml ; noethys/Utils/UTILS_Fichiers.py |
+| noe-062-programmation-occurrences | `88904fc780a052a90598f5bde23aa2dffd686a93` | noethys/Data/DATA_Programmations_Structures.py ; noethys/Utils/UTILS_Programmations_Structures.py |
+| noe-062c-lieux-execution-seances | `be059ccd480468f76c2b50f3ee000200e2e9bb4f` | noethys/Data/DATA_Structures.py ; noethys/Utils/UTILS_Interventions_Execution.py |
+| poc/qt-theme-isole | `cba459cd62cb2d71f43f89825287295d2ead6492` | .github/workflows/qt-prototype.yml ; docs/QT_MIGRATION_INVENTORY.md |
+| refactor/ui-list-tools-repens | `52ed49bf888bc381d92e46a87eca7f6a5fc66e65` | .github/workflows/ci.yml ; .github/workflows/windows-package.yml |
+
+**Opération de cette reprise :** ajout de ce constat documentaire sur la branche
+existante main uniquement. Aucun runtime/test modifié, aucune branche créée,
+suppression, réécriture d'historique, force-push, changement de défaut, tag ou
+release. Les stop-gates ci-dessus empêchent une réduction honnête à main/wx/qt.
+Preuves détaillées de la reprise dans `audit-reprise-20261012` de l'espace Codex.
+Tout nouveau SHA, résultat CI ou signal métier invalide la décision concernée
+jusqu'à sa requalification ; ne pas relancer un ancien plan de suppression.
