@@ -128,3 +128,11 @@ Le premier changement runtime recommandé après validation de ce rapport est **
 - Ne pas introduire de migration BDD dans ce chantier.
 - Ne pas modifier Connecthys/Ivan dans ce chantier.
 - Aucun refactoring général tant que les défauts bloquants et majeurs ne sont pas isolés et couverts.
+
+## Addendum du 12/10/2026 (branches canoniques `main` / `wx` / `qt`)
+
+`maintenance/vanilla` n'est plus la référence : les constats ci-dessus ont été revérifiés sur `main`, `wx` et `qt` (fichiers identiques).
+
+- **P1 liste détaillée des consommations (PR #359)** : le nettoyage de cycle de vie (arrêt du timer de recherche, neutralisation de l'`objectGetter` et du cache, `SetItemCount(0)`, cleanup idempotent sur fermeture et croix) est **présent** sur les trois branches. Statut : **EN ATTENTE** de la recette Windows native du scénario ci-dessus (Event Viewer `0xc0000005`).
+- **Bouton Modifier orphelin** : masqué (`b20cc82e` main, `ebd1b0e9` wx, `b5db5656` qt). Un scan AST de tout `noethys/` n'a trouvé que deux autres boutons créés sans placement : `CTRL_Liste_inscriptions.bouton_supprimer` (masqué, binding commenté en amont) et `CTRL_Badgeage_controles.CTRL_Importation.boutonTest` (panneau de test, toléré). Test structurel `tests/test_vanilla_boutons_places.py` en CI rapide (point 4 de la liste ci-dessus).
+- Toujours **NON STABLE** : Liste d'attente, codes de commande dupliqués (`liste_pieces_fournies`), `CallLater` sans annulation, DPI et thème clair sous Windows sombre restent à reproduire ou recetter.
