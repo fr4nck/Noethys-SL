@@ -4262,6 +4262,7 @@ class Panel_canvas(wx.Panel):
         self.MemoriserEtat()
         """ Déplacement d'un objet avec les touches """
         # Déplacement selon un sens
+        delta = None
         if sens != None :
             if sens == "haut" : delta = numpy.array([0, 1])
             if sens == "bas" : delta = numpy.array([0, -1])
@@ -4270,6 +4271,8 @@ class Panel_canvas(wx.Panel):
         # Déplacement selon une nouvelle position
         if hasattr(newPosition, "all"): #newPosition != None :
             delta = newPosition - objet.GetXY()
+        if delta is None :
+            raise ValueError("DeplacerObjet nécessite un sens valide ou une nouvelle position")
         # Vérification si verrouillage de la position
         if objet.verrouillageX == True : delta[0] = 0
         if objet.verrouillageY == True : delta[1] = 0
