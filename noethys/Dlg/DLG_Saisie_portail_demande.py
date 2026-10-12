@@ -1296,7 +1296,9 @@ class Traitement():
             LEFT JOIN factures_regies ON factures_regies.IDregie = factures.IDregie
             WHERE IDfacture=%s;""" % IDfacture
             DB.ExecuterReq(req)
-            IDcompte_bancaire = DB.ResultatReq()[0][0]
+            resultat_compte = DB.ResultatReq()
+            if resultat_compte:
+                IDcompte_bancaire = resultat_compte[0][0]
             num_piece = "auth_num-" + self.dict_parametres["numauto"]
 
         DB.Close()
