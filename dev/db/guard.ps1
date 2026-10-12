@@ -28,6 +28,11 @@ if ($config.ContainsKey('NOETHYS_MYSQL55_IMAGE') -and
     $config['NOETHYS_MYSQL55_IMAGE'] -cnotin @($knownImage, 'noethys-mysql55:converted')) {
     throw 'Image MySQL non approuvee pour la recette.'
 }
+$processImage = [Environment]::GetEnvironmentVariable('NOETHYS_MYSQL55_IMAGE', 'Process')
+if (-not [string]::IsNullOrEmpty($processImage) -and
+    $processImage -cnotin @($knownImage, 'noethys-mysql55:converted')) {
+    throw 'Image MySQL du processus non approuvee.'
+}
 foreach ($name in @('NOETHYS_DB_NAME', 'NOETHYS_DB_PORT', 'NOETHYS_DB_USER',
                     'NOETHYS_DB_ROOT_PASSWORD', 'NOETHYS_DB_PASSWORD', 'NOETHYS_MYSQL55_IMAGE')) {
     $override = [Environment]::GetEnvironmentVariable($name, 'Process')
