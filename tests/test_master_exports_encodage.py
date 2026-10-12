@@ -135,5 +135,59 @@ class FrontieresTexteBinaireTests(unittest.TestCase):
         self.assertEqual(_ouvertures_texte_sans_encodage("Dlg/DLG_Saisie_lot_tresor_public_magnus.py"), [])
 
 
+def _mimetext_sans_charset(relatif):
+    """Lignes des MIMEText(fp.read(), ...) construits sans _charset."""
+    fautes = []
+    for noeud in ast.walk(_arbre(relatif)):
+        if isinstance(noeud, ast.Call) and getattr(noeud.func, "id", None) == "MIMEText" \
+                and noeud.args and isinstance(noeud.args[0], ast.Call) \
+                and getattr(noeud.args[0].func, "attr", None) == "read" \
+                and not any(kw.arg == "_charset" for kw in noeud.keywords):
+            fautes.append(noeud.lineno)
+    return fautes
+
+
+def _encodages_xml_ecrits(relatif):
+    """Encodages passes a toxml/toprettyxml dans un f.write(...)."""
+    encodages = []
+    for noeud in ast.walk(_arbre(relatif)):
+        if isinstance(noeud, ast.Call) and getattr(noeud.func, "attr", None) == "write" and noeud.args:
+            arg = noeud.args[0]
+            if isinstance(arg, ast.Call) and getattr(arg.func, "attr", None) in ("toxml", "toprettyxml"):
+                encodages.append(_mot_cle(arg, "encoding"))
+    return encodages
+
+
+TEXTE_HORS_CP1252 = u"Crèche – Zoë ŝ"
+
+
+class EncodagesUtf8ExplicitesTests(unittest.TestCase):
+    """b2ce3aef"""
+
+    def test_prelevements_enregistre_un_xml_sepa_utf8(self):
+        from Utils import UTILS_Prelevements
+        doc = Document()
+        racine = doc.createElement("Document")
+        racine.appendChild(doc.createTextNode(TEXTE_HORS_CP1252))
+        doc.appendChild(racine)
+        with tempfile.TemporaryDirectory(prefix="noethys-sepa-") as rep:
+            chemin = os.path.join(rep, "sepa.xml")
+            UTILS_Prelevements.EnregistrerXML(doc, chemin)
+            contenu = Path(chemin).read_bytes()
+        self.assertTrue(contenu.startswith(b'<?xml version="1.0" encoding="UTF-8"?>'))
+        self.assertIn(TEXTE_HORS_CP1252.encode("utf-8"), contenu)
+
+    def test_lot_jvs_ecrit_un_xml_utf8_binaire(self):
+        relatif = "Dlg/DLG_Saisie_lot_tresor_public_jvs.py"
+        self.assertEqual(_ouvertures_texte_pour_toprettyxml_encode(relatif), [])
+        self.assertEqual(_ouvertures_texte_sans_encodage(relatif), [])
+        self.assertEqual(_encodages_xml_ecrits(relatif), ["UTF-8"])
+
+    def test_traductions_piece_jointe_texte_utf8(self):
+        relatif = "Dlg/DLG_Traductions.py"
+        self.assertEqual(_ouvertures_texte_sans_encodage(relatif), [])
+        self.assertEqual(_mimetext_sans_charset(relatif), [])
+
+
 if __name__ == "__main__":
     unittest.main()

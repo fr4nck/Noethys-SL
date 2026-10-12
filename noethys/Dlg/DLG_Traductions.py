@@ -347,9 +347,8 @@ class DLG_Envoi(wx.Dialog):
                 ctype = 'application/octet-stream'
             maintype, subtype = ctype.split('/', 1)
             if maintype == 'text':
-                fp = open(fichier)
-                # Note : we should handle calculating the charset
-                part = MIMEText(fp.read(), _subtype=subtype)
+                fp = open(fichier, encoding="utf-8")
+                part = MIMEText(fp.read(), _subtype=subtype, _charset="utf-8")
                 fp.close()
             elif maintype == 'image':
                 fp = open(fichier, 'rb')
