@@ -891,11 +891,16 @@ class CTRL_Parametres_quadracompta(CTRL_Parametres) :
         LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
         LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
         LEFT JOIN categories_tarifs ON prestations.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
-        LEFT JOIN cotisations ON cotisations.IDprestation = prestations.IDprestation
+        LEFT JOIN (
+            SELECT IDprestation, MIN(IDcotisation) AS IDcotisation
+            FROM cotisations
+            WHERE IDprestation IS NOT NULL
+            GROUP BY IDprestation
+        ) cotisation_unique ON cotisation_unique.IDprestation = prestations.IDprestation
+        LEFT JOIN cotisations ON cotisations.IDcotisation = cotisation_unique.IDcotisation
         LEFT JOIN types_cotisations ON types_cotisations.IDtype_cotisation = cotisations.IDtype_cotisation
         LEFT JOIN factures ON factures.IDfacture = prestations.IDfacture
         WHERE %s
-        GROUP BY prestations.IDprestation
         ORDER BY prestations.date
         ;""" % condition
         DB.ExecuterReq(req)
@@ -1249,11 +1254,16 @@ class CTRL_Parametres_cerig(CTRL_Parametres) :
         LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
         LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
         LEFT JOIN categories_tarifs ON prestations.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
-        LEFT JOIN cotisations ON cotisations.IDprestation = prestations.IDprestation
+        LEFT JOIN (
+            SELECT IDprestation, MIN(IDcotisation) AS IDcotisation
+            FROM cotisations
+            WHERE IDprestation IS NOT NULL
+            GROUP BY IDprestation
+        ) cotisation_unique ON cotisation_unique.IDprestation = prestations.IDprestation
+        LEFT JOIN cotisations ON cotisations.IDcotisation = cotisation_unique.IDcotisation
         LEFT JOIN types_cotisations ON types_cotisations.IDtype_cotisation = cotisations.IDtype_cotisation
         LEFT JOIN factures ON factures.IDfacture = prestations.IDfacture
         WHERE %s
-        GROUP BY prestations.IDprestation
         ORDER BY prestations.date
         ;""" % condition
         DB.ExecuterReq(req)
