@@ -808,6 +808,18 @@ class BarreRecherche(wx.SearchCtrl):
         self.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self.OnCancel)
         self.Bind(wx.EVT_TEXT_ENTER, self.OnDoSearch)
         self.Bind(wx.EVT_TEXT, self.OnDoSearch)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroy)
+
+    def OnDestroy(self, event):
+        # Vanilla : un EVT_TIMER encore arme apres la fermeture de la liste vise des
+        # controles natifs liberes (crash 0xC0000005 de la liste des consommations).
+        if event.GetEventObject() is self:
+            try:
+                if self.timer.IsRunning():
+                    self.timer.Stop()
+            except (AttributeError, RuntimeError):
+                pass
+        event.Skip()
 
     def OnSearch(self, evt):
         self.Recherche()
