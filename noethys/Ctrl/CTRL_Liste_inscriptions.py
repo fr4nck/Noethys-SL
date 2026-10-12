@@ -57,6 +57,8 @@ class CTRL(wx.Panel):
         self.bouton_apercu.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour afficher un aperçu de l'inscription sélectionnée")))
         self.bouton_email.SetToolTip(wx.ToolTip(_(u"Cliquez ici envoyer l'inscription sélectionnée par Email")))
         self.bouton_supprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour supprimer l'inscription sélectionnée ou les locations cochées")))
+        # Placement et binding désactivés en amont : masquer le bouton évite un widget orphelin en (0, 0).
+        self.bouton_supprimer.Hide()
         self.bouton_liste_apercu.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour afficher un aperçu avant impression de cette liste")))
         self.bouton_liste_imprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour imprimer cette liste")))
         self.bouton_liste_export_texte.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour exporter cette liste au format Texte")))
