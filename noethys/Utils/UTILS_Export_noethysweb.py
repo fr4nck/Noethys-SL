@@ -1278,7 +1278,8 @@ class Table_documents_modeles(Table):
                 if dict_objet["typeImage"] == "logo":
                     req = "SELECT logo FROM organisateur WHERE IDorganisateur=1;"
                     self.parent.DB.ExecuterReq(req)
-                    logo = self.parent.DB.ResultatReq()[0][0]
+                    liste_logo = self.parent.DB.ResultatReq()
+                    logo = liste_logo[0][0] if liste_logo else None
                     if logo != None:
                         io = six.BytesIO(logo)
                         if 'phoenix' in wx.PlatformInfo:
@@ -1508,12 +1509,18 @@ class Table_reglements(Table):
                 # Le payeur n'existe plus, on essaie de trouver un autre payeur de la même famille
                 req = "SELECT IDreglement, IDcompte_payeur FROM reglements WHERE IDpayeur=%d;" % valeur
                 self.parent.DB.ExecuterReq(req)
-                IDreglement, IDcompte_payeur = self.parent.DB.ResultatReq()[0]
+                liste_reglements = self.parent.DB.ResultatReq()
+                if not liste_reglements:
+                    return valeur
+                IDreglement, IDcompte_payeur = liste_reglements[0]
                 req = "SELECT IDpayeur, IDcompte_payeur FROM payeurs WHERE IDcompte_payeur=%d;" % IDcompte_payeur
                 self.parent.DB.ExecuterReq(req)
-                IDpayeur, IDcompte_payeur = self.parent.DB.ResultatReq()[0]
+                liste_payeurs = self.parent.DB.ResultatReq()
+                if not liste_payeurs:
+                    return valeur
+                IDpayeur, IDcompte_payeur = liste_payeurs[0]
                 return IDpayeur
-            except:
+            except Exception:
                 pass
         return valeur
 
