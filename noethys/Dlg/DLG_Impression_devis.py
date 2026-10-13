@@ -228,7 +228,7 @@ class CTRL_Activites(wx.CheckListBox):
             dictTemp = {"nom": nom, "abrege": abrege}
             dictActivites[IDactivite] = dictTemp
             listeActivites.append((nom, IDactivite))
-        listeActivites.sort()
+        listeActivites.sort(key=lambda x: (x[0] is None, x[0]))
         return listeActivites, dictActivites
 
     def SetListeChoix(self):
