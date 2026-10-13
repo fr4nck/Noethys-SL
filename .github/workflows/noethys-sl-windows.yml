@@ -40,12 +40,7 @@ jobs:
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
-      - name: Installer pytest pour les tests de régression
-        shell: pwsh
-        run: |
-          python -m pip install pytest pytest-cov -q
-
-      - name: Vérifier les contrats critiques du candidat
+      - name: Vérifier les contrats critiques du candidat (tests de régression inclus)
         run: >-
           python -m unittest
           tests.test_vanilla_identite_noethys_sl
@@ -54,15 +49,11 @@ jobs:
           tests.test_noethys_sl_backup_zip_lifecycle
           tests.test_rail1_reportlab5
           tests.test_vanilla_connecthys_synchro
-
-      - name: Exécuter les tests de régression des corrections RC5
-        run: >-
-          python -m pytest
-          tests/test_devis_tri_activites.py
-          tests/test_regr_devis_integration.py
-          tests/test_photos_db_cache.py
-          tests/test_pieces_jointes_accumulation.py
-          -v --tb=short
+          tests.test_devis_tri_activites
+          tests.test_regr_devis_integration
+          tests.test_photos_db_cache
+          tests.test_pieces_jointes_accumulation
+          -v
 
       - name: Construire le binaire wxPython
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
