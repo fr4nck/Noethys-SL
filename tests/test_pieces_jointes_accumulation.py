@@ -3,76 +3,129 @@
 """
 Test de régression pour l'anomalie C : accumulation de pièces jointes.
 
-Simule deux appels SetFichiers consécutifs et vérifie qu'ils ne s'accumulent pas.
+Vérifie que le code réel de production (OL_Pieces_jointes_emails.ListView.SetFichiers)
+remplace correctement la liste au lieu de l'accumuler.
+
+Test de régression : Si SetFichiers ajoute au lieu de remplacer, deux appels
+consécutifs avec des listes différentes causent une accumulation.
+
+Symptôme observé : Deuxième envoi d'attestation contient deux PJ au lieu d'une.
 """
 
-class MockListView:
-    """Mock du contrôle ListView pour tester SetFichiers."""
-    def __init__(self):
-        self.listeDonnees = []
+import sys
+import os
+import unittest
 
-    def SetFichiers(self, listeFichiers=[]):
-        """CORRIGE : remplacer la liste au lieu d'ajouter."""
-        self.listeDonnees = list(listeFichiers)
-        # self.MAJ() # pas appelé dans le test
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-    def MAJ(self):
-        pass
+# Import du module réel de production
+from noethys.Ol import OL_Pieces_jointes_emails
 
-def test_pieces_jointes_pas_accumulation():
-    """Test que SetFichiers remplace la liste au lieu de l'accumuler."""
-    print("[TEST] Accumulation de pieces jointes")
 
-    # Créer un contrôle mock
-    ctrl = MockListView()
+class TestPiecesJointesAccumulation(unittest.TestCase):
+    """Tests de régression pour l'accumulation de pièces jointes (anomalie C)."""
 
-    # Première série de fichiers
-    fichiers_1 = ["attestation_1.pdf"]
-    ctrl.SetFichiers(fichiers_1)
-    print("[STEP 1] Premier appel SetFichiers : {}".format(ctrl.listeDonnees))
-    assert ctrl.listeDonnees == ["attestation_1.pdf"], "Attendu une attestation"
+    def setUp(self):
+        """Créer une instance réelle du contrôle ListView pour chaque test."""
+        # Créer un fake wx.Frame minimal pour le parent
+        import wx
+        self.app = wx.App(False)
+        self.parent = wx.Frame(None)
 
-    # Deuxième série (nouveau mail)
-    fichiers_2 = ["attestation_2.pdf"]
-    ctrl.SetFichiers(fichiers_2)
-    print("[STEP 2] Deuxieme appel SetFichiers : {}".format(ctrl.listeDonnees))
-    assert len(ctrl.listeDonnees) == 1, "Attendu UNE SEULE attestation, pas accumulation"
-    assert ctrl.listeDonnees == ["attestation_2.pdf"], "Attendu la deuxième attestation uniquement"
+        # Créer le contrôle réel de production
+        self.listview = OL_Pieces_jointes_emails.ListView(
+            self.parent, id=-1,
+            style=wx.LC_NO_HEADER|wx.LC_REPORT|wx.SUNKEN_BORDER|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES
+        )
 
-    print("[OK] Pas d'accumulation - SetFichiers remplace correctement")
-    return True
+    def tearDown(self):
+        """Nettoyer après chaque test."""
+        self.parent.Destroy()
 
-def test_pieces_jointes_remplacement_multiple():
-    """Test que SetFichiers gère correctement le remplacement multiple."""
-    print("[TEST] Remplacement multiple")
+    def test_set_fichiers_remplace_pas_accumule(self):
+        """SetFichiers doit remplacer la liste, pas l'accumuler.
 
-    ctrl = MockListView()
+        Test de régression : Avant correction, SetFichiers faisait append()
+        au lieu de remplacer, causant l'accumulation.
+        """
+        # Premier appel
+        self.listview.SetFichiers(["fichier1.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1,
+                        "Après premier SetFichiers, doit avoir 1 fichier")
+        self.assertEqual(self.listview.listeDonnees[0], "fichier1.pdf")
 
-    # Trois appels successifs
-    ctrl.SetFichiers(["file1.pdf"])
-    assert len(ctrl.listeDonnees) == 1
-    print("[CALL 1] Taille : {}".format(len(ctrl.listeDonnees)))
+        # Deuxième appel avec un fichier différent
+        self.listview.SetFichiers(["fichier2.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1,
+                        "Après deuxième SetFichiers, doit avoir 1 fichier, pas 2 (pas d'accumulation)")
+        self.assertEqual(self.listview.listeDonnees[0], "fichier2.pdf",
+                        "Fichier 1 doit être remplacé par fichier 2")
+        self.assertNotIn("fichier1.pdf", self.listview.listeDonnees,
+                        "Fichier 1 ne doit pas rester après remplacement")
 
-    ctrl.SetFichiers(["file2.pdf", "file3.pdf"])
-    assert len(ctrl.listeDonnees) == 2
-    print("[CALL 2] Taille : {}".format(len(ctrl.listeDonnees)))
-    assert "file1.pdf" not in ctrl.listeDonnees, "file1.pdf devrait être oublie"
+    def test_set_fichiers_multiple_replacements(self):
+        """Plusieurs appels SetFichiers consécutifs doivent fonctionner.
 
-    ctrl.SetFichiers(["file4.pdf"])
-    assert len(ctrl.listeDonnees) == 1
-    print("[CALL 3] Taille : {}".format(len(ctrl.listeDonnees)))
-    assert ctrl.listeDonnees[0] == "file4.pdf"
+        Simule l'envoi de plusieurs attestations d'affilée avec des PJ différentes.
+        """
+        # Envoi 1 : une attestation
+        self.listview.SetFichiers(["attestation_arthure_2026.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1)
 
-    print("[OK] Remplacements multiples sans accumulation")
-    return True
+        # Envoi 2 : une autre attestation
+        self.listview.SetFichiers(["attestation_lina_2026.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1,
+                        "Envoi 2 : doit avoir 1 fichier uniquement")
+        self.assertIn("attestation_lina_2026.pdf", self.listview.listeDonnees)
+        self.assertNotIn("attestation_arthure_2026.pdf", self.listview.listeDonnees,
+                        "PJ d'Arthur ne doit pas être présente dans envoi de Lina")
+
+        # Envoi 3 : deux attestations pour une famille
+        self.listview.SetFichiers(["attestation_chlooe_2026.pdf", "attestation_marie_2026.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 2,
+                        "Envoi 3 : doit avoir 2 fichiers")
+
+        # Envoi 4 : retour à une seule attestation
+        self.listview.SetFichiers(["attestation_yannick_2026.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1,
+                        "Envoi 4 : doit avoir 1 fichier, pas 3")
+        self.assertIn("attestation_yannick_2026.pdf", self.listview.listeDonnees)
+
+    def test_set_fichiers_liste_vide(self):
+        """SetFichiers avec une liste vide doit vider la liste existante."""
+        # Ajouter des fichiers
+        self.listview.SetFichiers(["file1.pdf", "file2.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 2)
+
+        # Vider la liste
+        self.listview.SetFichiers([])
+        self.assertEqual(len(self.listview.listeDonnees), 0,
+                        "SetFichiers([]) doit vider la liste")
+
+    def test_aucun_melange_entre_familles(self):
+        """Pièces jointes d'une famille ne doivent pas apparaître dans une autre.
+
+        Test de régression : La symptomatologie reportée suggérait que des PJ
+        d'une famille pouvaient apparaître dans l'envoi d'une autre.
+        """
+        # Envoi famille 1
+        self.listview.SetFichiers(["famille_1_attestation.pdf"])
+        self.assertEqual(self.listview.listeDonnees, ["famille_1_attestation.pdf"])
+
+        # Envoi famille 2
+        self.listview.SetFichiers(["famille_2_attestation.pdf"])
+        self.assertEqual(len(self.listview.listeDonnees), 1,
+                        "Doit avoir une seule PJ après SetFichiers sur famille 2")
+        self.assertEqual(self.listview.listeDonnees[0], "famille_2_attestation.pdf")
+        self.assertNotIn("famille_1_attestation.pdf", self.listview.listeDonnees,
+                        "PJ famille 1 ne doit pas être dans envoi famille 2")
+
 
 if __name__ == "__main__":
-    import sys
-    try:
-        success = test_pieces_jointes_pas_accumulation() and test_pieces_jointes_remplacement_multiple()
-        if success:
-            print("\n[PASS] Tests d'accumulation de pieces jointes reussis")
-        sys.exit(0 if success else 1)
-    except AssertionError as e:
-        print("\n[FAIL] {}".format(str(e)))
-        sys.exit(1)
+    # Exécuter les tests
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestPiecesJointesAccumulation)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    # Retourner le code d'exit approprié
+    sys.exit(0 if result.wasSuccessful() else 1)

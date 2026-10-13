@@ -3,65 +3,115 @@
 """
 Test de régression pour l'anomalie B : gestion gracieuse de l'absence de base PHOTOS.
 
-Vérifie que :
-1. Le cache au niveau du module fonctionne correctement.
-2. La vérification de disponibilité ne se fait qu'une seule fois.
-3. Les appels GetPhoto et GetPhotos retournent des valeurs valides sans crash.
+Vérifie que le code réel de production gère correctement l'absence de base PHOTOS
+en utilisant un cache au niveau du module.
+
+Tests :
+1. Le cache mémorise la disponibilité après une seule tentative
+2. GetPhoto ne crash pas quand base indisponible
+3. GetPhotos ne crash pas quand base indisponible
+4. Le fallback vers images par défaut fonctionne
 """
 
 import sys
 import os
+import unittest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-def test_photos_db_cache():
-    """Test que le cache _PHOTOS_DB_AVAILABLE fonctionne."""
-    import Ctrl.CTRL_Photo as CTRL_Photo
+# Import du module réel de production (noethys.Ctrl, pas Ctrl)
+from noethys.Ctrl import CTRL_Photo
 
-    print("[INFO] Test du cache de disponibilite de la base PHOTOS")
 
-    # Réinitialisé le cache
-    CTRL_Photo._PHOTOS_DB_AVAILABLE = None
+class TestPhotosCacheRegression(unittest.TestCase):
+    """Tests de régression pour le cache PHOTOS (anomalie B)."""
 
-    # Première vérification
-    disponibilite_1 = CTRL_Photo._check_photos_db_availability()
-    print("[TEST] Premiere verification : {}".format("DISPONIBLE" if disponibilite_1 else "INDISPONIBLE"))
+    def setUp(self):
+        """Réinitialiser le cache avant chaque test pour isolation."""
+        CTRL_Photo._PHOTOS_DB_AVAILABLE = None
 
-    # Deuxième vérification (devrait être cachetée)
-    disponibilite_2 = CTRL_Photo._check_photos_db_availability()
-    print("[TEST] Deuxieme verification (cache) : {}".format("DISPONIBLE" if disponibilite_2 else "INDISPONIBLE"))
+    def test_cache_memorisation(self):
+        """Le cache doit mémoriser la disponibilité après une seule tentative.
 
-    # Vérifier que les deux résultats sont identiques
-    assert disponibilite_1 == disponibilite_2, "Le cache devrait retourner la meme valeur"
-    print("[OK] Cache coherent")
+        Test de régression : Si le cache n'est pas utilisé, chaque appel
+        tenterait de reconnecter à la base PHOTOS, générant une erreur MySQL 1049.
+        """
+        # Première vérification
+        dispo_1 = CTRL_Photo._check_photos_db_availability()
 
-    # Vérifier que GetPhoto retourne (None, None) sans crash quand base indisponible
-    try:
-        IDphoto, bmp = CTRL_Photo.GetPhoto(IDindividu=999999, nomFichier=None, taillePhoto=(128, 128))
-        print("[OK] GetPhoto retourne sans crash : ({}, {})".format(IDphoto, "Bitmap" if bmp else None))
-    except Exception as e:
-        print("[FAIL] GetPhoto crash : {}".format(str(e)))
-        return False
+        # Deuxième vérification (devrait être cachetée, pas recalculée)
+        dispo_2 = CTRL_Photo._check_photos_db_availability()
 
-    # Vérifier que GetPhotos retourne un dictionnaire sans crash
-    try:
-        dictPhotos = CTRL_Photo.GetPhotos(listeIndividus=[(999999, None)], taillePhoto=(128, 128))
-        print("[OK] GetPhotos retourne sans crash : {}".format(dictPhotos))
-    except Exception as e:
-        print("[FAIL] GetPhotos crash : {}".format(str(e)))
-        return False
+        # Les deux doivent être identiques (cache cohérent)
+        self.assertEqual(dispo_1, dispo_2,
+                        "Cache incohérent : deux vérifications doivent retourner la même valeur")
 
-    return True
+        # Vérifier que le cache est effectivement défini
+        self.assertIsNotNone(CTRL_Photo._PHOTOS_DB_AVAILABLE,
+                           "Cache devrait être défini après première vérification")
+
+    def test_get_photo_sans_crash_base_indisponible(self):
+        """GetPhoto ne doit pas crasher quand base PHOTOS indisponible.
+
+        Test de régression : Avant correction, GetPhoto tentait une connexion
+        directe à la base PHOTOS et déclenchait MySQL 1049.
+        """
+        # Forcer la base à indisponible (pour tester le code réel sans base)
+        CTRL_Photo._PHOTOS_DB_AVAILABLE = False
+
+        # Appel qui doit retourner (None, None) sans crash
+        try:
+            result = CTRL_Photo.GetPhoto(IDindividu=999999, nomFichier=None)
+            self.assertIsNotNone(result)
+            # Résultat attendu quand pas de photo : (None, None)
+            self.assertEqual(result, (None, None))
+        except Exception as e:
+            self.fail("GetPhoto crash avec base indisponible: {}".format(str(e)))
+
+    def test_get_photos_sans_crash_base_indisponible(self):
+        """GetPhotos ne doit pas crasher quand base PHOTOS indisponible.
+
+        Test de régression : Avant correction, GetPhotos tentait une connexion
+        directe et déclenchait MySQL 1049 à chaque appel.
+        """
+        # Forcer la base à indisponible
+        CTRL_Photo._PHOTOS_DB_AVAILABLE = False
+
+        # Appel qui doit retourner un dictionnaire sans crash
+        try:
+            result = CTRL_Photo.GetPhotos(listeIndividus=[(999999, None)], taillePhoto=(128, 128))
+            self.assertIsInstance(result, dict, "GetPhotos doit retourner un dictionnaire")
+            # Vérifier que l'individu est présent dans le résultat
+            self.assertIn(999999, result)
+        except Exception as e:
+            self.fail("GetPhotos crash avec base indisponible: {}".format(str(e)))
+
+    def test_cache_persiste_entre_appels(self):
+        """Le cache persiste entre plusieurs appels successifs.
+
+        Test de régression : Si le cache n'existait pas, chaque appel
+        recalculerait, causant des tentatives répétées.
+        """
+        # Première tentative
+        CTRL_Photo._check_photos_db_availability()
+        cache_value_1 = CTRL_Photo._PHOTOS_DB_AVAILABLE
+
+        # Plusieurs appels successifs
+        for _ in range(5):
+            CTRL_Photo.GetPhoto(IDindividu=999999)
+            CTRL_Photo.GetPhotos(listeIndividus=[(999999, None)])
+
+        # Le cache ne doit pas changer
+        cache_value_2 = CTRL_Photo._PHOTOS_DB_AVAILABLE
+        self.assertEqual(cache_value_1, cache_value_2,
+                        "Cache ne doit pas changer après plusieurs appels")
+
 
 if __name__ == "__main__":
-    try:
-        success = test_photos_db_cache()
-        if success:
-            print("\n[PASS] Test du cache de photos reussi")
-        else:
-            print("\n[FAIL] Test du cache de photos echoue")
-        sys.exit(0 if success else 1)
-    except Exception as e:
-        print("\n[EXCEPTION] {}".format(str(e)))
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    # Exécuter les tests avec unittest
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestPhotosCacheRegression)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    # Retourner le code d'exit approprié
+    sys.exit(0 if result.wasSuccessful() else 1)
