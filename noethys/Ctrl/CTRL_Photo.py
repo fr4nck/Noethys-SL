@@ -21,29 +21,41 @@ import GestionDB
 from Utils import UTILS_Utilisateurs
 from Utils import UTILS_Fichiers
 
+_PHOTOS_DB_AVAILABLE = None
+
+
+def _check_photos_db_availability():
+    """Vérifie une seule fois si la base PHOTOS est disponible (cache au niveau du module)."""
+    global _PHOTOS_DB_AVAILABLE
+    if _PHOTOS_DB_AVAILABLE is None:
+        DB = GestionDB.DB(suffixe="PHOTOS")
+        _PHOTOS_DB_AVAILABLE = (DB.echec == 0)
+        if DB.echec == 0:
+            DB.Close()
+    return _PHOTOS_DB_AVAILABLE
+
 
 def GetPhoto(IDindividu=None, nomFichier=None, taillePhoto=(128, 128), qualite=wx.IMAGE_QUALITY_HIGH):
-    """ Retourne la photo d'un individu """    
+    """ Retourne la photo d'un individu """
     qualite=wx.IMAGE_QUALITY_HIGH
     if IDindividu != None :
-        # Recherche d'une image dans la base de données
-        DB = GestionDB.DB(suffixe="PHOTOS")
-        if DB.echec != 1 : 
-            req = "SELECT IDphoto, photo FROM photos WHERE IDindividu=%d;" % IDindividu 
-            DB.ExecuterReq(req)
-            listeDonnees = DB.ResultatReq()
-            DB.Close()
-            if len(listeDonnees) > 0 :
-                IDphoto, bufferPhoto = listeDonnees[0]
-                # Transformation du buffer en wx.bitmap
-                io = six.BytesIO(bufferPhoto)
-                if 'phoenix' in wx.PlatformInfo:
-                    img = wx.Image(io, wx.BITMAP_TYPE_JPEG)
-                else :
-                    img = wx.ImageFromStream(io, wx.BITMAP_TYPE_JPEG)
-                img = img.Rescale(width=taillePhoto[0], height=taillePhoto[1], quality=qualite) 
-                bmp = img.ConvertToBitmap()
-                return (IDphoto, bmp)
+        if _check_photos_db_availability():
+            DB = GestionDB.DB(suffixe="PHOTOS")
+            if DB.echec == 0:
+                req = "SELECT IDphoto, photo FROM photos WHERE IDindividu=%d;" % IDindividu
+                DB.ExecuterReq(req)
+                listeDonnees = DB.ResultatReq()
+                DB.Close()
+                if len(listeDonnees) > 0 :
+                    IDphoto, bufferPhoto = listeDonnees[0]
+                    io = six.BytesIO(bufferPhoto)
+                    if 'phoenix' in wx.PlatformInfo:
+                        img = wx.Image(io, wx.BITMAP_TYPE_JPEG)
+                    else :
+                        img = wx.ImageFromStream(io, wx.BITMAP_TYPE_JPEG)
+                    img = img.Rescale(width=taillePhoto[0], height=taillePhoto[1], quality=qualite)
+                    bmp = img.ConvertToBitmap()
+                    return (IDphoto, bmp)
             
     if nomFichier != None :
         # Recherche d'une image sur le disque dur
@@ -76,16 +88,17 @@ def GetPhotos(listeIndividus=[], taillePhoto=None, qualite=wx.IMAGE_QUALITY_HIGH
 
     # Récupère les photos dans la DB
     dictPhotosDB = {}
-    DB = GestionDB.DB(suffixe="PHOTOS")
-    if DB.echec == 0 : 
-        if len(listeIDindividus) == 1 : condition = "(%d)" % listeIDindividus[0]
-        else : condition = str(tuple(listeIDindividus))
-        req = "SELECT IDphoto, IDindividu, photo FROM photos WHERE IDindividu IN %s;" % condition 
-        DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()
-        DB.Close()
-        for IDphoto, IDindividu, bufferPhoto in listeDonnees :
-            dictPhotosDB[IDindividu] = {"IDphoto" : IDphoto, "bufferPhoto" : bufferPhoto}
+    if _check_photos_db_availability():
+        DB = GestionDB.DB(suffixe="PHOTOS")
+        if DB.echec == 0:
+            if len(listeIDindividus) == 1 : condition = "(%d)" % listeIDindividus[0]
+            else : condition = str(tuple(listeIDindividus))
+            req = "SELECT IDphoto, IDindividu, photo FROM photos WHERE IDindividu IN %s;" % condition
+            DB.ExecuterReq(req)
+            listeDonnees = DB.ResultatReq()
+            DB.Close()
+            for IDphoto, IDindividu, bufferPhoto in listeDonnees :
+                dictPhotosDB[IDindividu] = {"IDphoto" : IDphoto, "bufferPhoto" : bufferPhoto}
     
     # Traite les photos de chaque individu
     dictPhotos = {}
