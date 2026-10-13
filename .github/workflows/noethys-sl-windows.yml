@@ -121,8 +121,11 @@ jobs:
             Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt'
           }
           Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
-          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'windows-output/Noethys-SL-0.1.0-rc.4-Windows-portable.zip'
-          if ($LASTEXITCODE -ne 0) { throw 'Échec archive portable' }
+          $zip = 'windows-output/Noethys-SL-0.1.0-rc.4-Windows-portable.zip'
+          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
+          if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
+            throw 'Archive portable absente ou vide'
+          }
 
       - name: Calculer les empreintes SHA-256
         shell: pwsh
