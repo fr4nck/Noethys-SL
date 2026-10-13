@@ -1,9 +1,7 @@
-name: Noethys SL RC - Windows portable et Setup
+name: Noethys SL wx - candidat 0.1.0 RC4 Windows
 
+# Fabrication de qualification uniquement sur demande. Aucune release.
 on:
-  # Build Windows uniquement sur demande explicite (workflow_dispatch) ; les
-  # anciennes branches de declenchement n'existent plus depuis la consolidation
-  # sur main / wx / qt (12/10/2026).
   workflow_dispatch:
 
 permissions:
@@ -11,11 +9,12 @@ permissions:
 
 jobs:
   build:
-    name: Construire Noethys SL 0.1.0 RC2 pour Windows
+    name: Construire Noethys SL wx 0.1.0 RC4 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
@@ -31,36 +30,58 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Compiler et vérifier le visuel
+      - name: Vérifier syntaxe, identité publique RC4 et splash
+        shell: pwsh
         run: |
           python -m compileall -q noethys tests
+          if ($LASTEXITCODE -ne 0) { throw 'Échec de compilation Python' }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.4', '0.1.0 RC4')"
+          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC4 incohérente' }
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
+          if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
-          python -c "from pathlib import Path; v=Path('noethys/Versions.txt').read_text(encoding='utf-8'); assert v.startswith('Version 1.3.4.4 (01/10/2026) :'); assert 'Noethys SL 0.1.0 RC2 - suite du 01/10/2026' in v"
+      - name: Vérifier les contrats critiques du candidat
+        run: >-
+          python -m unittest
+          tests.test_vanilla_identite_noethys_sl
+          tests.test_accueil_logo_organisateur
+          tests.test_vanilla_candidate_contract
+          tests.test_noethys_sl_backup_zip_lifecycle
+          tests.test_rail1_reportlab5
+          tests.test_vanilla_connecthys_synchro
 
-      - name: Construire l'exécutable
+      - name: Construire le binaire wxPython
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
 
-      - name: Vérifier le splash et préparer le portable
+      - name: Vérifier le contenu et enregistrer la provenance
         shell: pwsh
         run: |
           if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
-          $splash = 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'
-          if (-not (Test-Path $splash)) { throw 'Splash Pêle-Mêle absent du paquet' }
-          if (-not (Select-String -Path 'dist/Noethys/Versions.txt' -Pattern 'Noethys SL 0.1.0 RC2 - suite du 01/10/2026' -Quiet)) { throw 'Notes SL absentes du paquet' }
+          foreach ($resource in @('Static', 'Versions.txt', 'Licence.txt', 'Icone.ico')) {
+            if (-not (Test-Path (Join-Path 'dist/Noethys' $resource))) {
+              throw "Ressource absente : $resource"
+            }
+          }
+          if (-not (Test-Path 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png')) {
+            throw 'Splash Noethys SL absent du paquet'
+          }
           if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
           @(
-            'Noethys SL 0.1.0 RC2 - Windows'
+            'Produit: Noethys SL'
+            'Interface: wxPython'
+            'Version publique: 0.1.0-rc.4'
+            'Statut: candidat de recette, non valide pour production'
             "Commit: $env:GITHUB_SHA"
+            "Branche: $env:GITHUB_REF_NAME"
             "Workflow run: $env:GITHUB_RUN_ID"
-          ) | Set-Content 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
+            "Build UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          ) | Set-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
           New-Item -ItemType Directory -Path 'windows-output' -Force | Out-Null
-          Compress-Archive -Path 'dist/Noethys' -DestinationPath 'windows-output/Noethys-SL-0.1.0-RC2-Windows-portable.zip' -Force
 
-      - name: Vérifier le démarrage de l'exécutable
+      - name: Vérifier le démarrage sur runner Windows isolé
         shell: pwsh
         run: |
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-profile'
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc4-profile'
           $env:APPDATA = Join-Path $profileRoot 'Roaming'
           $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
           New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
@@ -71,28 +92,55 @@ jobs:
           }
           else {
             Stop-Process -Id $process.Id -Force
-            Write-Host 'Noethys.exe est resté actif pendant le contrôle de démarrage.'
+            Write-Host 'Noethys.exe actif pendant le smoke de démarrage.'
           }
 
-      - name: Construire le Setup
+      - name: Préparer et fabriquer le Setup (sans profil Portable)
         shell: pwsh
         run: |
+          if (Test-Path 'dist/Noethys/Portable') {
+            throw 'Un profil Portable ne doit jamais se trouver dans le Setup'
+          }
           Copy-Item 'dist/Noethys' 'dist/Noethys-installable' -Recurse
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             choco install innosetup --no-progress -y
-            if ($LASTEXITCODE -ne 0) { throw "Echec installation Inno Setup ($LASTEXITCODE)" }
+            if ($LASTEXITCODE -ne 0) { throw "Échec installation Inno Setup ($LASTEXITCODE)" }
           }
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
-          & $iscc '/DMyAppVersion=0.1.0-rc.2' 'packaging\vanilla-installer.iss'
+          & $iscc '/DMyAppVersion=0.1.0-rc.4' 'packaging\vanilla-installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
-          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-RC2-Setup.exe'
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.4-Setup.exe'
 
-      - name: Publier les deux fichiers Windows
+      - name: Créer le véritable ZIP portable RC4
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
+          if (Test-Path 'packaging/portable/README.txt') {
+            Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt'
+          }
+          Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
+          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'windows-output/Noethys-SL-0.1.0-rc.4-Windows-portable.zip'
+          if ($LASTEXITCODE -ne 0) { throw 'Échec archive portable' }
+
+      - name: Calculer les empreintes SHA-256
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem 'windows-output' -File |
+            Where-Object { $_.Extension -in @('.zip', '.exe') } |
+            Sort-Object Name)
+          if ($files.Count -ne 2) { throw "Deux livrables attendus, obtenu(s) : $($files.Count)" }
+          $checksums = @($files | ForEach-Object {
+            "{0}  {1}" -f ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()), $_.Name
+          })
+          $checksums | Set-Content -Path 'windows-output/SHA256SUMS.txt' -Encoding Ascii
+          $checksums | ForEach-Object { Write-Host $_ }
+
+      - name: Publier uniquement les artefacts de recette (aucune release)
         uses: actions/upload-artifact@v7
         with:
-          name: Noethys-SL-0.1.0-RC2-Windows
+          name: Noethys-SL-0.1.0-rc.4-Windows-candidat
           path: windows-output/*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30

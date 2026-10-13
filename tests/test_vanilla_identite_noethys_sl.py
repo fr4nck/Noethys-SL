@@ -6,7 +6,7 @@ Noethys (Noethys.MainFrame.ConvertVersionTuple/ValidationVersionFichier,
 UpgradeDB.DB.Upgrade -- 134 paliers --, FonctionsPerso.CompareVersions,
 UTILS_Portail_synchro.Update_application) fait un int() par segment après
 split(".") sur VERSION_APPLICATION, sans aucune tolérance pour un suffixe
-non numérique. Un remplacement naïf de "1.3.4.2" par "0.1.0-rc.2" ferait
+non numérique. Un remplacement naïf de "1.3.4.2" par "0.1.0-rc.4" ferait
 planter chaque démarrage (MainFrame.Annonce(), non protégé par try/except)
 et chaque ouverture de fichier (ValidationVersionFichier, non protégé non
 plus).
@@ -41,17 +41,17 @@ import Noethys  # noqa: E402
 class IdentitePubliqueTests(unittest.TestCase):
     def test_identite_publique_attendue(self):
         self.assertEqual(Identite.PRODUCT_NAME, u"Noethys SL")
-        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.2")
-        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC2")
+        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.4")
+        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC4")
 
     def test_titre_fenetre_affiche_identite_publique(self):
         frame = Noethys.MainFrame.__new__(Noethys.MainFrame)
         wx.Frame.__init__(frame, None, id=-1)
         try:
             frame.SetTitleFrame()
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC2")
+            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC4")
             frame.SetTitleFrame(nomFichier="exemple.ndb")
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC2 - [exemple.ndb]")
+            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC4 - [exemple.ndb]")
         finally:
             frame.Destroy()
 
