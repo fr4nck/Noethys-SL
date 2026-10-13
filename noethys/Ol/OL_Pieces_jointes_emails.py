@@ -182,8 +182,7 @@ class ListView(FastObjectListView):
 
     def SetFichiers(self, listeFichiers=[]):
         """ Pour une saisie manuelle directe """
-        for cheminFichier in listeFichiers :
-            self.listeDonnees.append(cheminFichier)
+        self.listeDonnees = list(listeFichiers)
         self.MAJ()
 
     def Ajouter(self, event):
