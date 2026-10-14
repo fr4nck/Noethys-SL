@@ -27,6 +27,16 @@ Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaqu
 
 Prochaine étape : recette manuelle RC6 sur VM Windows propre et copie Docker, avec SMTP de capture ; puis report ciblé de `194bcaeb` et `4e056e4d` vers `main` et `qt` (cherry-pick testé, sans fusion globale).
 
+### Prérelease RC7 publiée — 14/10/2026
+
+- Publication expressément autorisée. `34ff3faa` identité 0.1.0-rc.7 ; premier build [#38539258158](https://github.com/fr4nck/Noethys-SL/actions/runs/38539258158) en ÉCHEC aux contrats (App wx détruite par un module voisin, `PyNoAppError`), avant tout packaging, donc rien publié ; `e8488e71` corrige les deux tests (production inchangée).
+- Build [#38539592015](https://github.com/fr4nck/Noethys-SL/actions/runs/38539592015) **SUCCÈS** au commit `e8488e715642fc357a68b150355599ad2e74ea83` ; tag annoté `noethys-sl-0.1.0-rc.7` sur ce commit.
+- [Release Noethys SL 0.1.0 RC7](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.7) : Pre-release, non « Latest » (Latest reste `vanilla-1.3.4.2-r2`). Fichiers revérifiés après téléchargement depuis GitHub :
+  - `acb98190079f97502060f43debb613196cf88f801964fa46405c9a504ff3fc1b  Noethys-SL-0.1.0-rc.7-Setup.exe`
+  - `0f229b5ead42728c9c4101d99dbba0bdede6dd7a918c4f3309d21e27b8efa27f  Noethys-SL-0.1.0-rc.7-Windows-portable.zip`
+  - `d03d8ff688862c40da3488451072a4b2178a86b53b4a7546ee5f864bb15cd919  mysql-5.7.44.tar.gz` (sources GPLv2 jointes)
+- Restent à faire : recette manuelle des exécutables, photos sans base `_photos` (différé), report vers `main`/`qt`.
+
 ### Retours de recette RC6 réelle — 14/10/2026
 
 - `530a0cf4` fix(impression) : `UTILS_Printer.py`, six `wx.Pen(wx.BLACK, 0.25, wx.SOLID)` → largeur `0` (troncature historique de 0.25, trait le plus fin). Test `test_noethys_sl_printer_pen`.
