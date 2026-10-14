@@ -81,6 +81,7 @@ class Impression():
         """ Impression """
         global DICT_VALEURS
         DICT_VALEURS = dictValeurs
+        self.erreur = None
         
         # Initialisation du document
         doc = BaseDocTemplate(nomDoc, pagesize=TAILLE_PAGE, showBoundary=False)
@@ -246,11 +247,16 @@ class Impression():
             doc.build(story)
         except Exception as err :
             print("Erreur dans ouverture PDF :", err)
-            if "Permission denied" in err :
-                dlg = wx.MessageDialog(None, _(u"Noethys ne peut pas créer le PDF.\n\nVeuillez vérifier qu'un autre PDF n'est pas déjà ouvert en arrière-plan..."), _(u"Erreur d'édition"), wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
-                dlg.Destroy()
-                return
+            # Reçu non produit : l'appelant ne doit ni l'envoyer ni le mémoriser.
+            self.erreur = err
+            if "Permission denied" in str(err) :
+                message = _(u"Noethys ne peut pas créer le PDF.\n\nVeuillez vérifier qu'un autre PDF n'est pas déjà ouvert en arrière-plan...")
+            else :
+                message = _(u"Noethys ne peut pas créer le PDF du reçu.\n\nErreur : %s") % err
+            dlg = wx.MessageDialog(None, message, _(u"Erreur d'édition"), wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         
         if afficherDoc == True :
             FonctionsPerso.LanceFichierExterne(nomDoc)

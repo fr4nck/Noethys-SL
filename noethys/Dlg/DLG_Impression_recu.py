@@ -326,7 +326,8 @@ class Dialog(wx.Dialog):
         self.IDreglement = IDreglement
         self.dictSave = {}
         self.listeAdresses = []
-        
+        self.email_envoye = False # Vrai seulement si le serveur a accepté un envoi du reçu
+
         # Importation des données
         self.dictReglement = self.Importation()
         self.IDfamille = self.dictReglement["IDfamille"]
@@ -590,7 +591,8 @@ class Dialog(wx.Dialog):
     def OnBoutonEmail(self, event): 
         """ Envoi par mail """
         from Utils import UTILS_Envoi_email
-        UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.IDfamille, nomDoc=FonctionsPerso.GenerationNomDoc("RECU", "pdf"), categorie="recu_reglement", listeAdresses=self.listeAdresses)
+        if UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.IDfamille, nomDoc=FonctionsPerso.GenerationNomDoc("RECU", "pdf"), categorie="recu_reglement", listeAdresses=self.listeAdresses) == True :
+            self.email_envoye = True
     
     def GetPrestations(self):
         DB = GestionDB.DB()
@@ -791,8 +793,9 @@ class Dialog(wx.Dialog):
             dlg = wx.MessageDialog(self, _(u"Vous devez obligatoirement sélectionner un modèle !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            return
-        
+            self.dictSave = {}
+            return False
+
         dictChampsFusion["{DATE_EDITION_RECU}"] = DateFrEng(dictDonnees["date"])
         dictChampsFusion["{NUMERO_RECU}"] = dictDonnees["numero"]
         dictChampsFusion["{ID_REGLEMENT}"] = str(dictValeurs["{IDREGLEMENT}"])
@@ -808,8 +811,12 @@ class Dialog(wx.Dialog):
 
         # Fabrication du PDF
         from Utils import UTILS_Impression_recu
-        UTILS_Impression_recu.Impression(dictValeurs, IDmodele=IDmodele, nomDoc=nomDoc, afficherDoc=afficherDoc)
-        
+        impression = UTILS_Impression_recu.Impression(dictValeurs, IDmodele=IDmodele, nomDoc=nomDoc, afficherDoc=afficherDoc)
+        # PDF non produit : ni pièce jointe à envoyer, ni reçu à mémoriser.
+        if impression.erreur is not None or not os.path.isfile(nomDoc) :
+            self.dictSave = {}
+            return False
+
         return dictChampsFusion
     
 

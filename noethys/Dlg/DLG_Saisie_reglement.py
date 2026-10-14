@@ -1223,25 +1223,34 @@ class Dialog(wx.Dialog):
                         nomDoc=FonctionsPerso.GenerationNomDoc("RECU", "pdf")
                         categorie="recu_reglement"
                         dictChamps = dlg1.CreationPDF(nomDoc=nomDoc, afficherDoc=False)
-                        if dictChamps == False :
-                            dlg1.Destroy()
-                            #return False
 
+                        # PDF non généré : aucun envoi, et l'échec est signalé
+                        # au lieu de poursuivre avec un dialogue détruit.
                         succes = False
-                        try :
-                            listeDonnees = [{"adresse" : adresse, "pieces" : [nomDoc,], "champs" : dictChamps,}]
-                            from Dlg import DLG_Mailer
-                            dlg2 = DLG_Mailer.Dialog(self, categorie=categorie, afficher_confirmation_envoi=False)
-                            dlg2.SetDonnees(listeDonnees, modificationAutorisee=False)
-                            dlg2.ChargerModeleDefaut()
-                            dlg2.OnBoutonEnvoyer(None)
-                            # Succès de soumission réel pour CE destinataire
-                            # (DLG_Mailer.listeSucces) : listeAnomalies n'est
-                            # jamais alimentée par le Mailer et ne prouvait rien.
-                            succes = RecuAccepte(dlg2.listeSucces, adresse)
-                            dlg2.Destroy()
-                        except Exception as err :
-                            print(("Erreur lors de l'envoi du reçu par email : %s" % err))
+                        erreur = None
+                        if dictChamps in (False, None) :
+                            erreur = _(u"le reçu n'a pas pu être généré au format PDF")
+                        else :
+                            try :
+                                listeDonnees = [{"adresse" : adresse, "pieces" : [nomDoc,], "champs" : dictChamps,}]
+                                from Dlg import DLG_Mailer
+                                dlg2 = DLG_Mailer.Dialog(self, categorie=categorie, afficher_confirmation_envoi=False)
+                                dlg2.SetDonnees(listeDonnees, modificationAutorisee=False)
+                                dlg2.ChargerModeleDefaut()
+                                dlg2.OnBoutonEnvoyer(None)
+                                # Succès de soumission réel pour CE destinataire
+                                # (DLG_Mailer.listeSucces) : listeAnomalies n'est
+                                # jamais alimentée par le Mailer et ne prouvait rien.
+                                succes = RecuAccepte(dlg2.listeSucces, adresse)
+                                dlg2.Destroy()
+                            except Exception as err :
+                                print(("Erreur lors de l'envoi du reçu par email : %s" % err))
+                                erreur = err
+
+                        if erreur is not None :
+                            dlg = wx.MessageDialog(self, _(u"Le reçu n'a pas été envoyé : %s") % erreur, _(u"Envoi du reçu par Email"), wx.OK | wx.ICON_ERROR)
+                            dlg.ShowModal()
+                            dlg.Destroy()
 
                         try :
                             os.remove(nomDoc)     

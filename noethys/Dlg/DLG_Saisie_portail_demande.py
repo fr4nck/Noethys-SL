@@ -1225,7 +1225,14 @@ class Traitement():
                 self.EcritLog(_(u"Veuillez imprimer le reçu de règlement pour un retrait sur site."))
                 reponse = _(u"Reçu de règlement disponible au retrait.")
             dlg_impression.ShowModal()
+            email_envoye = dlg_impression.email_envoye
             dlg_impression.Destroy()
+
+            # Seul un envoi accepté par le serveur valide une demande par Email ;
+            # sinon elle reste en attente (même contrat que le mode automatique).
+            if self.dict_parametres["methode_envoi"] == "email" and email_envoye != True :
+                self.EcritLog(_(u"Le reçu de règlement n'a pas été envoyé par Email."))
+                return False
 
             return {"etat" : True, "reponse" : reponse}
 

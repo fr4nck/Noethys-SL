@@ -59,7 +59,7 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
     else :
         temp = parent.CreationPDF
     dictChamps = temp(nomDoc=nomDoc, afficherDoc=False)
-    if dictChamps == False :
+    if dictChamps in (False, None) :
         return False
 
     if nomDoc != False :
@@ -563,6 +563,14 @@ class Base_messagerie():
         pass
 
 
+def _ExigerAcceptation(resultat):
+    """ Comme l'envoi unitaire (DLG_Mailer) : False, 0 ou None, par exemple aucun
+        destinataire non vide, n'est jamais compté comme un message accepté. """
+    if resultat in (False, 0, None):
+        raise RuntimeError(_(u"Le serveur de messagerie n'a pas confirmé l'envoi."))
+    return resultat
+
+
 def _NotifierSucces(callback_succes, message):
     """Appelle callback_succes(message) juste après l'acceptation d'un message
     (historique au fil de l'eau). Une erreur du rappel est journalisée mais
@@ -717,7 +725,7 @@ class SmtpV2(Base_messagerie):
                 # Envoi
                 erreur = None
                 try:
-                    self.Envoyer(message)
+                    _ExigerAcceptation(self.Envoyer(message))
                     listeSucces.append(message)
                     _RetirerAnomalies(listeAnomalies, message)
                     _NotifierSucces(callback_succes, message)
@@ -731,7 +739,7 @@ class SmtpV2(Base_messagerie):
                     print("Reconnexion au serveur de messagerie...")
                     try:
                         self.Connecter()
-                        self.Envoyer(message)
+                        _ExigerAcceptation(self.Envoyer(message))
                         listeSucces.append(message)
                         _RetirerAnomalies(listeAnomalies, message)
                         _NotifierSucces(callback_succes, message)
@@ -1234,7 +1242,7 @@ class Mailjet(Base_messagerie):
                         ),
                     )
 
-                    self.Envoyer(message)
+                    _ExigerAcceptation(self.Envoyer(message))
                     accepte = True
                     listeSucces.append(message)
                     _RetirerAnomalies(listeAnomalies, message)
