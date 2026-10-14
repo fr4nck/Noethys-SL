@@ -3,6 +3,31 @@
 Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaque session.
 
 
+## Stabilisation Windows → candidat RC6 (wx) — 14/10/2026
+
+- **Départ vérifié** : `wx = origin/wx = 556450a8` (RC5 déjà construite : anomalies devis, PHOTOS et pièces jointes) ; `main` local `2e7aa965`, `origin/main = b52aa6eb` ; `qt` local `bd3eae39`, `origin/qt = 2146ad13`. PMSL-Arch `main = cbe3e6e`. Artefacts RC4/RC5 conservés intacts (`artifacts-rc5/`, hors Git).
+- **Commits sur `wx`** (push fast-forward non forcé `556450a8..f571f650`) :
+  - `194bcaeb` fix(sauvegarde) : `mysql-client/bin` livré prioritaire ; fichier d'identifiants quoté/UTF-8, création exclusive 0600 (un mot de passe contenant `#` était tronqué : `ERROR 1045` reproduit avec mysql 5.7.44) ; dump soumis à `AnalyserDumpSQL` avant scellement.
+  - `4e056e4d` fix(recus) : `Envoyer_lot` n'accepte plus un retour 0/None ; erreur `doc.build` du reçu plus avalée (`TypeError` Python 3) ; `CreationPDF` renvoie False sans PDF ; `EnvoiEmailFamille` sans PDF n'envoie rien ; saisie de règlement : plus de dialogue détruit réutilisé, échec signalé ; portail manuel par Email validé seulement si l'envoi a été accepté.
+  - `d9713c69` build(windows) : clients mysql/mysqldump 5.7.44 (archive Oracle SHA-256 `aed661fe…e70e`, sources GPLv2 `d03d8ff6…d919`), runtime VC++ cohérent, contrôle DLL ; recette réelle CI ; **ZIP portable corrigé** (RC4/RC5 sans dossier `Portable/` : profil écrit dans `%APPDATA%`).
+  - `f571f650` build : identité 0.1.0-rc.6.
+- **Tests** : `test_noethys_sl_mysql_client_embarque` (7, dont aller-retour réel) et `test_noethys_sl_recus_envoi` (9, SMTP de capture local). Contre-épreuves sur code précédent : 6/6 et 5/9 en échec. Local : 67 tests sauvegarde/SQL et 147 email/reçus OK ; aller-retour réel OK contre MySQL 5.7.44 jetable `127.0.0.1:3399` (scratchpad, arrêté).
+- **CI** : [wx #38534018279](https://github.com/fr4nck/Noethys-SL/actions/runs/38534018279) **SUCCÈS** au SHA `f571f650` : 151 tests de contrats, aller-retour réel exécuté (non ignoré), démarrage du ZIP extrait avec `%APPDATA%` vide (profil créé dans `Portable/`). Artefacts (rétention 30 jours, copie locale `artifacts-rc6/`, hors Git) :
+  - `acec19be20ac0a1516f2bcb0e448ff47302df7c6de8d98d9c6eca4c54825e2a3  Noethys-SL-0.1.0-rc.6-Setup.exe`
+  - `912e9475b865a64d626071cbe6d5898b995c3a91ba605a9d614e6d006c80a82e  Noethys-SL-0.1.0-rc.6-Windows-portable.zip`
+- **Préexistant, hors lot** : `test_noethys_sl_etat_global_calcul.BugPorteeUniteNTests` échoue déjà à `556450a8`.
+- **Non réalisé** : test sur un Windows propre et recette manuelle (`docs/recette/RECETTE_RC6_WINDOWS.md`) : **EN ATTENTE**. Aucune release ni tag. Publication : joindre ou référencer les sources MySQL 5.7.44 (GPLv2).
+- **Restant à reproduire / corriger** : doublon après coupure SMTP post-DATA (EMAIL-03), refus partiel ignoré (EMAIL-05), pièce commune doublée au 2e clic (EMAIL-09), succès partiel multi-adresses compté comme envoyé, variable `email_envoye` morte dans `DLG_Saisie_reglement`, chemins non ANSI passés aux clients MySQL (échec détecté, pas de faux succès ; non testé).
+
+| Correctif | `main` | `wx` | `qt` |
+| --- | --- | --- | --- |
+| Lot A sauvegarde (`194bcaeb`) | ABSENT / EN ATTENTE | VALIDÉ (CI #38534018279) | ABSENT / EN ATTENTE |
+| Lot B reçus (`4e056e4d`) | ABSENT / EN ATTENTE | VALIDÉ (CI #38534018279) | ABSENT / EN ATTENTE |
+| Packaging Windows (`d9713c69`) | NON APPLICABLE | VALIDÉ (CI) ; Windows propre EN ATTENTE | NON APPLICABLE |
+
+Prochaine étape : recette manuelle RC6 sur VM Windows propre et copie Docker, avec SMTP de capture ; puis report ciblé de `194bcaeb` et `4e056e4d` vers `main` et `qt` (cherry-pick testé, sans fusion globale).
+
+
 ## Lot limité Noe-032 — ZIP partiel sur fichier absent — 10/10/2026
 
 - **Départ vérifié** : `main = wx = qt = 025112dd55744988989f0c3f321e76557f0fe11d` ; `master = b0be3c7ebdf2d69d6028eb4fd6fc08e340a68b9e`, toujours branche par défaut. [CI wx #38033543533](https://github.com/fr4nck/Noethys-SL/actions/runs/38033543533) : succès au SHA antérieur `32841c42`. Consignes lues : `AGENTS.md`, ce document, PMSL-Arch `main` (`cbe3e6e65b53d98783a5192846979aedbe375465`), politique de développement, ADR-006/010 et gouvernance Actions.
