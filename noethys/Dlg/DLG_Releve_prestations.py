@@ -52,7 +52,8 @@ def ConvertCouleurWXpourPDF(couleurwx=(0, 0, 0)):
     return (couleurwx[0]/255.0, couleurwx[1]/255.0, couleurwx[2]/255.0)
 
 def ConvertCouleurPDFpourWX(couleurpdf=(0, 0, 0)):
-    return (couleurpdf[0]*255.0, couleurpdf[1]*255.0, couleurpdf[2]*255.0)
+    # wx.Colour exige des entiers (wxPython 4.2) : (0.8, 0.8, 1) -> (204, 204, 255)
+    return tuple(int(round(composante * 255)) for composante in couleurpdf[:3])
 
 
 
@@ -82,7 +83,7 @@ class Dialog(wx.Dialog):
         self.check_memoriser_parametres.SetValue(True) 
         
         self.checkbox_couleur = wx.CheckBox(self, -1, _(u"Couleur de fond de titre :"))
-        self.ctrl_couleur = csel.ColourSelect(self, -1, u"", COULEUR_FOND_TITRE, size=(60, 18))
+        self.ctrl_couleur = csel.ColourSelect(self, -1, u"", ConvertCouleurPDFpourWX(COULEUR_FOND_TITRE), size=(60, 18))
         
         # Boutons
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
