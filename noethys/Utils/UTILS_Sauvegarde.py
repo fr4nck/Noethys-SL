@@ -171,6 +171,10 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 # Ajout compatible avec les restaurations historiques : deux commentaires SQL.
                 # En cas d'echec, aucun ZIP partiel ne doit etre publie.
                 try:
+                    # Meme analyse qu'a la restauration : ne pas archiver un dump qui y serait refuse.
+                    analyseSQL, erreurSQL = UTILS_SQL_Integrite.AnalyserDumpSQL(fichierSave, exiger_fin_mysqldump=False)
+                    if erreurSQL is not None:
+                        raise ValueError(erreurSQL)
                     UTILS_SQL_Integrite.AjouterManifesteIntegriteSQL(fichierSave)
                 except Exception as err:
                     dlgprogress.Destroy()
@@ -567,6 +571,16 @@ def GetListeFichiersReseau(dictValeurs={}):
     
     return listeDatabases
 
+REP_CLIENT_MYSQL_EMBARQUE = "mysql-client"
+
+def GetRepertoireMySQLEmbarque():
+    """ Répertoire des clients mysql/mysqldump livrés avec Noethys (bin/), ou None. """
+    chemin = Chemins.GetMainPath(REP_CLIENT_MYSQL_EMBARQUE)
+    for programme in ("mysql.exe", "mysqldump.exe") :
+        if not os.path.isfile(os.path.join(chemin, "bin", programme)) :
+            return None
+    return chemin.replace("\\", "/").rstrip("/") + "/"
+
 def GetRepertoireMySQL(dictValeurs={}):
     """ Récupère le répertoire d'installation MySQL 
          dictValeurs = valeurs de connexion
@@ -578,7 +592,13 @@ def GetRepertoireMySQL(dictValeurs={}):
         if os.path.isfile(u"/usr/bin/mysqldump") and os.path.isfile(u"/usr/bin/mysql") :
             return u"/usr/"
     else :
-        
+
+        # Clients MySQL 5.7 fournis avec le paquet Windows : prioritaires, un client
+        # installé plus récent (8.x) n'étant pas compatible avec un serveur 5.7.
+        chemin = GetRepertoireMySQLEmbarque()
+        if chemin is not None :
+            return chemin
+
         # Vérifie le chemin Canon (x86)
         chemin = "C:/Program Files (x86)/Canon/Easy-WebPrint EX/"
         if os.path.isfile(chemin + "bin/mysql.exe") :
@@ -642,13 +662,24 @@ def GetRepertoireMySQL(dictValeurs={}):
         
     return None
 
+def _ValeurOptionMySQL(valeur):
+    """ Valeur entre guillemets d'un fichier d'options MySQL : sans cela, '#' ouvre
+        un commentaire et les espaces de bord sont retires (mot de passe tronque). """
+    valeur = u"%s" % valeur
+    for avant, apres in ((u"\\", u"\\\\"), (u'"', u'\\"'), (u"\n", u"\\n"), (u"\r", u"\\r"), (u"\t", u"\\t")):
+        valeur = valeur.replace(avant, apres)
+    return u'"%s"' % valeur
+
 def CreationFichierLoginTemp(host="", user="", port="3306", password="", nomFichier=""):
     password = GestionDB.DecodeMdpReseau(password)
     if os.path.isfile(nomFichier) == True :
         os.remove(nomFichier)
-    fichier = open(nomFichier, "w")
-    fichier.write(u"[client]\nhost=%s\nuser=%s\nport=%s\npassword=%s" % (host, user, port, password))
-    fichier.close()
+    contenu = u"[client]\nhost=%s\nuser=%s\nport=%s\npassword=%s\n" % tuple(
+        _ValeurOptionMySQL(valeur) for valeur in (host, user, port, password))
+    # UTF-8 comme la connexion GestionDB ; fichier lisible du seul utilisateur (POSIX).
+    descripteur = os.open(nomFichier, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+    with os.fdopen(descripteur, "wb") as fichier:
+        fichier.write(contenu.encode("utf-8"))
 
 
 if __name__ == u"__main__":
