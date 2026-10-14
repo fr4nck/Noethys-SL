@@ -4,6 +4,7 @@ import gc
 import os
 import sqlite3
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -52,6 +53,10 @@ class PeopleSearchTests(unittest.TestCase):
                     IDrattachement INTEGER PRIMARY KEY AUTOINCREMENT,
                     IDindividu INTEGER, IDfamille INTEGER, IDcategorie INTEGER, titulaire INTEGER
                 );
+                CREATE TABLE familles (
+                    IDfamille INTEGER PRIMARY KEY,
+                    etat TEXT
+                );
                 CREATE TABLE activites (
                     IDactivite INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom TEXT, abrege TEXT, date_debut TEXT, date_fin TEXT
@@ -74,6 +79,7 @@ class PeopleSearchTests(unittest.TestCase):
                 "INSERT INTO rattachements (IDindividu, IDfamille, IDcategorie, titulaire) VALUES (?, ?, ?, ?)",
                 ((1, 10, 1, 1), (2, 10, 2, 0)),
             )
+            connection.execute("INSERT INTO familles (IDfamille, etat) VALUES (10, NULL)")
             connection.execute(
                 "INSERT INTO activites (nom, abrege, date_debut, date_fin) VALUES ('Test', 'TEST', '2026-01-01', '2026-12-31')"
             )
@@ -181,6 +187,61 @@ class PeopleSearchTests(unittest.TestCase):
         self.assertEqual(individuals, [4])
         self.assertEqual(families, [])
 
+
+    def _wait_until(self, condition, *, timeout: float = 4.0) -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            QApplication.processEvents()
+            if condition():
+                return
+            time.sleep(0.02)
+        self.fail("Le résultat Qt asynchrone n'est pas arrivé.")
+
+    def test_family_and_individual_views_are_readonly_and_reversible(self) -> None:
+        database = self._database()
+        with sqlite3.connect(database) as connection:
+            before = list(connection.iterdump())
+        people = self._repository(database)
+        window = NoethysQtWindow(
+            people,
+            SqliteActivityRepository(database),
+            editor_sqlite_path=database,
+            source_label="base fictive",
+        )
+        self.addCleanup(window.close)
+        window.navigate("people")
+        window.people_page.search_edit.setText("MARTIN")
+        window.people_page.search_now()
+        window.people_page.table.selectRow(0)
+        window.people_page.open_family_button.click()
+        self._wait_until(lambda: window.details_page.loaded_kind == "family")
+        self.assertEqual(window.details_page.current_id, 10)
+        self.assertEqual(window.details_page.members_table.rowCount(), 2)
+        self.assertEqual(window.stack.currentWidget(), window.details_page)
+        window.details_page._open_individual_row(1, 1)
+        self._wait_until(lambda: window.details_page.loaded_kind == "individual")
+        self.assertEqual(window.details_page.current_id, 2)
+        self.assertEqual(window.details_page.links_table.rowCount(), 1)
+        window.details_page.back_button.click()
+        self.assertIs(window.stack.currentWidget(), window.people_page)
+        self.assertEqual(window.people_page.selected_person().individual_id, 2)
+        with sqlite3.connect(database) as connection:
+            after = list(connection.iterdump())
+        self.assertEqual(before, after)
+
+    def test_nonexistent_family_is_reported_without_any_fallback(self) -> None:
+        database = self._database()
+        window = NoethysQtWindow(
+            self._repository(database),
+            SqliteActivityRepository(database),
+            editor_sqlite_path=database,
+            source_label="base fictive",
+        )
+        self.addCleanup(window.close)
+        window._family_requested(999)
+        self._wait_until(lambda: window.details_page.loaded_kind == "error")
+        self.assertEqual(window.details_page.current_id, 999)
+        self.assertIn("introuvable", window.details_page.message.text().lower())
 
 if __name__ == "__main__":
     unittest.main()

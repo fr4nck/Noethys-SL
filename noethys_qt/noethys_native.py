@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QObject, QRunnable, QSettings, QThreadPool, Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -34,7 +34,37 @@ from .activities_native import NativeActivitiesWindow, NativeConfiguredActivityR
 from .activities_prototype import ActivityRepository, SqliteActivityRepository, _parse_args
 from .activity_editor import NativeActivityEditorRepository
 from .activity_visuals import apply_activity_visuals, apply_semantic_theme
-from .people_search import PeopleSearchPage, PeopleSearchRepository
+from .people_search import PeopleSearchPage, PeopleSearchRepository, PersonRow
+from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepository
+
+
+class _DetailSignals(QObject):
+    completed = Signal(int, str, object, str)
+
+
+class _DetailWorker(QRunnable):
+    """Une nouvelle connexion SQL dans un thread : aucun widget hors thread Qt."""
+
+    def __init__(self, repository: PeopleDetailsRepository, request_id: int, kind: str, entity_id: int):
+        super().__init__()
+        self.setAutoDelete(False)
+        self.repository = repository
+        self.request_id = request_id
+        self.kind = kind
+        self.entity_id = entity_id
+        self.signals = _DetailSignals()
+
+    def run(self) -> None:
+        try:
+            detail = (
+                self.repository.family(self.entity_id)
+                if self.kind == "family"
+                else self.repository.individual(self.entity_id)
+            )
+        except Exception as exc:
+            self.signals.completed.emit(self.request_id, self.kind, None, str(exc))
+        else:
+            self.signals.completed.emit(self.request_id, self.kind, detail, "")
 
 
 NAVIGATION = (
@@ -62,6 +92,10 @@ class NoethysQtWindow(QMainWindow):
     ):
         super().__init__()
         self.people_repository = people_repository
+        self.details_repository = PeopleDetailsRepository(people_repository)
+        self._detail_request = 0
+        self._detail_workers: dict[int, _DetailWorker] = {}
+        self._current_detail: tuple[str, int] | None = None
         self.activities_repository = activities_repository
         self.editor_sqlite_path = editor_sqlite_path
         self.source_label = source_label
@@ -155,8 +189,13 @@ class NoethysQtWindow(QMainWindow):
         self.people_page = PeopleSearchPage(self.people_repository, self.stack)
         self.people_page.familyRequested.connect(self._family_requested)
         self.people_page.individualRequested.connect(self._individual_requested)
+        self.details_page = PeopleDetailsPage(self.stack)
+        self.details_page.backRequested.connect(self._back_to_people)
+        self.details_page.familyRequested.connect(self._family_requested)
+        self.details_page.individualRequested.connect(self._individual_requested)
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
+        self.stack.addWidget(self.details_page)
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(root)
         self.navigation.setCurrentRow(0)
@@ -228,10 +267,11 @@ class NoethysQtWindow(QMainWindow):
             return
         code = str(current.data(Qt.ItemDataRole.UserRole) or "")
         if code == "home":
+            self._detail_request += 1
+            self._current_detail = None
             self.stack.setCurrentWidget(self.home_page)
         elif code == "people":
-            self.stack.setCurrentWidget(self.people_page)
-            self.people_page.focus_search()
+            self._back_to_people()
         elif code == "activities":
             self.open_activities()
 
@@ -240,6 +280,8 @@ class NoethysQtWindow(QMainWindow):
             item = self.navigation.item(row)
             if item.data(Qt.ItemDataRole.UserRole) == code:
                 self.navigation.setCurrentRow(row)
+                if code == "people" and self.stack.currentWidget() is self.details_page:
+                    self._back_to_people()
                 if code == "activities":
                     self.open_activities()
                 return
@@ -252,6 +294,9 @@ class NoethysQtWindow(QMainWindow):
         if self.stack.currentWidget() is self.people_page:
             self.people_page.search_now()
             self.statusBar().showMessage("Recherche actualisée", 2500)
+        elif self.stack.currentWidget() is self.details_page and self._current_detail:
+            kind, entity_id = self._current_detail
+            self._open_detail(kind, entity_id)
         else:
             self.statusBar().showMessage(self.source_label, 2500)
 
@@ -279,15 +324,45 @@ class NoethysQtWindow(QMainWindow):
     def _activities_closed(self, *_args) -> None:
         self._activities_window = None
 
+    def _back_to_people(self) -> None:
+        self._detail_request += 1
+        self._current_detail = None
+        self.stack.setCurrentWidget(self.people_page)
+        self.people_page.focus_search()
+
+    def _open_detail(self, kind: str, entity_id: int) -> None:
+        self._detail_request += 1
+        token = self._detail_request
+        self._current_detail = (kind, entity_id)
+        self.details_page.show_loading(kind, entity_id)
+        self.stack.setCurrentWidget(self.details_page)
+        worker = _DetailWorker(self.details_repository, token, kind, entity_id)
+        self._detail_workers[token] = worker
+        worker.signals.completed.connect(self._detail_loaded)
+        QThreadPool.globalInstance().start(worker)
+
+    def _detail_loaded(self, token: int, kind: str, detail: object, error: str) -> None:
+        self._detail_workers.pop(token, None)
+        if token != self._detail_request or not self._current_detail:
+            return
+        current_kind, entity_id = self._current_detail
+        if current_kind != kind:
+            return
+        if error:
+            self.details_page.show_error(kind, entity_id, error)
+            return
+        if kind == "family" and isinstance(detail, FamilyDetails):
+            self.details_page.show_family(detail)
+        elif kind == "individual" and isinstance(detail, PersonRow):
+            self.details_page.show_individual(detail)
+        else:
+            self.details_page.show_error(kind, entity_id, "Réponse inattendue.")
+
     def _family_requested(self, family_id: int) -> None:
-        self.statusBar().showMessage(
-            f"Famille #{family_id} sélectionnée — fiche Qt complète = prochain P0", 5000
-        )
+        self._open_detail("family", family_id)
 
     def _individual_requested(self, individual_id: int) -> None:
-        self.statusBar().showMessage(
-            f"Individu #{individual_id} sélectionné — fiche Qt complète = prochain P0", 5000
-        )
+        self._open_detail("individual", individual_id)
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self.settings.setValue("window/geometry", self.saveGeometry())
