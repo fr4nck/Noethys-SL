@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.activity_editor import NativeActivityEditorRepository
 from noethys_qt.noethys_native import NoethysQtWindow
-from noethys_qt.people_search import PeopleSearchRepository
+from noethys_qt.people_search import PeopleSearchPage, PeopleSearchRepository
 
 
 class PeopleSearchTests(unittest.TestCase):
@@ -134,6 +134,52 @@ class PeopleSearchTests(unittest.TestCase):
         self.assertEqual(window.people_page.model.rowCount(), 2)
         pending = window.navigation.item(3)
         self.assertFalse(bool(pending.flags() & Qt.ItemFlag.ItemIsEnabled))
+
+
+    def test_multifamily_requires_an_explicit_choice(self) -> None:
+        database = self._database()
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                "INSERT INTO rattachements (IDindividu, IDfamille, IDcategorie, titulaire) VALUES (2, 20, 2, 0)"
+            )
+        page = PeopleSearchPage(self._repository(database))
+        self.addCleanup(page.close)
+        requested: list[int] = []
+        page.familyRequested.connect(requested.append)
+        page.search_edit.setText("MARTIN")
+        page.search_now()
+        page.table.selectRow(0)
+        self.assertEqual(page.family_selector.count(), 3)
+        self.assertIsNone(page.family_selector.currentData())
+        self.assertFalse(page.open_family_button.isEnabled())
+        page._request_family()
+        page._activate_row()
+        self.assertEqual(requested, [])
+        self.assertTrue(page.family_selector.hasFocus())
+        page.family_selector.setCurrentIndex(2)
+        self.assertTrue(page.open_family_button.isEnabled())
+        page.open_family_button.click()
+        self.assertEqual(requested, [20])
+
+    def test_without_family_only_the_individual_opens(self) -> None:
+        database = self._database()
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                "INSERT INTO individus (IDindividu, nom, prenom, etat) VALUES (4, 'SANSFAMILLE', 'Aline', NULL)"
+            )
+        page = PeopleSearchPage(self._repository(database))
+        self.addCleanup(page.close)
+        individuals: list[int] = []
+        families: list[int] = []
+        page.individualRequested.connect(individuals.append)
+        page.familyRequested.connect(families.append)
+        page.search_edit.setText("SANSFAMILLE")
+        page.search_now()
+        page.table.selectRow(0)
+        self.assertFalse(page.open_family_button.isEnabled())
+        page._activate_row()
+        self.assertEqual(individuals, [4])
+        self.assertEqual(families, [])
 
 
 if __name__ == "__main__":

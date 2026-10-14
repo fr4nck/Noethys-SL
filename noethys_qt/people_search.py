@@ -18,6 +18,7 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -424,12 +425,16 @@ class PeopleSearchPage(QWidget):
         self.person_label.setWordWrap(True)
         self.family_label = QLabel("", details)
         self.family_label.setWordWrap(True)
+        self.family_selector = QComboBox(details)
+        self.family_selector.setAccessibleName("Famille à consulter")
+        self.family_selector.setVisible(False)
         self.contact_label = QLabel("", details)
         self.contact_label.setWordWrap(True)
         self.open_family_button = QPushButton("Ouvrir la famille", details)
         self.open_individual_button = QPushButton("Fiche individuelle", details)
         detail_layout.addWidget(self.person_label)
         detail_layout.addWidget(self.family_label)
+        detail_layout.addWidget(self.family_selector)
         detail_layout.addWidget(self.contact_label)
         detail_layout.addStretch(1)
         detail_layout.addWidget(self.open_family_button)
@@ -450,6 +455,7 @@ class PeopleSearchPage(QWidget):
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)
         self.table.doubleClicked.connect(self._activate_row)
         self.open_family_button.clicked.connect(self._request_family)
+        self.family_selector.currentIndexChanged.connect(lambda _index: self._sync_buttons())
         self.open_individual_button.clicked.connect(self._request_individual)
         self._sync_buttons()
 
@@ -512,6 +518,18 @@ class PeopleSearchPage(QWidget):
 
     def _selection_changed(self, *_args) -> None:
         row = self.selected_person()
+        # Un rattachement multiple impose un choix explicite : jamais row.families[0].
+        self.family_selector.blockSignals(True)
+        self.family_selector.clear()
+        if row is not None:
+            if len(row.families) > 1:
+                self.family_selector.addItem("Choisir la famille à consulter", None)
+            for link in row.families:
+                self.family_selector.addItem(
+                    f"{link.family_label} — {link.role_label} (#{link.family_id})", link.family_id
+                )
+        self.family_selector.setVisible(row is not None and len(row.families) > 1)
+        self.family_selector.blockSignals(False)
         if row is None:
             self.person_label.setText("Aucun individu sélectionné")
             self.family_label.clear()
@@ -532,16 +550,22 @@ class PeopleSearchPage(QWidget):
         self.contact_label.setText("<br>".join(part for part in (address, contact) if part))
         self._sync_buttons()
 
+    def _selected_family_id(self) -> int | None:
+        row = self.selected_person()
+        if row is None or not row.families:
+            return None
+        value = self.family_selector.currentData()
+        return int(value) if value is not None else None
+
     def _sync_buttons(self) -> None:
         row = self.selected_person()
         self.open_individual_button.setEnabled(row is not None)
-        self.open_family_button.setEnabled(row is not None and bool(row.families))
+        self.open_family_button.setEnabled(self._selected_family_id() is not None)
 
     def _request_family(self) -> None:
-        row = self.selected_person()
-        if row is None or not row.families:
-            return
-        self.familyRequested.emit(row.families[0].family_id)
+        family_id = self._selected_family_id()
+        if family_id is not None:
+            self.familyRequested.emit(family_id)
 
     def _request_individual(self) -> None:
         row = self.selected_person()
@@ -552,7 +576,11 @@ class PeopleSearchPage(QWidget):
         row = self.selected_person()
         if row is None:
             return
-        if len(row.families) == 1:
-            self.familyRequested.emit(row.families[0].family_id)
-        else:
+        if not row.families:
             self.individualRequested.emit(row.individual_id)
+            return
+        family_id = self._selected_family_id()
+        if family_id is not None:
+            self.familyRequested.emit(family_id)
+        else:
+            self.family_selector.setFocus()
