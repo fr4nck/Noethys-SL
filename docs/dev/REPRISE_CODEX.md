@@ -1,6 +1,25 @@
-# Reprise du chantier Noethys-SL — état au 08/10/2026
+# Reprise du chantier Noethys-SL — état au 14/10/2026
 
 Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaque session.
+
+## Lot Qt Individus/Familles — 14/10/2026
+
+- **Branche** : `qt`, sans branche ajoutée. Base : `2146ad13`.
+- **Code** : `f75b5515` (choix N familles obligatoire), `38060ecd`
+  (test hors écran), `1c0e8dcf` (fiches consultatives et chargement
+  asynchrone), `7042c57e` (recherche non bloquante, latest-wins).
+- **Preuves** : CI #38547575403, #38547920649 et
+  [#38548298813](https://github.com/fr4nck/Noethys-SL/actions/runs/38548298813)
+  en **SUCCÈS**, Windows PySide6 hors écran. L'échec initial
+  #38547050445 venait exclusivement d'un test de focus sans fenêtre affichée.
+- **Données** : SQLite fictif, contrôle de données avant/après ; lecture seule.
+  Aucun test sur une base réelle ou un profil `Portable/`.
+- **Non touchés** : `main`, `wx`/prérelease RC7, schéma SQL, packaging.
+- **Stop-gates** : reports métier communs RC6/RC7 vers `main`/`qt` encore
+  EN ATTENTE. Catégories familiales, volumes et droits d'accès à qualifier.
+- **Prochaine action** : recette Windows graphique en VM sur copie isolée ;
+  étendre progressivement les fiches sans rendre leurs écritures actives.
+
 
 
 ## Lot limité Noe-032 — ZIP partiel sur fichier absent — 10/10/2026

@@ -38,6 +38,32 @@ ou un profil pointant la production. Test : `tests_qt/test_garde_base_configuree
 - Aucune recette graphique sur un poste de travail : runner isolé ou machine
   virtuelle uniquement.
 
+## Lot Qt 1 — consultation Individus/Familles (14/10/2026)
+
+- Coque Qt autonome dans `noethys_qt/noethys_native.py`, non lancée par `Noethys.exe`.
+- Recherche via `people_search.py` : connexion SQL dans un worker, dernière
+  recherche prioritaire, résultats périmés ignorés, boucle Qt non bloquante.
+- Sélection zéro famille : fiche individu ; une famille : ouverture directe ;
+  plusieurs familles : choix **explicite**, jamais la première par défaut.
+- `people_details.py` : fiches **consultatives minimales** Famille/Individu
+  (ID stable, identité, coordonnées, rattachements), lecture hors thread UI,
+  navigation réversible, aucune méthode d'écriture.
+- Données : tests SQLite fictifs, aucune migration SQL ni modification de
+  `main`, de `wx`, des binaires RC7 ou des profils utilisateurs.
+- Qualification automatique Windows/PySide6 hors écran :
+  [CI #38548298813](https://github.com/fr4nck/Noethys-SL/actions/runs/38548298813)
+  **SUCCÈS** au commit `7042c57e`.
+- **Non qualifié** : recette graphique Windows sur VM, volumes réels,
+  autres schémas, ergonomie définitive, parité des fiches wx complètes,
+  droits d'accès et moteur des consommations. Les catégories de
+  rattachement affichées reprennent le prototype ; les qualifier contre
+  le référentiel métier avant d'autoriser une écriture.
+
+### Prochaine action
+
+Recette souris/clavier sur VM Windows et copie fictive isolée, puis
+extension progressive des fiches sans dépendance au runtime wx.
+
 ## Travail restant avant toute activation
 
 1. Recette utilisateur sur copie fictive, en machine virtuelle.

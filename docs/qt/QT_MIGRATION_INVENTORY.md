@@ -1,5 +1,11 @@
 # Inventaire de migration Qt — Noethys
 
+> **Actualisation du 14/10/2026** : les tableaux ci-dessous constituent
+> l'inventaire historique du 05/09/2026, et non l'état de la branche `qt`.
+> Depuis, la coque principale, la recherche non bloquante et les fiches
+> consultatives minimales Individu/Famille ont été ajoutées (CI Windows
+> #38548298813). Les fiches wx complètes, le gestionnaire des consommations
+> et les écritures Familles/Individus restent **non migrés**.
 > Branche de référence : `poc/qt-theme-isole`  
 > État audité : 5 septembre 2026  
 > Source de vérité : entrées utilisateur déclarées dans `Noethys.MainFrame.CreationBarreMenus()`, panneaux créés par `CreationPanneaux()`, et modules réellement présents dans `noethys_qt/`.
