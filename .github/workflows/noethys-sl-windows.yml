@@ -1,4 +1,4 @@
-name: Noethys SL wx - candidat 0.1.0 RC5 Windows
+name: Noethys SL wx - candidat 0.1.0 RC6 Windows
 
 # Fabrication de qualification uniquement sur demande. Aucune release.
 on:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    name: Construire Noethys SL wx 0.1.0 RC5 (candidat)
+    name: Construire Noethys SL wx 0.1.0 RC6 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -30,13 +30,13 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Vérifier syntaxe, identité publique RC5 et splash
+      - name: Vérifier syntaxe, identité publique RC6 et splash
         shell: pwsh
         run: |
           python -m compileall -q noethys tests
           if ($LASTEXITCODE -ne 0) { throw 'Échec de compilation Python' }
-          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.5', '0.1.0 RC5')"
-          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC5 incohérente' }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.6', '0.1.0 RC6')"
+          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC6 incohérente' }
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
@@ -133,11 +133,14 @@ jobs:
           @(
             'Produit: Noethys SL'
             'Interface: wxPython'
-            'Version publique: 0.1.0-rc.5'
+            'Version publique: 0.1.0-rc.6'
             'Corrections intégrées:'
             '  - Anomalie A (P1) : tri des devis avec activités NULL'
             '  - Anomalie B (P2) : cache disponibilité base PHOTOS'
             '  - Anomalie C (P2) : accumulation de pièces jointes email'
+            '  - Sauvegarde réseau : clients mysql/mysqldump 5.7.44 livrés (mysql-client/), identifiants quotés'
+            '  - Reçus : aucun reçu tenu pour envoyé sans acceptation du serveur'
+            '  - ZIP portable : dossier Portable/ réellement présent'
             'Statut: candidat de recette, non valide pour production'
             "Commit: $env:GITHUB_SHA"
             "Branche: $env:GITHUB_REF_NAME"
@@ -149,7 +152,7 @@ jobs:
       - name: Vérifier le démarrage sur runner Windows isolé
         shell: pwsh
         run: |
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc5-profile'
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc6-profile'
           $env:APPDATA = Join-Path $profileRoot 'Roaming'
           $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
           New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
@@ -179,12 +182,12 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Échec installation Inno Setup ($LASTEXITCODE)" }
           }
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
-          & $iscc '/DMyAppVersion=0.1.0-rc.5' 'packaging\vanilla-installer.iss'
+          & $iscc '/DMyAppVersion=0.1.0-rc.6' 'packaging\vanilla-installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
-          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.5-Setup.exe'
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.6-Setup.exe'
 
-      - name: Créer le véritable ZIP portable RC5
+      - name: Créer le véritable ZIP portable RC6
         shell: pwsh
         run: |
           # Compress-Archive omet les dossiers vides : sans ce fichier, le ZIP
@@ -192,7 +195,7 @@ jobs:
           New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
           Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt' -ErrorAction Stop
           Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
-          $zip = 'windows-output/Noethys-SL-0.1.0-rc.5-Windows-portable.zip'
+          $zip = 'windows-output/Noethys-SL-0.1.0-rc.6-Windows-portable.zip'
           Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
           if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
             throw 'Archive portable absente ou vide'
@@ -243,7 +246,7 @@ jobs:
       - name: Publier uniquement les artefacts de recette (aucune release)
         uses: actions/upload-artifact@v7
         with:
-          name: Noethys-SL-0.1.0-rc.5-Windows-candidat
+          name: Noethys-SL-0.1.0-rc.6-Windows-candidat
           path: windows-output/*
           if-no-files-found: error
           retention-days: 30
