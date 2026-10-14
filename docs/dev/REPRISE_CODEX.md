@@ -27,6 +27,14 @@ Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaqu
 
 Prochaine étape : recette manuelle RC6 sur VM Windows propre et copie Docker, avec SMTP de capture ; puis report ciblé de `194bcaeb` et `4e056e4d` vers `main` et `qt` (cherry-pick testé, sans fusion globale).
 
+### Retours de recette RC6 réelle — 14/10/2026
+
+- `530a0cf4` fix(impression) : `UTILS_Printer.py`, six `wx.Pen(wx.BLACK, 0.25, wx.SOLID)` → largeur `0` (troncature historique de 0.25, trait le plus fin). Test `test_noethys_sl_printer_pen`.
+- `e73fa55e` fix(releve) : `ConvertCouleurPDFpourWX` renvoie des entiers ; `ColourSelect` reçoit `(204, 204, 255)`. Avec wx récent, `SetColour((204.0, 204.0, 255.0))` affichait aussi silencieusement du blanc. Test `test_noethys_sl_releve_couleur`.
+- `c49da16f` ci : tests RC6 ajoutés à la CI rapide. [wx #38537544795](https://github.com/fr4nck/Noethys-SL/actions/runs/38537544795) **SUCCÈS** (wxPython 4.2.5, 552 tests). Contre-épreuve locale : 4 échecs sur le code précédent.
+- Ces correctifs ne sont **pas** dans les artefacts RC6 du run #38534018279 : une nouvelle candidate (RC7) sera nécessaire, sur décision humaine.
+- **`Unknown database 'pelemele_photos'` (investigation, aucune base touchée)** : Noethys ouvre `<fichier>_photos` (`GestionDB.DB(suffixe="PHOTOS")`) ; l'erreur 1049 signifie que la base n'existe pas sur ce serveur (un défaut de droits donnerait 1044). `Noethys.py:1543` ne crée pas PHOTOS (ni DOCUMENTS) pour un fichier « Serveur internet » ; une restauration de `.nod` ne contenant que `pelemele_data.sql` produit le même état. Lectures sans effet (photos absentes, journal bruyant) ; en revanche, **l'ajout d'une photo est silencieusement ignoré** (`CTRL_Photo.py:268`, sans message). Vérification en lecture seule à faire par l'administrateur : `SHOW DATABASES LIKE 'pelemele%';`. Création éventuelle : procédure existante `A9079`, sur copie d'abord, après décision ; non exécutée.
+
 
 ## Lot limité Noe-032 — ZIP partiel sur fichier absent — 10/10/2026
 
