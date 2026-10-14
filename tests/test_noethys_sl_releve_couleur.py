@@ -16,7 +16,6 @@ sys.path.insert(0, str(NOETHYS_DIR))
 
 try:
     import wx
-    _APP = wx.App(False)
 except ImportError:
     wx = None
 
@@ -27,6 +26,12 @@ def _fonction_source(chemin, nom):
     espace = {}
     exec(compile(ast.Module(body=[noeud], type_ignores=[]), str(chemin), "exec"), espace)
     return espace[nom]
+
+
+def _exiger_app(test):
+    """ Un autre module de test peut avoir détruit l'App wx : en garantir une. """
+    if wx.GetApp() is None:
+        test._app = wx.App(False)
 
 
 class RelevePrestationsCouleurTests(unittest.TestCase):
@@ -49,6 +54,7 @@ class RelevePrestationsCouleurTests(unittest.TestCase):
 
     @unittest.skipIf(wx is None, "wxPython requis")
     def test_wx_colour_accepte_la_couleur_convertie(self):
+        _exiger_app(self)
         convertir = _fonction_source(self.CHEMIN, "ConvertCouleurPDFpourWX")
         self.assertEqual(wx.Colour(convertir((0.8, 0.8, 1))).Get(False), (204, 204, 255))
         self.assertEqual(wx.Colour(*convertir((0.8, 0.8, 1))).Get(False), (204, 204, 255))

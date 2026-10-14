@@ -16,12 +16,16 @@ sys.path.insert(0, str(NOETHYS_DIR))
 
 try:
     import wx
-    _APP = wx.App(False)
 except ImportError:
     wx = None
 
 PEN_FLOTTANT = re.compile(r"wx\.Pen\([^()]*,\s*\d*\.\d+\s*[,)]")
 
+
+def _exiger_app(test):
+    """ Un autre module de test peut avoir détruit l'App wx : en garantir une. """
+    if wx.GetApp() is None:
+        test._app = wx.App(False)
 
 
 class PrinterPenTests(unittest.TestCase):
@@ -32,6 +36,7 @@ class PrinterPenTests(unittest.TestCase):
 
     @unittest.skipIf(wx is None, "wxPython requis")
     def test_stylo_fin_constructible_et_largeur_historique(self):
+        _exiger_app(self)
         stylo = wx.Pen(wx.BLACK, 0, wx.SOLID)
         self.assertTrue(stylo.IsOk())
         self.assertEqual(stylo.GetWidth(), 0)
