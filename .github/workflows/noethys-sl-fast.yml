@@ -152,6 +152,10 @@ jobs:
           tests.test_master_portail_tipi
           tests.test_portail_payment_ventilation_contract
           tests.test_importation_individus_contracts
+          tests.test_noethys_sl_mysql_client_embarque
+          tests.test_noethys_sl_recus_envoi
+          tests.test_noethys_sl_printer_pen
+          tests.test_noethys_sl_releve_couleur
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
