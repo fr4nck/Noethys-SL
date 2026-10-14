@@ -137,6 +137,13 @@ def _parametres_recette():
     return app
 
 
+class RecetteExigeeTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("NOETHYS_TEST_MYSQL_EXIGER") == "1", "recette réelle non exigée")
+    def test_recette_reelle_effectivement_executee(self):
+        """ En CI de qualification, un aller-retour ignoré est un échec, pas un succès. """
+        self.assertIsNotNone(_parametres_recette())
+
+
 @unittest.skipIf(_parametres_recette() is None,
                  "Recette réelle : serveur MySQL local jetable et paquet mysql-client non déclarés")
 class AllerRetourReelTests(unittest.TestCase):

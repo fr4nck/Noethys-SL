@@ -53,10 +53,69 @@ jobs:
           tests.test_regr_devis_integration
           tests.test_photos_db_cache
           tests.test_pieces_jointes_accumulation
+          tests.test_000_garde_reseau
+          tests.test_noethys_sl_backup_network_config
+          tests.test_noethys_sl_mysql_returncode
+          tests.test_noethys_sl_sql_integration
+          tests.test_noethys_sl_sql_manifest
+          tests.test_noethys_sl_mysql_client_embarque
+          tests.test_audit_reseau_emails
+          tests.test_rail1_mail_lot
+          tests.test_rail1_recu_reglement
+          tests.test_rail1_portail_recu
+          tests.test_noethys_sl_recus_envoi
           -v
 
       - name: Construire le binaire wxPython
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+
+      - name: Télécharger l'archive officielle MySQL 5.7.44 (empreinte épinglée)
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $zip
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Empreinte inattendue de l'archive MySQL : $hash"
+          }
+
+      - name: Livrer les clients mysql/mysqldump 5.7 (sans serveur) et vérifier leurs DLL
+        shell: pwsh
+        run: |
+          python -m pip install pefile==2024.8.26
+          python packaging/assembler_client_mysql.py (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') dist/Noethys
+          if ($LASTEXITCODE -ne 0) { throw 'Assemblage des clients MySQL en échec' }
+
+      - name: Recette réelle sauvegarde/restauration (MySQL 5.7.44 local jetable, clients livrés)
+        shell: pwsh
+        env:
+          NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
+          NOETHYS_TEST_MYSQL_PORT: '3399'
+          NOETHYS_TEST_MYSQL_USER: recette
+          # Mot de passe synthétique piégé : '#', ';', guillemets, antislash, accent, espace final.
+          NOETHYS_TEST_MYSQL_PASSWORD: 'P#w;d "x\y''z é '
+          NOETHYS_TEST_MYSQL_EXIGER: '1'
+          PYTHONIOENCODING: utf-8
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP 'mysql57-recette'
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m == 'mysql-5.7.44-winx64/bin/mysqld.exe']" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
+          $root = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'data'
+          & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation du serveur MySQL jetable en échec' }
+          $serveur = Start-Process -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root", "--datadir=$data", '--port=3399',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8')
+          try {
+            python tests/recette_mysql_jetable_preparer.py
+            if ($LASTEXITCODE -ne 0) { throw 'Préparation du serveur de recette en échec' }
+            $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
+            python -m unittest tests.test_noethys_sl_mysql_client_embarque -v
+            if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
+          }
+          finally {
+            Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Vérifier le contenu et enregistrer la provenance
         shell: pwsh
@@ -111,6 +170,9 @@ jobs:
             throw 'Un profil Portable ne doit jamais se trouver dans le Setup'
           }
           Copy-Item 'dist/Noethys' 'dist/Noethys-installable' -Recurse
+          if (-not (Test-Path 'dist/Noethys-installable/mysql-client/bin/mysqldump.exe')) {
+            throw 'Clients MySQL absents du contenu du Setup'
+          }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             choco install innosetup --no-progress -y
@@ -125,16 +187,45 @@ jobs:
       - name: Créer le véritable ZIP portable RC5
         shell: pwsh
         run: |
+          # Compress-Archive omet les dossiers vides : sans ce fichier, le ZIP
+          # « portable » RC4/RC5 n'avait pas de dossier Portable/ (profil %APPDATA%).
           New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
-          if (Test-Path 'packaging/portable/README.txt') {
-            Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt'
-          }
+          Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt' -ErrorAction Stop
           Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
           $zip = 'windows-output/Noethys-SL-0.1.0-rc.5-Windows-portable.zip'
           Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
           if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
             throw 'Archive portable absente ou vide'
           }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip).Path)
+          try { $entrees = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }) }
+          finally { $archive.Dispose() }
+          foreach ($attendu in @('Noethys.exe', 'Portable/README.txt', 'mysql-client/bin/mysql.exe',
+                                 'mysql-client/bin/mysqldump.exe', 'mysql-client/bin/msvcp140.dll',
+                                 'mysql-client/bin/vcruntime140.dll', 'mysql-client/bin/vcruntime140_1.dll',
+                                 'mysql-client/LICENSE', 'mysql-client/LISEZMOI-NOETHYS.txt')) {
+            if ($entrees -notcontains $attendu) { throw "Entrée absente du ZIP portable : $attendu" }
+          }
+
+      - name: Démarrer le ZIP portable extrait et vérifier que le profil reste dans Portable/
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem 'windows-output' -Filter '*-Windows-portable.zip' | Select-Object -First 1
+          $extrait = Join-Path $env:RUNNER_TEMP 'portable-extrait'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extrait -Force
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'profil-windows-vide'
+          $env:APPDATA = Join-Path $profileRoot 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
+          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
+          $process = Start-Process -FilePath (Join-Path $extrait 'Noethys.exe') -WorkingDirectory $extrait -PassThru
+          Start-Sleep -Seconds 15
+          if ($process.HasExited -and $process.ExitCode -ne 0) { throw "Noethys.exe portable a quitté avec le code $($process.ExitCode)" }
+          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          if (Test-Path (Join-Path $env:APPDATA 'noethys')) { throw 'Le ZIP portable a écrit son profil dans %APPDATA%' }
+          $crees = @(Get-ChildItem (Join-Path $extrait 'Portable') -Recurse | Where-Object { $_.Name -ne 'README.txt' })
+          if ($crees.Count -eq 0) { throw 'Aucun fichier de profil créé dans Portable/' }
+          $crees | ForEach-Object { Write-Host "Profil portable : $($_.FullName.Substring($extrait.Length))" }
 
       - name: Calculer les empreintes SHA-256
         shell: pwsh
