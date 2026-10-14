@@ -250,7 +250,7 @@ class ObjectListViewPrinter():
         fmt.ListHeader.TextColor = dictOptions["titre_couleur"]
         fmt.ListHeader.Padding = (0, 12, 0, 10)
         fmt.ListHeader.TextAlignment = dictOptions["titre_alignement"]
-        fmt.ListHeader.Frame(wx.Pen(wx.BLACK, 0.25, wx.SOLID), space=10)
+        fmt.ListHeader.Frame(wx.Pen(wx.BLACK, 0, wx.SOLID), space=10)
         
         # Intro
         fmt.ListIntro.Font = wx.Font(int(dictOptions["intro_taille_texte"]), wx.SWISS, wx.NORMAL, int(dictOptions["intro_style"]), faceName="Arial")
@@ -369,7 +369,7 @@ class ObjectListViewPrinter():
         fmt.ListHeader.TextColor = wx.BLACK
         fmt.ListHeader.Padding = (0, 12, 0, 10)
         fmt.ListHeader.TextAlignment = wx.ALIGN_LEFT
-        fmt.ListHeader.Frame(wx.Pen(wx.BLACK, 0.25, wx.SOLID), space=10)
+        fmt.ListHeader.Frame(wx.Pen(wx.BLACK, 0, wx.SOLID), space=10)
         
         # Intro
         fmt.ListIntro.Font = wx.FFont(7, wx.FONTFAMILY_DECORATIVE, face=headerFontName)
@@ -384,14 +384,14 @@ class ObjectListViewPrinter():
         fmt.ColumnHeader.Background(wx.Colour(240, 240, 240))
         fmt.ColumnHeader.CellPadding = 5
         fmt.ColumnHeader.TextAlignment = wx.ALIGN_CENTER
-        fmt.ColumnHeader.GridPen = wx.Pen(wx.BLACK, 0.25, wx.SOLID)
+        fmt.ColumnHeader.GridPen = wx.Pen(wx.BLACK, 0, wx.SOLID)
         fmt.ColumnHeader.SetAlwaysCenter(True)
         
         # Titre d'un groupe
         fmt.GroupTitle.Font = wx.FFont(9, wx.FONTFAMILY_SWISS, wx.FONTFLAG_BOLD, face=headerFontName)
         fmt.GroupTitle.Padding = (2, 10, 2, 2)
         fmt.GroupTitle.CellPadding = 12
-        fmt.GroupTitle.GridPen = wx.Pen(wx.BLACK, 0.25, wx.SOLID)
+        fmt.GroupTitle.GridPen = wx.Pen(wx.BLACK, 0, wx.SOLID)
         
 ##        fmt.GroupTitle.TextColor = wx.BLUE
 ##        fmt.GroupTitle.Padding = (0, 12, 0, 12)
@@ -400,7 +400,7 @@ class ObjectListViewPrinter():
         # Ligne
         fmt.Row.Font = wx.FFont(8, wx.FONTFAMILY_SWISS, face=rowFontName)
         fmt.Row.CellPadding = 5
-        fmt.Row.GridPen = wx.Pen(wx.BLACK, 0.25, wx.SOLID)
+        fmt.Row.GridPen = wx.Pen(wx.BLACK, 0, wx.SOLID)
         fmt.Row.CanWrap = True
         
         # Pied de page
@@ -415,7 +415,7 @@ class ObjectListViewPrinter():
         fmt.ColumnFooter.Background(wx.Colour(240, 240, 240))
         fmt.ColumnFooter.CellPadding = 5
         fmt.ColumnFooter.TextAlignment = wx.ALIGN_CENTER
-        fmt.ColumnFooter.GridPen = wx.Pen(wx.BLACK, 0.25, wx.SOLID)
+        fmt.ColumnFooter.GridPen = wx.Pen(wx.BLACK, 0, wx.SOLID)
         fmt.ColumnFooter.SetAlwaysCenter(True)
 
         # Pied de Liste
