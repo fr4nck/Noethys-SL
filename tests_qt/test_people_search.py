@@ -155,7 +155,7 @@ class PeopleSearchTests(unittest.TestCase):
         page._request_family()
         page._activate_row()
         self.assertEqual(requested, [])
-        self.assertTrue(page.family_selector.hasFocus())
+        self.assertEqual(page.family_selector.currentIndex(), 0)
         page.family_selector.setCurrentIndex(2)
         self.assertTrue(page.open_family_button.isEnabled())
         page.open_family_button.click()
