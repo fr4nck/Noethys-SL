@@ -161,3 +161,8 @@ dev/db/exports/
 
 # Site MkDocs construit
 /site/
+
+# Profil Portable local : Config.json contient les paramètres de connexion
+# (identifiants MySQL compris). Ne jamais le versionner, ni ses copies.
+**/Portable/Config.json
+**/Portable/Config.json.*

@@ -65,5 +65,6 @@ nav:
       - Contre-qualification du rail 1: audit/CONTRE_QUALIFICATION_RAIL1.md
       - Diagnostic Mailjet: audit/DIAGNOSTIC_MAILJET.md
       - Incident du 08/10/2026 — tests et base réseau: incidents/2026-10-08-tests-base-reseau.md
+      - Incident du 14/10/2026 — identifiants MySQL versionnés: incidents/2026-10-14-identifiants-mysql-portable.md
   - Gouvernance:
       - Stratégie du projet: governance/PROJECT_STRATEGY.md
