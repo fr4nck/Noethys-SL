@@ -137,7 +137,7 @@ class PeopleSearchTests(unittest.TestCase):
         self.assertIs(window.stack.currentWidget(), window.people_page)
         window.people_page.search_edit.setText("Dupont")
         window.people_page.search_now()
-        self.assertEqual(window.people_page.model.rowCount(), 2)
+        self._wait_until(lambda: window.people_page.model.rowCount() == 2)
         pending = window.navigation.item(3)
         self.assertFalse(bool(pending.flags() & Qt.ItemFlag.ItemIsEnabled))
 
@@ -212,6 +212,7 @@ class PeopleSearchTests(unittest.TestCase):
         window.navigate("people")
         window.people_page.search_edit.setText("MARTIN")
         window.people_page.search_now()
+        self._wait_until(lambda: window.people_page.model.rowCount() == 1)
         window.people_page.table.selectRow(0)
         window.people_page.open_family_button.click()
         self._wait_until(lambda: window.details_page.loaded_kind == "family")
@@ -242,6 +243,35 @@ class PeopleSearchTests(unittest.TestCase):
         self._wait_until(lambda: window.details_page.loaded_kind == "error")
         self.assertEqual(window.details_page.current_id, 999)
         self.assertIn("introuvable", window.details_page.message.text().lower())
+
+    def test_background_search_never_blocks_and_latest_query_wins(self) -> None:
+        database = self._database()
+        repository = self._repository(database)
+        original = repository.search
+
+        def delayed(*args, **kwargs):
+            time.sleep(0.15)
+            return original(*args, **kwargs)
+
+        repository.search = delayed
+        page = PeopleSearchPage(repository, background=True)
+        self.addCleanup(page.close)
+        page.search_edit.setText("DUPONT")
+        page.search_now()
+        self.assertEqual(page.summary.text(), "Recherche en cours…")
+        self.assertFalse(page.table.isEnabled())
+        start = time.monotonic()
+        QApplication.processEvents()
+        self.assertLess(time.monotonic() - start, 0.10)
+        page.search_edit.setText("MARTIN")
+        page.search_now()
+        self._wait_until(
+            lambda: page.table.isEnabled() and
+            page.model.rowCount() == 1 and
+            page.model.row_at(0).last_name == "MARTIN"
+        )
+        self.assertEqual(page.summary.text(), "1 résultat(s)")
+
 
 if __name__ == "__main__":
     unittest.main()

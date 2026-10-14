@@ -186,7 +186,7 @@ class NoethysQtWindow(QMainWindow):
 
         self.stack = QStackedWidget(root)
         self.home_page = self._build_home_page()
-        self.people_page = PeopleSearchPage(self.people_repository, self.stack)
+        self.people_page = PeopleSearchPage(self.people_repository, self.stack, background=True)
         self.people_page.familyRequested.connect(self._family_requested)
         self.people_page.individualRequested.connect(self._individual_requested)
         self.details_page = PeopleDetailsPage(self.stack)

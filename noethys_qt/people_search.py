@@ -14,7 +14,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Iterable
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer, Signal
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QObject, QRunnable, QThreadPool, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -319,6 +319,47 @@ class PeopleSearchRepository:
         return SearchResult(tuple(matches), total, approximate)
 
 
+class _SearchSignals(QObject):
+    completed = Signal(int, object, str)
+
+
+class _SearchWorker(QRunnable):
+    """Chaque recherche possède sa propre connexion, jamais partagée avec Qt."""
+
+    def __init__(
+        self,
+        repository: PeopleSearchRepository,
+        token: int,
+        query: str,
+        *,
+        include_archived: bool,
+        include_deleted: bool,
+        limit: int | None,
+    ):
+        super().__init__()
+        self.setAutoDelete(False)
+        self.repository = repository
+        self.token = token
+        self.query = query
+        self.include_archived = include_archived
+        self.include_deleted = include_deleted
+        self.limit = limit
+        self.signals = _SearchSignals()
+
+    def run(self) -> None:
+        try:
+            result = self.repository.search(
+                self.query,
+                include_archived=self.include_archived,
+                include_deleted=self.include_deleted,
+                limit=self.limit,
+            )
+        except Exception as exc:
+            self.signals.completed.emit(self.token, None, str(exc))
+        else:
+            self.signals.completed.emit(self.token, result, "")
+
+
 class PeopleTableModel(QAbstractTableModel):
     HEADERS = ("Nom", "Prénom", "Date naiss.", "Âge", "Famille(s)", "Ville", "Téléphone", "Email", "État")
 
@@ -373,12 +414,23 @@ class PeopleSearchPage(QWidget):
     familyRequested = Signal(int)
     individualRequested = Signal(int)
 
-    def __init__(self, repository: PeopleSearchRepository, parent: QWidget | None = None):
+    def __init__(
+        self,
+        repository: PeopleSearchRepository,
+        parent: QWidget | None = None,
+        *,
+        background: bool = False,
+    ):
         super().__init__(parent)
         self.repository = repository
         self.model = PeopleTableModel()
         self._last_query = ""
         self._show_all = False
+        self._background_search = background
+        self._search_token = 0
+        self._queued_search: tuple[int, str, bool, bool, int | None, bool] | None = None
+        self._running_search: tuple[int, str, bool, bool, int | None, bool] | None = None
+        self._running_worker: _SearchWorker | None = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 10, 12, 10)
@@ -468,6 +520,20 @@ class PeopleSearchPage(QWidget):
         query = self.search_edit.text().strip()
         self._last_query = query
         limit = None if self._show_all and not query else RESULT_LIMIT
+        if self._background_search:
+            # Les frappes successives ne saturent pas le pool : seule la plus
+            # récente reste en attente et tout résultat ancien est ignoré.
+            self._search_token += 1
+            self._queued_search = (
+                self._search_token, query,
+                self.archives_check.isChecked(), self.deleted_check.isChecked(),
+                limit, self._show_all,
+            )
+            self.summary.setText("Recherche en cours…")
+            self.table.setEnabled(False)
+            self._sync_buttons()
+            self._launch_search()
+            return
         try:
             result = self.repository.search(
                 query,
@@ -476,12 +542,47 @@ class PeopleSearchPage(QWidget):
                 limit=limit,
             )
         except Exception as exc:
-            self.model.replace_rows(())
-            self.summary.setText("Recherche indisponible")
-            self.hint.setText(str(exc))
-            self._sync_buttons()
+            self._search_error(str(exc))
             return
+        self._apply_search_result(result, query, self._show_all)
 
+    def _launch_search(self) -> None:
+        if self._running_worker is not None or self._queued_search is None:
+            return
+        request = self._queued_search
+        self._queued_search = None
+        token, query, archived, deleted, limit, _all = request
+        worker = _SearchWorker(
+            self.repository, token, query,
+            include_archived=archived, include_deleted=deleted, limit=limit,
+        )
+        self._running_search = request
+        self._running_worker = worker
+        worker.signals.completed.connect(self._search_completed)
+        QThreadPool.globalInstance().start(worker)
+
+    def _search_completed(self, token: int, result: object, error: str) -> None:
+        request = self._running_search
+        self._running_search = None
+        self._running_worker = None
+        self._launch_search()
+        if token != self._search_token or request is None:
+            return
+        self.table.setEnabled(True)
+        if error:
+            self._search_error(error)
+        elif isinstance(result, SearchResult):
+            self._apply_search_result(result, request[1], request[5])
+        else:
+            self._search_error("Résultat de recherche inattendu.")
+
+    def _search_error(self, message: str) -> None:
+        self.model.replace_rows(())
+        self.summary.setText("Recherche indisponible")
+        self.hint.setText(message)
+        self._sync_buttons()
+
+    def _apply_search_result(self, result: SearchResult, query: str, show_all: bool) -> None:
         self.model.replace_rows(result.rows)
         if query:
             suffix = " · proches" if result.approximate else ""
@@ -492,10 +593,10 @@ class PeopleSearchPage(QWidget):
             )
         else:
             self.summary.setText(
-                f"{len(result.rows)} individu(s) · liste complète" if self._show_all else "Recherche rapide"
+                f"{len(result.rows)} individu(s) · liste complète" if show_all else "Recherche rapide"
             )
             self.hint.setText(
-                "Liste complète des individus actifs." if self._show_all else "Saisissez un nom, prénom, téléphone, email, adresse, code postal, ville ou famille."
+                "Liste complète des individus actifs." if show_all else "Saisissez un nom, prénom, téléphone, email, adresse, code postal, ville ou famille."
             )
         self._selection_changed()
 
@@ -559,20 +660,27 @@ class PeopleSearchPage(QWidget):
 
     def _sync_buttons(self) -> None:
         row = self.selected_person()
-        self.open_individual_button.setEnabled(row is not None)
-        self.open_family_button.setEnabled(self._selected_family_id() is not None)
+        enabled = self.table.isEnabled()
+        self.open_individual_button.setEnabled(enabled and row is not None)
+        self.open_family_button.setEnabled(enabled and self._selected_family_id() is not None)
 
     def _request_family(self) -> None:
+        if not self.table.isEnabled():
+            return
         family_id = self._selected_family_id()
         if family_id is not None:
             self.familyRequested.emit(family_id)
 
     def _request_individual(self) -> None:
+        if not self.table.isEnabled():
+            return
         row = self.selected_person()
         if row is not None:
             self.individualRequested.emit(row.individual_id)
 
     def _activate_row(self, *_args) -> None:
+        if not self.table.isEnabled():
+            return
         row = self.selected_person()
         if row is None:
             return
