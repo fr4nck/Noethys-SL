@@ -1,5 +1,63 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Suivi Mailjet dans Noethys — 15/10/2026
+
+- Demande explicite de Franck : implementer la consultation des etats disponibles
+  dans le portail Mailjet. Depart reel verifie : main `a597b478`, wx `ca12e5a9`,
+  qt `31a2a5d9`. Comparaison des trois fichiers modifies avant portage : dialogs
+  identiques ; protections supplementaires de UTILS_Envoi_email propres a wx
+  (_ExigerAcceptation et retour None du PDF) a conserver par patch cible.
+- Nouvel ecran **Suivi Mailjet** depuis Outils du Mailer ou bouton Historique,
+  soumis au droit `outils_historique/consulter`. Compte d'expedition explicite,
+  destinataire/sujet/etat/derniere verification, recherche, details. Ouverture
+  sans HTTP ; verification volontaire de 1 a 50 lignes, HTTP hors thread wx.
+  Fermer arrete les messages suivants et abandonne les resultats non conserves,
+  sans callback wx depuis le travailleur ; timeouts HTTP bornes par requete.
+- Journal partage dans la categorie reservee `noethys_sl_suivi_mailjet_v1`
+  de la table native `parametres`, JSON versionne par compte/MessageID.
+  Aucune migration implicite. Les nouvelles acceptations sont journalisees
+  par destinataire To/Cc/Bcc, sans corps, piece jointe ou cle API ; les comptes
+  sont identifies par SHA256 de la cle, les secrets restent dans leur configuration
+  existante. Fichier capture sur thread UI avant l'envoi unitaire hors UI.
+  Une panne du journal conserve le succes d'envoi et affiche un avertissement
+  de ne pas renvoyer. Aucun renvoi automatique, SMTP inchange.
+- Concurrence : enregistrement idempotent sous BEGIN IMMEDIATE SQLite ou
+  GET_LOCK MySQL (liberation explicite), puis commit ; mise a jour conditionnee
+  a l'ancienne valeur exacte du JSON (BINARY sur MySQL), sans ecraser une
+  consultation concurrente. Erreur API : garder dernier etat et date verifies,
+  afficher l'erreur de consultation separement. Journal corrompu : refuser,
+  ne rien effacer. Lecture des 500 dernieres entrees du compte, pas de purge.
+- Ancien historique : seules traces categorie 33 avec suffixe MessageID complet
+  sont proposees ; reprise volontaire apres choix confirme du compte emetteur.
+  Pas de recherche approximative par sujet/adresse. Le destinataire inconnu
+  est retrouve par l'API ; les traces tronquees restent non recuperables ici.
+- Consultation : exclusivement GET HTTPS api.mailjet.com, sans redirection,
+  identifiant entier 64 bits conserve en texte, verification compte/ID/adresse.
+  `/message/{ID}` fournit l'etat ; `/messagehistory/{ID}` les evenements observes
+  (100 maximum), `/bouncestatistics/{ID}` le motif d'echec si disponible.
+  401/403/404/429/5xx, JSON malforme et panne reseau ne sont jamais une livraison.
+  401/403/429 arretent le reste du lot. Secrets masques dans les details.
+- Semantique : accepte par Send API != livre ; sent/delivered signifie accepte
+  par le serveur destinataire, pas presence garantie en boite de reception.
+  opened = ouverture signalee, pas preuve de lecture. Sources officielles :
+  [message](https://dev.mailjet.com/docs/email-api/getting-started/retrieve-sent-message),
+  [historique](https://dev.mailjet.com/docs/email-api/getting-started/view-message-history),
+  [etats](https://documentation.mailjet.com/hc/en-us/articles/360048398994-Email-statuses-all-metrics-explained).
+- Tests `test_noethys_sl_suivi_mailjet` : 34, OK / 1 ignore (MySQL local non
+  declare). SQLite natif jetable, vrai wx, API/Send simulees ; concurrence
+  enregistrement/deux postes, CAS obsolete refuse, rollback, idempotence,
+  parametres etrangers preserves, secrets, limites API, fermeture en cours,
+  droits refuses avant lecture DB, envoi accepte malgre panne du journal.
+  Test MySQL conditionnel sur base locale neuve via `_garde_reseau` ; aucune
+  connexion production. Capture de recette locale sur quatre destinataires
+  example.org, ecran verifie. Test ajoute aux CI rapides.
+- STOP-GATE : pas d'appel authentifie Mailjet, test serveur MySQL reel EN ATTENTE,
+  UI Qt native EN ATTENTE ; qualification pilote avec compte de recette avant
+  de qualifier une livraison utilisateur. Aucun email reel, schema, donnee
+  production, regle financiere, coupe-circuit d'adhesion ou installateur modifie.
+  Aucun suivi automatique retroactif ni promesse de reception/lecture.
+  Les preuves CI et commits de portage sont consignees apres qualification.
+
 ## Cotisations automatiques multi-activites — 15/10/2026 (#426)
 
 - Demande precisee par Franck : une cotisation individuelle par beneficiaire,
