@@ -45,7 +45,7 @@
   [message](https://dev.mailjet.com/docs/email-api/getting-started/retrieve-sent-message),
   [historique](https://dev.mailjet.com/docs/email-api/getting-started/view-message-history),
   [etats](https://documentation.mailjet.com/hc/en-us/articles/360048398994-Email-statuses-all-metrics-explained).
-- Tests `test_noethys_sl_suivi_mailjet` : 35, OK / 1 ignore (MySQL local non
+- Tests `test_noethys_sl_suivi_mailjet` : 36, OK / 1 ignore (MySQL local non
   declare). SQLite natif jetable, vrai wx, API/Send simulees ; concurrence
   enregistrement/deux postes, CAS obsolete refuse, rollback, idempotence,
   parametres etrangers preserves, secrets, limites API, fermeture en cours,
@@ -59,6 +59,60 @@
   production, regle financiere, coupe-circuit d'adhesion ou installateur modifie.
   Aucun suivi automatique retroactif ni promesse de reception/lecture.
   Les preuves CI et commits de portage sont consignees apres qualification.
+
+### Preuves du suivi Mailjet
+
+Lot initial, avec compatibilite Unicode :
+
+| Branche | Implementation | Compatibilite Unicode (dernier code) | CI rapide |
+| --- | --- | --- | --- |
+| main | `7390e38369bcc5f869632f7c3911180aac71293f` | `e3cc2e2b2a0b0364370546cd4bc0ac6e6dbc16e5` | [38751242315](https://github.com/fr4nck/Noethys-SL/actions/runs/38751242315) SUCCESS, 615 tests / 6 ignores |
+| wx | `792ef1a24cf910dc2e7e7ff8bbc77a4abe11db86` | `47819c107599b5b4caafd1cca3ebcd0ea548d4e1` | [38752182475](https://github.com/fr4nck/Noethys-SL/actions/runs/38752182475) SUCCESS, 639 tests / 10 ignores |
+| qt | `d902947ca8fac7d780b0378342bef5cd75ea3b2d` | `559b8acf99fed335019af8347ea796b933c068e4` | [38752201133](https://github.com/fr4nck/Noethys-SL/actions/runs/38752201133) SUCCESS, 591 tests / 6 ignores, code commun wx uniquement |
+
+Dernier correctif independant : consommer le resultat SELECT RELEASE_LOCK
+avant restitution d'une connexion MySQL non bufferisee au pool ; LIMIT 1 sur
+le controle d'existant pour ne laisser aucun resultat multiple en attente.
+Test protocole de curseur non bufferise ajoute (36 tests module, OK / 1 ignore,
+sur les trois arbres) ; le test MySQL serveur reste conditionnel et non execute.
+
+| Branche | Dernier commit code | CI finale |
+| --- | --- | --- |
+| main | `675420c271377671c9d1a7a10a58dc6b71359f9d` | [38752508891](https://github.com/fr4nck/Noethys-SL/actions/runs/38752508891) SUCCESS, 616 tests / 6 ignores |
+| wx | `35990787fce2d2e9fbf11ec730b32a016d6921f0` | [38753841669](https://github.com/fr4nck/Noethys-SL/actions/runs/38753841669) SUCCESS, 640 tests / 10 ignores |
+| qt | `925d1d2bd15fe68c3cb89cddce07c7c1e1576b97` | [38753857972](https://github.com/fr4nck/Noethys-SL/actions/runs/38753857972) SUCCESS, 592 tests / 6 ignores, code commun wx uniquement |
+
+Publication main puis portages cibles apres CI main SUCCESS. Tests locaux :
+suite rapide 614 / OK / 6 ignores avant le dernier test Unicode ; module
+Unicode 35 / OK / 1 ignore, puis final 36 / OK / 1 ignore. Sur chaque portage : 96 tests cibles / OK / 1 ignore
+(suivi, acceptation, erreurs, confirmations, cycle de progression, Mailer,
+changelog). Deux dependances absentes du runtime local (xlrd et psutil) ont
+ete installees dans qualification/dependances uniquement pour la suite large,
+sans changer l'environnement utilisateur. Premier controle statique des
+boutons ajuste en explicitant les ajouts au sizer, sans affaiblir le test.
+Run main initial 38750725644 annule par concurrence GitHub au profit du
+correctif Unicode ; il ne constitue pas une preuve de qualification.
+
+Nouveaux moteur, dialog et tests identiques sur les trois branches ; blob
+moteur final `ac33b0aa5ad5ac4b623270486a1e139fbc2e4c71`, dialog
+`e0a05ef8c613f0944b661cf9c20f0a9c069423d4`. Dialogs historiques/Mailer
+identiques ; les seuls ecarts du moteur d'envoi wx restent ses protections
+anterieures (_ExigerAcceptation / PDF None), conservees apres comparaison.
+Pas de merge global, nouvelle branche ni force-push.
+
+| Qualification | main | wx | qt |
+| --- | --- | --- | --- |
+| API simulee / journal SQLite / concurrence / fermeture wx | VALIDÉ | VALIDÉ code commun | VALIDÉ code commun |
+| Serveur MySQL reel / API Mailjet authentifiee de recette | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+| UI Qt native | NON APPLICABLE | NON APPLICABLE | EN ATTENTE |
+| Installation utilisateur / nouveau candidat Windows | NON EFFECTUÉ | NON EFFECTUÉ | NON EFFECTUÉ |
+
+Journaux/capture synthetiques et dependances locales sont dans qualification/
+hors Git ; aucun fichier sources/ modifie. La prochaine etape est une recette
+pilote isolee (serveur MySQL jetable et compte Mailjet de recette, sans email
+reel), puis qualification d'un candidat distinct si demande. La RC7.2 deja
+installee ne contient pas cette fonctionnalite. Les prochains commits de
+preuve ne changent que ce document, pas le code qualifie par ces CI.
 
 ## Cotisations automatiques multi-activites — 15/10/2026 (#426)
 
