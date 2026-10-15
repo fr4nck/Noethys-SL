@@ -30,9 +30,9 @@
 
 PRODUCT_NAME = u"Noethys SL"
 
-# Forme canonique (tag Git, noms d'artefacts) : noethys-sl-0.1.0-rc.7,
-# Noethys-SL-0.1.0-rc.7-Windows-portable.zip, Noethys-SL-0.1.0-rc.7-Setup.exe
-PRODUCT_VERSION = "0.1.0-rc.7"
+# Forme canonique (tag Git, noms d'artefacts) : noethys-sl-0.1.0-rc.7.1,
+# Noethys-SL-0.1.0-rc.7.1-Windows-portable.zip, Noethys-SL-0.1.0-rc.7.1-Setup.exe
+PRODUCT_VERSION = "0.1.0-rc.7.1"
 
 # Forme affichée à l'utilisateur (titre de fenêtre, à propos, écran d'accueil)
-PRODUCT_VERSION_DISPLAY = u"0.1.0 RC7"
+PRODUCT_VERSION_DISPLAY = u"0.1.0 RC7.1"
