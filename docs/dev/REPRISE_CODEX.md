@@ -21,15 +21,43 @@
 - Qualification locale : 67 tests Python 3.10/wx, OK, deux skips MySQL ; huit
   tests nouveaux dont SQLite deux connexions/deux threads et attente de verrou.
   Comparaison avant/apres 45 combinaisons : SQL/valeurs/historique/commits/erreurs
-  identiques. Nouveau test ajoute a la CI rapide, resultat distant a consigner.
+  identiques. Nouveau test ajoute a la CI rapide ; resultat final SUCCESS, voir matrice ci-dessous.
 - STOP-GATE : moteur Docker local indisponible, aucune recette serveur MySQL
   ni UI Qt effectuee. UPDATE groupes/champs reduits/pooling/transactions restent
   EN ATTENTE. RC7.2 ffd28de ne contient aucun lot #427. Aucun build/installation,
   production, email, donnees existantes ou references historiques touches.
 - Copie isolee locale : `optimisation-consos-20261015` dans l'espace du projet ;
   `qualification/` contient sources de mesure et journaux synthetiques hors Git.
-  Sources synchronisees et anciens WIP preserves. Publication main puis portage
-  cible wx/qt soumis au succes de la CI rapide de ce lot ; preuves finales a suivre.
+  Sources synchronisees et anciens WIP preserves. Publication main puis portages
+  cibles wx/qt effectues ; trois CI SUCCESS, voir preuves finales ci-dessous.
+
+### Preuves finales du lot #427 — 15/10/2026
+
+| Lot / preuve | main | wx | qt |
+| --- | --- | --- | --- |
+| Preparation client #427 | VALIDÉ `2aaa3046a6a4bd928eb8ad5d6f02b74c3851f87b` | VALIDÉ `cc436b2c05ccedf30fc823dd82b332cb7324481b` | VALIDÉ code commun `ab23538919321fe721bf102e94eb56f086ccf68b` |
+| CI rapide syntaxe + contrats Windows | [38732132634](https://github.com/fr4nck/Noethys-SL/actions/runs/38732132634) SUCCESS, 553 tests / 4 skips | [38732766252](https://github.com/fr4nck/Noethys-SL/actions/runs/38732766252) SUCCESS, 577 tests / 8 skips | [38732765420](https://github.com/fr4nck/Noethys-SL/actions/runs/38732765420) SUCCESS, 539 tests / 4 skips ; commun wx, pas UI Qt native |
+| Tests locaux transports/profilage/nouveau lot | VALIDÉ, inclus dans 67 tests | VALIDÉ, 19 tests | VALIDÉ commun, 19 tests |
+| Serveur MySQL / UPDATE groupes / pooling | EN ATTENTE / STOP-GATE | EN ATTENTE / STOP-GATE | EN ATTENTE / STOP-GATE |
+| Recette interface Qt native | NON APPLICABLE | NON APPLICABLE | EN ATTENTE |
+
+Les blobs CTRL_Grille.py (`0b92eaa09815b5bb3ad6385b1bfd3a712e88dbca`),
+GestionDB.py (`c4ed9fd040430883609f7e2169240d484ede6352`), harnais, benchmark et
+nouveau test sont identiques sur les trois commits de code. Chaque portage
+a pour parent la tete initiale de sa branche. Les workflows sont adaptes
+par ajout du seul nouveau test, sans perdre leurs autres contrats. Aucune
+nouvelle branche, fusion globale ni force-push ; publication main apres
+tests locaux, puis wx/qt apres CI main SUCCESS. Les notes de preuve ajoutees
+ensuite ne changent que docs/dev/REPRISE_CODEX.md, sans nouvelle CI runtime.
+
+L'issue [#427](https://github.com/fr4nck/Noethys-SL/issues/427) reste ouverte :
+un cout client est reduit, le goulet terrain n'est pas mesure. Pas de nouvelle
+qualification globale des differences entre branches, pas de release stable
+revendiquee. RC7.2 ffd28de et l'installation Windows restent hors de ce lot.
+Prochaine etape et STOP-GATE : serveur jetable synthétique, mesures SQL avec
+pilote/version explicites et rafraichissement famille post-modal ; aucune
+execution de recette sur production.
+
 
 Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaque session.
 
