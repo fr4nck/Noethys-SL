@@ -80,7 +80,7 @@ class WordWrapRenderer:
 
         # DrawLabel only accepts a wx.Rect
         try:
-            bounds = wx.Rect(*bounds)
+            bounds = wx.Rect(*map(int, bounds))
         except:
             pass
 
@@ -117,7 +117,7 @@ class WordWrapRenderer:
             valign = wx.ALIGN_CENTER_VERTICAL
 
         try:
-            bounds = wx.Rect(*bounds)
+            bounds = wx.Rect(*map(int, bounds))
         except:
             pass
         lines = WordWrapRenderer._Truncate(dc, text, bounds[2], ellipse, ellipseChars)
