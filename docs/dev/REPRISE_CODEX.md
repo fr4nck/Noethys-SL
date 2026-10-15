@@ -1,5 +1,56 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Impression du depot et rappels a 0 EUR — 15/10/2026
+
+- Deux signalements terrain RC7.2 : les entrees Outils / apercu et imprimer
+  de Saisie d'un depot ne donnent aucune fenetre (absence de parametres
+  confirmee par Franck) ; des familles a jour figurent dans les candidats aux
+  rappels avec 0,00 EUR. Pas de traceback du poste et aucune base reelle lue.
+- Tetes reelles avant travail : main `1c6fd7a6fbc1ece8672949d86cdbe1df69e58794`,
+  wx `2ce816bebf0fc78b114226fe789b1e9ddab6d98b`,
+  qt `dd7633b93bd3bcb439a22a77e3cefc0cf1423665`.
+  Fichiers compares avant modification ; seul UTILS_Printer differe entre
+  main et wx sur six wx.Pen fixes a largeur 0 plutot que 0.25. Aucun ecart
+  main/qt sur ce perimetre. Chemins de depot/menus/parametres identiques a
+  ffd28de (candidat RC7.2) sur wx ; ne pas attribuer un correctif deja livre.
+- Impression : Outils.ListCtrlPrinter importait WordWrapRenderer comme module
+  global, resolu en sources via Chemins.sys.path, absent du namespace de
+  package attendu par PyInstaller. Import relatif explicite, teste dans un
+  sous-processus sans repertoire Outils sur sys.path. Defaut coherent avec
+  l'absence des parametres ; confirmation binaire du poste encore necessaire.
+- Suite du parcours reproduite sur vrai wx : TypeError wx.Pen avec epaisseur
+  float (dont valeur utilisateur 0.25), puis DC.DrawRectangle avec coordonnees
+  float. Largeurs converties a l'API wx (0 = trait fin), coordonnees converties
+  uniquement au dessin dans les deux moteurs, calcul de mise en page inchange.
+  Conservation des intros, totaux et pieds de page du moteur Noethys historique.
+  Parametres rattaches a la fenetre de depot ; menus communs affichent une erreur
+  et ecrivent le traceback dans journal.log plutot que laisser un clic muet.
+- Recette synthetique : vraie liste de depot / menus wx ; deux actions routees
+  vers leurs parcours respectifs, annulation sans impression, parametres et
+  rendu multipage de 49 reglements fictifs dans wx.MemoryDC. Aucun spool,
+  pilote, impression papier, email ni donnees de capture utilisateur utilises.
+  Bitmap local qualification/depot-synthetique.png inspecte visuellement.
+- Rappels : SUM(.10 + .20) peut depasser .30 de quelques fractions de centime
+  sur colonnes FLOAT ; Decimal(str(SUM)) conservait ce residu, solde<0 incluait
+  le compte puis le format a deux decimales affichait 0.00. Arrondir la seule
+  difference au centime avant son test, comme montant affiche ; aucune mise a
+  jour de prestations, ventilations, factures, reglements ou rappels existants.
+  Une dette reelle de 0.01 reste incluse ; zero, crediteur et compte solde exclus.
+  Criteres de dates, activites, categories, exceptions et comptes inchanges.
+- Contre-preuves avant correctif : reexecution de la version `1c6fd7a6` sur
+  les donnees synthetiques renvoie la fausse dette (test en echec attendu) ;
+  ancien import du moteur sans sys.path Outils leve ModuleNotFoundError
+  WordWrapRenderer avant l'ouverture des parametres. Apres correctif, import
+  et tests passent ; il ne s'agit pas d'une execution du binaire installe.
+- Tests ajoutes a la CI rapide : test_noethys_sl_impression_depot (6),
+  test_noethys_sl_rappels_solde (7). SQLite natif temporaire et montants Decimal
+  de retour SQL simules, snapshots avant/apres des ecritures ; pilote Windows,
+  serveur MySQL reel et parcours UI Qt natif non qualifies dans ce lot.
+- STOP-GATE : aucun build, installation ni modification de production. Source
+  corrigee ne signifie pas correction disponible dans la RC7.2 installee.
+  Coupe-circuit P1 des adhesions et travaux Mailjet/performance conserves.
+  Les preuves definitives par branche sont consignees apres les CI rapides.
+
 ## Suivi Mailjet dans Noethys — 15/10/2026
 
 - Demande explicite de Franck : implementer la consultation des etats disponibles
