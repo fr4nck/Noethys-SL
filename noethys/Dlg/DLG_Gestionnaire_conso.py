@@ -22,6 +22,7 @@ import wx.html as html
 
 from Utils import UTILS_Config
 from Utils import UTILS_Utilisateurs
+from Utils import UTILS_Profilage_consos
 import GestionDB
 
 from Ctrl import CTRL_Grille
@@ -131,14 +132,18 @@ class Commandes(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAnnuler, self.bouton_annuler)
 
     def OnBoutonOk(self, event):
-        # Sauvegarde
-        self.parent.panel_grille.grille.Sauvegarde()
-        self.parent.panel_grille.grille.SauvegardeTransports()
-        self.parent.MemoriseParametres()
-        # Fermeture de la fenêtre
-        if 'phoenix' in wx.PlatformInfo:
-            self.parent._mgr.UnInit()
-        self.parent.EndModal(wx.ID_OK)
+        # Profilage local facultatif : aucune collecte par defaut.
+        with UTILS_Profilage_consos.SuiviValidation() as mesure:
+            with mesure.etape("consommations"):
+                self.parent.panel_grille.grille.Sauvegarde()
+            with mesure.etape("transports"):
+                self.parent.panel_grille.grille.SauvegardeTransports()
+            with mesure.etape("parametres"):
+                self.parent.MemoriseParametres()
+            with mesure.etape("fermeture"):
+                if 'phoenix' in wx.PlatformInfo:
+                    self.parent._mgr.UnInit()
+                self.parent.EndModal(wx.ID_OK)
 
     def OnBoutonAide(self, event):
         from Utils import UTILS_Aide
