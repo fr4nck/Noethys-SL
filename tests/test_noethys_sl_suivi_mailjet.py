@@ -254,6 +254,26 @@ class JournalTests(unittest.TestCase):
         S.Journal._execute(db, 'SELECT parametre FROM parametres WHERE categorie=? AND nom=?', (S.CATEGORIE, "l'été"))
         db.cursor.execute.assert_called_once_with('SELECT parametre FROM parametres WHERE categorie=%s AND nom=%s', (S.CATEGORIE, "l'été"))
 
+    def test_mysql_resultats_consommes_avant_retour_au_pool(self):
+        pending = [None]
+        def execute(req, args):
+            self.assertIsNone(pending[0], 'Resultat MySQL precedent non consomme')
+            if req.startswith('SELECT'):
+                pending[0] = req
+        def fetchone():
+            req, pending[0] = pending[0], None
+            if 'IDparametre' in req:
+                self.assertIn('LIMIT 1', req)
+                return None
+            return (1,)
+        db = SimpleNamespace(isNetwork=True, echec=0, cursor=mock.Mock(), connexion=mock.Mock(),
+                             Commit=mock.Mock(), Close=lambda: self.assertIsNone(pending[0]))
+        db.cursor.execute.side_effect = execute
+        db.cursor.fetchone.side_effect = fetchone
+        S.Journal('base-strictement-fictive', fabrique=lambda _: db).Enregistrer(
+            KEY, 'exp@example.org', 'Sujet', [('test@example.org', '', MID)])
+        self.assertEqual(db.cursor.fetchone.call_count, 3)
+
 
 @unittest.skipUnless(os.environ.get('NOETHYS_TEST_MYSQL_HOST'), 'MySQL local jetable non déclaré')
 class JournalMySQLTests(unittest.TestCase):
