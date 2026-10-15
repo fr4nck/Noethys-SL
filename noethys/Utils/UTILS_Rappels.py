@@ -176,7 +176,11 @@ class Facturation():
             montant_ventilation = decimal.Decimal(str(montant_ventilation))
             
             numero = 0
-            solde = montant_ventilation - montant 
+            # Les SUM de colonnes FLOAT (SQLite/MySQL) peuvent differer de
+            # quelques fractions de centime pour un compte pourtant solde.
+            # Comparer le meme montant au centime que celui du rappel affiche,
+            # sans modifier les prestations ou leur ventilation en base.
+            solde = (montant_ventilation - montant).quantize(decimal.Decimal('0.01'))
             
             if solde < decimal.Decimal("0.0") :
                 
