@@ -16,8 +16,8 @@
 - Correctif : GetParticipations expose IDactivite ; CreerAdhesion renseigne
   le champ natif. CompleterActivitesAutomatiques ajoute l'union sur une
   cotisation marquee [adhesion-auto], dans sa periode inclusive, pour les
-  activites liees au meme type, jusqu'a la date de reference exclusivement
-  pour les participations deja datees (aucune seance posterieure a cette date).
+  activites liees au meme type, jusqu'a la date de reference incluse
+  (aucune seance posterieure a cette date).
   Reservation/present et prestation isolee suivent les criteres existants.
 - Relire la liste sous verrou du titulaire/type, transaction SQLite IMMEDIATE
   ou MySQL GET_LOCK + SELECT FOR UPDATE ; update du seul champ activites et
@@ -42,6 +42,61 @@
   terminer dans #426 ; serveur MySQL reel et UI Qt native EN ATTENTE.
   Aucun build, installation, nouvelle branche, suppression de donnees, email,
   intervention production ou alteration des notes de version livrees.
+
+### Preuves du rattachement multi-activites
+
+| Branche | Commit moteur/tests | CI rapide |
+| --- | --- | --- |
+| main | `55889badb2adc91ec1a4f0a43d75ef8ce6fe0b44` | [38744861087](https://github.com/fr4nck/Noethys-SL/actions/runs/38744861087) SUCCESS, 580 tests, 5 ignores |
+| wx | `6cb8149c94b261c2935894b5be80ce8a9937038d` | [38746118910](https://github.com/fr4nck/Noethys-SL/actions/runs/38746118910) SUCCESS, 604 tests, 9 ignores |
+| qt | `6fc8ce60bda1f8a088275059f21edee9ef007cd3` | [38746117092](https://github.com/fr4nck/Noethys-SL/actions/runs/38746117092) SUCCESS, 556 tests, 5 ignores ; code commun wx, pas UI Qt native |
+
+Moteur identique (blob `9a739e2fca0b8e03026aedf19877ece53b7eb8eb`) et
+deux fichiers de tests identiques sur les trois branches. Portages cibles
+apres CI main, tests locaux 69 / OK / 3 ignores sur wx et qt ; leurs autres
+changements, dont notes de version propres et version interne, conserves.
+Pas de nouvelle branche ni force-push. Les commits de preuve suivants ne
+changent que ce document ; aucune CI runtime distincte revendiquee dessus.
+
+| Qualification | main | wx | qt |
+| --- | --- | --- | --- |
+| Activite declencheuse / union / non-double facturation / SQLite concurrent | VALIDÉ | VALIDÉ code commun | VALIDÉ code commun |
+| MySQL reel : lecture sous verrou / union concurrente | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+| Activation auto apres cloture ou facture anticipee / annulations financieres | EN ATTENTE / STOP-GATE | EN ATTENTE / STOP-GATE | EN ATTENTE / STOP-GATE |
+| UI Qt native | NON APPLICABLE | NON APPLICABLE | EN ATTENTE |
+
+Le test MySQL supplementaire utilise exclusivement le serveur local de
+recette autorise par `_garde_reseau`, une base `zz_test_adh_*` creee par le
+test et deux processus ; il reste ignore sans NOETHYS_TEST_MYSQL_*.
+Ce test conditionnel ne vaut pas preuve d'execution serveur.
+
+Prochaine etape : qualifier ce test sur MySQL jetable et le nouveau
+declenchement financier de #426 avec apercu avant validation, exclusion des
+reservations futures et annulations controlees. Ne pas lever le coupe-circuit
+de grille sur la seule presence du rattachement multi-activites. Pas de
+modification en production, de lot retrospectif ou d'installateur dans cette
+session ; les travaux #427 et les notes de version livrees restent conserves.
+
+### Signalement Mailjet — verification en lecture seule
+
+Franck souhaite retrouver dans Noethys les statuts accessibles sur le portail
+Mailjet. Audit main : UTILS_Envoi_email.Mailjet conserve MessageID/MessageUUID
+sur le message accepte ; DLG_Mailer.MemorisationHistorique ajoute les MessageID
+au texte d'historique (categorie 33) pour les personnes retrouvees par adresse.
+Aucun appel de consultation du statut ou de l'historique Mailjet trouve dans
+les sources. Ne pas deduire la livraison de l'acceptation par Send API.
+
+Documentation officielle verifiee :
+[consulter un message](https://dev.mailjet.com/docs/email-api/getting-started/retrieve-sent-message),
+`GET /v3/REST/message/{MessageID}`, et
+[historique d'un message](https://dev.mailjet.com/docs/email-api/getting-started/view-message-history).
+Piste a developper : conserver une correspondance durable par destinataire,
+puis consulter et afficher les statuts fournisseur dans Noethys ; le texte
+libre et borne de l'historique ne constitue pas a lui seul un registre exhaustif.
+Cette consultation pourrait se faire depuis le poste, sans serveur de webhooks
+obligatoire. Aucun code de suivi livre dans cette session, aucune connexion
+authentifiee au compte Mailjet, aucune lecture des cles ni aucun email envoye.
+
 
 ## Reprise #427 — preparation client des consommations — 15/10/2026
 
