@@ -71,7 +71,9 @@ def BaseCourante():
 
 
 def _encoder(record):
-    value = json.dumps(record, ensure_ascii=False, sort_keys=True)
+    # JSON ASCII : conserver egalement les emojis sur les anciens serveurs
+    # MySQL utf8 (3 octets), sans toucher au charset du fichier Noethys.
+    value = json.dumps(record, ensure_ascii=True, sort_keys=True)
     if len(value) > 30000:
         raise ErreurSuivi('Entrée de suivi trop volumineuse.')
     return value
