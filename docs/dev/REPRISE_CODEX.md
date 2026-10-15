@@ -1,5 +1,48 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Cotisations automatiques multi-activites — 15/10/2026 (#426)
+
+- Demande precisee par Franck : une cotisation individuelle par beneficiaire,
+  plusieurs activites associees dans `cotisations.activites`, sans nouvelle
+  facturation ; ajout de l'activite declencheuse puis des autres activites
+  du meme dispositif frequentees pendant sa validite. Le selecteur manuel
+  existe deja dans DLG_Saisie_cotisation et utilise les IDs separes par `;`.
+- Depart initial main d4210e77, wx fc80e29b, qt a5745b99 ; nouvelles tetes
+  concurrentes conservees avant integration : main
+  `4ee3aeb500a52617bd9ac31d807449382a757a02`, wx
+  `84d9f96e4fd71009471f7bf26c2c1a693816283c`, qt
+  `cd3c938af6012e8427ef8e5aeb1ea5b9f599fe1a` (changelog/version interne).
+  Nouvelles consignes AGENTS.md lues. Moteur Adhesions identique avant portage.
+- Correctif : GetParticipations expose IDactivite ; CreerAdhesion renseigne
+  le champ natif. CompleterActivitesAutomatiques ajoute l'union sur une
+  cotisation marquee [adhesion-auto], dans sa periode inclusive, pour les
+  activites liees au meme type, jusqu'a la date de reference exclusivement
+  pour les participations deja datees (aucune seance posterieure a cette date).
+  Reservation/present et prestation isolee suivent les criteres existants.
+- Relire la liste sous verrou du titulaire/type, transaction SQLite IMMEDIATE
+  ou MySQL GET_LOCK + SELECT FOR UPDATE ; update du seul champ activites et
+  historique dans une meme transaction. Rollback sur erreur ; pas de perte
+  d'ajout concurrent. Garder les rattachements existants, sans doublon ; ne pas
+  les retirer apres annulation. Respecter les periodes verrouillees ; rejeter
+  un format invalide ou plus de 450 caracteres, sans tronquer les donnees.
+- Pas de modification des cotisations manuelles, des dates/montants,
+  prestations, factures, ventilations ou reglements existants. Titulaire
+  personne physique/structure et payeur de la participation conserves.
+- Tests locaux : 90 executes, OK, 3 ignores faute de serveur MySQL local
+  declare ; dont 17 nouveaux tests (16 executes, 1 MySQL conditionnel).
+  Deux processus SQLite : A lit avant ecriture, B attend le verrou puis
+  relit ; les deux activites restent associees. Tests : creation depuis
+  conso/prestation, cumul sans double cotisation ni prestation, idempotence,
+  dates/deux annees, structures/sections/payeur, manuel, annulations, rollback,
+  periode verrouillee, format et limite, facturation/ventilation preservees.
+  Syntaxe compilee ; CI main [38744861087](https://github.com/fr4nck/Noethys-SL/actions/runs/38744861087) SUCCESS au commit 55889bad.
+- STOP-GATE : AUTO_CREATION_SUSPENDUE reste True et le hook de grille garde
+  son retour P1. Ce lot ne reactive pas l'automatisme : cloture mensuelle,
+  facture anticipee, apercu comptable et annulations controlees restent a
+  terminer dans #426 ; serveur MySQL reel et UI Qt native EN ATTENTE.
+  Aucun build, installation, nouvelle branche, suppression de donnees, email,
+  intervention production ou alteration des notes de version livrees.
+
 ## Reprise #427 — preparation client des consommations — 15/10/2026
 
 - Depart distant verifie : main `0b2e2d47b2a899bc650cc6ec1090b67129897dbe`,
