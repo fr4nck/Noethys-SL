@@ -1420,3 +1420,14 @@ Aucune pull request ouverte.
 ### Prochaine étape
 
 Reprise de la fabrication du candidat Vanilla depuis `wx`, **sur demande de Franck** (build Windows non lancé). Restent EN ATTENTE : A22, A26, gardes partielles de A20, recette utilisateur du prototype Qt.
+
+
+## Incident P1 du 15/10/2026 — adhésions futures RC7 (issue #426)
+
+- Incident observé en exploitation : une réservation du 06/01/2027 déclenche une cotisation du 06/01/2027 au 06/01/2028 et une prestation datée du 01/10/2026, potentiellement facturable dès octobre. Cause : `CTRL_Grille.Sauvegarde` appelle la réconciliation sans borne supérieure de participation.
+- **Mitigation P1, pas de refonte métier** : `UTILS_Adhesions.AUTO_CREATION_SUSPENDUE=True` ; dans `CTRL_Grille.Sauvegarde`, sortie après `DB.Commit()/DB.Close()` avant `ReconcilierSansEchec`. Enregistrement des consommations inchangé ; création automatique d'adhésion suspendue. Aucune suppression de données réelles.
+- Code commun (blobs identiques, pas de branche nouvelle) : `main` commit `a106ac0195d9175a7a4fd5d8faa7d9c7b0233617` (CI rapide [run 38715042777](https://github.com/fr4nck/Noethys-SL/actions/runs/38715042777) **SUCCESS**), `wx` `51986a14a6357cf0d024df114704d2f4862341ae`, `qt` `37b75f7e8c11be73fce26a8317f48536a0c0f9a0` ; test de non-régression ajouté `test_coupe_circuit_p1_ne_cree_pas_d_adhesion_pendant_la_sauvegarde`.
+- **Candidat Windows RC7.1** : `wx` `8cd839a6b011a6ba68feff3af73537bd4d8aabb3` ; `Identite.PRODUCT_VERSION=0.1.0-rc.7.1`, version interne/protocole Noethys inchangés. CI rapide [run 38715321824](https://github.com/fr4nck/Noethys-SL/actions/runs/38715321824) **SUCCESS**. Build Windows [run 38715321802](https://github.com/fr4nck/Noethys-SL/actions/runs/38715321802) **SUCCESS** : syntaxe, contrats critiques, PyInstaller, clients MySQL embarqués et restauration locale isolée, smoke binaire + ZIP portable, Setup Inno, SHA256SUMS. Artefact `Noethys-SL-0.1.0-rc.7.1-Windows-candidat` (ID 11962707963, rétention 30 jours). Pas de release publiée dans ce lot.
+- **Barrière réelle de déploiement** : le succès CI n'atteste pas une installation en production. Les postes RC7 existants demeurent exposés tant que RC7.1 n'y est pas installé ; les cotisations déjà créées demeurent. Avant déploiement : sauvegarde et contrôle sur poste pilote ; déployer ensuite sur **tous les postes**. Éviter la facturation de cotisations suspectes jusqu'à audit.
+- **Restant** : audit en lecture seule de `cotisations` marquées `[adhesion-auto]`, `prestations.IDfacture`, `ventilation`, dates de participation ; annulations contrôlées sur approbation ; nouvelle règle clôture mensuelle ou facture anticipée après participation, avec annulations et tests de qualification. Les tests Qt spécifiques restent non vérifiés dans ce lot.
+- Suivi canonique : [issue #426](https://github.com/fr4nck/Noethys-SL/issues/426). Ni production, ni Connecthys, ni tag RC7 modifiés.
