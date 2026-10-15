@@ -15,6 +15,8 @@
   sans callback wx depuis le travailleur ; timeouts HTTP bornes par requete.
 - Journal partage dans la categorie reservee `noethys_sl_suivi_mailjet_v1`
   de la table native `parametres`, JSON versionne par compte/MessageID.
+  JSON ASCII avec echappement Unicode pour conserver les emojis sur les
+  anciens serveurs MySQL utf8 a trois octets, sans modifier leur encodage.
   Aucune migration implicite. Les nouvelles acceptations sont journalisees
   par destinataire To/Cc/Bcc, sans corps, piece jointe ou cle API ; les comptes
   sont identifies par SHA256 de la cle, les secrets restent dans leur configuration
@@ -43,7 +45,7 @@
   [message](https://dev.mailjet.com/docs/email-api/getting-started/retrieve-sent-message),
   [historique](https://dev.mailjet.com/docs/email-api/getting-started/view-message-history),
   [etats](https://documentation.mailjet.com/hc/en-us/articles/360048398994-Email-statuses-all-metrics-explained).
-- Tests `test_noethys_sl_suivi_mailjet` : 34, OK / 1 ignore (MySQL local non
+- Tests `test_noethys_sl_suivi_mailjet` : 35, OK / 1 ignore (MySQL local non
   declare). SQLite natif jetable, vrai wx, API/Send simulees ; concurrence
   enregistrement/deux postes, CAS obsolete refuse, rollback, idempotence,
   parametres etrangers preserves, secrets, limites API, fermeture en cours,
