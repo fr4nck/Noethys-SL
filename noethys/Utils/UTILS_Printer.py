@@ -26,6 +26,11 @@ from Utils import UTILS_Dates
 
 
 
+def _PenImpression(couleur, epaisseur):
+    """wx.Pen attend une largeur entiere, 0 representant un trait fin."""
+    return wx.Pen(couleur, max(0, int(round(epaisseur))), wx.SOLID)
+
+
 class PreviewControlBar(wx.PyPreviewControlBar):
     def __init__(self, preview, buttons, parent):
         wx.PyPreviewControlBar.__init__(self, preview, buttons, parent)
@@ -207,7 +212,7 @@ class ObjectListViewPrinter():
             "conclusion" : self.total,
             "orientation" : self.orientation,
             }
-        dlg = DLG_Options_impression_listes.Dialog(None, dictOptions=dictOptions)
+        dlg = DLG_Options_impression_listes.Dialog(self.listview.GetTopLevelParent(), dictOptions=dictOptions)
         if dlg.ShowModal() == wx.ID_OK:
             dictOptions = dlg.GetOptions()
             dlg.Destroy() 
@@ -266,14 +271,14 @@ class ObjectListViewPrinter():
         fmt.ColumnHeader.Background(dictOptions["titre_colonne_couleur_fond"])
         fmt.ColumnHeader.CellPadding = 5
         fmt.ColumnHeader.TextAlignment = dictOptions["titre_colonne_alignement"]
-        fmt.ColumnHeader.GridPen = wx.Pen(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"], wx.SOLID)
+        fmt.ColumnHeader.GridPen = _PenImpression(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"])
         fmt.ColumnHeader.SetAlwaysCenter(True)
         
         # Titre d'un groupe
         fmt.GroupTitle.Font = wx.FFont(10, wx.FONTFAMILY_SWISS, wx.FONTFLAG_BOLD, faceName="Arial")
         fmt.GroupTitle.Padding = (2, 10, 2, 2)
         fmt.GroupTitle.CellPadding = 12
-        fmt.GroupTitle.GridPen = wx.Pen(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"], wx.SOLID)
+        fmt.GroupTitle.GridPen = _PenImpression(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"])
         
 ##        fmt.GroupTitle.TextColor = wx.BLUE
 ##        fmt.GroupTitle.Padding = (0, 12, 0, 12)
@@ -283,7 +288,7 @@ class ObjectListViewPrinter():
         fmt.Row.Font = wx.Font(int(dictOptions["ligne_taille_texte"]), wx.SWISS, wx.NORMAL, int(dictOptions["ligne_style"]), faceName="Arial")
         fmt.Row.TextColor = dictOptions["ligne_couleur"]
         fmt.Row.CellPadding = 5
-        fmt.Row.GridPen = wx.Pen(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"], wx.SOLID)
+        fmt.Row.GridPen = _PenImpression(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"])
         fmt.Row.CanWrap = dictOptions["ligne_multilignes"]
         
         # Pied de page
@@ -299,7 +304,7 @@ class ObjectListViewPrinter():
         fmt.ColumnFooter.Background(dictOptions["pied_colonne_couleur_fond"])
         fmt.ColumnFooter.CellPadding = 5
         fmt.ColumnFooter.TextAlignment = dictOptions["pied_colonne_alignement"]
-        fmt.ColumnFooter.GridPen = wx.Pen(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"], wx.SOLID)
+        fmt.ColumnFooter.GridPen = _PenImpression(dictOptions["grille_trait_couleur"], dictOptions["grille_trait_epaisseur"])
 ##        fmt.ColumnFooter.SetAlwaysCenter(True)
 
         # Conclusion

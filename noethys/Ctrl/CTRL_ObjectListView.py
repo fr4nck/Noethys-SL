@@ -31,6 +31,33 @@ from ObjectListView import EVT_CELL_EDIT_STARTING, EVT_CELL_EDIT_FINISHING, Cell
 from ObjectListView.ObjectListView import AbstractVirtualObjectListView as Abstract
 
 
+def _ExecuterImpressionListe(liste, apercu):
+    """Un echec d'import/initialisation ne doit pas laisser un clic sans retour."""
+    try:
+        if hasattr(liste, "GetParametresImpression"):
+            parametres = liste.GetParametresImpression()
+            for cle, attribut in (("titre", "titre"), ("intro", "impression_intro"),
+                                  ("total", "impression_total"), ("orientation", "orientation")):
+                if cle in parametres:
+                    setattr(liste, attribut, parametres[cle])
+        from Utils import UTILS_Printer
+        prt = UTILS_Printer.ObjectListViewPrinter(
+            liste, titre=liste.titre, intro=liste.impression_intro,
+            total=liste.impression_total, format="A", orientation=liste.orientation)
+        return prt.Preview() if apercu else prt.Print()
+    except Exception:
+        import traceback
+        traceback.print_exc(file=sys.stdout)
+        dlg = wx.MessageDialog(liste, _("Impossible d'ouvrir l'aperçu ou l'impression de cette liste.\n\n"
+                                        "Le détail de l'erreur est dans le journal de Noethys."),
+                               _("Erreur d'impression"), wx.OK | wx.ICON_ERROR)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
+        return False
+
+
 class ReportFormat(OLV.ReportFormat):
     def __init__(self):
         self.ListIntro = OLV.BlockFormat()
@@ -740,28 +767,10 @@ class ObjectListView(OLV.ObjectListView):
                 self.Bind(wx.EVT_MENU, self.EnvoyerMail, id=id)
 
     def Apercu(self, event=None):
-        if hasattr(self, "GetParametresImpression") :
-            dictParametres = self.GetParametresImpression()
-            if "titre" in dictParametres: self.titre = dictParametres["titre"]
-            if "intro" in dictParametres: self.impression_intro = dictParametres["intro"]
-            if "total" in dictParametres: self.impression_total = dictParametres["total"]
-            if "orientation" in dictParametres: self.orientation = dictParametres["orientation"]
-
-        from Utils import UTILS_Printer
-        prt = UTILS_Printer.ObjectListViewPrinter(self, titre=self.titre, intro=self.impression_intro, total=self.impression_total, format="A", orientation=self.orientation)
-        prt.Preview()
+        return _ExecuterImpressionListe(self, apercu=True)
 
     def Imprimer(self, event=None):
-        if hasattr(self, "GetParametresImpression") :
-            dictParametres = self.GetParametresImpression()
-            if "titre" in dictParametres: self.titre = dictParametres["titre"]
-            if "intro" in dictParametres: self.impression_intro = dictParametres["intro"]
-            if "total" in dictParametres: self.impression_total = dictParametres["total"]
-            if "orientation" in dictParametres: self.orientation = dictParametres["orientation"]
-
-        from Utils import UTILS_Printer
-        prt = UTILS_Printer.ObjectListViewPrinter(self, titre=self.titre, intro=self.impression_intro, total=self.impression_total, format="A", orientation=self.orientation)
-        prt.Print()
+        return _ExecuterImpressionListe(self, apercu=False)
 
     def ExportTexte(self, event=None):
         from Utils import UTILS_Export

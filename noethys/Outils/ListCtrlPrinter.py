@@ -103,7 +103,7 @@ import math
 
 import wx
 
-from WordWrapRenderer import WordWrapRenderer
+from .WordWrapRenderer import WordWrapRenderer
 
 # Ajout Perso :
 LISTINTRO = u""
@@ -1680,15 +1680,15 @@ class CellBlock(Block):
             # Draw the interior dividers
             for x in combined[:-1]:
                 right = RectUtils.Right(x.cell)
-                dc.DrawLine(right, top, right, bottom)
+                dc.DrawLine(*map(int, (right, top, right, bottom)))
 
             # Draw the surrounding frame
             left = RectUtils.Left(combined[0].cell)
             right = RectUtils.Right(combined[-1].cell)
-            dc.DrawRectangle(left, top, right-left, bottom-top)
+            dc.DrawRectangle(*map(int, (left, top, right-left, bottom-top)))
             
             #dc.DrawLine(left, top, left, bottom)
-            #dc.DrawLine(right, top, right, bottom)
+            #dc.DrawLine(*map(int, (right, top, right, bottom)))
             #dc.DrawLine(left, bottom, right, bottom)
 
 
@@ -2482,14 +2482,14 @@ class RectangleDecoration(Decoration):
             if self.toColor is None:
                 dc.SetPen(wx.TRANSPARENT_PEN)
                 dc.SetBrush(wx.Brush(self.color))
-                dc.DrawRectangle(*rect)
+                dc.DrawRectangle(*map(int, rect))
             else:
-                dc.GradientFillLinear(wx.Rect(*rect), self.color, self.toColor)
+                dc.GradientFillLinear(wx.Rect(*map(int, rect)), self.color, self.toColor)
 
         if self.pen:
             dc.SetPen(self.pen)
             dc.SetBrush(wx.TRANSPARENT_BRUSH)
-            dc.DrawRectangle(*rect)
+            dc.DrawRectangle(*map(int, rect))
 
 
     def _CalculateRect(self, bounds):
@@ -2560,7 +2560,7 @@ class LineDecoration(Decoration):
             pt2 = RectUtils.BottomRight(bounds)
 
         dc.SetPen(self.pen)
-        dc.DrawLine(pt1[0], pt1[1], pt2[0], pt2[1])
+        dc.DrawLine(*map(int, (pt1[0], pt1[1], pt2[0], pt2[1])))
 
 #----------------------------------------------------------------------------
 
