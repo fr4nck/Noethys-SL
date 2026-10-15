@@ -42,6 +42,14 @@ Consigner la matrice et les preuves de synchronisation dans `docs/dev/REPRISE_CO
 - Aucune migration SQL implicite. Préserver les contrats Noethys/Connecthys et tester sauvegarde/restauration et rollback sur copie avant toute bascule.
 - Les chantiers réseau, pointage et rattachements non qualifiés restent hors publication jusqu'à preuve technique.
 
+## Notes de versions affichées dans l'application
+
+- Le fichier d'origine est `noethys/Versions.txt`, affiché par « À propos → Notes de versions ». Il reste la source de la **version interne numérique** de compatibilité (migrations et Connecthys).
+- **À chaque candidat Windows / version publique :** ajouter la nouvelle section **tout en haut** sous la forme `Version Noethys SL <version affichée> (JJ/MM/AAAA) :`, puis **une ligne débutant par `- ` pour chaque nouveauté**, sans paragraphe narratif ni puce multiline. Conserver les versions publiques en ordre antéchronologique.
+- Ne décrire comme livrées que les corrections effectivement contenues dans cette version. Les travaux de développement non intégrés à l'installateur ne sont pas annoncés comme disponibles.
+- Préserver **mot pour mot** les entrées historiques `Version 1.3.4.4` et antérieures. `FonctionsPerso.GetVersionLogiciel()` doit toujours en extraire la version numérique interne, même si les nouveautés Noethys SL précèdent l'historique ; ne jamais remplacer cette valeur par `Identite.PRODUCT_VERSION`.
+- Les notes sont propres au candidat publié sur sa branche (`wx` ou `qt`) : ne pas attribuer à une version Qt ou à `main` une version Windows non publiée. Qualifier le test du changelog avant la prochaine construction.
+
 ## CI et publication
 
 - Privilégier la CI rapide sans packaging ; builder Windows complet uniquement sur demande de qualification ou de release.

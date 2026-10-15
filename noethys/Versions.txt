@@ -1,3 +1,24 @@
+Version Noethys SL 0.1.0 RC7.2 (15/10/2026) :
+
+- Correction de l'aperçu PDF des factures depuis la fiche famille
+- Correction du transfert des factures vers l'éditeur d'emails
+
+Version Noethys SL 0.1.0 RC7.1 (15/10/2026) :
+
+- Suspension temporaire de la création automatique des cotisations lors de l'enregistrement de consommations, pour éviter les adhésions et facturations anticipées
+
+Version Noethys SL 0.1.0 RC7 (14/10/2026) :
+
+- Intégration des clients MySQL nécessaires à la sauvegarde et à la restauration réseau
+- Correction du traitement des mots de passe MySQL contenant des caractères spéciaux
+- Sécurisation du contrôle des archives SQL avant leur acceptation comme sauvegarde
+- Validation de l'envoi des reçus uniquement après acceptation par le serveur de messagerie
+- Signalement des erreurs de génération PDF des reçus sans envoi d'email
+- Validation des demandes du portail par email uniquement après acceptation de l'envoi
+- Correction de l'aperçu des listes sous wxPython 4.2.5
+- Correction des couleurs dans l'impression des relevés de prestations
+- Correction du ZIP portable pour conserver les paramètres dans le dossier Portable/
+
 Version 1.3.4.4 (01/10/2026) :
 
 - Ajout du stockage historisé des périodes de droit AEEH (table

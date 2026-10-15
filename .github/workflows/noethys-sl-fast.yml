@@ -107,6 +107,8 @@ jobs:
           tests.test_noethys_sl_parametrage_reglement
           tests.test_noethys_sl_ui_assets
           tests.test_noethys_sl_py3_wx_hardening
+          tests.test_noethys_sl_changelog
+          tests.test_vanilla_identite_noethys_sl
           tests.test_vanilla_candidate_contract
           tests.test_vanilla_boutons_places
           tests.test_vanilla_consommations_fermeture
