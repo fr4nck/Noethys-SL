@@ -16,6 +16,7 @@ import socket
 import os
 import sys
 import time
+import threading
 import GestionDB
 import FonctionsPerso
 import re
@@ -872,16 +873,23 @@ def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, list
         "echecs": list(listeAnomalies),
         "non_tentes": list(listeNonTentes),
     }
+    avertissements_suivi = [m for m in listeSucces if getattr(m, 'mailjet_suivi_erreur', '')]
+    messagerie.dernier_bilan['suivi_indisponible'] = list(avertissements_suivi)
     service = messagerie.LIBELLE_SERVICE
 
     # Tous acceptés
     if len(listeAnomalies) == 0 and len(listeNonTentes) == 0:
-        if afficher_confirmation_envoi == True and len(listeSucces) > 0:
+        if (afficher_confirmation_envoi == True or avertissements_suivi) and len(listeSucces) > 0:
             if len(listeSucces) == 1:
                 texte = _(u"L'Email a été accepté par %s pour envoi.") % service
             else:
                 texte = _(u"Les %d Emails ont été acceptés par %s pour envoi.") % (len(listeSucces), service)
-            texte += u"\n\n" + _(u"Noethys ne vérifie pas leur remise effective aux destinataires.")
+            if any(getattr(m, 'mailjet_suivi_enregistre', False) for m in listeSucces):
+                texte += u"\n\n" + _(u"Consultez leur remise dans Outils → Suivi Mailjet ou depuis l'historique.")
+            else:
+                texte += u"\n\n" + _(u"Noethys ne vérifie pas leur remise effective aux destinataires.")
+            if avertissements_suivi:
+                texte += u"\n\n" + _(u"Le suivi de %d message(s) n'a pas pu être enregistré. Les messages ont été acceptés : ne les renvoyez pas pour cette raison.") % len(avertissements_suivi)
             dlg = wx.MessageDialog(None, texte, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
             dlg.ShowModal()
             dlg.Destroy()
@@ -894,6 +902,8 @@ def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, list
     intro = _(u"%d Email(s) accepté(s) par %s, %d en échec, %d non tenté(s).") % (
         len(listeSucces), service, len(listeAnomalies), len(listeNonTentes))
     lignes = []
+    if avertissements_suivi:
+        lignes.append(_(u"Suivi indisponible pour %d message(s) accepté(s). Ne pas les renvoyer pour cette raison.") % len(avertissements_suivi))
     if listeAnomalies:
         lignes.append(_(u"En échec :"))
         for message, erreur in listeAnomalies:
@@ -957,6 +967,8 @@ class Mailjet(Base_messagerie):
 
     def __init__(self, **kwds):
         Base_messagerie.__init__(self, **kwds)
+        self._base_suivi = None
+        self._suivi_initialise = False
 
     def Connecter(self):
         # Récupération des clés Mailjet
@@ -971,6 +983,22 @@ class Mailjet(Base_messagerie):
             self.connection = Client(auth=(api_key, api_secret), version='v3.1')
         except Exception as err:
             raise
+
+        if not self._suivi_initialise and threading.current_thread() is threading.main_thread():
+            self.PreparerSuivi()
+        elif not self._suivi_initialise:
+            # Appel hors Mailer sans preparation : signaler le suivi absent
+            # apres acceptation, sans acceder a wx depuis ce travailleur.
+            self._suivi_initialise = True
+
+    def PreparerSuivi(self):
+        # Capturer le fichier sur le thread UI avant l'envoi hors UI.
+        self._suivi_initialise = True
+        try:
+            from Utils import UTILS_Suivi_mailjet
+            self._base_suivi = UTILS_Suivi_mailjet.BaseCourante()
+        except Exception:
+            self._base_suivi = None
 
     # def Envoyer_archive(self, message=None, afficher_confirmation_envoi=False):
     #     self.Envoyer_lot(messages=[message,], afficher_confirmation_envoi=afficher_confirmation_envoi)
@@ -1156,12 +1184,25 @@ class Mailjet(Base_messagerie):
             print(("Erreur envoi avec Mailjet : %s" % detail))
             raise ErreurMailjet(detail)
 
-        destinataires = donnees["Messages"][0].get("To", [])
-        if isinstance(destinataires, (list, tuple)):
-            for destinataire in destinataires:
-                if isinstance(destinataire, dict):
-                    message.mailjet_ids.append((destinataire.get("Email"), destinataire.get("MessageUUID"),
-                                               destinataire.get("MessageID")))
+        for champ in ('To', 'Cc', 'Bcc'):
+            destinataires = donnees["Messages"][0].get(champ, [])
+            if isinstance(destinataires, (list, tuple)):
+                for destinataire in destinataires:
+                    if isinstance(destinataire, dict):
+                        message.mailjet_ids.append((destinataire.get("Email"), destinataire.get("MessageUUID"),
+                                                   destinataire.get("MessageID")))
+        message.mailjet_suivi_enregistre = False
+        message.mailjet_suivi_erreur = ''
+        if self._suivi_initialise:
+            try:
+                from Utils import UTILS_Suivi_mailjet
+                UTILS_Suivi_mailjet.Journal(self._base_suivi).Enregistrer(
+                    self.dict_parametres.get('api_key'), self.email_exp, message.sujet, message.mailjet_ids)
+                message.mailjet_suivi_enregistre = True
+            except Exception:
+                # Un envoi deja accepte ne doit JAMAIS etre reessaye parce
+                # que le journal local/reseau est momentanement indisponible.
+                message.mailjet_suivi_erreur = _(u"Message accepté ; enregistrement du suivi indisponible.")
         return resultat
 
     def Fermer(self):
