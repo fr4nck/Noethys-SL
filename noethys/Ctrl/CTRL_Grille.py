@@ -5320,8 +5320,10 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
         # -------------- Sauvegarde du DictPrestations ----------------
 
-        # Version optimisée de la saisie des nouvelles prestations
-        prochainID = DB.GetProchainID("prestations")
+        # Ne demander le prochain ID que lors d'un ajout effectif : sur une
+        # simple sortie de liste d'attente, cette requête SHOW TABLE STATUS
+        # était inutile (issue #427).
+        prochainID = None
 
         dictNewIDprestation = {}
         listeAjoutsPrestations = []
@@ -5330,6 +5332,8 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         listeChampsDeductions = []
         for IDprestation, dictValeurs in self.dictPrestations.items() :
             if IDprestation < 0 :
+                if prochainID is None :
+                    prochainID = DB.GetProchainID("prestations")
                 listeDonnees = [
                     ("IDcompte_payeur", dictValeurs["IDcompte_payeur"]),
                     ("date", str(dictValeurs["date"])),
@@ -5696,6 +5700,21 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
     def SauvegardeTransports(self):
         """ Sauvegarde des transports """
+        # Ne pas ouvrir de connexion SQL si aucune ligne n'a changé.
+        # Les suppressions sont détectées par comparaison des IDs initiaux ;
+        # les ajouts / modifications restent traités par le code historique.
+        IDsActuels = set()
+        modifications = False
+        for dictTransports in self.dict_transports.values() :
+            for IDtransport, dictTransport in dictTransports.items() :
+                IDsActuels.add(IDtransport)
+                if IDtransport < 0 or dictTransport["etat"] == "MODIF" :
+                    modifications = True
+        if not modifications :
+            modifications = any(IDtransport not in IDsActuels for IDtransport in self.listeTransportsInitiale)
+        if not modifications :
+            return
+
         DB = GestionDB.DB()
         
         for IDindividu, dictTransports in self.dict_transports.items() :
