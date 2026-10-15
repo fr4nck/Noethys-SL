@@ -1,7 +1,17 @@
 # Adhésions automatiques — titulaire et règles
 
 Règle métier transversale : PMSL-Arch, `docs/REGLES_ADHESION_ACTIVITES.md`.
-Implémentation : `noethys/Utils/UTILS_Adhesions.py`, appelée à la sauvegarde de la grille des consommations.
+Implémentation : `noethys/Utils/UTILS_Adhesions.py`.
+
+> **Mesure d'urgence P1 — 15/10/2026 (issue #426).** La création automatique
+> par sauvegarde de la grille est **suspendue** (`AUTO_CREATION_SUSPENDUE=True`),
+> car la RC7 facturait des réservations futures. La sauvegarde des consommations,
+> les cotisations manuelles et la facturation des prestations existantes restent
+> disponibles. Cette suspension **ne corrige pas** les cotisations déjà produites
+> par la RC7. Ne réactiver qu'après qualification de l'émission mensuelle,
+> de la facturation anticipée, des annulations et de l'audit non destructif.
+> Le code source mis à jour ne protège pas les postes RC7 tant qu'un exécutable
+> corrigé n'a pas été installé.
 
 ## Titulaire de l'adhésion
 

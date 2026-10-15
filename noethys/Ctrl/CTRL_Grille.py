@@ -5651,6 +5651,13 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         # Cloture de la DB
         DB.Close()
 
+        # Mesure conservatoire P1 (issue #426) : la RC7 créait une adhésion
+        # financière dès une réservation future. La sauvegarde des consommations
+        # a déjà été validée (DB.Commit puis DB.Close) : ne bloquer que le
+        # déclenchement des adhésions, jusqu'à qualification de la clôture mensuelle.
+        if UTILS_Adhesions.AUTO_CREATION_SUSPENDUE:
+            return
+
         # Adhésion annuelle automatique (point d'appel unique, idempotent, sans jamais bloquer la sauvegarde)
         depuis = {}
         for dictIndividus in dictHistorique.values() :
