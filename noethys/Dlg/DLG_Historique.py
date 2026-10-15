@@ -243,6 +243,8 @@ class Dialog(wx.Dialog):
 ##            self.ctrl_individu.Show(False)
 
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
+        self.bouton_suivi = wx.Button(self, label=_(u"Suivi Mailjet"))
+        self.Bind(wx.EVT_BUTTON, self.SuiviMailjet, self.bouton_suivi)
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, id=wx.ID_CANCEL, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         self.__set_properties()
@@ -288,9 +290,10 @@ class Dialog(wx.Dialog):
         # Boutons
         grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
+        grid_sizer_boutons.Add(self.bouton_suivi, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
-        grid_sizer_boutons.AddGrowableCol(1)
+        grid_sizer_boutons.AddGrowableCol(2)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
         
         self.SetSizer(grid_sizer_base)
@@ -299,6 +302,10 @@ class Dialog(wx.Dialog):
         grid_sizer_base.AddGrowableCol(0)
         self.Layout()
         self.CenterOnScreen()
+
+    def SuiviMailjet(self, event):
+        from Dlg import DLG_Suivi_mailjet
+        DLG_Suivi_mailjet.Ouvrir(self, historiques=self.ctrl_listview.Selection())
 
     def Ajouter(self, event):
         self.ctrl_listview.Ajouter(None)

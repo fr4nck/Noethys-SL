@@ -331,9 +331,16 @@ class Dialog(wx.Dialog):
         item.SetBitmap(wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Mail.png"), wx.BITMAP_TYPE_PNG))
         menuPop.AppendItem(item)
         self.Bind(wx.EVT_MENU, self.EnvoyerTest, id=40)
+        menuPop.AppendSeparator()
+        menuPop.AppendItem(wx.MenuItem(menuPop, 70, _(u"Suivi Mailjet")))
+        self.Bind(wx.EVT_MENU, self.SuiviMailjet, id=70)
         
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def SuiviMailjet(self, event):
+        from Dlg import DLG_Suivi_mailjet
+        DLG_Suivi_mailjet.Ouvrir(self)
 
     def InsererMotcle(self, event):
         motcle, label = CTRL_Editeur_email.GetMotscles(self.categorie)[event.GetId() - 10000]
@@ -449,6 +456,8 @@ class Dialog(wx.Dialog):
         postés avec CallAfter vers la boucle UI de la boîte modale.
         """
         etat = {"succes": False, "erreur": None, "phase": "connexion"}
+        if isinstance(messagerie, UTILS_Envoi_email.Mailjet):
+            messagerie.PreparerSuivi()
         dlg_attente = _DialogAttenteEnvoi(
             parent_progress,
             _(u"Connexion au serveur de messagerie…"),
