@@ -240,23 +240,30 @@ def GetDerniereAdhesion(IDindividu, IDtype_cotisation):
 
 # -------------------------------------------------------------- participations
 
-def GetParticipations(IDindividu, activites, depuis, jusqu_a=None):
+def GetParticipations(IDindividu, activites, depuis, jusqu_a=None, acces=None):
     """ Participations réelles de l'individu à partir de `depuis`, triées par
     date puis consommations avant prestations.
 
-    [{"date", "source" ("consommation"|"prestation"), "id", "IDcompte_payeur", "IDinscription"}] """
+    [{"date", "source" ("consommation"|"prestation"), "id", "IDcompte_payeur", "IDinscription", "IDactivite"}]
+    `acces` permet de lire dans la transaction deja verrouillee. """
     if not activites:
         return []
+    def lire(req):
+        if acces is None:
+            return _lire(req)
+        acces.ExecuterReq(req)
+        return acces.ResultatReq()
+
     depuis = _en_date(depuis)
     condition_fin_c = " AND consommations.date<='%s'" % _en_date(jusqu_a) if jusqu_a else ""
     condition_fin_p = " AND prestations.date<='%s'" % _en_date(jusqu_a) if jusqu_a else ""
     liste = _liste_sql(activites)
 
-    consommations = _lire("""SELECT date, IDconso, IDcompte_payeur, IDinscription
+    consommations = lire("""SELECT date, IDconso, IDcompte_payeur, IDinscription, IDactivite
     FROM consommations
     WHERE IDindividu=%d AND etat IN ('reservation', 'present') AND IDactivite IN %s AND date>='%s'%s
     ORDER BY date, IDconso;""" % (IDindividu, liste, depuis, condition_fin_c))
-    prestations = _lire("""SELECT date, IDprestation, IDcompte_payeur
+    prestations = lire("""SELECT date, IDprestation, IDcompte_payeur, IDactivite
     FROM prestations
     WHERE IDindividu=%d AND categorie='consommation' AND IDactivite IN %s AND date>='%s'%s
     AND NOT EXISTS (SELECT 1 FROM consommations
@@ -266,11 +273,11 @@ def GetParticipations(IDindividu, activites, depuis, jusqu_a=None):
     ORDER BY date, IDprestation;""" % (IDindividu, liste, depuis, condition_fin_p))
 
     participations = [
-        {"date": _en_date(date), "source": "consommation", "id": ID, "IDcompte_payeur": IDcompte_payeur, "IDinscription": IDinscription}
-        for date, ID, IDcompte_payeur, IDinscription in consommations
+        {"date": _en_date(date), "source": "consommation", "id": ID, "IDcompte_payeur": IDcompte_payeur, "IDinscription": IDinscription, "IDactivite": IDactivite}
+        for date, ID, IDcompte_payeur, IDinscription, IDactivite in consommations
     ] + [
-        {"date": _en_date(date), "source": "prestation", "id": ID, "IDcompte_payeur": IDcompte_payeur, "IDinscription": None}
-        for date, ID, IDcompte_payeur in prestations
+        {"date": _en_date(date), "source": "prestation", "id": ID, "IDcompte_payeur": IDcompte_payeur, "IDinscription": None, "IDactivite": IDactivite}
+        for date, ID, IDcompte_payeur, IDactivite in prestations
     ]
     participations.sort(key=lambda p: (p["date"], 0 if p["source"] == "consommation" else 1, p["id"]))
     return participations
@@ -588,7 +595,8 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 ("date_debut", str(date_debut)),
                 ("date_fin", str(date_fin)),
                 ("observations", observations),
-                ("activites", None),
+                # Format natif du formulaire manuel : IDs separes par ';'.
+                ("activites", str(int(participation["IDactivite"]))),
             ])
             IDprestation = acces.Inserer("prestations", [
                 ("IDcompte_payeur", IDcompte_payeur),
@@ -640,6 +648,76 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
 
 # ------------------------------------------------------------ réconciliation
 
+def CompleterActivitesAutomatiques(IDindividu, IDtitulaire, config, date_reference=None, IDutilisateur=None):
+    """Ajoute les activites frequentees aux seules cotisations automatiques.
+
+    Aucun renouvellement, changement de montant/date ou suppression. Union
+    sous le meme verrou que la creation, pour ne pas perdre l'ajout d'un
+    autre poste. Les activites deja associees sont conservees, meme si une
+    participation a depuis ete annulee. Jamais d'association d'une seance
+    future ; les cotisations manuelles restent intactes.
+    """
+    date_reference = _en_date(date_reference) or datetime.date.today()
+    DB = GestionDB.DB()
+    liberer = None
+    try:
+        acces = _AccesStrict(DB)
+        liberer = _Verrouiller(DB, IDtitulaire, config["IDtype_cotisation"])
+        verrou_ligne = " FOR UPDATE" if DB.isNetwork else ""
+        acces.ExecuterReq("""SELECT IDcotisation, date_debut, date_fin, activites, observations
+        FROM cotisations WHERE IDindividu=%d AND IDtype_cotisation=%d
+        ORDER BY date_debut, IDcotisation%s;""" % (IDtitulaire, config["IDtype_cotisation"], verrou_ligne))
+        adhesions = [(ID, _en_date(debut), _en_date(fin), activites)
+                     for ID, debut, fin, activites, observations in acces.ResultatReq()
+                     if MARQUEUR_AUTO in (observations or "") and debut and fin
+                     and _en_date(debut) <= date_reference]
+        if not adhesions or _periode_verrouillee(acces, date_reference):
+            return []
+        acces.ExecuterReq("SELECT DISTINCT IDactivite FROM cotisations_activites WHERE IDtype_cotisation=%d;"
+                          % config["IDtype_cotisation"])
+        activites = [ligne[0] for ligne in acces.ResultatReq() if ligne[0] is not None]
+        participations = GetParticipations(IDindividu, activites,
+                                          min(a[1] for a in adhesions), date_reference, acces=acces)
+        # Une section/representante ne doit pas enrichir une autre structure
+        # lorsque le compte payeur de sa participation est different.
+        retenues, titulaires = [], {}
+        for participation in participations:
+            cle = (participation.get("IDcompte_payeur"), participation.get("IDinscription"))
+            if cle not in titulaires:
+                titulaires[cle] = ResoudreTitulaire(IDindividu, participation, acces)
+            titulaire = titulaires[cle]
+            if titulaire["IDtitulaire"] == IDtitulaire and not titulaire["motif"]:
+                retenues.append(participation)
+        modifies = []
+        for IDcotisation, debut, fin, chaine in adhesions:
+            if _periode_verrouillee(acces, debut):
+                continue
+            existantes = {int(x) for x in (chaine or "").split(";") if x}
+            nouvelles = {p["IDactivite"] for p in retenues if debut <= p["date"] <= fin}
+            if nouvelles.issubset(existantes):
+                continue
+            chaine = ";".join(str(ID) for ID in sorted(existantes | nouvelles))
+            if len(chaine) > 450:
+                raise ValueError(u"Trop d'activites associees a la cotisation ID%d (limite 450 caracteres)." % IDcotisation)
+            acces.Modifier("UPDATE cotisations SET activites=? WHERE IDcotisation=?", (chaine, IDcotisation))
+            acces.Inserer("historique", [
+                ("date", str(date_reference)), ("heure", datetime.datetime.now().strftime("%H:%M:%S")),
+                ("IDutilisateur", IDutilisateur), ("IDindividu", IDtitulaire), ("IDcategorie", 21),
+                ("action", (u"Activites associees a la cotisation automatique ID%d : %s" % (IDcotisation, chaine))[:499]),
+            ])
+            modifies.append(IDcotisation)
+        if modifies:
+            DB.Commit()
+        return modifies
+    finally:
+        try:
+            if getattr(DB, "connexion", None) is not None:
+                DB.connexion.rollback()
+        finally:
+            if liberer is not None:
+                liberer()
+            DB.Close()
+
 def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=None, IDutilisateur=None):
     """ Crée, si nécessaire, les adhésions manquantes de cet individu pour
     ses participations réelles à partir de `depuis` (défaut : date_reference,
@@ -683,7 +761,13 @@ def ReconcilierIndividu(IDindividu, date_reference=None, depuis=None, config=Non
     for participation in GetParticipations(IDindividu, activites, depuis):
         titulaires.add(ResoudreTitulaire(IDindividu, participation)["IDtitulaire"])
     resultat["a_verifier"] = []
+    resultat["activites_completees"] = []
     for IDtitulaire in sorted(titulaires):
+        if resultat["statut"] != STATUT_A_VERIFIER and any(
+                MARQUEUR_AUTO in (a["observations"] or "") and a["date_debut"] <= date_reference
+                for a in GetAdhesions(IDtitulaire, config["IDtype_cotisation"])):
+            resultat["activites_completees"].extend(CompleterActivitesAutomatiques(
+                IDindividu, IDtitulaire, config, date_reference, IDutilisateur))
         resultat["a_verifier"].extend(EvaluerAdhesionsAutomatiques(IDtitulaire, config))
     return resultat
 
