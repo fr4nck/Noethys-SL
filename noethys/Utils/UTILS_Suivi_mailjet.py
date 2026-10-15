@@ -131,7 +131,7 @@ class Journal:
             else:
                 self._execute(db, 'BEGIN IMMEDIATE')
             for nom, record in rows.items():
-                self._execute(db, 'SELECT IDparametre FROM parametres WHERE categorie=? AND nom=?', (CATEGORIE, nom))
+                self._execute(db, 'SELECT IDparametre FROM parametres WHERE categorie=? AND nom=? LIMIT 1', (CATEGORIE, nom))
                 if db.cursor.fetchone() is None:
                     self._execute(db, 'INSERT INTO parametres (categorie, nom, parametre) VALUES (?, ?, ?)',
                                   (CATEGORIE, nom, _encoder(record)))
@@ -143,6 +143,9 @@ class Journal:
             try:
                 if verrou:
                     self._execute(db, 'SELECT RELEASE_LOCK(?)', (verrou,))
+                    # Les curseurs MySQL non buffers doivent consommer le
+                    # resultat avant de rendre la connexion au pool.
+                    db.cursor.fetchone()
             finally:
                 db.Close()
 
