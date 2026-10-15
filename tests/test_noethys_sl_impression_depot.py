@@ -8,7 +8,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
@@ -18,6 +18,7 @@ import wx
 from Ctrl.CTRL_ObjectListView import ColumnDefn
 from Ol import OL_Reglements_depots as Depot
 from Utils import UTILS_Printer as P, UTILS_Adaptations
+from ObjectListView.ListCtrlPrinter import ListCtrlPrintout as PrintoutModerne
 
 
 class ImpressionDepotTests(unittest.TestCase):
@@ -98,6 +99,13 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
                     encore = imprimante.printer.PrintPage(dc, page, bounds)
                 self.assertFalse(encore)  # False signifie derniere page, pas une erreur.
                 self.assertEqual(imprimante.printer.engine.currentPage, pages)
+                # Le meme rendu via le callback wx doit reussir jusqu'a la
+                # derniere page : False ici annulerait le travail natif.
+                printout = imprimante.printer.printout
+                printout.bounds = bounds
+                with patch.object(printout, 'GetDC', return_value=dc), patch.object(printout, 'SetScaleAndBounds'):
+                    for page in range(1, pages + 1):
+                        self.assertTrue(printout.OnPrintPage(page))
             finally:
                 dc.SelectObject(wx.NullBitmap)
             pixels = bytes(bitmap.ConvertToImage().GetData())
@@ -107,6 +115,17 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
     def test_epaisseurs_fractionnaires_acceptables_par_wx(self):
         for largeur, attendu in ((.25, 0), (.75, 1), (1.5, 2), (2, 2)):
             self.assertEqual(P._PenImpression(wx.BLACK, largeur).GetWidth(), attendu)
+
+    def test_callback_wx_succes_independant_des_pages_restantes(self):
+        for classe in (P.ListCtrlPrinter.ListCtrlPrintout, PrintoutModerne):
+            for pages_restantes in (True, False):
+                with self.subTest(moteur=classe.__module__, pages_restantes=pages_restantes):
+                    moteur, dc = Mock(), Mock()
+                    moteur.PrintPage.return_value = pages_restantes
+                    objet = SimpleNamespace(GetDC=lambda: dc, SetScaleAndBounds=lambda _: None,
+                                            olvPrinter=moteur, bounds=(0, 0, 100, 100))
+                    self.assertTrue(classe.OnPrintPage(objet, 1))
+                    moteur.PrintPage.assert_called_once_with(dc, 1, objet.bounds)
 
     def test_annulation_parametres_n_imprime_pas(self):
         with BaseTest() as base, RedirectionGestionDB(base.chemin), \
