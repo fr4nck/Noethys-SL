@@ -92,8 +92,23 @@ class SeparationVersionPubliqueEtInterneTests(unittest.TestCase):
 
     def test_versions_txt_garde_le_format_attendu_par_getversionlogiciel(self):
         contenu = (NOETHYS_DIR / "Versions.txt").read_text(encoding="utf-8")
-        premiere_ligne = contenu.splitlines()[0]
-        self.assertRegex(premiere_ligne, r"^Version \d+(\.\d+)* \(\d{2}/\d{2}/\d{4}\) :$")
+        # Contrat renforce : les sections publiques peuvent figurer en tete,
+        # mais GetVersionLogiciel doit continuer a renvoyer la version
+        # historique numerique sans toucher aux migrations ni a Connecthys.
+        versions_internes = re.findall(
+            r"^Version (\d+(?:\.\d+){3}) \(\d{2}/\d{2}/\d{4}\) :$",
+            contenu, re.MULTILINE,
+        )
+        self.assertTrue(versions_internes)
+        self.assertEqual(versions_internes[0], "1.3.4.4")
+        self.assertEqual(FonctionsPerso.GetVersionLogiciel(), versions_internes[0])
+        if "Version Noethys SL " in contenu:
+            premiere_ligne = contenu.splitlines()[0]
+            self.assertRegex(
+                premiere_ligne,
+                r"^Version Noethys SL " + re.escape(Identite.PRODUCT_VERSION_DISPLAY)
+                + r" \(\d{2}/\d{2}/\d{4}\) :$",
+            )
 
 
 if __name__ == "__main__":

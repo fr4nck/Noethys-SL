@@ -20,6 +20,7 @@ import six
 import webbrowser
 import shutil
 import random, codecs
+import re
 from Utils import UTILS_Fichiers
 
 
@@ -1006,14 +1007,18 @@ def GetRepertoireProjet(fichier=""):
     return os.path.join(chemin, fichier)
 
 def GetVersionLogiciel():
-    """ Recherche du numéro de version du logiciel """
-    fichierVersion = codecs.open(GetRepertoireProjet("Versions.txt"), encoding='utf-8', mode='r')
-    txtVersion = fichierVersion.readlines()[0]
-    fichierVersion.close() 
-    pos_debut_numVersion = txtVersion.find("n")
-    pos_fin_numVersion = txtVersion.find("(")
-    numVersion = txtVersion[pos_debut_numVersion+1:pos_fin_numVersion].strip()
-    return numVersion
+    """Retourne uniquement la version INTERNE, utilisée par la base et Connecthys.
+
+    Les versions publiques de Noethys SL figurent désormais en tête du
+    changelog. Ne jamais confondre une version RC avec la version numérique
+    historique qui contrôle les migrations et le protocole réseau.
+    """
+    with codecs.open(GetRepertoireProjet("Versions.txt"), encoding="utf-8", mode="r") as fichierVersion:
+        for ligne in fichierVersion:
+            version = re.match(r"^Version (\d+(?:\.\d+){3}) \(\d{2}/\d{2}/\d{4}\) :", ligne)
+            if version:
+                return version.group(1)
+    raise ValueError("Version interne de compatibilité absente de Versions.txt")
 
 def LanceFichierExterne(nomFichier) :
     """ Ouvre un fichier externe sous windows ou linux """
