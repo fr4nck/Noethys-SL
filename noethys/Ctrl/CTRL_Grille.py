@@ -5457,6 +5457,13 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                 for IDunite, listeConso in dictUnites.items() :
                     for conso in listeConso :
 
+                        # Une ligne inchangee ne produit ni SQL ni historique.
+                        # Eviter la preparation de ses vingt champs (#427), en
+                        # conservant la suppression implicite etat=None.
+                        if (conso.statut not in ("ajout", "modification", "suppression")
+                                and not (conso.etat is None and conso.IDconso is not None)):
+                            continue
+
                         # Recherche s'il y a une prestation
                         IDprestation = conso.IDprestation
                         if (IDprestation == None or IDprestation < 0) and (IDprestation in dictNewIDprestation) == True :
