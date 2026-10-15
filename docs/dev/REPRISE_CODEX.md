@@ -1,5 +1,36 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Reprise #427 — preparation client des consommations — 15/10/2026
+
+- Depart distant verifie : main `0b2e2d47b2a899bc650cc6ec1090b67129897dbe`,
+  wx `23a49c7d129d7ce7c6167437c6fb939eaa835e53`,
+  qt `9f27a1378ce28c96f79e8ff5d080e2f3d77b45c1`. Fichiers grille, GestionDB et
+  handlers OK identiques ; arbres globaux divergents, aucune fusion globale.
+  CI precedentes 38724108383 (main f04e68a) et 38724128232 (wx 23a49c7) SUCCESS.
+- Audit, protocole et mesures : [PERFORMANCE_CONSOMMATIONS_427.md](PERFORMANCE_CONSOMMATIONS_427.md).
+  Vingt champs reecrits par UPDATE, connexions parametres, Commit historique,
+  risque d'ecrasement concurrent et rafraichissement famille apres modal examines.
+  Source officielle mysqlclient 2.2.7 reproduite sans serveur : 1/10/50 UPDATE
+  donnent 1/10/50 appels transport, INSERT regroupe ; version RC7.2 non deduite.
+- Lot runtime limite : ne preparer les vingt champs que si la consommation
+  genere une ecriture. Suppressions implicites et multihoraires conservees.
+  Aucun SQL, Commit, historique, tarif, facture, annulation ou adhesion change.
+  Benchmark synthetique 10 000 lignes / une modification : mediane neuf essais
+  33,073 -> 2,120 ms ; 50/50 modifications 0,426 -> 0,426 ms. Aucun gain terrain
+  revendique, nombre d'acces SQL identique.
+- Qualification locale : 67 tests Python 3.10/wx, OK, deux skips MySQL ; huit
+  tests nouveaux dont SQLite deux connexions/deux threads et attente de verrou.
+  Comparaison avant/apres 45 combinaisons : SQL/valeurs/historique/commits/erreurs
+  identiques. Nouveau test ajoute a la CI rapide, CI main [38732132634](https://github.com/fr4nck/Noethys-SL/actions/runs/38732132634) SUCCESS au SHA 2aaa3046a6a4bd928eb8ad5d6f02b74c3851f87b.
+- STOP-GATE : moteur Docker local indisponible, aucune recette serveur MySQL
+  ni UI Qt effectuee. UPDATE groupes/champs reduits/pooling/transactions restent
+  EN ATTENTE. RC7.2 ffd28de ne contient aucun lot #427. Aucun build/installation,
+  production, email, donnees existantes ou references historiques touches.
+- Copie isolee locale : `optimisation-consos-20261015` dans l'espace du projet ;
+  `qualification/` contient sources de mesure et journaux synthetiques hors Git.
+  Sources synchronisees et anciens WIP preserves. Publication main puis portage
+  cible wx/qt soumis au succes de la CI rapide de ce lot ; preuves finales a suivre.
+
 Document de transmission (Claude Code → Codex). Mettre à jour en fin de chaque session.
 
 ## Lot Qt Individus/Familles — 14/10/2026
