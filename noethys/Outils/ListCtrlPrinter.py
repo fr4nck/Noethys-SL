@@ -635,7 +635,10 @@ class ListCtrlPrintout(wx.Printout):
         # We bounce this back to the printer facade
         dc = self.GetDC()
         self.SetScaleAndBounds(dc)
-        return self.olvPrinter.PrintPage(dc, page, self.bounds)
+        # Le moteur renvoie "il reste des pages", wx attend "page rendue".
+        # Une derniere page reussie ne doit jamais annuler l'impression.
+        self.olvPrinter.PrintPage(dc, page, self.bounds)
+        return True
 
     def SetScaleAndBounds(self, dc):
         """
