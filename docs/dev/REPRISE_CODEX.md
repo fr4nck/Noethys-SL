@@ -29,7 +29,8 @@
   vers leurs parcours respectifs, annulation sans impression, parametres et
   rendu multipage de 49 reglements fictifs dans wx.MemoryDC. Aucun spool,
   pilote, impression papier, email ni donnees de capture utilisateur utilises.
-  Bitmap local qualification/depot-synthetique.png inspecte visuellement.
+  Bitmap representatif de trois lignes, qualification/depot-synthetique.png,
+  inspecte visuellement ; les 49 lignes sont couvertes par le test multipage.
 - Rappels : SUM(.10 + .20) peut depasser .30 de quelques fractions de centime
   sur colonnes FLOAT ; Decimal(str(SUM)) conservait ce residu, solde<0 incluait
   le compte puis le format a deux decimales affichait 0.00. Arrondir la seule
@@ -42,7 +43,7 @@
   ancien import du moteur sans sys.path Outils leve ModuleNotFoundError
   WordWrapRenderer avant l'ouverture des parametres. Apres correctif, import
   et tests passent ; il ne s'agit pas d'une execution du binaire installe.
-- Tests ajoutes a la CI rapide : test_noethys_sl_impression_depot (6),
+- Tests ajoutes a la CI rapide : test_noethys_sl_impression_depot (7),
   test_noethys_sl_rappels_solde (7). SQLite natif temporaire et montants Decimal
   de retour SQL simules, snapshots avant/apres des ecritures ; pilote Windows,
   serveur MySQL reel et parcours UI Qt natif non qualifies dans ce lot.
@@ -50,6 +51,54 @@
   corrigee ne signifie pas correction disponible dans la RC7.2 installee.
   Coupe-circuit P1 des adhesions et travaux Mailjet/performance conserves.
   Les preuves definitives par branche sont consignees apres les CI rapides.
+
+### Preuves impression depot / rappels a zero
+
+| Branche | Rappels (arrondi du solde) | Impression (dernier code) | CI rapide |
+| --- | --- | --- | --- |
+| main | `e15b7346a9872c694e2ab248a3aefa570c5835d1` | `67578569ff576fb39728fb891fbe9685e12671f1` | [38774271273](https://github.com/fr4nck/Noethys-SL/actions/runs/38774271273) SUCCESS, 629 tests / 6 ignores |
+| wx | `dd09c8af79e5c201104b6d988b2ee51f2e321853` | `9a667e15186d9f1d6ffe7741d117b93bdd6f3a14` | [38775138685](https://github.com/fr4nck/Noethys-SL/actions/runs/38775138685) SUCCESS, 653 tests / 10 ignores |
+| qt | `d05a330fbeb3e13bbc62b633248b9c94a4dd7880` | `4ced625974b1d35431a92eb219c9f1ae81100ec4` | [38775155967](https://github.com/fr4nck/Noethys-SL/actions/runs/38775155967) SUCCESS, 605 tests / 6 ignores, code commun wx uniquement |
+
+Correctif complementaire independant : le moteur PrintPage renvoie "pages
+restantes" (False a la derniere page), mais wx.Printout.OnPrintPage attend
+"page rendue" ; False y annule le travail. Retour True apres rendu dans les
+deux moteurs ; pagination et signal interne conserves. Contrat confirme dans
+la [documentation wxPython](https://docs.wxpython.org/wx.Printout.html#wx.Printout.OnPrintPage).
+Rendu reel de 49 lignes aussi exerce via le callback wx ; test de contrat
+ajoute pour les deux moteurs (derniere page et page intermediaire).
+
+| Branche | Dernier code (callback wx) | CI finale |
+| --- | --- | --- |
+| main | `85343b78dde07a6b640ebbbbeaefe1e29fbbcb71` | [38776091464](https://github.com/fr4nck/Noethys-SL/actions/runs/38776091464) SUCCESS, 630 tests / 6 ignores |
+| wx | `20e160bae8a12b2f241e3c8fe0fe51557448a167` | [38776849847](https://github.com/fr4nck/Noethys-SL/actions/runs/38776849847) SUCCESS, 654 tests / 10 ignores |
+| qt | `71ee00fcb1d73741ce3a9e75831e9fe4085c5eb0` | [38776863577](https://github.com/fr4nck/Noethys-SL/actions/runs/38776863577) SUCCESS, 606 tests / 6 ignores, code commun wx |
+
+Lot initial : 13 nouveaux tests ; 58 tests cibles locaux OK / 1 ignore sur les trois
+arbres ; suite rapide locale main 629 / OK / 6 ignores. Une premiere execution
+locale avec PYTHONUTF8=1 impose a casse le decodage du stderr natif wx d'un
+sous-processus de fermeture ; reexecution dans l'environnement Windows
+d'origine OK, sans modifier ni affaiblir ce test. CI main confirme la suite.
+Apres le correctif de callback : 14 tests nouveaux / OK sur les trois arbres.
+Portages cibles prepares puis testes ; publication wx/qt apres CI main verte.
+Meme code et memes tests sur les trois branches sur ce perimetre ; les six
+corrections de largeur fixe deja presentes dans wx ont ete conservees et
+portees dans main/qt, sans ecraser les autres differences des branches.
+
+| Qualification | main | wx | qt |
+| --- | --- | --- | --- |
+| Rappel au centime / zero exclu / un centime conserve / snapshots SQLite | VALIDÉ | VALIDÉ | VALIDÉ code commun |
+| Import par package / menus / proprietes / rendu wx.MemoryDC | VALIDÉ | VALIDÉ | VALIDÉ code commun wx |
+| Cause sur binaire du poste, pilote physique, serveur MySQL reel | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+| UI Qt native | NON APPLICABLE | NON APPLICABLE | EN ATTENTE |
+| Nouveau candidat / installation utilisateur | NON EFFECTUÉ | NON EFFECTUÉ | NON EFFECTUÉ |
+
+Prochaine etape : qualification d'un candidat Windows distinct, sur profil
+synthetique isole (dont import du moteur embarque), puis recette pilote de
+l'apercu et des candidats aux rappels. Aucun build ni installation revendiques
+ici. Logs et bitmaps dans qualification/ hors Git ; captures terrain non copiees
+dans les tests. Les commits de preuves suivants ne changent que ce document,
+pas les arbres de code qualifies par les runs cites.
 
 ## Suivi Mailjet dans Noethys — 15/10/2026
 
