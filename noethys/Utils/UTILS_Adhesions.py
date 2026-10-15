@@ -66,6 +66,12 @@ STATUT_ERREUR = "erreur"
 # cette marque sont évaluées par EvaluerAdhesionsAutomatiques().
 MARQUEUR_AUTO = u"[adhesion-auto]"
 
+# Coupe-circuit de production P1 (issue #426, 15/10/2026).
+# Tant que la création à la clôture/facture anticipée n'est pas qualifiée,
+# aucune sauvegarde de grille ne doit créer des cotisations financières.
+# Les services historiques restent disponibles pour les tests métier isolés.
+AUTO_CREATION_SUSPENDUE = True
+
 _MAX_CREATIONS_PAR_APPEL = 50
 
 # Clé du résultat de ReconcilierSansEchec portant une exception inattendue.

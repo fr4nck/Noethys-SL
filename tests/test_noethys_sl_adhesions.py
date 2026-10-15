@@ -421,6 +421,18 @@ class AdhesionsTests(unittest.TestCase):
         self.assertIn("UTILS_Adhesions.ReconcilierSansEchec", sauvegarde)
         self.assertGreater(sauvegarde.index("UTILS_Adhesions.ReconcilierSansEchec"), sauvegarde.rindex("DB.Close()") - 1)
 
+    def test_coupe_circuit_p1_ne_cree_pas_d_adhesion_pendant_la_sauvegarde(self):
+        # Régression #426 : la sauvegarde doit rester fonctionnelle et le
+        # déclenchement financier ne doit plus suivre une réservation future.
+        self.assertIs(A.AUTO_CREATION_SUSPENDUE, True)
+        source = (NOETHYS / "Ctrl" / "CTRL_Grille.py").read_text(encoding="utf-8")
+        sauvegarde = source.split("    def Sauvegarde(self):")[1].split("    def SauvegardeTransports")[0]
+        garde = "if UTILS_Adhesions.AUTO_CREATION_SUSPENDUE:\\n            return"
+        self.assertIn(garde.replace("\\n", "\n"), sauvegarde)
+        self.assertLess(sauvegarde.index("DB.Close()"), sauvegarde.index("if UTILS_Adhesions.AUTO_CREATION_SUSPENDUE:"))
+        self.assertLess(sauvegarde.index("if UTILS_Adhesions.AUTO_CREATION_SUSPENDUE:"),
+                        sauvegarde.index("UTILS_Adhesions.ReconcilierSansEchec"))
+
     def test_import_sans_wx(self):
         self.assertNotIn("wx", sys.modules.get("Utils.UTILS_Adhesions").__dict__)
 
