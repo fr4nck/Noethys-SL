@@ -182,6 +182,13 @@ class JournalTests(unittest.TestCase):
         self.assertEqual(r['etat'], 'sent')
         self.assertEqual(len(self.journal.Lister()), 1)
 
+    def test_unicode_hors_bmp_preserve_sur_mysql_utf8_historique(self):
+        sujet = 'Été \U0001f600'
+        self.journal.Enregistrer(KEY, 'exp@example.org', sujet, [('test@example.org', '', MID)])
+        r = self.journal.Lister()[0]
+        self.assertEqual(r['sujet'], sujet)
+        self.assertTrue(r['_raw'].isascii())
+
     def test_concurrence_deux_postes_actualisation_obsolete_refusee(self):
         poste_a = self.enregistrer()
         poste_b = S.Journal(self.fichier).Lister()[0]
