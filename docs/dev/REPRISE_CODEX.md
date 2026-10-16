@@ -54,6 +54,11 @@
   La séparation par groupe ALSH est ajoutée ensuite, 41 tests ciblés OK avant
   nouvelle CI. Les différences repas présentes seulement sur main restent
   conservées ; ce lot n'affirme pas une synchronisation globale des trois branches.
+- Recette native complémentaire : les libellés multilignes de GenButton étaient
+  centrés comme une seule ligne, coupant le premier chiffre du nombre de demandes.
+  BoutonDemandes utilise DC.DrawLabel multiligne ; rendu natif « 22 demandes »
+  inspecté après correction, 18 tests ciblés OK. Derniers tests d'alignement : les
+  quatre titres ont la même coordonnée Y et Connecthys reste dans le panneau.
 
 ## Impression du depot et rappels a 0 EUR — 15/10/2026
 

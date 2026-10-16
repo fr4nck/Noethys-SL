@@ -31,6 +31,18 @@ CUSTOMIZE = UTILS_Customize.Customize()
 class Abort(Exception):
     pass
 
+
+class BoutonDemandes(wx.lib.buttons.GenButton):
+    """GenButton centre ses libellés multilignes avec GetTextExtent (une ligne).
+
+    DrawLabel préserve toutes les lignes et le nombre complet de demandes.
+    """
+    def DrawLabel(self, dc, width, height, dx=0, dy=0):
+        dc.SetFont(self.GetFont())
+        dc.SetTextForeground(self.GetForegroundColour() if self.IsEnabled()
+                             else wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
+        dc.DrawLabel(self.GetLabel(), wx.Rect(dx, dy, width, height), alignment=wx.ALIGN_CENTER)
+
 def AppelerSurThreadUI(fonction, *args, **kwds):
     """ Exécute fonction sur le thread wx : directement si l'on y est déjà
     (ou sans wx.App, cas des tests), sinon via wx.CallAfter. """
@@ -191,7 +203,7 @@ class Panel(wx.Panel):
 
         self.gauge = wx.Gauge(self, -1, range=100, size=(-1, 8))
 
-        self.bouton_traiter = (wx.lib.buttons.GenButton(self, -1, _(u"Traiter les\ndemandes"), style=wx.BORDER_NONE)
+        self.bouton_traiter = (BoutonDemandes(self, -1, _(u"Traiter les\ndemandes"), style=wx.BORDER_NONE)
                               if compact else wx.Button(self, -1, _(u"Traiter les\ndemandes")))
         if compact:
             self.bouton_traiter.SetBezelWidth(0)
