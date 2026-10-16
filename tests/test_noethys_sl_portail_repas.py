@@ -25,7 +25,7 @@ class Case:
         self.etat, self.IDfacture, self.locked = state, invoice, locked
 
     def GetListeConso(self):
-        return [NS(etat=self.etat, verrouillage=self.locked, IDfacture=self.IDfacture)] if self.etat else []
+        return [NS(etat=self.etat, verrouillage=self.locked, IDfacture=self.IDfacture, IDinscription=77)] if self.etat else []
 
 
 class Grid:
@@ -105,6 +105,38 @@ class ReservationsTests(unittest.TestCase):
             self.apply(grid)
             self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
 
+    def test_meal_only_action_respects_an_earlier_waiting_period(self):
+        self.request(2)
+        for ID in (101,103,104):
+            grid=Grid();grid.cases[(ID,DAY)]=Case('attente')
+            self.apply(grid)
+            self.assertEqual(grid.GetCase(102,DAY).etat,'attente')
+
+    def test_cancelled_old_wait_does_not_block_meal_and_meal_does_not_gate_itself(self):
+        self.request(1,state=0);self.request(2)
+        self.units[4]['unites_principales']=[101,102,103]
+        grid=Grid();grid.cases[(101,DAY)]=Case('attente')
+        grid.cases[(102,DAY)]=Case('attente')
+        self.apply(grid)
+        self.assertIsNone(grid.GetCase(101,DAY).etat)
+        self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
+
+    def test_existing_wait_from_another_inscription_is_not_used(self):
+        self.request(2)
+        grid=Grid();case=Case('attente')
+        case.GetListeConso=lambda:[NS(etat='attente',IDinscription=88)]
+        grid.cases[(101,DAY)]=case
+        self.apply(grid)
+        self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
+
+    def test_old_wait_without_identifiable_inscription_requires_manual_processing(self):
+        self.request(2)
+        grid=Grid();case=Case('attente')
+        case.GetListeConso=lambda:[NS(etat='attente',IDinscription=None)]
+        grid.cases[(101,DAY)]=case
+        self.assertEqual(self.apply(grid),'')
+        self.assertEqual(grid.calls,[])
+
     def test_full_day_waits_meal(self):
         self.request(2);self.request(4)
         grid=Grid([104])
@@ -141,7 +173,7 @@ class ReservationsTests(unittest.TestCase):
         self.apply(grid)
         self.assertEqual(grid.GetCase(101,DAY).etat,'reservation')
         self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
-        self.assertEqual(len(grid.cases),2)
+        self.assertEqual(sum(bool(c.etat) for c in grid.cases.values()),2)
 
     def test_ambiguous_multiple_full_day_formulas_require_manual_resolution(self):
         self.roles=[('5','journee')]
@@ -165,6 +197,13 @@ class ReservationsTests(unittest.TestCase):
         grid=Grid([101,103]);self.apply(grid)
         self.assertEqual(grid.GetCase(104,DAY).etat,'reservation')
         self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
+
+    def test_priority_does_not_silently_convert_preexisting_half_day_records(self):
+        for p in (1,3,4,2):self.request(p)
+        grid=Grid();grid.cases[(101,DAY)]=Case('reservation',invoice=55)
+        self.assertEqual(self.apply(grid),'')
+        self.assertEqual(grid.calls,[])
+        self.assertEqual(grid.GetCase(101,DAY).IDfacture,55)
 
     def test_waited_full_day_wins_over_available_redundant_halves(self):
         for p in (1,3,4,2):self.request(p)
