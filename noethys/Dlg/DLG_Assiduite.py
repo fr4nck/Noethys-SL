@@ -29,6 +29,7 @@ class Dialog(wx.Dialog):
         self.rows = []
         self.names = {}
         self.families = {}
+        self.activity_names = {}
         self.start = CTRL_Saisie_date.Date2(self)
         self.end = CTRL_Saisie_date.Date2(self)
         today = dt.date.today()
@@ -95,6 +96,7 @@ class Dialog(wx.Dialog):
             report = stats.read(db, start, end, ids)
             self.names = {ident: ' '.join(str(v or '') for v in (nom, prenom)).strip()
                           for ident, nom, prenom in stats.query(db, 'SELECT IDindividu, nom, prenom FROM individus')}
+            self.activity_names = dict(stats.query(db, 'SELECT IDactivite, nom FROM activites'))
             self.families = UTILS_Titulaires.GetTitulaires()
             self.report = report
             enabled = report['enabled']
@@ -109,7 +111,8 @@ class Dialog(wx.Dialog):
                 db.Close()
 
     def label(self, row):
-        family = self.families.get(row['family'], {}).get('titulairesSansCivilite') or 'Famille %s' % row['family']
+        family = self.families.get(row['family'], {}).get('titulairesSansCivilite') or (
+            'Famille %s' % row['family'] if row['family'] is not None else 'Famille non renseignée')
         if row['child'] is not None:
             return '%s — %s' % (self.names.get(row['child'], 'Enfant %s' % row['child']), family)
         return family
@@ -133,8 +136,9 @@ class Dialog(wx.Dialog):
         lines = []
         for d in sorted(row['details'], key=lambda v: (v['date'], v['activity'])):
             child = self.names.get(d.get('child', row['child']), '')
-            lines.append('%s | %s | Activité %s | %s | Annulations : %s' %
-                         (d['date'], child, d['activity'], d['category'], 'suivie' if d['tracked'] else 'hors historique suivi'))
+            activity = self.activity_names.get(d['activity'], 'Activité %s' % d['activity'])
+            lines.append('%s | %s | %s | %s | Annulations : %s' %
+                         (d['date'], child, activity, d['category'], 'suivie' if d['tracked'] else 'hors historique suivi'))
         self.detail.SetValue('\n'.join(lines))
 
     def OnEnable(self, event=None):

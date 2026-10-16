@@ -35,7 +35,7 @@ def status(db):
             raise RuntimeError("Le journal a disparu alors que ses déclencheurs sont présents.")
         return None
     if not set(TRIGGERS.values()).issubset(trigger_names(db)):
-        raise RuntimeError("Journal incomplet : réactiver le suivi avant de calculer les annulations.")
+        raise RuntimeError("Journal incomplet : calcul des annulations suspendu. Une vérification du suivi est nécessaire.")
     rows = query(db, "SELECT IDlog, horodatage FROM %s WHERE operation='ready' ORDER BY IDlog LIMIT 1" % TABLE)
     if not rows:
         raise RuntimeError("Activation du journal incomplète.")
@@ -78,6 +78,9 @@ def activate(db):
             if name not in indexes:
                 db.cursor.execute('CREATE INDEX %s ON %s (%s)' % (name, TABLE, fields))
         names = trigger_names(db)
+        ready = query(db, "SELECT IDlog FROM %s WHERE operation='ready'" % TABLE)
+        if ready and not set(TRIGGERS.values()).issubset(names):
+            raise RuntimeError("Le suivi a été interrompu : réparation automatique refusée pour ne pas masquer une période sans historique.")
         clock = 'UTC_TIMESTAMP()' if db.isNetwork else 'CURRENT_TIMESTAMP'
         for op, name in TRIGGERS.items():
             if name in names:
@@ -98,7 +101,7 @@ def activate(db):
                 condition = ' WHEN ' + ' OR '.join('OLD.%s IS NOT NEW.%s' % (f, f) for f in fields) if op == 'update' else ''
                 sql = 'CREATE TRIGGER %s AFTER %s ON consommations%s BEGIN %s; END' % (name, op.upper(), condition, body)
             db.cursor.execute(sql)
-        if not query(db, "SELECT IDlog FROM %s WHERE operation='ready'" % TABLE):
+        if not ready:
             db.cursor.execute("INSERT INTO %s (horodatage, operation) VALUES (%s, 'ready')" % (TABLE, clock))
         result = status(db)
         db.Commit()  # terminer aussi le snapshot de validation MySQL
