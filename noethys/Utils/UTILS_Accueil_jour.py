@@ -74,8 +74,8 @@ def read_day(db, today, settings=None):
     def session(activity, group, unit, start, end, name='', event=None):
         a, b = minutes(start), minutes(end)
         # Une séance identifiée reste distincte, même à horaire identique.
-        # Sans séance : même groupe/plage = personnes dédoublonnées entre unités.
-        identity = ('event', event) if event is not None else ('hours', a, b, unit if a is None or b is None else None)
+        # Sans séance : unité/groupe/plage configurés, sans fusionner des séances parallèles.
+        identity = ('event', event) if event is not None else ('unit', unit, a, b)
         key = (activity, group, identity)
         return sessions.setdefault(key, dict(group=group, start=a, end=b,
                     event=event, name=name or '', people=set()))
@@ -175,7 +175,8 @@ def read_day(db, today, settings=None):
                 group_name, group_short = group_labels.get(s['group'], ('', ''))
                 group_text = group_short or group_name
                 # Le groupe distingue aussi deux séances simultanées.
-                event_text = (s['name'] or 'Séance %s' % s['event']) + ' · ' if s['event'] is not None else ''
+                session_name = s['name'] or ('Séance %s' % s['event'] if s['event'] is not None else '')
+                event_text = (session_name+' · ') if session_name and session_name.casefold() not in {item['label'].casefold(), group_text.casefold()} else ''
                 label = '%s · %s%s%s' % (item['label'], (group_text+' · ') if group_text else '', event_text, period)
                 result.append(dict(item, label=label, name='%s · %s · %s' % (item['name'], s['name'], period),
                                    session=key[2], activity_name=item['name'], session_start=s['start'], group=s['group'], total=len(s['people']), morning=None, afternoon=None))
