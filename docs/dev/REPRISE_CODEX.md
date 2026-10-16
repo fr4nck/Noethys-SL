@@ -1,5 +1,49 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Accueil compact — intégration demandée pour RC7.3, 16/10/2026
+
+- Accord utilisateur : maquette Horizon ; météo quatre jours M/A, pluie en mm,
+  vent en km/h avec flèche seule, clic sur tout le bloc pour les détails ;
+  événements avec défilement indépendant et nombre configurable (0 = tous).
+  Connecthys intégré à droite, demandes / état / progression / journal au clic.
+  Quatre titres de même hauteur, date sur deux lignes « Vendredi 16 / Octobre 26 ».
+- Bandeau sur toute la largeur : seulement activités programmées au jour affiché.
+  Priorité ALSH par défaut, sélection et ordre personnel ; activités hors dates
+  de validité exclues. Choisir M/A pour les accueils dont le nom ne permet pas
+  l'identification automatique. Autres activités : total distinct de participants.
+  Les effectifs sont PRÉVUS : pointage effectué après la journée selon l'utilisateur,
+  aucune prétention de présence temps réel ni de contrôle automatique des absents.
+- Départ vérifié : main `bb08cc752bdb4ca21a4719f73420f6444fd610fe` (avance repas
+  conservée), wx initial `c9038741479b637397345d27e2b8fc435d4345d9`, qt initial
+  `ec13651695a0f02ccc58136af335f00abf032edf`. Au fetch : wx `ca12e5a9`, qt
+  `31a2a5d9`. Les quatre fichiers modifiés préexistants ont des blobs identiques
+  sur les trois branches avant intervention. Aucun merge global / nouvelle branche.
+- UTILS_Accueil_jour : quatre SELECT portables MySQL/SQLite, ouvertures / événements /
+  consommations de la date, réservations et présences seulement, sets par personne.
+  Attente et absences exclues ; personne de journée entière dans les deux périodes.
+  Horaires manquants : « — » pour M/A, jamais un faux zéro. Heures MySQL timedelta
+  et SQLite texte prises en charge. Aucune écriture métier / migration / tarification.
+- Préférences : catégorie accueil_aujourdhui, identifiant utilisateur et base, comme
+  la disposition historique ; choix des activités, M/A, ordre et nombre d'événements.
+  Chargement dans le worker existant, résultat invalidé à fermeture/changement
+  d'utilisateur. Rafraîchissement à cinq minutes, cache météo conservé à trente.
+  Direction du vent : moyenne circulaire ; anciens caches sans direction → « — ».
+- Connecthys : même instance client / mêmes commandes / cadence réseau inchangée.
+  État basé sur le booléen réel de Synchro_totale, pas sur l'icône « on » ni l'heure
+  de dernière tentative. Dernier succès distinct ; aucune remise à zéro des demandes
+  si leur lecture échoue. Callbacks wx ignorés après destruction. Journal de session
+  borné à 1000 lignes au clic ; destination historique du journal conservée.
+- Recette synthétique native Windows : 77 tests initiaux (dont audit Connecthys) OK,
+  54 ciblés finaux OK ; suite rapide locale 652 tests OK / 6 ignorés. Rendu natif
+  isolé inspecté dans qualification/accueil-natif.png, puis largeur corrigée pour
+  que Connecthys reste visible à droite à 1200 px. Maquette et captures ne sont
+  pas des données de production ; qualification/ reste local hors Git.
+- EN ATTENTE : CI sur le commit final, portages ciblés puis CI wx / commun qt,
+  recette d'une base MySQL jetable et de la configuration des unités ALSH du pilote.
+  UI Qt native non qualifiée. Aucun appel Connecthys réel, email, production ou
+  installateur. Identités et Versions.txt inchangés : RC7.3 demeure une CIBLE,
+  pas une version construite/installée. Coupe-circuit adhésions toujours actif.
+
 ## Impression du depot et rappels a 0 EUR — 15/10/2026
 
 - Deux signalements terrain RC7.2 : les entrees Outils / apercu et imprimer

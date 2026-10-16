@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+import wx.lib.buttons
 import os
 import time
 import datetime
@@ -24,6 +25,7 @@ from Utils import UTILS_Customize
 from Utils import UTILS_Portail_synchro
 from Dlg.DLG_Portail_config import LISTE_DELAIS_SYNCHRO
 import six
+from collections import deque
 CUSTOMIZE = UTILS_Customize.Customize()
 
 class Abort(Exception):
@@ -129,10 +131,19 @@ class Serveur(Thread):
             # n'etait alors possible) et l'icone bloquee sur
             # "upload", sans aucun diagnostic pour l'utilisateur.
             self.parent.SetImage("upload")
+            if hasattr(self.parent, 'SetEtatSynchro'):
+                self.parent.SetEtatSynchro('busy')
             self.synchro_en_cours = True
             try:
                 synchro = UTILS_Portail_synchro.Synchro(log=self.parent)
-                synchro.Synchro_totale()
+                result = synchro.Synchro_totale()
+            except Exception:
+                if hasattr(self.parent, 'SetEtatSynchro'):
+                    self.parent.SetEtatSynchro('error')
+                raise
+            else:
+                if hasattr(self.parent, 'SetEtatSynchro'):
+                    self.parent.SetEtatSynchro('success' if result is True else 'error')
             finally:
                 self.synchro_en_cours = False
                 self.parent.SetImage("on")
@@ -161,10 +172,14 @@ class Serveur(Thread):
 
 
 class Panel(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, compact=False, owner=None):
         wx.Panel.__init__(self, parent, id=-1, style=wx.TAB_TRAVERSAL)
         self.lock = Lock()
-        self.parent = parent
+        self.parent = owner or parent
+        self.compact = compact
+        self._alive = True
+        self._journal = deque(maxlen=1000)
+        self._last_success = None
         self.last_synchro = None
         self.ctrl_image = wx.StaticBitmap(self, -1, wx.Bitmap(Chemins.GetStaticPath("Images/48x48/Sync_off.png"), wx.BITMAP_TYPE_ANY))
 
@@ -176,7 +191,12 @@ class Panel(wx.Panel):
 
         self.gauge = wx.Gauge(self, -1, range=100, size=(-1, 8))
 
-        self.bouton_traiter = wx.Button(self, -1, _(u"Traiter les\ndemandes"))
+        self.bouton_traiter = (wx.lib.buttons.GenButton(self, -1, _(u"Traiter les\ndemandes"), style=wx.BORDER_NONE)
+                              if compact else wx.Button(self, -1, _(u"Traiter les\ndemandes")))
+        if compact:
+            self.bouton_traiter.SetBezelWidth(0)
+            self.bouton_traiter.SetFont(self.GetFont().Larger().Bold())
+            self.bouton_traiter.SetForegroundColour('#17656a')
         self.bouton_traiter.SetToolTip(wx.ToolTip(_(u"traiter les demandes")))
         self.couleur_defaut = self.bouton_traiter.GetBackgroundColour()
 
@@ -185,6 +205,10 @@ class Panel(wx.Panel):
 
         self.bouton_outils = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Outils.png"), wx.BITMAP_TYPE_ANY))
         self.bouton_outils.SetToolTip(wx.ToolTip(_(u"Outils")))
+
+        self.ctrl_etat = wx.Button(self, label='○ En attente\nde synchronisation', style=wx.BU_EXACTFIT)
+        self.ctrl_etat.SetToolTip('Ouvrir le journal Connecthys')
+        self.ctrl_etat.Bind(wx.EVT_BUTTON, self.OnJournal)
 
         self.__do_layout()
         self.MAJ_bouton()
@@ -201,6 +225,29 @@ class Panel(wx.Panel):
         self.SetImage("on")
 
     def __do_layout(self):
+        if self.compact:
+            box = wx.BoxSizer(wx.VERTICAL)
+            heading = wx.StaticText(self, label='Connecthys')
+            heading.SetForegroundColour('#536c76')
+            heading_font = wx.Font(heading.GetFont())
+            heading_font.SetPointSize(max(8, heading_font.GetPointSize()-1))
+            heading.SetFont(heading_font.Bold())
+            heading.SetMinSize((-1, self.FromDIP(24)))
+            box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, 8)
+            self.bouton_traiter.SetMinSize(self.FromDIP((130, 70)))
+            box.Add(self.bouton_traiter, 0, wx.EXPAND | wx.ALL, 8)
+            box.Add(self.ctrl_etat, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+            box.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 8)
+            tools = wx.BoxSizer(wx.HORIZONTAL)
+            tools.Add(self.bouton_synchroniser, 0)
+            tools.Add(self.bouton_outils, 0, wx.LEFT, 4)
+            box.Add(tools, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+            self.ctrl_image.Hide()
+            if hasattr(self, 'log'):
+                self.log.Hide()
+            self.SetSizer(box)
+            return
+        self.ctrl_etat.Hide()
         sizer_base = wx.BoxSizer(wx.HORIZONTAL)
         grid_sizer = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
         grid_sizer.Add(self.ctrl_image, 0, wx.ALL, 0)
@@ -265,9 +312,13 @@ class Panel(wx.Panel):
         req = """SELECT IDaction, horodatage
         FROM portail_actions
         WHERE etat <> 'validation';"""
-        DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()
-        DB.Close()
+        try:
+            if not DB.ExecuterReq(req):
+                self.SetEtatSynchro('error')
+                return False  # Garde le dernier nombre connu, jamais un faux zéro.
+            listeDonnees = DB.ResultatReq()
+        finally:
+            DB.Close()
         nbre_actions_attente = len(listeDonnees)
 
         # MAJ du bouton Analyser
@@ -279,11 +330,11 @@ class Panel(wx.Panel):
                     #self.bouton_traiter.Enable(False)
                 elif nbre_actions_attente == 1 :
                     texte = _(u"1 demande\nà traiter")
-                    self.bouton_traiter.SetBackgroundColour((150, 255, 150))
+                    self.bouton_traiter.SetBackgroundColour((234, 244, 240) if self.compact else (150, 255, 150))
                     #self.bouton_traiter.Enable(True)
                 else :
                     texte = _(u"%d demandes\nà traiter") % nbre_actions_attente
-                    self.bouton_traiter.SetBackgroundColour((150, 255, 150))
+                    self.bouton_traiter.SetBackgroundColour((234, 244, 240) if self.compact else (150, 255, 150))
                     #self.bouton_traiter.Enable(True)
 
                 self.bouton_traiter.SetLabel(texte)
@@ -408,6 +459,8 @@ class Panel(wx.Panel):
 
     def _AppliqueImage(self, nomImage):
         """Construit et applique le bitmap depuis le thread wx principal."""
+        if not self._alive:
+            return
         bitmap = wx.Bitmap(
             Chemins.GetStaticPath("Images/48x48/%s" % nomImage),
             wx.BITMAP_TYPE_ANY,
@@ -438,11 +491,14 @@ class Panel(wx.Panel):
 
     def _AjouteLogPanel(self, horodatage, message):
         """Ajoute une ligne au journal depuis le thread wx principal."""
+        if not self._alive:
+            return
         prefixe = u"\n" if len(self.log.GetValue()) > 0 else u""
         self.log.AppendText(prefixe + u"[%s] %s" % (horodatage, message))
 
     def EcritLog(self, message="", block=True):
         horodatage = time.strftime("%d/%m/%y %H:%M:%S", time.localtime())
+        self._journal.append('[%s] %s' % (horodatage, message.decode('utf-8', errors='replace') if isinstance(message, bytes) else message))
         if CUSTOMIZE.GetValeur("connecthys_log", "type", "panel") == "panel" :
             if self.lock.acquire(block) == True:
                 try:
@@ -477,6 +533,8 @@ class Panel(wx.Panel):
 
     def _AppliqueGauge(self, valeur):
         """Applique l'état visuel de la jauge depuis le thread wx principal."""
+        if not self._alive:
+            return
         afficher = valeur != 0
         if self.gauge.IsShown() != afficher:
             self.gauge.Show(afficher)
@@ -506,7 +564,44 @@ class Panel(wx.Panel):
         wx.CallLater(100, self.Destroy)
 
     def OnDestroy(self, evt):
-        self.serveur.Stop()
+        if evt.GetEventObject() is self:
+            self._alive = False
+            if hasattr(self, 'serveur'):
+                self.serveur.Stop()
+        evt.Skip()
+
+    def SetEtatSynchro(self, state):
+        AppelerSurThreadUI(self._AfficherEtat, state)
+
+    def _AfficherEtat(self, state):
+        if not self._alive:
+            return
+        if state == 'success':
+            self._last_success = datetime.datetime.now()
+        suffix = (' · dernier succès %s' % self._last_success.strftime('%H:%M')) if self._last_success else ''
+        label, color = {'busy': ('● Synchronisation…', '#99620a'),
+                        'success': ('● À jour', '#227749'),
+                        'error': ('● Échec', '#b43e36')}[state]
+        self.ctrl_etat.SetLabel(label + ('\n%s' % self._last_success.strftime('%H:%M') if self._last_success else ''))
+        self.ctrl_etat.SetForegroundColour(color)
+        self.ctrl_etat.SetToolTip(label + suffix + '\nOuvrir le journal Connecthys')
+        self.gauge.Show(state == 'busy')
+        if state == 'busy':
+            self.gauge.Pulse()
+        self.Layout()
+
+    def OnJournal(self, event=None):
+        dialog = wx.Dialog(self, title='Journal Connecthys', style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        box = wx.BoxSizer(wx.VERTICAL)
+        journal = wx.TextCtrl(dialog, value='\n'.join(list(self._journal)), style=wx.TE_MULTILINE | wx.TE_READONLY)
+        box.Add(journal, 1, wx.EXPAND | wx.ALL, 10)
+        box.Add(dialog.CreateButtonSizer(wx.OK), 0, wx.EXPAND | wx.ALL, 10)
+        dialog.SetSizer(box)
+        dialog.SetSize((700, 420))
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
 
     def SetLastSynchro(self, last_synchro, block=True):
         if self.lock.acquire(block) == True:
