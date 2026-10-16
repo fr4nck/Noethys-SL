@@ -1,5 +1,84 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Connecthys — repas liés aux accueils et priorité Journée (16/10/2026)
+
+- Demandes explicites : repas non limité mais jamais confirmé lorsqu'une période
+  d'accueil demandée reste en attente. Clarification de Franck : TOUTES les
+  demi-journées demandées doivent être confirmées, pas seulement une ; règle
+  identique pour la journée complète. Les parents sélectionnent Matin / Repas /
+  Après-midi séparément. Matin seul + repas et repas + après-midi restent possibles.
+- Demande complémentaire : si Journée + Matin + Après-midi sont cochés pour une
+  même date/inscription, retenir Journée et écarter les deux choix redondants.
+  Réponse générée : « Pour le [date], Journée ne peut pas être cumulée avec Matin
+  et Après-midi. La formule Journée a été retenue ; les deux demi-journées ont
+  été écartées car elles sont déjà incluses. » Journée retenue peut rester en
+  attente ; ce texte ne prétend pas qu'elle a été confirmée. Pas de regroupement
+  automatique des seules demi-journées quand Journée n'est pas demandée.
+- Reproduction AVANT sur source 996d1b0e : deux scénarios / trois assertions en
+  échec (repas traité avant un accueil en attente, deux variantes MAT/APM ; les
+  quatre choix saisis au lieu de Journée + Repas). Aucun accès réel. Script/log
+  qualification/portail-repas-avant.py/.log conservés hors Git et SHA épinglé.
+- Nouveau helper pur UTILS_Portail_reservations : copie/normalisation des demandes,
+  suppression des choix redondants uniquement parmi les ajouts, ordre stable
+  des suppressions et accueil avant repas, contexte date + IDinscription dans
+  l'activité/individu déjà fixé par la grille. Même inscription obligatoire pour
+  reprendre une attente antérieure ; pas de mélange entre dates ou inscriptions.
+- Les attentes déjà enregistrées sont aussi vérifiées lorsqu'une action ultérieure
+  demande seulement un repas. Contrôle sur l'état réel de la grille après les
+  suppressions du lot ; une attente annulée ne bloque plus. Les unités de repas
+  incluses dans les formules d'accueil sont exclues de la recherche pour ne pas
+  rendre le repas dépendant de lui-même. Pas de création de période non demandée.
+- Contrat réel SaisieConso vérifié sur case fictive : mode='attente' seul remet
+  une consommation unitaire existante en réservation à cause de etat par défaut.
+  Le chemin repas lié transmet donc explicitement etat=mode. Pas de modification
+  de SaisieConso générique, des tarifs ni des méthodes de sauvegarde/transactions.
+  Une revalidation de la demande peut confirmer le repas quand les accueils le
+  permettent ; pas de mécanisme de promotion en arrière-plan hors traitement.
+- Précontrôle avant les saisies : repas facturé, pointé ou verrouillé → traitement
+  manuel sans mutation du lot ; attente ancienne sans inscription identifiable,
+  période fermée/inexistante ou unité repas Quantite/Evenement/Multihoraires → manuel.
+  Support automatique repas unitaire/horaire. Une priorité Journée impliquant des
+  demi-journées DÉJÀ enregistrées reste manuelle, même non facturées : pas de
+  conversion/suppression silencieuse d'anciennes consommations. Deux formules
+  Journée distinctes ambiguës ne sont jamais arbitrées automatiquement.
+- Rôle de chaque choix dans Saisie d'une unité de réservation : Automatique,
+  Autre choix indépendant, Matin, Repas, Après-midi, Journée complète. Noms usuels
+  exacts reconnus avec accents/casse normalisés ; noms composés non devinés.
+  Les libellés personnalisés se configurent explicitement. Stockage natif dans
+  parametres / categorie noethys_sl_portail_roles_v1 / nom IDunite du portail,
+  sans migration ni changement de portail_unites/protocole Connecthys. Un SELECT
+  supplémentaire réutilise la connexion déjà ouverte par le traitement ; pas
+  de connexion par ligne. Pas de lecture-écriture implicite des rôles à l'ouverture.
+- 24 tests dédiés : véritable méthode Appliquer_reservations sur grille/DB fictives,
+  cas MAT/APM/Journée, ordre d'arrivée, précédentes attentes, répétition/revalidation,
+  annulation conservée, contexte date/inscription, zéro auto-dépendance, protections,
+  règles ambiguës, vrais SaisieConso et dialogue wx de paramétrage (persistance mockée),
+  helper pur et réentrant à quatre threads. 24 OK sur main/wx/qt. Suite ciblée plus
+  large de 88 tests OK avant les derniers cas ; 33 ciblés finaux OK, puis CI ci-dessous.
+- Départ : main 996d1b0e, wx 03f21ff8, qt e0dc317a. Code final :
+  main **4d1189aa3e0c169cd61e9b8a15e6c7a374fc67bb**,
+  wx **e18492286b809792affa32f89283908332d6a57f**,
+  qt **44677fe918c67c22ee444661cbd8a12adf794b58**.
+  Helper/paramétrage/tests identiques, et méthode Appliquer_reservations identique
+  par SHA256 ab86988e65bfabbdaf0f207f139061fe1616456fad7a5cc7b652b37ecb39720d.
+  Différence historique du reçu email wx conservée ; aucun merge global ni branche.
+- CI main [38908786818](https://github.com/fr4nck/Noethys-SL/actions/runs/38908786818)
+  SUCCESS : 686 tests / 6 ignorés ; wx
+  [38908857188](https://github.com/fr4nck/Noethys-SL/actions/runs/38908857188)
+  SUCCESS : 699 tests / 10 ignorés ; qt
+  [38908879627](https://github.com/fr4nck/Noethys-SL/actions/runs/38908879627) SUCCESS : 651 tests / 6 ignorés, code commun wx ; UI Qt native non qualifiée.
+  Les CI des lots intermédiaires 38907891890 / 38907989464 / 38908012930 étaient
+  vertes ; le premier run main e2201647 a été remplacé et annulé par concurrence.
+- Qualification : logique commune VALIDÉE par tests synthétiques sur les trois
+  arbres ; recette UI Qt native, paramétrage réel des choix, grilles/tarifs du pilote,
+  écritures MySQL de ce scénario et nouveau binaire empaqueté EN ATTENTE. Les tests
+  ne prétendent pas remplacer la recette métier du prochain candidat distinct.
+- Aucun email envoyé, synchronisation réelle, SQL de production ou réparation
+  rétroactive. Annulations/délais existants et sauvegarde de la grille conservés.
+  Cotisations automatiques toujours suspendues. Aucun nouvel installateur/tag/release ;
+  la RC7.3 déjà fabriquée ne contient pas ce lot. Logs/scripts locaux dans qualification/
+  hors Git ; prochaine étape : qualification pilote isolée puis candidat distinct si demandé.
+
 ## Carte Connecthys approuvée et captures opaques — 16/10/2026
 
 - Clarification utilisateur : « tout est noir » concernait les captures, pas les
