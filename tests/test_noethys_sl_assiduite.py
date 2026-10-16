@@ -191,6 +191,8 @@ class JournalTests(unittest.TestCase):
         self.db.cursor.execute('DROP TRIGGER ' + stats.TRIGGERS['delete'])  # base temporaire de ce test uniquement
         with self.assertRaises(RuntimeError):
             self.report()
+        with self.assertRaisesRegex(RuntimeError, 'interrompu'):
+            stats.activate(self.db)
 
     def test_filtres_invalides(self):
         for args in [('2026-11-01', '2026-10-01', [1]), ('x', '2026-10-01', [1]),
@@ -212,6 +214,24 @@ class JournalTests(unittest.TestCase):
             self.assertEqual(self.report()['children'][0]['cancelled'], 0)
         finally:
             copy.Close()
+
+    def test_taux_familial_pondere_et_dates_futures_exclues_du_pointage(self):
+        rows = [(10, 1, 1, '2026-10-01', 'absentj'),
+                (10, 2, 1, '2026-10-01', 'present'),
+                (10, 2, 1, '2026-10-02', 'present'),
+                (10, 2, 1, '2026-10-03', 'present'),
+                (10, 2, 1, '2026-10-10', 'absenti')]
+        result = stats.summarize(rows, today=dt.date(2026, 10, 5))
+        row = result['families'][0]
+        self.assertEqual((row['pointed'], row['absent'], row['absence_rate']), (4, 1, 25))
+
+    def test_reinscription_meme_jour_retire_annulation(self):
+        stats.activate(self.db)
+        insert(self.db, 1)
+        self.db.cursor.execute('DELETE FROM consommations')
+        insert(self.db, 2)
+        row = self.report()['children'][0]
+        self.assertEqual((row['reserved'], row['cancelled'], row['cancellation_rate']), (1, 0, 0))
 
 
 class NativeTests(unittest.TestCase):
