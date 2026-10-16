@@ -1,5 +1,40 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Carte Connecthys approuvée et captures opaques — 16/10/2026
+
+- Clarification utilisateur : « tout est noir » concernait les captures, pas les
+  polices. PNG wx capturés en 32 bits : alpha=0 sur le fond et le texte (vérifié
+  par lecture de pixels RGBA), donc rendu noir dans certains afficheurs. Le script
+  LOCAL qualification/accueil_preview.py capture désormais les composants dans
+  wx.Bitmap(width,height,24). Nouveaux PNG vérifiés RGB sans transparence.
+- L'agrandissement global de polices e4cfb6f7 (wx 5f6fae00 / qt c7c44849), issu du
+  malentendu, a été annulé par commits de revert traçables, sans réécrire l'historique.
+- Référence approuvée fournie : carte sombre arrondie, grand compteur, flèche ↗ en
+  haut à droite, « demandes à traiter » dessous, état et heure puis message de
+  synchronisation. Carte entière cliquable, curseur main, survol/focus plus clair
+  et état pressé. Label accessible contenant le compte conservé ; zéro et compte
+  inconnu distincts. Taille calculée pour le nombre ; minimum de hauteur 114 DIP
+  évitant la coupure du texte. Boutons de synchronisation/outils conservés.
+- État/journal compact rendu sans cadre natif, état et dernière heure sur une ligne,
+  explication de l'état dessous. L'heure reste celle du dernier succès effectif,
+  aucune nouvelle lecture/écriture DB ni changement du cycle de synchronisation.
+  Ancien panneau non compact inchangé. Effectifs et créneaux du lot précédent conservés.
+- Dernier code : main 8d3fe4773eb265b13e789de77dd120adcc37e5a4,
+  wx 6847af908826070a5939a752eff4a5d9ac4db058,
+  qt 97b3316fc8a239ed4a88c89b13e3320c261dedc3. Portages ciblés sans branche nouvelle.
+- 28 tests ciblés natifs accueil + préférences OK sur main et rendu normal/survol
+  inspecté, uniquement données fictives et DB mockée ; aucun client réseau lancé.
+  CI rapide nouvelle main 38905557531 et wx 38905598688 EN COURS à la rédaction.
+  Les CI vertes des sections antérieures ne qualifient pas cette nouvelle carte.
+  UI Qt native / DPI / binaire empaqueté EN ATTENTE. Aucun nouvel installateur.
+- Aperçus locaux fiables : qualification/connecthys-carte.png (composant seul) et
+  qualification/accueil-wx-survol.png (vue globale), RGB opaques, hors Git. Les
+  captures RGBA plus anciennes et la première annotation générée sur fond noir
+  ne doivent pas être utilisées comme preuve du rendu natif. L'agent avait d'abord
+  confondu ce défaut de capture avec un défaut de lisibilité ; ce diagnostic est corrigé.
+- Prochaine étape : relever la fin des CI, puis qualification d'un candidat distinct
+  si demandé. RC7.3 déjà fabriquée reste inchangée, ces retouches ne sont pas installées.
+
 ## Retours terrain RC7.3 — accueil, bouton et créneaux (16/10/2026)
 
 - La capture fournie affiche RC7.3 sur le poste. Aucun lancement, accès à sa base,
