@@ -45,6 +45,12 @@ class ReadOnlyFixture:
         CREATE TABLE groupes(IDgroupe,nom,abrege);
         INSERT INTO groupes VALUES(10,'Bais moins de six ans','Bais −6'),
         (11,'Moutiers moins de six ans','Mout. −6');
+        ALTER TABLE consommations ADD COLUMN etiquettes;
+        CREATE TABLE unites_remplissage(IDunite_remplissage,IDactivite,nom,abrege,heure_min,heure_max,etiquettes,date_debut,date_fin);
+        CREATE TABLE unites_remplissage_unites(IDunite_remplissage,IDunite);
+        INSERT INTO unites_remplissage VALUES(101,1,'Matin','MAT',NULL,NULL,NULL,NULL,NULL),
+        (102,1,'Après-midi','APM',NULL,NULL,NULL,NULL,NULL);
+        INSERT INTO unites_remplissage_unites VALUES(101,1),(102,2);
         ''')
         self.before = self.db.total_changes
 
@@ -81,8 +87,8 @@ class ProgrammeTests(unittest.TestCase):
                   '4':dict(visible=True,alsh=False,order=1), '3':dict(visible=True,alsh=True)}))
         self.assertEqual([r['id'] for r in rows], [4,2])
 
-    def test_unknown_times_do_not_show_false_zero(self):
-        self.fixture.db.execute("UPDATE unites SET heure_debut=NULL WHERE IDunite=1")
+    def test_unknown_period_mapping_does_not_show_false_zero(self):
+        self.fixture.db.execute("DELETE FROM unites_remplissage WHERE IDunite_remplissage=102")
         self.fixture.before = self.fixture.db.total_changes
         rows, _ = self.read()
         self.assertIsNone(rows[0]['morning'])
@@ -100,19 +106,45 @@ class ProgrammeTests(unittest.TestCase):
         self.assertEqual(day.preferences()['event_count'],0)
 
     def test_full_day_participation_counts_in_both_periods(self):
-        self.fixture.db.execute("UPDATE unites SET heure_fin='18:00' WHERE IDunite=1")
+        self.fixture.db.execute("INSERT INTO unites_remplissage_unites VALUES(102,1)")
         self.fixture.before=self.fixture.db.total_changes
         rows,_=self.read()
         self.assertEqual((rows[0]['total'],rows[0]['morning'],rows[0]['afternoon']),(2,1,2))
 
     def test_alsh_separates_groups_without_mixing_sites_or_ages(self):
         self.fixture.db.execute("INSERT INTO ouvertures VALUES(1,'2026-10-16',11)")
-        self.fixture.db.execute("INSERT INTO consommations VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11)")
+        self.fixture.db.execute("INSERT INTO consommations VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11,NULL)")
         self.fixture.before=self.fixture.db.total_changes
         rows,_=self.read()
         alsh=[r for r in rows if r['alsh']]
         self.assertEqual([(r['label'],r['morning'],r['afternoon']) for r in alsh],
                          [('Bais −6',1,2),('Mout. −6',1,0)])
+
+    def test_meal_alone_is_not_an_afternoon_even_when_it_starts_at_noon(self):
+        self.fixture.db.execute("INSERT INTO unites VALUES(9,1,'12:00','13:00',NULL,NULL)")
+        self.fixture.db.execute("INSERT INTO consommations VALUES(1,999,9,'2026-10-16','reservation',NULL,NULL,10,NULL)")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        self.assertEqual((rows[0]['morning'],rows[0]['afternoon']),(1,2))
+
+    def test_configured_time_and_tag_conditions_match_filling_contract(self):
+        self.fixture.db.execute("UPDATE unites_remplissage SET heure_min='09:00',heure_max='11:00',etiquettes='7' WHERE IDunite_remplissage=101")
+        self.fixture.db.execute("UPDATE consommations SET heure_debut='08:00',heure_fin='12:00',etiquettes='7;9' WHERE IDindividu=101")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        self.assertEqual(rows[0]['morning'],1)
+        self.fixture.db.execute("UPDATE consommations SET etiquettes='9' WHERE IDindividu=101")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        self.assertEqual(rows[0]['morning'],0)
+
+    def test_explicit_period_choice_for_nonstandard_unit_names(self):
+        self.fixture.db.execute("UPDATE unites_remplissage SET nom='Créneau spécial',abrege='Special' WHERE IDunite_remplissage=102")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        self.assertIsNone(rows[0]['afternoon'])
+        rows,_=self.read(dict(activities={'1':dict(visible=True,alsh=True,morning_unit=101,afternoon_unit=102)}))
+        self.assertEqual((rows[0]['morning'],rows[0]['afternoon']),(1,2))
 
     def test_query_failure_cannot_look_like_empty_programme(self):
         with patch.object(self.fixture,'ExecuterReq',return_value=False):
