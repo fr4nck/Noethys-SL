@@ -1,5 +1,50 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Réglages Aujourd'hui — catalogue activités et groupes (16/10/2026)
+
+- Signalement de Franck : tableau Programme et agenda vide malgré les activités
+  ouvertes ; choix nécessaires dans les groupes ALSH et EMS (captures fournies).
+- Défaut reproduit : read_day dépend de toutes les lectures du programme et son
+  échec remet aussi activities à []. Le dialogue réutilisait exclusivement ce
+  résultat. Aucune base réelle consultée : cause précise du déclenchement terrain
+  non déterminée, aucune prétention de l'avoir vérifiée en production.
+- Correction : lecture indépendante du catalogue activités/groupes/remplissage,
+  trois SELECT seulement à l'ouverture des réglages, en tâche de fond sur une
+  connexion explicitement liée au fichier courant et fermée dans tous les cas.
+  Les callbacks d'un ancien fichier/génération ou d'un contrôle détruit sont ignorés.
+  Échec signalé au lieu d'un faux tableau vide ; vraie liste vide explicitée.
+- Hiérarchie activité > groupes avec Afficher et Ordre par groupe. Masquer une
+  activité masque tous ses groupes ; M/A et unités restent configurés au parent.
+  Préférences de groupes enregistrées dans le JSON personnel existant, sans
+  migration SQL, en conservant les anciens groupes/préférences non affichés.
+- Catalogue = activités valides y compris sans séance aujourd'hui + leurs groupes
+  réels reliés par IDactivite. Bandeau = programme du jour seulement ; groupes
+  masqués exclus sans mélanger les effectifs. Détection ALSH, règles M/A et
+  comptage distinct des séances conservés. Toujours six SELECT par read_day.
+- Tests locaux : 34 tests accueil/éphémérides sur chacune des trois branches,
+  dont six nouveaux cas : échec consommations sans perte du catalogue, masquages
+  ALSH/hors ALSH et priorité parent, période illimitée sur schéma canonique complet,
+  persistance des groupes, chargement natif indépendant et callbacks obsolètes.
+- Recette MySQL 5.7.44 synthétique 38918080699 : succès, quatre tests sans ignoré ;
+  catalogue et programme comparés à SQLite et snapshots inchangés. Les recettes
+  existantes journal/rollback/restauration et Mailjet synthétique restent vertes.
+- CI finales vertes : main 38918081836 : 709 tests / 6 ignorés prévus ;
+  wx 38918174695 : 722 tests / 10 ignorés prévus ; qt 38918189968 : 674 tests /
+  6 ignorés prévus. Journaux téléchargés et inspectés. Matrice : correctif partagé
+  VALIDÉ techniquement sur les trois sources ; rendu Qt natif et diffusion dans
+  un candidat Windows EN ATTENTE. Aucun statut stable attribué.
+- Sources : main 4110a7c9caef84fb18e0dfb28a79cdf14d0405c1,
+  wx f3fb1636a5c1c26512f5f8f6204b824c4cf78549,
+  qt c5e99968c1ea0e77598b85ac6f8b9d6b7898055a. Quatre fichiers communs comparés
+  identiques après normalisation CRLF/LF ; propagation ciblée, aucune fusion.
+- Preuves hors Git : qualification/accueil-groupes-mysql.log, accueil-groupes-ci-*,
+  accueil-reglages-groupes.py/.png. Capture native RGB opaque, données fictives,
+  aucun pixel pris dans la base/application utilisateur.
+- STOP-GATE : source qualifié, absent du paquet RC7.4 construit sur 23419a6d.
+  Aucun nouveau build, tag, release, déploiement ni lecture production. Rendu Qt
+  natif et recette terrain sur copie isolée restent à qualifier. Ne pas annoncer
+  cette correction comme présente dans l'installateur RC7.4 déjà distribué.
+
 ## Assiduité — annulations et absences par famille/enfant (16/10/2026)
 
 - Demande de Franck : deux taux distincts, annulations ET absences ; choix explicite
