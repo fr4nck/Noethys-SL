@@ -15,6 +15,8 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import GestionDB
+from Utils import UTILS_Parametres
+from Utils import UTILS_Portail_reservations as regles_reservations
 
 
 
@@ -103,6 +105,10 @@ class Dialog(wx.Dialog):
         # Nom
         self.staticbox_nom_staticbox = wx.StaticBox(self, -1, _(u"Nom de l'unité de réservation"))
         self.ctrl_nom = wx.TextCtrl(self, -1, u"")
+        self.label_role = wx.StaticText(self, label='Rôle du choix :')
+        self.ctrl_role = wx.Choice(self, choices=list(regles_reservations.ROLE_LABELS))
+        self.ctrl_role.SetSelection(0)
+        self.ctrl_role.SetToolTip('Matin, Après-midi et Journée conditionnent le repas demandé pour la même date et la même inscription.\nJournée est prioritaire si les trois formules sont cochées.\nAutomatique reconnaît seulement les noms usuels non ambigus ; Autre choix indépendant désactive ces règles.')
 
         # Caractéristiques
         self.staticbox_caract_staticbox = wx.StaticBox(self, -1, _(u"Caractéristiques"))
@@ -159,6 +165,8 @@ class Dialog(wx.Dialog):
 
         grid_sizer_caract.Add(self.label_unites_secondaires, 0, wx.ALIGN_RIGHT, 0)
         grid_sizer_caract.Add(self.ctrl_unites_secondaires, 0, wx.EXPAND, 0)
+        grid_sizer_caract.Add(self.label_role, 0, wx.ALIGN_RIGHT, 0)
+        grid_sizer_caract.Add(self.ctrl_role, 0, wx.EXPAND, 0)
 
         grid_sizer_caract.AddGrowableCol(1)
         grid_sizer_caract.AddGrowableRow(0)
@@ -240,6 +248,8 @@ class Dialog(wx.Dialog):
         DB.Close()
 
         # Fermeture de la fenêtre
+        UTILS_Parametres.Parametres(mode='set', categorie=regles_reservations.CATEGORY,
+                                  nom=str(self.IDunite), valeur=regles_reservations.ROLES[self.ctrl_role.GetSelection()])
         self.EndModal(wx.ID_OK)
 
 
@@ -263,6 +273,16 @@ class Dialog(wx.Dialog):
         self.ctrl_nom.SetValue(nom)
         self.ctrl_unites_principales.SetCochesStr(unites_principales)
         self.ctrl_unites_secondaires.SetCochesStr(unites_secondaires)
+        DB = GestionDB.DB()
+        try:
+            if not DB.ExecuterReq("SELECT parametre FROM parametres WHERE categorie='%s' AND nom='%d';" %
+                                  (regles_reservations.CATEGORY, self.IDunite)):
+                raise ValueError('Impossible de lire le rôle du choix Connecthys.')
+            values = DB.ResultatReq()
+            if values and values[0][0] in regles_reservations.ROLES:
+                self.ctrl_role.SetSelection(regles_reservations.ROLES.index(values[0][0]))
+        finally:
+            DB.Close()
 
 
     def GetIDunite(self):

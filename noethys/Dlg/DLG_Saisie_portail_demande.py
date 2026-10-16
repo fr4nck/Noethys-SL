@@ -27,6 +27,7 @@ from Dlg import DLG_Badgeage_grille
 from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
 from Utils import UTILS_Config
 from Utils import UTILS_Parametres
+from Utils import UTILS_Portail_reservations as regles_reservations
 SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 
 
@@ -1768,14 +1769,51 @@ class Traitement():
         ORDER BY date, etat;""" % self.track.IDaction
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
-        DB.Close()
+        unites_reservations = {ID: dict(unit) for ID, unit in self.parent.dictUnites.items()}
+        try:
+            if not DB.ExecuterReq("SELECT nom, parametre FROM parametres WHERE categorie='%s';" % regles_reservations.CATEGORY):
+                self.EcritLog(_(u"Impossible de lire les rôles des choix Connecthys : traitement interrompu."), log_jumeau)
+                return ""
+            for nom, role in DB.ResultatReq():
+                if str(nom).isdigit() and int(nom) in unites_reservations and role in regles_reservations.ROLES:
+                    unites_reservations[int(nom)]['role_portail'] = role
+        finally:
+            DB.Close()
         listeReservations = []
         dictUnitesResaParDate = {}
         for IDreservation, date, IDinscription, IDunite, etat, nom_unite_reservation in listeDonnees :
             date = UTILS_Dates.DateEngEnDateDD(date)
             listeReservations.append({"IDreservation" : IDreservation, "date" : date, "IDinscription" : IDinscription, "IDunite" : IDunite, "etat" : etat, "nom_unite_reservation" : nom_unite_reservation})
 
+        try:
+            listeReservations, choix_redondants = regles_reservations.prepare(listeReservations, unites_reservations)
+        except ValueError as error:
+            self.EcritLog(str(error), log_jumeau)
+            return ""
+
+        # Précontrôle avant toute saisie : ne jamais réviser un repas protégé.
+        for reservation in listeReservations:
+            if reservation['etat'] != 1 or not regles_reservations.linked_meal(reservation, listeReservations):
+                continue
+            for accueil in listeReservations:
+                if accueil['etat'] != 1 or accueil['role_portail'] not in regles_reservations.PERIODS or regles_reservations.context(accueil) != regles_reservations.context(reservation):
+                    continue
+                unite_accueil = self.parent.dictUnites[accueil['IDunite']]
+                for IDunite in unite_accueil['unites_principales'] + unite_accueil['unites_secondaires']:
+                    if ctrl_grille.GetCase(IDunite, accueil['date']) is None or not ctrl_grille.IsOuvert(IDunite=IDunite, date=accueil['date']):
+                        self.EcritLog(_(u"Une période d'accueil demandée est fermée ou inexistante : traitement manuel nécessaire."), log_jumeau)
+                        return ""
+            unite = self.parent.dictUnites[reservation['IDunite']]
+            for IDunite in unite['unites_principales'] + unite['unites_secondaires']:
+                if ctrl_grille.grille.dictUnites.get(IDunite, {}).get('type') not in ('Unitaire', 'Horaire'):
+                    self.EcritLog(_(u"Ce type d'unité de repas nécessite un traitement manuel."), log_jumeau)
+                    return ""
+                if regles_reservations.protected(ctrl_grille.GetCase(IDunite, reservation['date'])):
+                    self.EcritLog(_(u"Le repas est déjà facturé, pointé ou verrouillé : traitement manuel nécessaire."), log_jumeau)
+                    return ""
+
         # Traitement des réservations
+        accueils_en_attente = set()
         liste_resultats = []
         dict_reponses = {"suppression" : 0, "reservation" : 0, "attente" : 0}
 
@@ -1824,6 +1862,11 @@ class Traitement():
                         if ctrl_grille.GetCase(IDunite, date) != None and ctrl_grille.HasPlacesDisponibles(IDunite=IDunite, date=date) == False :
                             hasPlaces = False
 
+                repas_lie = regles_reservations.linked_meal(reservation, listeReservations)
+                if repas_lie and regles_reservations.context(reservation) in accueils_en_attente:
+                    hasPlaces = False
+                    self.EcritLog(_(u"Repas en attente : toutes les périodes d'accueil demandées ne sont pas confirmées."), log_jumeau)
+
                 # Si plus de places, met les unités de conso en mode "attente"
                 if hasPlaces == True :
                     mode = "reservation"
@@ -1840,12 +1883,19 @@ class Traitement():
                             nomUnite = ctrl_grille.grille.dictUnites[IDunite]["nom"]
                             texte = _(u"Saisie de l'unité %s du %s en mode %s") % (nomUnite, UTILS_Dates.DateDDEnFr(date), mode_label)
                             self.EcritLog(texte, log_jumeau)
-                            resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode)
+                            if repas_lie:
+                                # L'état explicite évite de reconfirmer un repas déjà saisi
+                                # quand SaisieConso modifie une consommation existante.
+                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode, etat=mode)
+                            else:
+                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode)
                         else :
                             texte = _(u"Saisie de l'unité ID%d du %s en mode %s") % (IDunite, UTILS_Dates.DateDDEnFr(date), mode_label)
                             resultat = _(u"L'unité ID%d est inconnue. Vérifiez le paramétrage des unités de réservation." % IDunite)
 
                         if resultat != True :
+                            if reservation['role_portail'] in regles_reservations.PERIODS:
+                                accueils_en_attente.add(regles_reservations.context(reservation))
                             self.EcritLog(_(u"[ERREUR] %s") % resultat, log_jumeau)
                             liste_erreurs.append(u"> %s :\n    %s" % (texte, resultat))
 
@@ -1854,6 +1904,8 @@ class Traitement():
                     dict_reponses["reservation"] += 1
                 if mode == "attente" :
                     dict_reponses["attente"] += 1
+                    if reservation['role_portail'] in regles_reservations.PERIODS:
+                        accueils_en_attente.add(regles_reservations.context(reservation))
 
 
         # Création de la réponse
@@ -1903,6 +1955,8 @@ class Traitement():
             else :
                 reponse = _(u"%s et %s.") % (u", ".join(reponse_temp[:-1]), reponse_temp[-1])
 
+            for date_redondante in sorted(set(choix_redondants)):
+                reponse += _(u" Pour le %s, Journée ne peut pas être cumulée avec Matin et Après-midi. La formule Journée a été retenue ; les deux demi-journées ont été écartées car elles sont déjà incluses.") % UTILS_Dates.DateDDEnFr(date_redondante)
             self.EcritLog(_(u"Réponse : %s") % reponse, log_jumeau)
             return reponse
 
