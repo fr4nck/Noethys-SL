@@ -13,13 +13,14 @@ from html.parser import HTMLParser
 from urllib.parse import urlencode, urlsplit, urljoin
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
+from Utils import UTILS_Accueil_jour
 
 WEATHER_SOURCE = 'https://open-meteo.com/'
 SCHOOL_SOURCE = 'https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000052416058'
 PREFECTURE_35 = 'https://www.ille-et-vilaine.gouv.fr/syndication/listexport'
 AGENDA_35 = 'https://www.vitrecommunaute.org/systeme/agenda/?display=liste'
 FIELDS = ('temperature_2m', 'precipitation', 'precipitation_probability',
-          'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'weather_code')
+          'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'weather_code', 'wind_direction_10m')
 PERIODS = (('Matin · 6–12 h', 6, 12), ('Après-midi · 12–18 h', 12, 18))
 KINDS = ('Officiel', 'Local', 'Insolite')
 
@@ -60,7 +61,8 @@ def normalize_dashboard_layout(layout=None):
             'column': min(columns, max(1, column)),
             'order': max(1, order),
         }
-    return {'columns': columns, 'blocks': blocks}
+    return {'columns': columns, 'blocks': blocks,
+            'day': UTILS_Accueil_jour.preferences(source.get('day'))}
 
 
 def dashboard_columns(layout=None):
@@ -238,6 +240,10 @@ def aggregate_weather(payload):
             # Un total de pluie incomplet ne doit jamais ressembler à zéro mm.
             if len(values) != 6 or len(indexes) != 6:
                 row[field] = None
+            elif field == 'wind_direction_10m':
+                x = sum(math.cos(math.radians(v)) for v in values)
+                y = sum(math.sin(math.radians(v)) for v in values)
+                row[field] = math.degrees(math.atan2(y, x)) % 360 if math.hypot(x, y) > 1e-8 else None
             elif field in ('temperature_2m', 'relative_humidity_2m'):
                 row[field] = (min(values), max(values))
             elif field == 'precipitation':
@@ -250,6 +256,13 @@ def aggregate_weather(payload):
     if not result:
         raise ValueError('Prévisions horaires absentes')
     return result
+
+
+def wind_arrow(direction):
+    """Flèche de provenance météorologique, sans abréviation cardinale."""
+    if direction is None or not math.isfinite(direction):
+        return '—'
+    return ('↑', '↗', '→', '↘', '↓', '↙', '←', '↖')[int((direction % 360 + 22.5) // 45) % 8]
 
 
 def weather_text(row):

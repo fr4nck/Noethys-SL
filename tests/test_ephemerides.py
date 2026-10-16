@@ -131,7 +131,7 @@ class EphemeridesTests(unittest.TestCase):
         self.assertNotIn("Infos officielles", source)
         self.assertNotIn("wx.Notebook(events_panel)", source)
         self.assertIn("self.events_content = wx.BoxSizer(wx.VERTICAL)", source)
-        self.assertIn("self._timer.Start(30 * 60 * 1000)", source)
+        self.assertIn("self._timer.Start(5 * 60 * 1000)", source)  # programme du jour ; cache météo inchangé à 30 min
 
         noethys = NOETHYS.read_text(encoding="utf-8")
         self.assertIn('label" : _(u"Personnaliser Aujourd’hui…")', noethys)

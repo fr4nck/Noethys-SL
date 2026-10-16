@@ -44,10 +44,12 @@ class EphemeridesUI(unittest.TestCase):
             self.panel._publish(1, self.result)
         return save
 
-    def test_real_panel_displays_three_days_and_unavailable_source(self):
+    def test_real_panel_displays_four_days_and_independent_agenda(self):
         self.publish()
         self.assertIn('2026-10-05', self.panel.weather.GetLabel())
-        self.assertNotIn('2026-10-06', self.panel.weather.GetLabel())
+        self.assertIn('2026-10-06', self.panel.weather.GetLabel())
+        self.assertNotIn('2026-10-07', self.panel.weather.GetLabel())
+        self.assertEqual(self.panel.events_scroll.GetParent(), self.panel.block_panels['events'])
         self.assertTrue(self.panel.detail.IsEnabled())
         # 0cc84814 (RC2) a remplace le classeur d'evenements par une liste et retire
         # volontairement les flux prefectoraux : verifier la liste reelle des dates.
