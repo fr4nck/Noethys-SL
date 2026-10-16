@@ -1,3 +1,11 @@
+Version Noethys SL 0.1.0 RC7.5 (16/10/2026) :
+
+- Correction du tableau vide des activités dans les réglages Aujourd'hui grâce à un catalogue chargé indépendamment du programme du jour
+- Sélection et ordre d'affichage des groupes sous chaque activité dans les réglages du bandeau
+- Consultation des taux de journées annulées et d'absences par famille et par enfant, filtrables par période et activité
+- Distinction des absences justifiées, injustifiées, partielles et des journées non entièrement pointées
+- Suivi des nouvelles réservations activable explicitement par un administrateur, sans reconstitution de l'ancien historique d'annulations
+
 Version Noethys SL 0.1.0 RC7.4 (16/10/2026) :
 
 - Repas Connecthys mis en attente tant que toutes les périodes d'accueil demandées ne sont pas confirmées

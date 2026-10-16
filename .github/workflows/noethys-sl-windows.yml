@@ -1,4 +1,4 @@
-name: Noethys SL wx - candidat 0.1.0 RC7.4 Windows
+name: Noethys SL wx - candidat 0.1.0 RC7.5 Windows
 
 # Qualification volontaire du candidat ; aucune release automatique.
 on:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    name: Construire Noethys SL wx 0.1.0 RC7.4 (candidat)
+    name: Construire Noethys SL wx 0.1.0 RC7.5 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -30,13 +30,13 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Vérifier syntaxe, identité publique RC7.4 et splash
+      - name: Vérifier syntaxe, identité publique RC7.5 et splash
         shell: pwsh
         run: |
           python -m compileall -q noethys tests
           if ($LASTEXITCODE -ne 0) { throw 'Échec de compilation Python' }
-          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.7.4', '0.1.0 RC7.4')"
-          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC7.4 incohérente' }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.7.5', '0.1.0 RC7.5')"
+          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC7.5 incohérente' }
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
@@ -53,6 +53,7 @@ jobs:
           tests.test_vanilla_connecthys_synchro
           tests.test_connecthys_reservations_progress
           tests.test_noethys_sl_portail_repas
+          tests.test_noethys_sl_assiduite
           tests.test_portail_payment_ventilation_contract
           tests.test_devis_tri_activites
           tests.test_regr_devis_integration
@@ -150,10 +151,12 @@ jobs:
           @(
             'Produit: Noethys SL'
             'Interface: wxPython'
-            'Version publique: 0.1.0-rc.7.4'
-            'Nouveautés RC7.4 : accueil compact wx, créneaux distincts, carte Connecthys cliquable'
-            'Connecthys RC7.4 : repas liés à toutes les périodes demandées, priorité Journée et rôles configurables'
-            'Corrections RC7.4 : impression dépôt, soldes nuls des rappels, sauvegarde consommations'
+            'Version publique: 0.1.0-rc.7.5'
+            'Nouveautés RC7.5 : catalogue activités indépendant, sélection des groupes dans les réglages du bandeau'
+            'Assiduité RC7.5 : taux par famille/enfant ; journal des nouvelles réservations activable explicitement par administrateur'
+            'Assiduité : aucun suivi ni changement de schéma automatique, historique antérieur non reconstitué'
+            'Connecthys RC7.5 : repas liés à toutes les périodes demandées, priorité Journée et rôles configurables'
+            'Corrections RC7.5 : impression dépôt, soldes nuls des rappels, sauvegarde consommations'
             'Suivi Mailjet : consultation volontaire ; aucun email de recette envoyé'
             'Création automatique des cotisations : toujours suspendue (protection P1)'
             'Historique des corrections intégrées:'
@@ -176,7 +179,7 @@ jobs:
       - name: Vérifier le démarrage sur runner Windows isolé
         shell: pwsh
         run: |
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc74-profile'
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc75-profile'
           $env:APPDATA = Join-Path $profileRoot 'Roaming'
           $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
           New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
@@ -206,12 +209,12 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Échec installation Inno Setup ($LASTEXITCODE)" }
           }
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
-          & $iscc '/DMyAppVersion=0.1.0-rc.7.4' 'packaging\vanilla-installer.iss'
+          & $iscc '/DMyAppVersion=0.1.0-rc.7.5' 'packaging\vanilla-installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
-          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.7.4-Setup.exe'
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.7.5-Setup.exe'
 
-      - name: Créer le véritable ZIP portable RC7.4
+      - name: Créer le véritable ZIP portable RC7.5
         shell: pwsh
         run: |
           # Compress-Archive omet les dossiers vides : sans ce fichier, le ZIP
@@ -219,7 +222,7 @@ jobs:
           New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
           Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt' -ErrorAction Stop
           Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
-          $zip = 'windows-output/Noethys-SL-0.1.0-rc.7.4-Windows-portable.zip'
+          $zip = 'windows-output/Noethys-SL-0.1.0-rc.7.5-Windows-portable.zip'
           Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
           if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
             throw 'Archive portable absente ou vide'
@@ -270,7 +273,7 @@ jobs:
       - name: Publier uniquement les artefacts de recette (aucune release)
         uses: actions/upload-artifact@v7
         with:
-          name: Noethys-SL-0.1.0-rc.7.4-Windows-candidat
+          name: Noethys-SL-0.1.0-rc.7.5-Windows-candidat
           path: windows-output/*
           if-no-files-found: error
           retention-days: 30
