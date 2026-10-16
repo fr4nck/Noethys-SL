@@ -197,6 +197,18 @@ class ProgrammeTests(unittest.TestCase):
         self.assertEqual({r['group'] for r in slots}, {10, 11})
         self.assertTrue(all(r['total'] == 0 for r in slots))
 
+    def test_parallel_units_are_not_merged_just_because_times_match(self):
+        self.fixture.db.executescript("""
+        UPDATE unites SET nom='Premier groupe' WHERE IDunite=3;
+        INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin,nom) VALUES(6,2,'10:00','11:00','Autre seance');
+        INSERT INTO ouvertures VALUES(6,'2026-10-16',10);
+        """)
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read()
+        slots = [r for r in rows if r['id'] == 2]
+        self.assertEqual(len(slots), 2)
+        self.assertNotEqual(slots[0]['label'], slots[1]['label'])
+
     def test_circular_wind_and_unknown_cache(self):
         from test_ephemerides import forecast
         p = forecast(1)
