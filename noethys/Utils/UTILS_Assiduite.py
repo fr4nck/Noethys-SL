@@ -51,7 +51,7 @@ def activate(db):
     locked = False
     try:
         if db.isNetwork:
-            lock = query(db, "SELECT GET_LOCK(CONCAT('nsl_assiduite:', DATABASE()), 10)")
+            lock = query(db, "SELECT GET_LOCK(CONCAT('nsl_assiduite:', SHA1(DATABASE())), 10)")
             if not lock or lock[0][0] != 1:
                 raise RuntimeError("Une activation est déjà en cours.")
             locked = True
@@ -66,6 +66,10 @@ def activate(db):
             IDlog %s, horodatage DATETIME NOT NULL,
             operation VARCHAR(16) NOT NULL, IDconso INTEGER, IDfamille INTEGER,
             IDindividu INTEGER, IDactivite INTEGER, date DATE, etat VARCHAR(20))%s""" % (TABLE, pk, suffix))
+        if db.isNetwork:
+            engine = query(db, "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='%s'" % TABLE)
+            if not engine or engine[0][0].upper() != 'INNODB':
+                raise RuntimeError("Le journal existant n'est pas InnoDB ; aucune conversion automatique.")
         indexes = {r[0] for r in query(db,
             "SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='%s'" % TABLE
             if db.isNetwork else "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='%s'" % TABLE)}
@@ -103,7 +107,7 @@ def activate(db):
         raise
     finally:
         if locked:
-            db.cursor.execute("SELECT RELEASE_LOCK(CONCAT('nsl_assiduite:', DATABASE()))")
+            db.cursor.execute("SELECT RELEASE_LOCK(CONCAT('nsl_assiduite:', SHA1(DATABASE())))")
             db.cursor.fetchall()
 
 
@@ -120,6 +124,20 @@ def period(start, end, activities):
 
 def read(db, start, end, activities):
     """Deux taux indépendants ; pas d'écriture lors de la consultation."""
+    # SQLite : garder le même snapshot pour le journal ET les consommations,
+    # sans terminer une transaction appartenant à l'appelant. MySQL utilise
+    # son snapshot REPEATABLE READ sur la connexion dédiée du dialogue.
+    own_snapshot = not db.isNetwork and not db.connexion.in_transaction
+    if own_snapshot:
+        db.cursor.execute('BEGIN')
+    try:
+        return _read(db, start, end, activities)
+    finally:
+        if own_snapshot:
+            db.connexion.rollback()
+
+
+def _read(db, start, end, activities):
     where = period(start, end, activities)
     enabled = status(db)
     current = query(db, """SELECT i.IDfamille, c.IDindividu, c.IDactivite, c.date, c.etat
