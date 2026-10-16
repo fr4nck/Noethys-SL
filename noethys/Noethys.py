@@ -3927,22 +3927,34 @@ class MainFrame(wx.Frame):
         if UTILS_Config.GetParametre("client_synchro_portail_activation", defaut=False) == True and UTILS_Parametres.Parametres(mode="get", categorie="portail", nom="portail_activation", valeur=False) == True :
 
             if hasattr(self, "ctrl_serveur_portail") :
-                self._mgr.GetPane("serveur_portail").Show(True)
+                self.ctrl_serveur_portail.Show(True)
+                if not self.ctrl_serveur_portail.compact:
+                    self._mgr.GetPane("serveur_portail").Show(True)
 
             else :
                 # Chargement du serveur
-                self.ctrl_serveur_portail = CTRL_Portail_serveur.Panel(self)
-                self._mgr.AddPane(self.ctrl_serveur_portail, aui.AuiPaneInfo().Name("serveur_portail").Caption(_(u"Connecthys")).
-                                  Top().Layer(0).Row(3).Position(0).CloseButton(False).MaximizeButton(False).MinimizeButton(False).MinSize((-1, 90)).BestSize((-1, 90)) )
+                if hasattr(self, 'ctrl_ephemeride'):
+                    self.ctrl_serveur_portail = CTRL_Portail_serveur.Panel(self.ctrl_ephemeride, compact=True, owner=self)
+                    self.ctrl_ephemeride.AttachConnecthys(self.ctrl_serveur_portail)
+                else:
+                    self.ctrl_serveur_portail = CTRL_Portail_serveur.Panel(self)
+                    self._mgr.AddPane(self.ctrl_serveur_portail, aui.AuiPaneInfo().Name("serveur_portail").Caption(_(u"Connecthys")).
+                                      Top().Layer(0).Row(3).Position(0).CloseButton(False).MaximizeButton(False).MinimizeButton(False).MinSize((-1, 90)).BestSize((-1, 90)) )
 
             # Lancement du serveur
             self._mgr.Update()
             self.ctrl_serveur_portail.MAJ()
             self.ctrl_serveur_portail.StartServeur()
+            if hasattr(self, 'ctrl_ephemeride'):
+                self.ctrl_ephemeride.Layout()
 
         else :
             if hasattr(self, "ctrl_serveur_portail") :
-                self._mgr.GetPane("serveur_portail").Show(False)
+                self.ctrl_serveur_portail.Hide()
+                if self.ctrl_serveur_portail.compact:
+                    self.ctrl_ephemeride.Layout()
+                else:
+                    self._mgr.GetPane("serveur_portail").Show(False)
                 self._mgr.Update()
                 self.ctrl_serveur_portail.PauseServeur()
 

@@ -1,0 +1,219 @@
+# -*- coding: utf-8 -*-
+"""Recette de l'accueil sur données intégralement fictives ; aucun portail joint."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _garde_reseau  # noqa: F401,E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'noethys'))
+import datetime as dt
+import sqlite3
+import unittest
+from unittest.mock import patch, Mock
+from Utils import UTILS_Accueil_jour as day
+from Utils import UTILS_Ephemerides as weather
+
+
+class ReadOnlyFixture:
+    def __init__(self):
+        self.db = sqlite3.connect(':memory:')
+        self.db.executescript('''
+        CREATE TABLE activites(IDactivite,nom,abrege,date_debut,date_fin);
+        CREATE TABLE unites(IDunite,IDactivite,heure_debut,heure_fin,date_debut,date_fin);
+        CREATE TABLE ouvertures(IDunite,date);
+        CREATE TABLE evenements(IDactivite,date);
+        CREATE TABLE consommations(IDactivite,IDindividu,IDunite,date,etat,heure_debut,heure_fin);
+        INSERT INTO activites VALUES(1,'Accueil de loisirs fictif','ALSH',NULL,NULL),
+        (2,'Couture fictive','Couture',NULL,NULL),(3,'Ancienne activité','Ancien',NULL,'2025-01-01'),
+        (4,'Sport santé fictif','Sport',NULL,NULL),(5,'Sans séance','Rien',NULL,NULL);
+        INSERT INTO unites VALUES(1,1,'08:00','12:00',NULL,NULL),(2,1,'12:00','18:00',NULL,NULL),
+        (3,2,'10:00','11:00',NULL,NULL),(4,3,'10:00','11:00',NULL,NULL);
+        INSERT INTO ouvertures VALUES(1,'2026-10-16'),(2,'2026-10-16'),(3,'2026-10-16'),(4,'2026-10-16');
+        INSERT INTO evenements VALUES(4,'2026-10-16');
+        INSERT INTO consommations VALUES
+        (1,101,1,'2026-10-16','reservation',NULL,NULL),
+        (1,101,1,'2026-10-16','present',NULL,NULL),
+        (1,101,2,'2026-10-16','reservation',NULL,NULL),
+        (1,102,2,'2026-10-16','reservation',NULL,NULL),
+        (1,103,1,'2026-10-16','attente',NULL,NULL),
+        (1,104,1,'2026-10-16','absentj',NULL,NULL),
+        (1,105,1,'2026-10-16','absenti',NULL,NULL),
+        (1,106,1,'2026-10-15','reservation',NULL,NULL),
+        (3,107,4,'2026-10-16','reservation',NULL,NULL);
+        ''')
+        self.before = self.db.total_changes
+
+    def ExecuterReq(self, sql):
+        assert sql.lstrip().upper().startswith('SELECT'), sql
+        self.cursor = self.db.execute(sql)
+        return True
+
+    def ResultatReq(self):
+        return self.cursor.fetchall()
+
+
+class ProgrammeTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = ReadOnlyFixture()
+        self.addCleanup(self.fixture.db.close)
+
+    def read(self, settings=None):
+        result = day.read_day(self.fixture, dt.date(2026, 10, 16), settings)
+        self.assertEqual(self.fixture.db.total_changes, self.fixture.before)
+        return result
+
+    def test_context_and_distinct_half_day_counts(self):
+        rows, choices = self.read()
+        self.assertEqual([r['id'] for r in rows], [1, 2, 4])
+        self.assertEqual((rows[0]['total'],rows[0]['morning'],rows[0]['afternoon']), (2,1,2))
+        self.assertEqual(rows[1]['total'], 0)  # ouverture sans réservation
+        self.assertEqual(rows[2]['total'], 0)  # événement sans réservation
+        self.assertNotIn(3, [r['id'] for r in choices])
+        self.assertIn(5, [r['id'] for r in choices])  # active mais pas aujourd'hui
+
+    def test_visibility_classification_order_and_inactive_cannot_be_forced(self):
+        rows, _ = self.read(dict(activities={'1':dict(visible=False),
+                  '4':dict(visible=True,alsh=False,order=1), '3':dict(visible=True,alsh=True)}))
+        self.assertEqual([r['id'] for r in rows], [4,2])
+
+    def test_unknown_times_do_not_show_false_zero(self):
+        self.fixture.db.execute("UPDATE unites SET heure_debut=NULL WHERE IDunite=1")
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read()
+        self.assertIsNone(rows[0]['morning'])
+        self.assertIsNone(rows[0]['afternoon'])
+        self.assertEqual(rows[0]['total'],2)
+
+    def test_native_mysql_time_values(self):
+        self.assertEqual(day.minutes(dt.timedelta(hours=8,minutes=30)),510)
+        self.assertEqual(day.minutes(dt.time(13,30)),810)
+        self.assertIsNone(day.minutes(None))
+
+    def test_bad_preferences_and_no_fixed_event_limit(self):
+        self.assertEqual(day.preferences({'activities':'bad'})['activities'],{})
+        self.assertEqual(day.preferences({'event_count':12000})['event_count'],12000)
+        self.assertEqual(day.preferences()['event_count'],0)
+
+    def test_full_day_participation_counts_in_both_periods(self):
+        self.fixture.db.execute("UPDATE unites SET heure_fin='18:00' WHERE IDunite=1")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        self.assertEqual((rows[0]['total'],rows[0]['morning'],rows[0]['afternoon']),(2,1,2))
+
+    def test_query_failure_cannot_look_like_empty_programme(self):
+        with patch.object(self.fixture,'ExecuterReq',return_value=False):
+            with self.assertRaises(ValueError):self.read()
+
+    def test_circular_wind_and_unknown_cache(self):
+        from test_ephemerides import forecast
+        p = forecast(1)
+        p['hourly']['wind_direction_10m'] = [359,1]*12
+        rows = weather.aggregate_weather(p)
+        self.assertEqual(weather.wind_arrow(rows[0]['wind_direction_10m']),'↑')
+        del p['hourly']['wind_direction_10m']
+        self.assertIsNone(weather.aggregate_weather(p)[0]['wind_direction_10m'])
+        self.assertEqual(weather.wind_arrow(None),'—')
+
+
+class NativeAccueilTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import wx
+        cls.app = wx.GetApp() or wx.App(False)
+
+    def test_native_settings_round_trip_and_count(self):
+        import wx
+        from Ctrl import CTRL_Ephemeride as ui
+        frame=wx.Frame(None)
+        fixture=ReadOnlyFixture()
+        self.addCleanup(fixture.db.close)
+        items,_=day.read_day(fixture,dt.date(2026,10,16))
+        panel=ui.CTRL(frame)
+        dialog=ui.Settings(frame,{},weather.normalize_dashboard_layout(),items)
+        try:
+            dialog.event_count.SetValue('42')
+            dialog.activity_grid.SetCellValue(0,0,'')
+            value=dialog.layout_values()
+            self.assertEqual(value['day']['event_count'],42)
+            self.assertFalse(value['day']['activities']['1']['visible'])
+            panel._layout=value
+            panel.render_events()
+            self.assertEqual(panel.events_scroll.GetParent(),panel.block_panels['events'])
+            self.assertIs(panel.detail,panel.weather)
+            self.assertFalse(panel._timer.IsRunning())  # pas de démarrage réseau implicite
+        finally:
+            dialog.Destroy();frame.Destroy();self.app.Yield()
+
+    def test_compact_connecthys_states_and_late_callbacks(self):
+        import wx
+        from Ctrl import CTRL_Portail_serveur as portal
+        frame=wx.Frame(None)
+        frame.taskBarIcon=Mock()
+        class DB:
+            def ExecuterReq(self,sql):return True
+            def ResultatReq(self):return [(1,'fictif')]
+            def Close(self):pass
+        with patch.object(portal.GestionDB,'DB',return_value=DB()):
+            panel=portal.Panel(frame,compact=True,owner=frame)
+        try:
+            self.assertIn('1 demande',panel.bouton_traiter.GetLabel())
+            panel._AfficherEtat('busy')
+            self.assertTrue(panel.gauge.IsShown())
+            with patch.object(portal.GestionDB,'DB',return_value=Mock(ExecuterReq=Mock(return_value=False))):
+                self.assertFalse(panel.MAJ_bouton())
+            self.assertIn('1 demande',panel.bouton_traiter.GetLabel())
+            panel._AfficherEtat('success')
+            success=panel._last_success
+            panel._AfficherEtat('error')
+            self.assertFalse(panel.gauge.IsShown())
+            self.assertIn('Échec',panel.ctrl_etat.GetLabel())
+            self.assertEqual(panel._last_success,success)
+            self.assertIn('1 demande',panel.bouton_traiter.GetLabel())
+            panel._alive=False
+            panel._AfficherEtat('success')  # aucune écriture wx après fermeture
+        finally:
+            frame.Destroy();self.app.Yield()
+
+    def test_four_headings_align_and_connecthys_fits_the_body(self):
+        import wx
+        from Ctrl import CTRL_Ephemeride as ui
+        from Ctrl import CTRL_Portail_serveur as portal
+        frame=wx.Frame(None)
+        frame.SetClientSize((1200,360))
+        frame.taskBarIcon=Mock()
+        panel=ui.CTRL(frame)
+        db=Mock(ExecuterReq=Mock(return_value=True),ResultatReq=Mock(return_value=[]))
+        with patch.object(portal.GestionDB,'DB',return_value=db):
+            connect=portal.Panel(panel,compact=True,owner=frame)
+        try:
+            panel.AttachConnecthys(connect)
+            outer=wx.BoxSizer(wx.VERTICAL)
+            outer.Add(panel,1,wx.EXPAND)
+            frame.SetSizer(outer)
+            panel.Show();frame.Layout();panel.Layout()
+            labels=[p.heading for p in panel.block_panels.values()]
+            labels.append(connect.GetSizer().GetItem(0).GetWindow())
+            self.assertEqual(len({w.GetScreenPosition().y for w in labels}),1)
+            right=connect.GetScreenPosition().x+connect.GetSize().width
+            self.assertLessEqual(right,panel.GetScreenPosition().x+panel.GetClientSize().width)
+        finally:
+            frame.Destroy();self.app.Yield()
+
+    def test_cycle_reports_boolean_failure_and_exception_without_sticking_busy(self):
+        from Ctrl import CTRL_Portail_serveur as portal
+        for outcome in (True,False,RuntimeError('synthetic')):
+            parent=Mock(last_synchro=dt.datetime.now(),delai=60,synchro_ouverture=False)
+            server=portal.Serveur(parent)
+            server.start_synchro=True
+            instance=Mock()
+            if isinstance(outcome,Exception):instance.Synchro_totale.side_effect=outcome
+            else:instance.Synchro_totale.return_value=outcome
+            with patch.object(portal.UTILS_Portail_synchro,'Synchro',return_value=instance):
+                if isinstance(outcome,Exception):
+                    with self.assertRaises(RuntimeError):server.EffectuerCycle()
+                else:server.EffectuerCycle()
+            self.assertFalse(server.synchro_en_cours)
+            self.assertEqual([c.args[0] for c in parent.SetEtatSynchro.call_args_list],
+                             ['busy','success' if outcome is True else 'error'])
+
+
+if __name__=='__main__':unittest.main()

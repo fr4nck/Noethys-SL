@@ -13,6 +13,9 @@ import threading
 import wx
 import wx.adv
 import wx.lib.scrolledpanel
+import wx.grid
+from Ctrl import CTRL_Accueil_compact as compact
+from Utils import UTILS_Accueil_jour as programme
 
 import GestionDB
 from Utils import UTILS_Config
@@ -37,15 +40,27 @@ def DateDDEnDateFR(date):
 def link(parent, label, url):
     control = wx.adv.HyperlinkCtrl(parent, label=label if len(label) <= 46 else label[:43] + '…', url=url)
     control.SetToolTip(label + '\n' + url)
+    control.SetNormalColour(compact.TEAL)
+    control.SetVisitedColour(compact.TEAL)
+    link_font = control.GetFont()
+    link_font.SetUnderlined(False)
+    control.SetFont(link_font)
     return control
 
 
 def section(parent, title):
-    return wx.StaticBoxSizer(wx.VERTICAL, parent, title)
+    box = wx.BoxSizer(wx.VERTICAL)
+    heading = wx.StaticText(parent, label=title)
+    heading.SetForegroundColour(compact.MUTED)
+    heading.SetFont(compact.font(heading, -1, True))
+    heading.SetMinSize((-1, parent.FromDIP(24)))
+    parent.heading = heading
+    box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, 8)
+    return box
 
 
 class Settings(wx.Dialog):
-    def __init__(self, parent, settings, layout):
+    def __init__(self, parent, settings, layout, activities=None):
         super().__init__(parent, title="Réglages d’Aujourd’hui",
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.events = copy.deepcopy(settings.get('events', []))
@@ -94,6 +109,34 @@ class Settings(wx.Dialog):
         ), 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         display.SetSizer(display_sizer)
         book.AddPage(display, 'Mon affichage')
+
+        day_page = wx.Panel(book)
+        day_sizer = wx.BoxSizer(wx.VERTICAL)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(wx.StaticText(day_page, label='Événements : nombre à afficher (0 = tous)'), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        self.event_count = wx.TextCtrl(day_page, value=str(self.layout['day']['event_count']), size=(80, -1))
+        row.Add(self.event_count)
+        day_sizer.Add(row, 0, wx.ALL, 10)
+        day_sizer.Add(wx.StaticText(day_page, label='Bandeau : activités actives avec une ouverture, une séance ou une consommation ce jour.\nM/A : accueil de loisirs, effectifs réservés ou présents par demi-journée.\nOrdre 0 : accueils de loisirs prioritaires. Un ordre personnel passe en premier.'), 0, wx.ALL, 10)
+        self.activities = activities or []
+        self.activity_grid = wx.grid.Grid(day_page)
+        self.activity_grid.CreateGrid(len(self.activities), 4)
+        for col, label in enumerate(('Afficher', 'M/A', 'Ordre', 'Activité')):
+            self.activity_grid.SetColLabelValue(col, label)
+        for index, item in enumerate(self.activities):
+            option = self.layout['day']['activities'].get(str(item['id']), item)
+            for col, key in ((0, 'visible'), (1, 'alsh')):
+                self.activity_grid.SetCellRenderer(index, col, wx.grid.GridCellBoolRenderer())
+                self.activity_grid.SetCellEditor(index, col, wx.grid.GridCellBoolEditor())
+                self.activity_grid.SetCellValue(index, col, '1' if option[key] else '')
+            self.activity_grid.SetCellEditor(index, 2, wx.grid.GridCellNumberEditor(0, 1000000))
+            self.activity_grid.SetCellValue(index, 2, str(option['order']))
+            self.activity_grid.SetCellValue(index, 3, item['name'])
+            self.activity_grid.SetReadOnly(index, 3)
+        self.activity_grid.SetColSize(3, 300)
+        day_sizer.Add(self.activity_grid, 1, wx.EXPAND | wx.ALL, 10)
+        day_page.SetSizer(day_sizer)
+        book.AddPage(day_page, 'Programme et agenda')
 
         # Sources et contenu commun ------------------------------------------
         sources = wx.Panel(book)
@@ -193,6 +236,19 @@ class Settings(wx.Dialog):
         return result
 
     def layout_values(self):
+        self.activity_grid.SaveEditControlValue()
+        try:
+            count = int(self.event_count.GetValue())
+            if count < 0:
+                raise ValueError()
+        except ValueError:
+            raise ValueError('Le nombre d’événements doit être un entier positif, ou 0 pour tous.')
+        activities = dict(self.layout['day']['activities'])
+        for index, item in enumerate(self.activities):
+            activities[str(item['id'])] = dict(
+                visible=self.activity_grid.GetCellValue(index, 0) == '1',
+                alsh=self.activity_grid.GetCellValue(index, 1) == '1',
+                order=int(self.activity_grid.GetCellValue(index, 2) or 0))
         blocks = {}
         for key, (visible, column, order) in self.layout_controls.items():
             blocks[key] = {
@@ -203,11 +259,13 @@ class Settings(wx.Dialog):
         return data.normalize_dashboard_layout({
             'columns': self.columns.GetSelection() + 1,
             'blocks': blocks,
+            'day': dict(event_count=count, activities=activities),
         })
 
     def accept(self, event):
         values = self.values()
         try:
+            self.layout_values()
             if values['latitude'] or values['longitude']:
                 data.coordinates(values['latitude'], values['longitude'])
             if values['agenda'] and not data.safe_url(values['agenda']):
@@ -259,26 +317,27 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
 
         self.base = wx.BoxSizer(wx.VERTICAL)
+        self.banner = compact.Bandeau(self)
+        self.base.Add(self.banner, 0, wx.EXPAND | wx.BOTTOM, 6)
         self.title = wx.StaticText(self, label=DateDDEnDateFR(dt.date.today()))
         self.title.SetFont(self.title.GetFont().Bold())
-        self.base.Add(self.title, 0, wx.EXPAND | wx.ALL, 10)
+        self.title.Hide()  # Libellé accessible historique ; date peinte dans le bandeau.
 
         self.block_panels = {}
 
         weather_panel = wx.Panel(self)
-        weather_box = section(weather_panel, 'Météo · matin et après-midi')
-        self.weather = wx.StaticText(weather_panel, label='Chargement…')
+        weather_box = section(weather_panel, 'Météo')
+        self.weather = compact.Meteo(weather_panel, self.OnDetails)
         weather_box.Add(self.weather, 0, wx.EXPAND | wx.ALL, 8)
-        self.detail = wx.Button(weather_panel, label='Voir les prévisions sur 7 ou 10 jours…')
+        self.detail = self.weather  # Détail au clic / clavier sur tout le bloc.
         self.detail.Enable(False)
-        weather_box.Add(self.detail, 0, wx.ALL, 6)
-        weather_box.Add(link(weather_panel, 'Source : Open-Meteo', data.WEATHER_SOURCE), 0, wx.ALL, 6)
         weather_panel.SetSizer(weather_box)
         self.block_panels['weather'] = weather_panel
 
         vacation_panel = wx.Panel(self)
-        vacation_box = section(vacation_panel, 'Vacances scolaires')
+        vacation_box = section(vacation_panel, 'Vacances')
         self.vacation = wx.StaticText(vacation_panel, label='Chargement…')
+        self.vacation.SetMinSize((140, -1))
         vacation_box.Add(self.vacation, 0, wx.EXPAND | wx.ALL, 8)
         vacation_box.Add(link(vacation_panel, 'Calendrier scolaire officiel 2026–2027', data.SCHOOL_SOURCE),
                          0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
@@ -286,22 +345,36 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.block_panels['vacations'] = vacation_panel
 
         events_panel = wx.Panel(self)
-        events_box = section(events_panel, 'Événements à venir')
+        events_box = section(events_panel, 'Agenda')
+        self.events_scroll = wx.lib.scrolledpanel.ScrolledPanel(events_panel, size=(-1, self.FromDIP(216)))
+        self.events_scroll.SetMinSize((150, self.FromDIP(216)))
         self.events_content = wx.BoxSizer(wx.VERTICAL)
-        events_box.Add(self.events_content, 1, wx.EXPAND | wx.ALL, 6)
+        self.events_scroll.SetSizer(self.events_content)
+        events_box.Add(self.events_scroll, 1, wx.EXPAND | wx.ALL, 6)
         events_panel.SetSizer(events_box)
         self.block_panels['events'] = events_panel
 
         self.dashboard = wx.BoxSizer(wx.HORIZONTAL)
-        self.base.Add(self.dashboard, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.body = wx.BoxSizer(wx.HORIZONTAL)
+        self.body.Add(self.dashboard, 1, wx.EXPAND)
+        self.connect_box = wx.BoxSizer(wx.VERTICAL)
+        self.body.Add(self.connect_box, 0, wx.EXPAND | wx.LEFT, 8)
+        self.base.Add(self.body, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         self.SetSizer(self.base)
         self._apply_layout()
         self.SetupScrolling(scroll_x=False)
 
-        self.detail.Bind(wx.EVT_BUTTON, self.OnDetails)
         self.Bind(wx.EVT_TIMER, lambda event: self.Initialisation(), self._timer)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroy)
         self.Bind(wx.EVT_SIZE, self.OnSize)
+
+    def AttachConnecthys(self, panel):
+        self.connect_box.Add(panel, 0, wx.EXPAND)
+        self.Layout()
+
+    def UpdateProgramme(self):
+        """Recharge après une modification sans déclencher un appel météo."""
+        self.Initialisation()
 
     def _current_user_id(self):
         try:
@@ -349,10 +422,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         for panel in self.block_panels.values():
             panel.Hide()
         columns = []
+        ordered = data.dashboard_columns(self._layout)
         for index in range(self._layout['columns']):
             column = wx.BoxSizer(wx.VERTICAL)
             border = wx.LEFT if index else 0
-            self.dashboard.Add(column, 1, wx.EXPAND | border, 8 if index else 0)
+            self.dashboard.Add(column, 0 if 'weather' in ordered[index] else 1, wx.EXPAND | border, 8 if index else 0)
             columns.append(column)
         for index, keys in enumerate(data.dashboard_columns(self._layout)):
             for key in keys:
@@ -370,10 +444,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         return max(160, available // columns - 30)
 
     def _wrap_contents(self):
-        width = self._column_text_width()
-        if hasattr(self, '_weather_text'):
-            self.weather.SetLabel(self._weather_text)
-        self.weather.Wrap(width)
+        width = max(140, self.block_panels['vacations'].GetClientSize().width - 16)
         self.vacation.Wrap(width)
 
     def OnUserChanged(self):
@@ -381,7 +452,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         database = str(UTILS_Config.GetParametre('nomFichier', '') or '')
         self._layout = self._load_layout(database)
         self._layout_signature = (database, self._current_user_id())
+        self._generation += 1
+        self._busy = False
+        self.banner.update(dt.date.today(), [])
         self._apply_layout()
+        self.Initialisation()
 
     def OnDestroy(self, event):
         if event.GetEventObject() is self:
@@ -396,7 +471,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
 
     def StartTicker(self):
         self._active = True
-        self._timer.Start(30 * 60 * 1000)
+        self._timer.Start(5 * 60 * 1000)
         self.Initialisation()
 
     def StopTicker(self):
@@ -409,6 +484,8 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         database = str(UTILS_Config.GetParametre('nomFichier', '') or '')
         if not self._alive or not self._active or (self._busy and database == getattr(self, '_database', None)):
             return
+        if database != getattr(self, '_database', None):
+            self.banner.update(dt.date.today(), [])
         self._database = database
         signature = (database, self._current_user_id())
         if signature != self._layout_signature:
@@ -421,7 +498,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._generation += 1
         generation = self._generation
         self._busy = True
-        self._timer.Start(30 * 60 * 1000)
+        self._timer.Start(5 * 60 * 1000)
         layout = copy.deepcopy(self._layout)
         threading.Thread(target=self._load, args=(generation, saved, force, database, layout), daemon=True).start()
 
@@ -440,6 +517,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
                 if not db.ExecuterReq('SELECT nom, date_debut, date_fin FROM vacances ORDER BY date_debut;'):
                     raise ValueError('Lecture du calendrier Noethys impossible')
                 result['planning'] = db.ResultatReq()
+                try:
+                    result['programme'], result['activities'] = programme.read_day(db, dt.date.today(), layout['day'])
+                except Exception:
+                    result['programme_error'] = 'Programme du jour indisponible · réessayer ou consulter le planning.'
+                    result['programme'], result['activities'] = [], []
             finally:
                 db.Close()
             cp, city, gps = organiser[0] if organiser else ('', '', '')
@@ -494,16 +576,10 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         saved = dict(settings=self._settings, cache=result.get('cache', {}))
         UTILS_Config.SetParametre(self._key, saved)
         rows = result['rows']
-        dates = sorted({row['date'] for row in rows})[:3]
         stamp = result.get('cache', {}).get('fetched', '')
-        self._weather_text = '\n\n'.join('%s · %s\n%s' % (row['date'], row['period'], data.weather_text(row))
-                                           for row in rows if row['date'] in dates)
-        if stamp:
-            self._weather_text += '\n\nRelevé : ' + stamp[:16].replace('T', ' ') + ' UTC'
-        if result['weather_error']:
-            self._weather_text += '\n' + result['weather_error']
-        self.weather.SetLabel(self._weather_text)
-        self.weather.Wrap(self._column_text_width())
+        self.weather.set_forecast(rows, result['weather_error'], stamp)
+        self.banner.update(dt.date.today(), result.get('programme', []),
+                           result.get('programme_error', result.get('db_error', '')))
         self.detail.Enable(bool(rows))
         self.render_calendar(result)
         self.render_events()
@@ -513,20 +589,22 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
     def render_calendar(self, result, today=None):
         today = today or dt.date.today()
         zone = self._settings.get('zone') or school.GetZoneDepuisCodePostal(self._settings.get('postcode'))
+        self.block_panels['vacations'].heading.SetLabel('Vacances · %s' % zone if zone else 'Vacances')
         period = school.GetProchainePeriode(zone, today)
         if period:
             days = (period['debut'] - today).days
-            text = ('%s · dans %d jours' % (period['nom'], days) if days > 0 else period['nom'] + ' · période scolaire en cours')
-            text += ' · zone %s · départ après la classe le %s' % (zone, period['debut'].strftime('%d/%m/%Y'))
+            text = '%s · zone %s\n%s\nDépart : %s après la classe' % (
+                period['nom'], zone, ('Demain' if days == 1 else 'Dans %d jours' % days) if days > 0 else 'En cours',
+                period['debut'].strftime('%d/%m/%Y'))
             if period['reprise']:
-                text += ' · reprise le ' + period['reprise'].strftime('%d/%m/%Y')
+                text += '\nReprise : ' + period['reprise'].strftime('%d/%m/%Y')
         else:
             text = 'Calendrier scolaire : zone inconnue ou période hors du calendrier 2026–2027.'
         for name, start, end in result.get('planning', []):
             try:
                 start, end = dt.date.fromisoformat(str(start)[:10]), dt.date.fromisoformat(str(end)[:10])
                 if end >= today:
-                    text += '\nCalendrier Noethys : %s · %s au %s (dates de votre base)' % (name, start.strftime('%d/%m/%Y'), end.strftime('%d/%m/%Y'))
+                    text += '\n\nPlanning Noethys\n%s : %s – %s' % (name, start.strftime('%d/%m/%Y'), end.strftime('%d/%m/%Y'))
                     break
             except (ValueError, TypeError):
                 continue
@@ -536,53 +614,36 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.vacation.Wrap(self._column_text_width())
 
     def render_events(self):
-        parent = self.block_panels['events']
+        parent = self.events_scroll
         self.events_content.Clear(delete_windows=True)
-
-        public_events = [
-            item for item in data.upcoming_events([], today=dt.date.today(), days=370)
-            if item['kind'] in ('Officiel', 'Insolite')
-        ][:10]
-        for item in public_events:
+        events = data.upcoming_events(self._settings.get('events', []), self._settings.get('territories', ''),
+                                      today=dt.date.today(), days=370)
+        limit = self._layout['day']['event_count']
+        if limit:
+            events = events[:limit]
+        for item in events:
             try:
-                date_label = dt.date.fromisoformat(item['date']).strftime('%d/%m/%Y')
+                date_label = dt.date.fromisoformat(item['date']).strftime('%d %b')
             except (TypeError, ValueError):
                 date_label = item['date']
             self.events_content.Add(
-                link(parent, '%s · %s · %s' % (date_label, item['title'], item['kind']), item['source']),
+                link(parent, '%s · %s' % (date_label, item['title']), item['source']),
                 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6,
             )
-        if not public_events:
+        if not events:
             self.events_content.Add(wx.StaticText(parent, label='Aucune date officielle ou insolite renseignée.'), 0, wx.ALL, 6)
 
-        local_events = [
-            item for item in data.upcoming_events(
-                self._settings.get('events', []),
-                self._settings.get('territories', ''),
-                today=dt.date.today(),
-                days=30,
-            )
-            if item['kind'] == 'Local'
-        ]
-        if local_events:
-            local_title = wx.StaticText(parent, label='Local')
-            local_title.SetFont(local_title.GetFont().Bold())
-            self.events_content.Add(local_title, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.BOTTOM, 6)
-            for item in local_events[:5]:
-                territory = (' · ' + item['territory']) if item.get('territory') else ''
-                self.events_content.Add(
-                    link(parent, '%s · %s%s' % (item['date'], item['title'], territory), item['source']),
-                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6,
-                )
         if data.safe_url(self._settings.get('agenda', '')):
             self.events_content.Add(link(parent, 'Agenda local', self._settings['agenda']), 0, wx.LEFT | wx.RIGHT | wx.TOP, 6)
+        self.events_scroll.Layout()
+        self.events_scroll.SetupScrolling(scroll_x=False)
 
     def OnSettings(self, event):
         if self._busy:
             wx.MessageBox("Le chargement est en cours. Les réglages seront disponibles dans quelques secondes.",
                           "Aujourd’hui", wx.OK, self)
             return
-        dialog = Settings(self, self._settings, self._layout)
+        dialog = Settings(self, self._settings, self._layout, self._result.get('activities', []))
         try:
             if dialog.ShowModal() == wx.ID_OK:
                 old_layout = data.normalize_dashboard_layout(self._layout)
@@ -604,13 +665,14 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
                     str(UTILS_Config.GetParametre('nomFichier', '') or ''),
                     self._current_user_id())
                 self._apply_layout()
+                self.render_events()
 
                 if not persisted and self._current_user_id() is not None:
                     wx.MessageBox(
                         "La disposition est appliquée pour cette session mais n’a pas pu être enregistrée dans la base.",
                         "Aujourd’hui", wx.OK | wx.ICON_WARNING, self)
 
-                if needs_data:
+                if needs_data or new_layout['day'] != old_layout['day']:
                     self.Initialisation(force=settings_changed)
         finally:
             dialog.Destroy()
