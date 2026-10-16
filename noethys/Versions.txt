@@ -1,3 +1,11 @@
+Version Noethys SL 0.1.0 RC7.4 (16/10/2026) :
+
+- Repas Connecthys mis en attente tant que toutes les périodes d'accueil demandées ne sont pas confirmées
+- Priorité à la formule Journée lorsqu'elle est demandée avec Matin et Après-midi, avec explication dans la réponse
+- Rôles Matin, Repas, Après-midi et Journée configurables pour les unités du portail
+- Activités du jour distinguées par créneau et groupe, avec maintien des compteurs matin et après-midi des accueils de loisirs
+- Accueil compact accordé aux couleurs wx et carte Connecthys plus visible au clic et au survol
+
 Version Noethys SL 0.1.0 RC7.3 (16/10/2026) :
 
 - Nouvel accueil compact : météo sur quatre jours matin et après-midi, vacances et agenda à défilement indépendant
