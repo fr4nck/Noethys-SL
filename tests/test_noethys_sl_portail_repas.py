@@ -133,6 +133,24 @@ class ReservationsTests(unittest.TestCase):
         self.assertEqual(grid.GetCase(102,DAY).etat,'attente')
         self.assertEqual(grid.calls[-1][2:],('attente','attente'))
 
+    def test_reprocessing_can_confirm_waiting_meal_when_requested_period_is_confirmed(self):
+        self.request(1);self.request(2)
+        grid=Grid([101]);self.apply(grid)
+        self.assertEqual(grid.GetCase(102,DAY).etat,'attente')
+        grid.full.clear()
+        self.apply(grid)
+        self.assertEqual(grid.GetCase(101,DAY).etat,'reservation')
+        self.assertEqual(grid.GetCase(102,DAY).etat,'reservation')
+        self.assertEqual(len(grid.cases),2)
+
+    def test_ambiguous_multiple_full_day_formulas_require_manual_resolution(self):
+        self.roles=[('5','journee')]
+        for p in (1,3,4,5,2):self.request(p)
+        grid=Grid()
+        self.assertEqual(self.apply(grid),'')
+        self.assertEqual(grid.calls,[])
+        self.assertTrue(any('Plusieurs formules Journée' in line for line in self.logs))
+
     def test_three_choices_keep_full_day_and_explain_in_response(self):
         for p in (1,2,3,4):self.request(p)
         grid=Grid()
