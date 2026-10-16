@@ -24,7 +24,7 @@ class Bandeau(wx.Panel):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.items, self.offset, self.message = [], 0, ''
         self.date = dt.date.today()
-        self.SetMinSize(self.FromDIP((100, 48)))
+        self.SetMinSize(self.FromDIP((100, 40)))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.paint)
         self.Bind(wx.EVT_MOUSEWHEEL, self.wheel)
@@ -43,11 +43,11 @@ class Bandeau(wx.Panel):
 
     def paint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
-        dc.SetBackground(wx.Brush('WHITE'))
+        dc.SetBackground(wx.Brush(self.GetBackgroundColour()))
         dc.Clear()
         dc.SetTextForeground(INK)
         dc.SetFont(font(self, bold=True))
-        pad = self.FromDIP(8)
+        pad = self.FromDIP(6)
         date_text = '%s %d\n%s %s' % (
             ('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche')[self.date.weekday()],
             self.date.day, ('Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet',
@@ -85,7 +85,7 @@ class Meteo(wx.Panel):
         super().__init__(parent, style=wx.TAB_TRAVERSAL | wx.WANTS_CHARS)
         self.rows, self.error, self.description = [], '', ''
         self.on_details = on_details
-        self.SetMinSize(self.FromDIP((320, 224)))
+        self.SetMinSize(self.FromDIP((320, 214)))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
         self.Bind(wx.EVT_PAINT, self.paint)
