@@ -1,5 +1,55 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC7.3 Windows fabriquée — preuves finales du 16/10/2026
+
+- Candidat wx demandé par Franck, construit depuis **9a8cf664103d0e14fdaf0bcc83ccdbb7d535c630**.
+  [Build 38884469875](https://github.com/fr4nck/Noethys-SL/actions/runs/38884469875) : SUCCESS.
+  Identité publique 0.1.0-rc.7.3 ; compatibilité interne 1.3.4.4 conservée.
+- [Artefact candidat 12039586320](https://github.com/fr4nck/Noethys-SL/actions/runs/38884469875/artifacts/12039586320),
+  Noethys-SL-0.1.0-rc.7.3-Windows-candidat, 250592802 octets, expiration 15/11/2026.
+  Deux livrables et SHA256SUMS.txt téléchargés et contrôlés localement sans installation :
+  - Setup : 105263582 octets, SHA-256 `64d2d8e8cbdc609437a48d50e9bc2af1072c578500574e6ad67839cb0a7de19d`.
+  - ZIP portable : 147058963 octets, SHA-256 `74ace81aacfab80b5f94b0324f5e3ca3a038a9ad852570148e3fbcff9e9f08cf`.
+- Provenance BUILD-INFO conforme au SHA et au run ; notes RC7.3 présentes dans le ZIP.
+  Table des modules du PYZ de Noethys.exe inspectée : CTRL_Accueil_compact,
+  UTILS_Accueil_jour, DLG_Suivi_mailjet, UTILS_Suivi_mailjet, Outils.WordWrapRenderer
+  réellement embarqués. Constantes Identite embarquées : RC7.3. Portable/README.txt présent.
+- CI rapide wx [38884114272](https://github.com/fr4nck/Noethys-SL/actions/runs/38884114272) :
+  SUCCESS, 671 tests / 10 ignorés. CI main cfa88af3eff44e55778dcbbee1a1b0c0a53c9bf6
+  [38883974376](https://github.com/fr4nck/Noethys-SL/actions/runs/38883974376) : SUCCESS,
+  658 tests / 6 ignorés. Aucun affaiblissement des tests.
+- Contrats du build : 280 tests OK / 7 ignorés. Recette serveur MySQL 5.7.44 local
+  **réel et jetable : 10 tests OK / aucun ignoré**, incluant sauvegarde/restauration
+  avec les clients livrés, six SELECT de l'accueil identiques à SQLite sur jeu
+  fictif (groupes, repas, heures, étiquettes), aucune écriture par ces lectures,
+  GET_LOCK Mailjet réel, huit enregistrements concurrents / quatre threads sans
+  doublon, Unicode hors BMP sur utf8 historique, actualisation conditionnelle
+  empêchant une consultation ancienne d'écraser l'état livré. Aucun appel API.
+- Smoke exécutable : processus encore actif après 12 secondes sur runner isolé.
+  ZIP extrait démarré, profil créé dans Portable/ et aucune écriture de profil
+  dans APPDATA/noethys. Setup fabriqué par Inno Setup. Les avertissements de
+  nettoyage temporaire / ResourceWarning des tests ne sont pas des échecs de test ;
+  ne pas annoncer pour autant une recette métier complète du binaire.
+- Nouveau test de qualification commun : main cfa88af3, wx 1e705075,
+  qt d9cadf38. Ce fichier est identique sur les trois branches ; exécution serveur
+  prouvée sur wx seulement. Les identités / notes Windows restent propres à wx.
+  Les modules communs accueil/Mailjet/adhésions étaient identiques au départ.
+- INCLUS : accueil compact, bandeau configurable des effectifs PRÉVUS M/A par
+  groupe ALSH, Connecthys compact, impression dépôts, arrondis rappels, suivi
+  Mailjet volontaire, optimisation et profilage facultatif des consommations.
+  EXCLU : chantier repas directeur multisite #430 réservé RC8 sur main.
+  AUTO_CREATION_SUSPENDUE=True : protection P1 adhésions maintenue.
+- STOP-GATE restant pour une utilisation habituelle : recette pilote isolée des
+  unités M/A réellement paramétrées et de l'affichage DPI 125/150/200 %, parcours
+  complets du binaire, API Mailjet authentifiée sur compte de recette. Pas de
+  qualification MySQL 5.5 des nouveaux tests, de nouvelle optimisation des UPDATE
+  ou des transactions, ni d'UI Qt native. Pas de gain terrain revendiqué.
+- **Aucune installation terrain ni publication de release/tag**. RC7.2 sur le poste
+  n'est pas devenue RC7.3 par cette fabrication. Aucun accès de production, email,
+  impression physique ou donnée réelle. Logs et téléchargements conservés localement
+  dans optimisation-consos-20261015/qualification/ hors Git. Les anciennes sections
+  ci-dessous sont des états historiques ; la présente preuve fait foi pour le candidat.
+
 ## Accueil compact — intégration demandée pour RC7.3, 16/10/2026
 
 - Accord utilisateur : maquette Horizon ; météo quatre jours M/A, pluie en mm,
