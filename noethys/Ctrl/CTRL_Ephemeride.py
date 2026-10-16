@@ -53,9 +53,9 @@ def section(parent, title):
     heading = wx.StaticText(parent, label=title)
     heading.SetForegroundColour(compact.MUTED)
     heading.SetFont(compact.font(heading, -1, True))
-    heading.SetMinSize((-1, parent.FromDIP(24)))
+    heading.SetMinSize((-1, parent.FromDIP(20)))
     parent.heading = heading
-    box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, 8)
+    box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, parent.FromDIP(4))
     return box
 
 
@@ -325,11 +325,11 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self._layout = data.normalize_dashboard_layout()
         self._layout_signature = None
         self._timer = wx.Timer(self)
-        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_3DFACE))
 
         self.base = wx.BoxSizer(wx.VERTICAL)
         self.banner = compact.Bandeau(self)
-        self.base.Add(self.banner, 0, wx.EXPAND | wx.BOTTOM, 6)
+        self.base.Add(self.banner, 0, wx.EXPAND | wx.BOTTOM, self.FromDIP(2))
         self.title = wx.StaticText(self, label=DateDDEnDateFR(dt.date.today()))
         self.title.SetFont(self.title.GetFont().Bold())
         self.title.Hide()  # Libellé accessible historique ; date peinte dans le bandeau.
@@ -339,29 +339,30 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         weather_panel = wx.Panel(self)
         weather_box = section(weather_panel, 'Météo')
         self.weather = compact.Meteo(weather_panel, self.OnDetails)
-        weather_box.Add(self.weather, 0, wx.EXPAND | wx.ALL, 8)
+        weather_box.Add(self.weather, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
         self.detail = self.weather  # Détail au clic / clavier sur tout le bloc.
         self.detail.Enable(False)
         weather_panel.SetSizer(weather_box)
         self.block_panels['weather'] = weather_panel
 
         vacation_panel = wx.Panel(self)
+        vacation_panel.SetMinSize(self.FromDIP((240, -1)))
         vacation_box = section(vacation_panel, 'Vacances')
         self.vacation = wx.StaticText(vacation_panel, label='Chargement…')
         self.vacation.SetMinSize((140, -1))
-        vacation_box.Add(self.vacation, 0, wx.EXPAND | wx.ALL, 8)
+        vacation_box.Add(self.vacation, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
         vacation_box.Add(link(vacation_panel, 'Calendrier scolaire officiel 2026–2027', data.SCHOOL_SOURCE),
-                         0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+                         0, wx.LEFT | wx.RIGHT | wx.BOTTOM, self.FromDIP(4))
         vacation_panel.SetSizer(vacation_box)
         self.block_panels['vacations'] = vacation_panel
 
         events_panel = wx.Panel(self)
         events_box = section(events_panel, 'Agenda')
-        self.events_scroll = wx.lib.scrolledpanel.ScrolledPanel(events_panel, size=(-1, self.FromDIP(216)))
-        self.events_scroll.SetMinSize((150, self.FromDIP(216)))
+        self.events_scroll = wx.lib.scrolledpanel.ScrolledPanel(events_panel, size=(-1, self.FromDIP(214)))
+        self.events_scroll.SetMinSize((150, self.FromDIP(214)))
         self.events_content = wx.BoxSizer(wx.VERTICAL)
         self.events_scroll.SetSizer(self.events_content)
-        events_box.Add(self.events_scroll, 1, wx.EXPAND | wx.ALL, 6)
+        events_box.Add(self.events_scroll, 1, wx.EXPAND | wx.ALL, self.FromDIP(4))
         events_panel.SetSizer(events_box)
         self.block_panels['events'] = events_panel
 
@@ -369,8 +370,8 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.body = wx.BoxSizer(wx.HORIZONTAL)
         self.body.Add(self.dashboard, 1, wx.EXPAND)
         self.connect_box = wx.BoxSizer(wx.VERTICAL)
-        self.body.Add(self.connect_box, 0, wx.EXPAND | wx.LEFT, 8)
-        self.base.Add(self.body, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.body.Add(self.connect_box, 0, wx.EXPAND | wx.LEFT, self.FromDIP(4))
+        self.base.Add(self.body, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, self.FromDIP(4))
         self.SetSizer(self.base)
         self._apply_layout()
         self.SetupScrolling(scroll_x=False)
@@ -437,13 +438,15 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         for index in range(self._layout['columns']):
             column = wx.BoxSizer(wx.VERTICAL)
             border = wx.LEFT if index else 0
-            self.dashboard.Add(column, 0 if 'weather' in ordered[index] else 1, wx.EXPAND | border, 8 if index else 0)
+            # L'agenda utilise la largeur restante ; les colonnes vides ne creent pas de trous.
+            stretch = int('events' in ordered[index])
+            self.dashboard.Add(column, stretch, wx.EXPAND | border, self.FromDIP(4) if index and ordered[index] else 0)
             columns.append(column)
         for index, keys in enumerate(data.dashboard_columns(self._layout)):
             for key in keys:
                 panel = self.block_panels[key]
                 panel.Show()
-                columns[index].Add(panel, 0, wx.EXPAND | wx.BOTTOM, 8)
+                columns[index].Add(panel, 0, wx.EXPAND)
         self._wrap_contents()
         self.Layout()
         if self._alive:
@@ -455,7 +458,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         return max(160, available // columns - 30)
 
     def _wrap_contents(self):
-        width = max(140, self.block_panels['vacations'].GetClientSize().width - 16)
+        width = max(140, self.block_panels['vacations'].GetClientSize().width - self.FromDIP(8))
         self.vacation.Wrap(width)
 
     def OnUserChanged(self):
