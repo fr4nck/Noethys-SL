@@ -100,8 +100,9 @@ def activate(db):
             db.cursor.execute(sql)
         if not query(db, "SELECT IDlog FROM %s WHERE operation='ready'" % TABLE):
             db.cursor.execute("INSERT INTO %s (horodatage, operation) VALUES (%s, 'ready')" % (TABLE, clock))
-        db.Commit()
-        return status(db)
+        result = status(db)
+        db.Commit()  # terminer aussi le snapshot de validation MySQL
+        return result
     except Exception:
         db.connexion.rollback()
         raise

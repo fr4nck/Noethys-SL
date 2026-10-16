@@ -50,9 +50,10 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           $base = Join-Path $env:RUNNER_TEMP 'mysql57-recette'
-          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m == 'mysql-5.7.44-winx64/bin/mysqld.exe']" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m in ['mysql-5.7.44-winx64/bin/mysqld.exe','mysql-5.7.44-winx64/bin/mysql.exe','mysql-5.7.44-winx64/bin/mysqldump.exe'] or (m.startswith('mysql-5.7.44-winx64/bin/') and m.lower().endswith('.dll'))]" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
           $root = Join-Path $base 'mysql-5.7.44-winx64'
           $data = Join-Path $base 'data'
+          $env:NOETHYS_TEST_MYSQL_BIN = Join-Path $root 'bin'
           & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
           if ($LASTEXITCODE -ne 0) { throw 'Initialisation du serveur MySQL jetable en échec' }
           $serveur = Start-Process -WindowStyle Hidden -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(

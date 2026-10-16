@@ -8,6 +8,8 @@ la base unique créée par cette classe pendant ce processus.
 import concurrent.futures
 import datetime as dt
 import os
+import subprocess
+import tempfile
 from pathlib import Path
 import sys
 import unittest
@@ -221,8 +223,53 @@ class RecetteMySQLTests(unittest.TestCase):
             insert(db, 100, child=100)
             cx.rollback()
             self.assertNotIn(100, [r['child'] for r in stats.read(db, '2026-10-01', '2026-10-31', [1])['children']])
+            client_dir = os.environ.get('NOETHYS_TEST_MYSQL_BIN')
+            if client_dir:
+                from Utils import UTILS_SQL_Integrite
+                expected = stats.read(db, '2026-10-01', '2026-10-31', [1])
+                cx.close()
+                with tempfile.TemporaryDirectory(prefix='nsl-stats-dump-synthetic-') as folder:
+                    login = Path(folder) / 'client.cnf'
+                    def quoted(value):
+                        return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"') + '"'
+                    params = dict(host=self.params['hote'], port=self.params['port'],
+                                  user=self.params['utilisateur'], password=self.params['motdepasse'])
+                    login.write_text('[client]\n' + '\n'.join('%s=%s' % (k, quoted(v)) for k, v in params.items()), encoding='utf-8')
+                    dump = Path(folder) / 'stats.sql'
+                    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                    with dump.open('wb') as output:
+                        subprocess.run([str(Path(client_dir) / 'mysqldump.exe'), '--defaults-extra-file=' + str(login),
+                                        '--single-transaction', '--skip-lock-tables', '--triggers', database],
+                                       stdout=output, stderr=subprocess.PIPE, check=True, creationflags=flags)
+                    analysis, error = UTILS_SQL_Integrite.AnalyserDumpSQL(str(dump))
+                    self.assertIsNone(error)
+                    self.assertEqual(analysis['objets']['triggers'], set(stats.TRIGGERS.values()))
+                    root = self.connect()
+                    try:
+                        assert database.startswith('noethys_rc73_synthetic_') and database == self.database + '_stats'
+                        root.cursor().execute('DROP DATABASE `%s`' % database)
+                        root.cursor().execute('CREATE DATABASE `%s` CHARACTER SET utf8' % database)
+                    finally:
+                        root.close()
+                    with dump.open('rb') as source:
+                        subprocess.run([str(Path(client_dir) / 'mysql.exe'), '--defaults-extra-file=' + str(login), database],
+                                       stdin=source, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, creationflags=flags)
+                cx = self.connect(database)
+                db = Adapter(cx)
+                self.assertEqual(stats.read(db, '2026-10-01', '2026-10-31', [1]), expected)
+                cx.commit()
+                insert(db, 101, child=101)
+                db.Commit()
+                self.assertEqual(next(r for r in stats.read(db, '2026-10-01', '2026-10-31', [1])['children']
+                                      if r['child']==101)['reserved'], 1)
+                print('Assiduité : mysqldump/mysql, journal restauré et déclencheurs actifs vérifiés')
+            elif os.environ.get('NOETHYS_TEST_MYSQL_EXIGER') == '1':
+                self.fail('Clients de sauvegarde requis pour qualifier le nouveau journal')
         finally:
-            cx.close()
+            try:
+                cx.close()
+            except Exception:
+                pass  # déjà fermée pendant une restauration synthétique en échec
             assert database == self.database + '_stats' and database.startswith('noethys_rc73_synthetic_')
             root = self.connect()
             try:
