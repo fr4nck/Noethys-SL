@@ -120,8 +120,8 @@ class Settings(wx.Dialog):
         day_sizer.Add(wx.StaticText(day_page, label='Bandeau : activités actives avec une ouverture, une séance ou une consommation ce jour.\nM/A : accueil de loisirs, effectifs réservés ou présents par demi-journée.\nOrdre 0 : accueils de loisirs prioritaires. Un ordre personnel passe en premier.'), 0, wx.ALL, 10)
         self.activities = activities or []
         self.activity_grid = wx.grid.Grid(day_page)
-        self.activity_grid.CreateGrid(len(self.activities), 4)
-        for col, label in enumerate(('Afficher', 'M/A', 'Ordre', 'Activité')):
+        self.activity_grid.CreateGrid(len(self.activities), 6)
+        for col, label in enumerate(('Afficher', 'M/A', 'Ordre', 'Activité', 'Unité matin', 'Unité après-midi')):
             self.activity_grid.SetColLabelValue(col, label)
         for index, item in enumerate(self.activities):
             option = self.layout['day']['activities'].get(str(item['id']), item)
@@ -133,7 +133,14 @@ class Settings(wx.Dialog):
             self.activity_grid.SetCellValue(index, 2, str(option['order']))
             self.activity_grid.SetCellValue(index, 3, item['name'])
             self.activity_grid.SetReadOnly(index, 3)
-        self.activity_grid.SetColSize(3, 300)
+            for col,key in ((4,'morning_unit'),(5,'afternoon_unit')):
+                choices = item.get('slot_choices', [])
+                self.activity_grid.SetCellEditor(index,col,wx.grid.GridCellChoiceEditor(['Automatique']+[s['label'] for s in choices]))
+                selected = next((s['label'] for s in choices if s['id']==option.get(key)), 'Automatique')
+                self.activity_grid.SetCellValue(index,col,selected)
+        self.activity_grid.SetColSize(3, 220)
+        self.activity_grid.SetColSize(4, 140)
+        self.activity_grid.SetColSize(5, 160)
         day_sizer.Add(self.activity_grid, 1, wx.EXPAND | wx.ALL, 10)
         day_page.SetSizer(day_sizer)
         book.AddPage(day_page, 'Programme et agenda')
@@ -249,6 +256,10 @@ class Settings(wx.Dialog):
                 visible=self.activity_grid.GetCellValue(index, 0) == '1',
                 alsh=self.activity_grid.GetCellValue(index, 1) == '1',
                 order=int(self.activity_grid.GetCellValue(index, 2) or 0))
+            for col,key in ((4,'morning_unit'),(5,'afternoon_unit')):
+                selected=self.activity_grid.GetCellValue(index,col)
+                matches=[s['id'] for s in item.get('slot_choices',[]) if s['label']==selected]
+                activities[str(item['id'])][key]=matches[0] if len(matches)==1 else None
         blocks = {}
         for key, (visible, column, order) in self.layout_controls.items():
             blocks[key] = {
