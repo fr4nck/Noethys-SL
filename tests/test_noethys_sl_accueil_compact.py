@@ -53,6 +53,7 @@ class ReadOnlyFixture:
         INSERT INTO unites_remplissage_unites VALUES(101,1),(102,2);
         ''')
         self.db.executescript('ALTER TABLE unites ADD COLUMN nom; ALTER TABLE consommations ADD COLUMN IDevenement; ALTER TABLE evenements ADD COLUMN IDunite; ALTER TABLE evenements ADD COLUMN IDevenement; ALTER TABLE evenements ADD COLUMN heure_debut; ALTER TABLE evenements ADD COLUMN heure_fin; ALTER TABLE evenements ADD COLUMN nom;')
+        self.db.executescript('ALTER TABLE groupes ADD COLUMN IDactivite DEFAULT 1; ALTER TABLE groupes ADD COLUMN ordre DEFAULT 0;')
         self.before = self.db.total_changes
 
     def ExecuterReq(self, sql):
@@ -82,6 +83,57 @@ class ProgrammeTests(unittest.TestCase):
         self.assertEqual(rows[2]['total'], 0)  # événement sans réservation
         self.assertNotIn(3, [r['id'] for r in choices])
         self.assertIn(5, [r['id'] for r in choices])  # active mais pas aujourd'hui
+
+    def test_catalogue_independant_d_un_echec_sur_les_consommations(self):
+        original = self.fixture.ExecuterReq
+        calls = []
+        def read(sql):
+            calls.append(sql)
+            return False if 'FROM consommations' in sql else original(sql)
+        with patch.object(self.fixture, 'ExecuterReq', side_effect=read):
+            with self.assertRaises(ValueError):
+                self.read()
+            calls.clear()
+            choices = day.read_catalog(self.fixture, dt.date(2026, 10, 16))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual([g['id'] for g in choices[0]['group_choices']], [10, 11])
+        self.assertIn(5, [v['id'] for v in choices])  # même sans séance
+        self.assertEqual(self.fixture.db.total_changes, self.fixture.before)
+
+    def test_groupes_masques_et_ordre_sans_melanger_les_effectifs(self):
+        self.fixture.db.execute("INSERT INTO ouvertures VALUES(1,'2026-10-16',11)")
+        self.fixture.db.execute("INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,IDgroupe) VALUES(1,201,1,'2026-10-16','reservation',11)")
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read(dict(activities={'1': dict(alsh=True, groups={'10': dict(visible=False), '11': dict(order=1)})}))
+        alsh = [v for v in rows if v['id'] == 1]
+        self.assertEqual([(v['group'], v['morning'], v['afternoon']) for v in alsh], [(11, 1, 0)])
+        rows, _ = self.read(dict(activities={'1': dict(visible=False, groups={'11': dict(visible=True)})}))
+        self.assertNotIn(1, [v['id'] for v in rows])
+
+    def test_groupes_hors_alsh_masques_individuellement(self):
+        self.fixture.db.execute("INSERT INTO ouvertures VALUES(3,'2026-10-16',11)")
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read(dict(activities={'2': dict(groups={'10': dict(visible=False)})}))
+        self.assertEqual([v['group'] for v in rows if v['id'] == 2], [11])
+
+    def test_catalogue_sur_schema_canonique_periode_illimitee(self):
+        from _fixtures_noethys_db import BaseTest
+        from Data import DATA_Tables
+        base = BaseTest()
+        try:
+            for table in ('evenements', 'ouvertures', 'unites_remplissage', 'unites_remplissage_unites'):
+                base.db.CreationTable(table, dicoDB=DATA_Tables.DB_DATA)
+            base.inserer('activites', ['IDactivite', 'nom', 'abrege', 'date_debut', 'date_fin'],
+                         [(77, 'Accueil de loisirs fictif', 'ALSH', '1977-01-01', '2999-01-01')])
+            base.inserer('groupes', ['IDgroupe', 'IDactivite', 'nom', 'abrege', 'ordre'],
+                         [(81, 77, 'Site A moins de six ans', 'A -6', 0),
+                          (82, 77, 'Site A plus de six ans', 'A +6', 1)])
+            choices = day.read_catalog(base.db, dt.date(2026, 10, 16))
+            self.assertEqual([v['id'] for v in choices], [77])
+            self.assertEqual([g['id'] for g in choices[0]['group_choices']], [81, 82])
+            self.assertEqual(day.read_day(base.db, dt.date(2026, 10, 16))[0], [])
+        finally:
+            base.fermer()
 
     def test_visibility_classification_order_and_inactive_cannot_be_forced(self):
         rows, _ = self.read(dict(activities={'1':dict(visible=False),
@@ -248,6 +300,61 @@ class NativeAccueilTests(unittest.TestCase):
             self.assertFalse(panel._timer.IsRunning())  # pas de démarrage réseau implicite
         finally:
             dialog.Destroy();frame.Destroy();self.app.Yield()
+
+    def test_reglages_groupes_persistes_sans_perdre_preferences_anciennes(self):
+        import wx
+        from Ctrl import CTRL_Ephemeride as ui
+        fixture = ReadOnlyFixture()
+        self.addCleanup(fixture.db.close)
+        choices = day.read_catalog(fixture, dt.date(2026, 10, 16))
+        layout = dict(day=dict(activities={'1': dict(alsh=True, groups={'999': dict(visible=False)})}))
+        frame = wx.Frame(None)
+        dialog = ui.Settings(frame, {}, layout, choices)
+        try:
+            rows = [(index, item, group) for index, (item, group) in enumerate(dialog.activity_rows)]
+            group_index = next(i for i, item, group in rows if item['id'] == 1 and group and group['id'] == 10)
+            self.assertIn('Bais', dialog.activity_grid.GetCellValue(group_index, 3))
+            dialog.activity_grid.SetCellValue(group_index, 0, '')
+            dialog.activity_grid.SetCellValue(group_index, 2, '2')
+            values = dialog.layout_values()['day']['activities']['1']
+            self.assertEqual(values['groups']['10'], dict(visible=False, order=2))
+            self.assertFalse(values['groups']['999']['visible'])
+            self.assertTrue(values['alsh'])
+        finally:
+            dialog.Destroy();frame.Destroy();self.app.Yield()
+
+    def test_catalogue_recharge_sans_utiliser_resultat_jour_vide_et_callbacks_obsoletes(self):
+        import wx
+        from Ctrl import CTRL_Ephemeride as ui
+        fixture = ReadOnlyFixture()
+        self.addCleanup(fixture.db.close)
+        fixture.Close = Mock()
+        frame = wx.Frame(None)
+        panel = ui.CTRL(frame)
+        panel._generation = 7
+        panel._result = {'activities': []}  # reproduction du tableau vide après échec du jour
+        try:
+            with patch.object(ui.GestionDB, 'DB', return_value=fixture), patch.object(ui.wx, 'CallAfter') as call:
+                panel._load_settings_catalog(7, 'fichier-fictif', {})
+            callback, generation, database, choices, error = call.call_args.args
+            self.assertFalse(error)
+            self.assertEqual(len(choices), 4)
+            self.assertEqual(len(choices[0]['group_choices']), 2)
+            fixture.Close.assert_called_once()
+            with patch.object(ui.UTILS_Config, 'GetParametre', return_value='fichier-fictif'), \
+                 patch.object(panel, '_open_settings') as show:
+                callback(generation, database, choices, error)
+                show.assert_called_once_with(choices)
+                show.reset_mock()
+                panel._generation += 1
+                callback(generation, database, choices, error)
+                show.assert_not_called()
+            with patch.object(ui.UTILS_Config, 'GetParametre', return_value='autre-fichier'), \
+                 patch.object(panel, '_open_settings') as show:
+                callback(panel._generation, database, choices, error)
+                show.assert_not_called()
+        finally:
+            frame.Destroy();self.app.Yield()
 
     def test_compact_connecthys_states_and_late_callbacks(self):
         import wx
