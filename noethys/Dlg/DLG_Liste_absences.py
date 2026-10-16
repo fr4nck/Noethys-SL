@@ -162,6 +162,7 @@ class Dialog(wx.Dialog):
         self.bouton_imprimer = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Imprimante.png"), wx.BITMAP_TYPE_ANY))
         
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
+        self.bouton_taux = wx.Button(self, label=_(u"Taux par famille / enfant"))
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, id=wx.ID_CANCEL, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         self.__set_properties()
@@ -170,6 +171,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_apercu)
         self.Bind(wx.EVT_BUTTON, self.Imprimer, self.bouton_imprimer)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
+        self.Bind(wx.EVT_BUTTON, self.OnTaux, self.bouton_taux)
         
         self.MAJ(None)
         
@@ -209,11 +211,12 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
         
         # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=3, vgap=10, hgap=10)
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
+        grid_sizer_boutons.Add(self.bouton_taux, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
-        grid_sizer_boutons.AddGrowableCol(1)
+        grid_sizer_boutons.AddGrowableCol(2)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
         self.SetSizer(grid_sizer_base)
         grid_sizer_base.Fit(self)
@@ -224,6 +227,14 @@ class Dialog(wx.Dialog):
 
     def Apercu(self, event):
         self.ctrl_listview.Apercu(None)
+
+    def OnTaux(self, event):
+        from Dlg import DLG_Assiduite
+        dlg = DLG_Assiduite.Dialog(self)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
         
     def Imprimer(self, event):
         self.ctrl_listview.Imprimer(None)

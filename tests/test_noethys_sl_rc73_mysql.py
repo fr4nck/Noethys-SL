@@ -146,6 +146,7 @@ class RecetteMySQLTests(unittest.TestCase):
             cx.commit()
         finally:
             cx.close()
+
         journal = tracking.Journal(self.database, lambda _: LocalAdapter(self.connect(self.database)))
         key = 'CLE-STRICTEMENT-FICTIVE-RC73'
         def register(_):
@@ -169,6 +170,65 @@ class RecetteMySQLTests(unittest.TestCase):
             self.assertEqual(cur.fetchone()[0], 1)
         finally:
             cx.close()
+
+    def test_assiduite_triggers_transactions_et_concurrence_mysql(self):
+        from Utils import UTILS_Assiduite as stats
+        from tests.test_noethys_sl_assiduite import schema, insert
+        class Adapter(LocalAdapter):
+            def ExecuterReq(self, sql):
+                self.cursor.execute(sql)
+                return True
+        database = self.database + '_stats'
+        root = self.connect()
+        root.cursor().execute('CREATE DATABASE `%s` CHARACTER SET utf8' % database)
+        root.close()
+        cx = self.connect(database)
+        db = Adapter(cx)
+        try:
+            schema(db)
+            insert(db, 90)  # ancien : aucun historique inventé
+            db.Commit()
+            marker = stats.activate(db)
+            self.assertEqual(stats.activate(db), marker)
+            def work(ident):
+                worker = Adapter(self.connect(database))
+                try:
+                    insert(worker, ident, child=ident)
+                    worker.Commit()
+                    worker.cursor.execute('DELETE FROM consommations WHERE IDconso=%d' % ident)
+                    if ident % 2:
+                        worker.Commit()
+                    else:
+                        worker.connexion.rollback()
+                finally:
+                    worker.Close()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                list(pool.map(work, range(1, 9)))
+            result = stats.read(db, '2026-10-01', '2026-10-31', [1])
+            family = result['families'][0]
+            self.assertEqual((family['reserved'], family['cancelled'], family['cancellation_rate']), (8, 4, 50))
+            cx.commit()  # terminer le snapshot de lecture de ce test
+            db.cursor.execute("UPDATE consommations SET etat='absenti' WHERE IDconso=2")
+            db.cursor.execute("UPDATE consommations SET etat='present' WHERE IDconso=4")
+            db.Commit()
+            rows = stats.read(db, '2026-10-01', '2026-10-31', [1])['children']
+            self.assertEqual(next(r for r in rows if r['child']==2)['absence_rate'], 100)
+            self.assertEqual(next(r for r in rows if r['child']==4)['absence_rate'], 0)
+            before = stats.query(db, 'SELECT COUNT(*) FROM ' + stats.TABLE)[0][0]
+            db.cursor.execute('UPDATE consommations SET montant=123 WHERE IDconso=4')
+            db.Commit()
+            self.assertEqual(stats.query(db, 'SELECT COUNT(*) FROM ' + stats.TABLE)[0][0], before)
+            insert(db, 100, child=100)
+            cx.rollback()
+            self.assertNotIn(100, [r['child'] for r in stats.read(db, '2026-10-01', '2026-10-31', [1])['children']])
+        finally:
+            cx.close()
+            assert database == self.database + '_stats' and database.startswith('noethys_rc73_synthetic_')
+            root = self.connect()
+            try:
+                root.cursor().execute('DROP DATABASE `%s`' % database)
+            finally:
+                root.close()
 
 
 if __name__ == '__main__':
