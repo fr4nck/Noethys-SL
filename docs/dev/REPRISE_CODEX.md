@@ -1,5 +1,72 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Assiduité — annulations et absences par famille/enfant (16/10/2026)
+
+- Demande de Franck : deux taux distincts, annulations ET absences ; choix explicite
+  du suivi complet des nouvelles réservations plutôt qu'un indicateur de demandes
+  Connecthys. L'ancien historique textuel/tronqué ne permet pas une reconstitution
+  fiable : aucune fausse reprise ni ancien taux à zéro.
+- Accès : Consommations > Liste des absences > Taux par famille / enfant.
+  Filtres période/activités, agrégation enfant ou famille et détail par date.
+- Grain explicite : enfant + date + activité ; les unités matin/repas/après-midi
+  ne font pas compter trois journées. Cohorte annulations : journée ayant une
+  nouvelle consommation créée après activation, puis confirmée en réservation.
+  Taux = journées de cette cohorte sans consommation active restante et sans
+  ancien pointage / journées réservées suivies. Situation actuelle : réinscrire
+  la même journée retire l'annulation du taux ; un retrait partiel n'annule pas
+  la journée. Les suppressions administratives sont incluses, pas attribuées aux
+  parents. Une annulation tardive devenue absenti reste classée absence Noethys.
+- Absences = journées entièrement absentes / journées entièrement pointées,
+  sans date future. Justifiées/injustifiées séparées (injustifiée prioritaire si
+  les deux motifs existent dans une journée entièrement absente). Présence sur
+  une partie de journée : absence partielle, hors numérateur. Réservation encore
+  non pointée : journée non pointée, hors dénominateur. Agrégats familiaux pondérés
+  par nombres de journées, jamais moyenne des pourcentages individuels.
+- Activation ADMINISTRATEUR explicite avec description du changement de schéma :
+  table noethys_sl_assiduite_v1, deux index, trois triggers INSERT/UPDATE/DELETE.
+  Aucun ajout automatique à l'ouverture ni à la lecture ; aucune modification
+  de CTRL_Grille.Sauvegarde, des transactions/commits existants ni de GestionDB.
+  Identifiants/états/dates uniquement dans le journal, aucun nom, montant ou mail.
+  Les triggers suivent les écritures depuis les autres postes/clients aussi.
+- SQLite et MySQL InnoDB (aucune conversion automatique). Les écritures de journal
+  appartiennent à la transaction de la consommation ; rollback commun vérifié.
+  Changements de montant sans changement d'état/contexte non journalisés. Lecture
+  SQLite sur snapshot cohérent ; MySQL connexion dédiée et REPEATABLE READ.
+  Activation verrouillée/idempotente ; rupture détectée -> calcul suspendu,
+  réparation automatique refusée si elle masquerait une période sans historique.
+- Contrôles locaux : 17 tests spécifiques ; sélection assiduité/repas/performance
+  48 tests réussis sur les trois arbres. Copie SQLite puis nouveau déclenchement
+  vérifiés. MySQL réel 5.7.44 jetable : run 38915319292, succès, 4 tests sans ignoré,
+  concurrence quatre connexions, rollback, ancien hors suivi et mysqldump/mysql :
+  journal restauré identique, triggers inventoriés par le contrôleur SQL existant,
+  et nouvelles écritures capturées après restauration. Aucun test production.
+- Échecs de qualification conservés : 38914452080 verrou trop long corrigé par
+  SHA1 du nom de base ; 38914689652 snapshot après activation corrigé ;
+  38915009265 fixture avec réservation ancienne du même enfant bloquant à raison
+  une annulation complète, corrigée en séparant cet enfant fictif. Assertions
+  conservées ; recette finale verte, pas d'affaiblissement des contrôles.
+- CI finales : main 38915320274 : 703 tests / 6 ignorés ; wx 38915539613 :
+  716 tests / 10 ignorés ; qt 38915638802 : 668 tests / 6 ignorés. Toutes vertes,
+  logs téléchargés qualification/assiduite-ci-{main,wx,qt}.log. Les CI qt exercent
+  les contrats communs et le dialogue wx hérité, pas un rendu Qt natif.
+- Matrice : moteur/journal/dialogue partagé VALIDÉS techniquement sur les trois
+  sources ci-dessous ; recette métier de déploiement et nouvel installateur
+  EN ATTENTE sur wx ; rendu Qt natif EN ATTENTE. Aucun statut STABLE attribué.
+- Sources partagées : main 1484a9fe80a46e30be19b00e660f2fa25a1eb1f2,
+  wx f14e0a0eb3bb1e9ffb706eca59c3e7459f9aca4b,
+  qt b3962dd1476202094d182b77c3c232dc090619df. Six fichiers communs comparés
+  identiques après normalisation des fins de ligne ; spécificités conservées.
+- Mesure strictement synthétique locale SQLite mémoire, médiane 3 passages de
+  5000 insertions : 24,48 ms sans journal / 88,73 ms avec, lecture 50,21 ms.
+  C'est un coût ajouté, pas un gain ni une mesure de serveur/terrain. Logs/scripts
+  qualification/assiduite-* hors Git ; qualification/ précédent préservé.
+- STOP-GATE : implémentation source, absente de l'installateur RC7.4 construit sur
+  23419a6d. Aucun nouveau paquet, tag ou release fabriqué ici. Recette métier sur
+  copie isolée et versions de serveur autres que MySQL 5.7.44 à qualifier ; Qt
+  natif non qualifié. Avant prochain candidat, inclure le nouveau module de tests
+  parmi les tests critiques du workflow Windows. Aucun suivi activé en production,
+  aucune intervention sur données réelles, aucun email envoyé.
+
 ## Candidat Windows RC7.4 fabriqué et vérifié (16/10/2026)
 
 - Autorisation de Franck : ajouter les correctifs Connecthys au prochain paquet.
