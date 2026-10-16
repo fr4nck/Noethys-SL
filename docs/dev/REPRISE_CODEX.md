@@ -1,5 +1,76 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Retours terrain RC7.3 — accueil, bouton et créneaux (16/10/2026)
+
+- La capture fournie affiche RC7.3 sur le poste. Aucun lancement, accès à sa base,
+  installation ni configuration de production effectués par l'agent.
+- Demandes : supprimer l'effet de grand cadre blanc, réduire le vide, rendre le
+  compteur Connecthys clairement cliquable et distinguer les créneaux EMS.
+- Fond SYS_COLOUR_3DFACE repris par le bandeau ; marges réduites, titres alignés,
+  colonne vacances compacte (240 DIP), agenda seul extensible, colonnes vides sans
+  espace réservé. Préférences existantes conservées et agenda à défilement propre.
+- Bouton demandes : bord arrondi visible, fond teinté, curseur main, surbrillance
+  au survol et au focus, état pressé ; GenButton et sa navigation clavier/clic
+  conservés, libellé multiligne avec nombre complet. Ancien panneau non compact
+  inchangé. Aperçu natif isolé normal et survol inspecté, données strictement fictives.
+- L'ancien total EMS était le nombre de personnes distinctes de la journée, pas
+  un effectif simultané. Nouveau bandeau hors ALSH : une entrée par séance
+  identifiée, ou unité/groupe/plage configurés ; horaire et nom de séance/unité
+  affichés. Deux unités ou séances parallèles ne sont pas fusionnées parce que
+  leurs heures coïncident. Une personne à deux séances compte une fois dans chacune.
+  Dédoublonnage dans chaque créneau ; états attente/absence exclus ; ouvertures et
+  séances vides conservent zéro. Groupes distincts séparés. Activités inactives exclues.
+  Les heures des unités configurées servent de créneaux, à défaut celles des
+  consommations ; une plage large configurée ne permet pas de déduire un effectif
+  simultané maximal. Aucun calcul de pic d'occupation ni pointage en temps réel.
+- Séance liée par IDevenement prioritaire sur la plage générique de l'unité.
+  Consommation sans lien de séance alors que plusieurs existent sur cette unité :
+  « horaire non renseigné », sans répartition arbitraire entre séances. Pas de règle
+  de tarification, d'inscription, de facture, d'annulation ni d'écriture métier changée.
+  ALSH conserve ses M/A par groupe, via unités de remplissage et conditions existantes.
+- Toujours six SELECT, enrichis avec les métadonnées des ouvertures, événements et
+  LEFT JOIN sur les clés des unités/événements. Aucun nouveau schéma ni connexion
+  répétée par créneau. Quatre tests SQLite supplémentaires : créneaux distincts,
+  dédoublonnage, mêmes horaires/séances distinctes, lien inconnu, groupes et unités
+  parallèles, aucune écriture. Fixtures MySQL étendues sans données réelles.
+- Dernier code : main **7ebe1cd985d84483c03ce2df3c387ca3311fd60c**,
+  wx **9026ef5ce54091dcbfd622c4992ca9fa44b64b5c**,
+  qt **6dd9f7bea23d2ed946185884f6a4a0078f9edb6f**.
+  Neuf fichiers communs (code, tests, préparation serveur, workflows) comparés :
+  identiques. Portages ciblés ; repas directeur RC8 et adaptations propres conservés.
+- CI rapide main [38889769079](https://github.com/fr4nck/Noethys-SL/actions/runs/38889769079)
+  SUCCESS : 662 tests / 6 ignorés ; wx
+  [38889809868](https://github.com/fr4nck/Noethys-SL/actions/runs/38889809868) SUCCESS :
+  675 tests / 10 ignorés ; qt
+  [38889820013](https://github.com/fr4nck/Noethys-SL/actions/runs/38889820013) SUCCESS :
+  627 tests / 6 ignorés, suite commune wx, pas une validation UI Qt native.
+- Recette serveur du code FINAL
+  [38889769125](https://github.com/fr4nck/Noethys-SL/actions/runs/38889769125) SUCCESS :
+  MySQL 5.7.44 local réellement démarré sur runner isolé, 3 tests OK / aucun ignoré.
+  Jeu fictif à deux créneaux d'une activité et deux séances simultanées identifiées :
+  résultats SQLite/MySQL égaux et tables inchangées par read_day ; concurrence
+  et actualisation conditionnelle du journal Mailjet conservées. Serveur stoppé,
+  seule base unique de la recette détruite. Aucun appel API ni email.
+- Recette indépendante sans packaging via workflow MySQL existant, entrée
+  mode=accueil, appel du nouveau workflow réutilisable. La première tentative
+  directe du nouveau nom était refusée car absent de master (branche par défaut
+  historique). Le run 38889425498 a ensuite échoué AVANT les tests car le script
+  préparateur n'existait que sur wx : copie identique partagée sur main/qt,
+  run intermédiaire 38889670615 SUCCESS, puis run final ci-dessus. Aucun test
+  ignoré/affaibli pour masquer cet échec. Runs rapides remplacés par nouveaux
+  commits annulés par concurrence normale.
+- Qualification : sources communes VALIDÉES sur les trois branches ; MySQL 5.7
+  du code commun VALIDÉ sur main et blobs identiques wx/qt ; UI Qt native,
+  configuration réelle EMS/ALSH, DPI et nouveau binaire empaqueté EN ATTENTE.
+  Les 28 et 113 tests locaux intermédiaires sont antérieurs aux CI finales ;
+  les CI finales font foi. Captures/logs fictifs dans qualification/ hors Git.
+- Aucun nouvel installateur : le candidat RC7.3 du build 9a8cf664 reste inchangé
+  et ne contient PAS ces retouches postérieures. Avant de reconstruire, attribuer
+  une identité distincte au prochain candidat ; ne pas réutiliser RC7.3 pour un
+  contenu différent. Cotisations automatiques toujours suspendues, issue #427
+  non résolue par ces changements d'affichage. Prochaine étape : nouvelle recette
+  visuelle du candidat distinct puis vérification des créneaux configurés du pilote.
+
 ## RC7.3 Windows fabriquée — preuves finales du 16/10/2026
 
 - Candidat wx demandé par Franck, construit depuis **9a8cf664103d0e14fdaf0bcc83ccdbb7d535c630**.
