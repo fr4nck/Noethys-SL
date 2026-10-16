@@ -136,9 +136,23 @@ class Meteo(wx.Panel):
             gc.DrawEllipse(x+1, y+7, 14, 12)
             gc.DrawEllipse(x+9, y+2, 16, 17)
             gc.DrawRoundedRectangle(x+3, y+10, 25, 10, 5)
-            if severity >= 3:
+            if severity == 4:
                 gc.StrokeLine(x+9, y+22, x+7, y+26)
                 gc.StrokeLine(x+19, y+22, x+17, y+26)
+            elif severity == 3:
+                gc.StrokeLine(x+1, y+23, x+27, y+23)
+                gc.StrokeLine(x+5, y+27, x+23, y+27)
+            elif severity == 5:
+                for cx in (x+8, x+21):
+                    gc.StrokeLine(cx-3, y+24, cx+3, y+24)
+                    gc.StrokeLine(cx, y+21, cx, y+27)
+            elif severity == 6:
+                bolt = gc.CreatePath()
+                bolt.MoveToPoint(x+16, y+18)
+                bolt.AddLineToPoint(x+10, y+25)
+                bolt.AddLineToPoint(x+15, y+25)
+                bolt.AddLineToPoint(x+10, y+31)
+                gc.StrokePath(bolt)
 
     def paint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
@@ -166,7 +180,7 @@ class Meteo(wx.Panel):
                 dc.SetFont(font(self, 1)); dc.SetTextForeground(INK)
                 dc.DrawText('%g–%g°' % (round(temp[0]), round(temp[1])) if temp else '—', x+32, y)
                 rain, wind = row.get('precipitation'), row.get('wind_speed_10m')
-                arrow = data.wind_arrow(row.get('wind_direction_10m'))
+                arrow = data.wind_arrow(row.get('wind_direction_10m')) if wind else '—'
                 dc.SetFont(font(self, -1)); dc.SetTextForeground(MUTED)
                 text = '%s mm   %s km/h %s' % ('—' if rain is None else '%g' % round(rain, 1),
                                               '—' if wind is None else '%g' % round(wind), arrow)

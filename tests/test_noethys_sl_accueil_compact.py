@@ -213,6 +213,21 @@ class NativeAccueilTests(unittest.TestCase):
         finally:
             frame.Destroy();self.app.Yield()
 
+    def test_weather_icons_render_all_categories_on_native_dc(self):
+        import wx
+        from Ctrl import CTRL_Accueil_compact as compact
+        frame=wx.Frame(None)
+        panel=compact.Meteo(frame,Mock())
+        bitmap=wx.Bitmap(320,120)
+        dc=wx.MemoryDC(bitmap)
+        try:
+            for index,code in enumerate([None,0,3,45,61,71,95]):
+                panel.icon(dc,index*40,20,code)
+            self.assertTrue(bitmap.IsOk())
+        finally:
+            dc.SelectObject(wx.NullBitmap)
+            frame.Destroy();self.app.Yield()
+
     def test_cycle_reports_boolean_failure_and_exception_without_sticking_busy(self):
         from Ctrl import CTRL_Portail_serveur as portal
         for outcome in (True,False,RuntimeError('synthetic')):
