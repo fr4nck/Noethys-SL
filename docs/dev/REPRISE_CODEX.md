@@ -1,5 +1,32 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Fabrication RC7.3 autorisée — 16/10/2026
+
+- Demande explicite de Franck : commencer à fabriquer RC7.3. Candidat wx uniquement,
+  sans tag/release automatique ni installation sur un poste de production.
+- Départ distant vérifié : main 7bc64844684598b8a1e418a5bec72dfdc45e8811,
+  wx 90c1c0673b90007506a7a99938ea517ff119e08a,
+  qt 8fe27d7285e5b47be68b89c4666aba7213d3770b.
+  Comparaison des sept modules communs accueil / météo / Connecthys / Mailjet /
+  adhésions : aucune différence. Le chantier repas directeur multisite #430,
+  explicitement prévu RC8 et encore source candidate sur main, reste exclu de RC7.3 ;
+  aucun correctif critique commun identifié dans cette différence fonctionnelle.
+- Identité Windows 0.1.0-rc.7.3 ; version interne 1.3.4.4 préservée. Notes RC7.3
+  ajoutées avant RC7.2, historique conservé. Cotisations automatiques toujours
+  suspendues ; ni reprise automatique ni migration de schéma.
+- Workflow Windows désormais volontaire seulement ; contrats du nouvel accueil,
+  impression dépôt, rappels, Mailjet et performances inclus avant empaquetage.
+  Serveur MySQL 5.7.44 jetable local existant réutilisé pour comparer les six SELECT
+  de l'accueil à SQLite sur données fictives (deux groupes, repas, heures et tags),
+  vérifier l'absence d'écriture et qualifier GET_LOCK / concurrence / Unicode /
+  actualisation conditionnelle du journal Mailjet. Aucun appel API ni email.
+- 80 tests locaux du candidat : OK / 4 ignorés (dont 3 exigeant ce serveur jetable).
+  Ces tests serveur doivent réellement passer dans le build, ils ne sont pas encore
+  qualifiés à la rédaction. Les autres contrôles pilote / DPI restent à faire.
+- État : préparation, CI rapide puis fabrication à lancer. Aucun artefact RC7.3
+  disponible à cet instant. Les sections historiques ci-dessous décrivent l'état
+  aux étapes antérieures, pas une installation du nouveau candidat.
+
 ## Accueil compact — intégration demandée pour RC7.3, 16/10/2026
 
 - Accord utilisateur : maquette Horizon ; météo quatre jours M/A, pluie en mm,

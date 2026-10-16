@@ -1,3 +1,14 @@
+Version Noethys SL 0.1.0 RC7.3 (16/10/2026) :
+
+- Nouvel accueil compact : météo sur quatre jours matin et après-midi, vacances et agenda à défilement indépendant
+- Bandeau des activités du jour personnalisable, avec effectifs prévus matin et après-midi par groupe d'accueil de loisirs
+- Connecthys intégré à l'accueil : demandes à traiter, état de synchronisation, progression et journal accessible au clic
+- Correction de l'aperçu et de l'impression de la liste des règlements d'un dépôt
+- Exclusion des soldes nuls dus aux arrondis dans les lettres de rappel
+- Suivi des messages Mailjet avec actualisation volontaire de leur état de livraison depuis Noethys
+- Réduction des traitements inutiles lors de la sauvegarde des consommations et des transports
+- Profileur facultatif des validations de consommations, désactivé par défaut
+
 Version Noethys SL 0.1.0 RC7.2 (15/10/2026) :
 
 - Correction de l'aperçu PDF des factures depuis la fiche famille
