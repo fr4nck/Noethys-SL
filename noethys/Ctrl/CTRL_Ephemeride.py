@@ -53,7 +53,7 @@ def section(parent, title):
     heading = wx.StaticText(parent, label=title)
     heading.SetForegroundColour(compact.MUTED)
     heading.SetFont(compact.font(heading, -1, True))
-    heading.SetMinSize((-1, parent.FromDIP(20)))
+    heading.SetMinSize((-1, parent.FromDIP(24)))
     parent.heading = heading
     box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, parent.FromDIP(4))
     return box
@@ -316,6 +316,7 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         # AUI positionne ce panneau avant de l'afficher : évite le flash au démarrage.
         self.Hide()
+        self.SetFont(compact.font(self))
         self._generation = 0
         self._alive = True
         self._active = True
@@ -351,15 +352,15 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
         self.vacation = wx.StaticText(vacation_panel, label='Chargement…')
         self.vacation.SetMinSize((140, -1))
         vacation_box.Add(self.vacation, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
-        vacation_box.Add(link(vacation_panel, 'Calendrier scolaire officiel 2026–2027', data.SCHOOL_SOURCE),
+        vacation_box.Add(link(vacation_panel, 'Calendrier officiel 2026–2027', data.SCHOOL_SOURCE),
                          0, wx.LEFT | wx.RIGHT | wx.BOTTOM, self.FromDIP(4))
         vacation_panel.SetSizer(vacation_box)
         self.block_panels['vacations'] = vacation_panel
 
         events_panel = wx.Panel(self)
         events_box = section(events_panel, 'Agenda')
-        self.events_scroll = wx.lib.scrolledpanel.ScrolledPanel(events_panel, size=(-1, self.FromDIP(214)))
-        self.events_scroll.SetMinSize((150, self.FromDIP(214)))
+        self.events_scroll = wx.lib.scrolledpanel.ScrolledPanel(events_panel, size=(-1, self.FromDIP(236)))
+        self.events_scroll.SetMinSize((150, self.FromDIP(236)))
         self.events_content = wx.BoxSizer(wx.VERTICAL)
         self.events_scroll.SetSizer(self.events_content)
         events_box.Add(self.events_scroll, 1, wx.EXPAND | wx.ALL, self.FromDIP(4))

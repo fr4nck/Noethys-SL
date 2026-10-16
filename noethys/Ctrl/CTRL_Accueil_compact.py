@@ -6,14 +6,14 @@ import wx
 from Utils import UTILS_Ephemerides as data
 
 INK = '#243f49'
-MUTED = '#536c76'
+MUTED = '#425860'
 TEAL = '#17656a'
 SKY = '#eaf4fa'
 
 
 def font(control, delta=0, bold=False):
     result = wx.Font(control.GetFont())
-    result.SetPointSize(max(8, result.GetPointSize() + delta))
+    result.SetPointSize(max(11, result.GetPointSize() + delta))
     if bold:
         result = result.Bold()
     return result
@@ -24,7 +24,7 @@ class Bandeau(wx.Panel):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.items, self.offset, self.message = [], 0, ''
         self.date = dt.date.today()
-        self.SetMinSize(self.FromDIP((100, 40)))
+        self.SetMinSize(self.FromDIP((100, 48)))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.paint)
         self.Bind(wx.EVT_MOUSEWHEEL, self.wheel)
@@ -85,7 +85,7 @@ class Meteo(wx.Panel):
         super().__init__(parent, style=wx.TAB_TRAVERSAL | wx.WANTS_CHARS)
         self.rows, self.error, self.description = [], '', ''
         self.on_details = on_details
-        self.SetMinSize(self.FromDIP((320, 214)))
+        self.SetMinSize(self.FromDIP((402, 236)))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
         self.Bind(wx.EVT_PAINT, self.paint)
@@ -161,30 +161,30 @@ class Meteo(wx.Panel):
         scale = self.GetDPIScaleFactor()
         # Tout dessin est en unités logiques : DC se charge du DPI Windows.
         dc.SetUserScale(scale, scale)
-        dc.DrawText('Matin', 55, 4); dc.DrawText('Après-midi', 185, 4)
+        dc.DrawText('Matin', 65, 4); dc.DrawText('Après-midi', 229, 4)
         dates = sorted({r['date'] for r in self.rows})[:4]
         for index, date in enumerate(dates):
-            y = 28+index*46
+            y = 32+index*49
             day = dt.date.fromisoformat(date)
             dc.SetFont(font(self, -1, True)); dc.SetTextForeground(INK)
             dc.DrawText(('Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.')[day.weekday()], 5, y)
-            dc.DrawText(day.strftime('%d/%m'), 5, y+15)
+            dc.DrawText(day.strftime('%d/%m'), 5, y+18)
             for period, (label, _, _) in enumerate(data.PERIODS):
                 row = next((r for r in self.rows if r['date']==date and r['period']==label), None)
-                x = 55+130*period
+                x = 65+164*period
                 if row is None:
                     dc.DrawText('—', x+35, y)
                     continue
                 self.icon(dc, x, y, row.get('weather_code'))
                 temp = row.get('temperature_2m')
-                dc.SetFont(font(self, 1)); dc.SetTextForeground(INK)
+                dc.SetFont(font(self, 2)); dc.SetTextForeground(INK)
                 dc.DrawText('%g–%g°' % (round(temp[0]), round(temp[1])) if temp else '—', x+32, y)
                 rain, wind = row.get('precipitation'), row.get('wind_speed_10m')
                 arrow = data.wind_arrow(row.get('wind_direction_10m')) if wind else '—'
                 dc.SetFont(font(self, -1)); dc.SetTextForeground(MUTED)
                 text = '%s mm   %s km/h %s' % ('—' if rain is None else '%g' % round(rain, 1),
                                               '—' if wind is None else '%g' % round(wind), arrow)
-                dc.DrawText(text, x, y+24)
+                dc.DrawText(text, x, y+27)
         if not dates or self.error:
             dc.SetFont(font(self, -1)); dc.SetTextForeground(MUTED)
-            dc.DrawText('Météo indisponible' if not dates else 'Données en cache · voir détail', 5, 210 if dates else 32)
+            dc.DrawText('Météo indisponible' if not dates else 'Données en cache · voir détail', 5, 218 if dates else 32)

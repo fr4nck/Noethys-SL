@@ -37,6 +37,13 @@ class BoutonDemandes(wx.lib.buttons.GenButton):
 
     DrawLabel préserve toutes les lignes et le nombre complet de demandes.
     """
+    def DoGetBestSize(self):
+        dc = wx.ClientDC(self)
+        dc.SetFont(self.GetFont())
+        width, height = dc.GetMultiLineTextExtent(self.GetLabel())[:2]
+        return wx.Size(max(self.FromDIP(130), width+self.FromDIP(20)),
+                       max(self.FromDIP(70), height+self.FromDIP(20)))
+
     def InitOtherEvents(self):
         self._hover = False
         self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
@@ -263,7 +270,7 @@ class Panel(wx.Panel):
             heading_font = wx.Font(heading.GetFont())
             heading_font.SetPointSize(max(8, heading_font.GetPointSize()-1))
             heading.SetFont(heading_font.Bold())
-            heading.SetMinSize((-1, self.FromDIP(20)))
+            heading.SetMinSize((-1, self.FromDIP(24)))
             box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, self.FromDIP(4))
             self.bouton_traiter.SetMinSize(self.FromDIP((130, 70)))
             box.Add(self.bouton_traiter, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
