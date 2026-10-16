@@ -1,5 +1,39 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## Candidat Windows RC7.4 fabriqué et vérifié (16/10/2026)
+
+- Autorisation de Franck : ajouter les correctifs Connecthys au prochain paquet.
+  RC7.3 étant déjà distribuée, identité distincte RC7.4 ; aucune release/tag stable.
+- Source empaquetée wx : 23419a6dc4c8753b33337bb8ade391b5a6bc27cc.
+  Identité, notes de version et tests propres au candidat wx ; version interne
+  numérique 1.3.4.4 inchangée, historique numérique conservé par test.
+- Contient les repas dépendant de TOUTES les périodes demandées, priorité Journée
+  face aux trois choix cumulés, rôles configurables ; garde des antécédents,
+  cas ambigus/facturés/pointés/verrouillés à traiter manuellement. Contient aussi
+  les créneaux distincts, fond wx compact et carte Connecthys au survol.
+- Avant construction, têtes distantes relevées : main 98ec3d1e, wx 0791f515,
+  qt 0edd1d02. Helper, dialogue de rôles et tests identiques sur les trois arbres,
+  méthode Appliquer_reservations identique par comparaison AST ; protections wx
+  conservées. RC7.4 ne change que packaging/identité/changelog/tests du candidat.
+  Les travaux repas directeur RC8 propres à main restent exclus ; création
+  automatique des cotisations toujours suspendue (AUTO_CREATION_SUSPENDUE=True).
+- Vérifications locales : 71 tests réussis. CI wx 38911889621 sur source empaquetée :
+  699 tests / 10 ignorés prévus, succès. Construction 38911888874 : succès ;
+  317 tests critiques / 7 ignorés prévus puis 10 tests MySQL 5.7.44 local jetable,
+  aucun ignoré. Démarrage binaire puis ZIP extrait/profil Portable : succès.
+- Artefact 12050568222 : Noethys-SL-0.1.0-rc.7.4-Windows-candidat,
+  250614555 octets, disponible jusqu'au 15/11/2026. Installateur et ZIP téléchargés
+  dans qualification/rc74 (hors Git), empreintes recalculées conformes :
+  Setup : d1a2bd347c899ed16c52b6ccc7ee3582811f354d0d8d4c3f0cd7e27dd2d9996e
+  Portable : 1d5ece4ac33fd935412560f8820ecc2f1f23cc514be2dff6c0f81a9adb593b53
+- BUILD-INFO, version embarquée et modules du PYZ inspectés sans exécution locale :
+  nouveau helper et dialogues Connecthys, accueil et WordWrapRenderer présents.
+  Logs qualification/rc74-build.log, rc74-ci-wx.log, rc74/verification.json hors Git.
+- STOP-GATE : candidat technique uniquement ; recette métier sur copie isolée,
+  configuration des rôles réels et DPI à vérifier. Aucune installation locale,
+  intervention production, suppression de données ni envoi d'email effectués.
+  Qualification Mailjet authentifiée et Qt natif restent en attente.
+
 ## Connecthys — repas liés aux accueils et priorité Journée (16/10/2026)
 
 - Demandes explicites : repas non limité mais jamais confirmé lorsqu'une période
