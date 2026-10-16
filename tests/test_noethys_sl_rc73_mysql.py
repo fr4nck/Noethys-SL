@@ -188,7 +188,7 @@ class RecetteMySQLTests(unittest.TestCase):
         db = Adapter(cx)
         try:
             schema(db)
-            insert(db, 90)  # ancien : aucun historique inventé
+            insert(db, 90, child=90)  # ancien : autre enfant, aucun historique inventé
             db.Commit()
             marker = stats.activate(db)
             self.assertEqual(stats.activate(db), marker)
@@ -224,6 +224,8 @@ class RecetteMySQLTests(unittest.TestCase):
             cx.rollback()
             self.assertNotIn(100, [r['child'] for r in stats.read(db, '2026-10-01', '2026-10-31', [1])['children']])
             client_dir = os.environ.get('NOETHYS_TEST_MYSQL_BIN')
+            if not client_dir and os.environ.get('NOETHYS_TEST_MYSQL_APP_DIR'):
+                client_dir = str(Path(os.environ['NOETHYS_TEST_MYSQL_APP_DIR']) / 'mysql-client' / 'bin')
             if client_dir:
                 from Utils import UTILS_SQL_Integrite
                 expected = stats.read(db, '2026-10-01', '2026-10-31', [1])
