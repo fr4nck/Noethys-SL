@@ -1785,15 +1785,41 @@ class Traitement():
             date = UTILS_Dates.DateEngEnDateDD(date)
             listeReservations.append({"IDreservation" : IDreservation, "date" : date, "IDinscription" : IDinscription, "IDunite" : IDunite, "etat" : etat, "nom_unite_reservation" : nom_unite_reservation})
 
+        demandes_initiales = listeReservations
         try:
             listeReservations, choix_redondants = regles_reservations.prepare(listeReservations, unites_reservations)
         except ValueError as error:
             self.EcritLog(str(error), log_jumeau)
             return ""
 
+        # La priorité Journée normalise les nouveaux choix, sans convertir
+        # silencieusement des consommations déjà enregistrées sur les demi-journées.
+        retenues = {r['IDreservation'] for r in listeReservations}
+        for demande in demandes_initiales:
+            if demande['IDreservation'] in retenues:
+                continue
+            unite = self.parent.dictUnites[demande['IDunite']]
+            for IDunite in unite['unites_principales'] + unite['unites_secondaires']:
+                case = ctrl_grille.GetCase(IDunite, demande['date'])
+                if case is not None and any(c.etat is not None for c in case.GetListeConso()):
+                    self.EcritLog(_(u"Une demi-journée est déjà enregistrée : la conversion vers Journée nécessite un traitement manuel."), log_jumeau)
+                    return ""
+
+        # Inclut les accueils déjà demandés lors d'une action antérieure.
+        repas_deja_lies = set()
+        try:
+            for reservation in listeReservations:
+                if reservation['etat'] == 1 and reservation['role_portail'] == 'repas':
+                    states = regles_reservations.current_period_states(unites_reservations, ctrl_grille, reservation, IDactivite)
+                    if any(state in ('reservation', 'attente', 'present') for state in states):
+                        repas_deja_lies.add(regles_reservations.context(reservation))
+        except ValueError as error:
+            self.EcritLog(str(error), log_jumeau)
+            return ""
+
         # Précontrôle avant toute saisie : ne jamais réviser un repas protégé.
         for reservation in listeReservations:
-            if reservation['etat'] != 1 or not regles_reservations.linked_meal(reservation, listeReservations):
+            if reservation['etat'] != 1 or reservation['role_portail'] != 'repas' or not (regles_reservations.linked_meal(reservation, listeReservations) or regles_reservations.context(reservation) in repas_deja_lies):
                 continue
             for accueil in listeReservations:
                 if accueil['etat'] != 1 or accueil['role_portail'] not in regles_reservations.PERIODS or regles_reservations.context(accueil) != regles_reservations.context(reservation):
@@ -1862,7 +1888,10 @@ class Traitement():
                         if ctrl_grille.GetCase(IDunite, date) != None and ctrl_grille.HasPlacesDisponibles(IDunite=IDunite, date=date) == False :
                             hasPlaces = False
 
-                repas_lie = regles_reservations.linked_meal(reservation, listeReservations)
+                repas_lie = regles_reservations.linked_meal(reservation, listeReservations) or (
+                    reservation['role_portail'] == 'repas' and regles_reservations.context(reservation) in repas_deja_lies)
+                if repas_lie and 'attente' in regles_reservations.current_period_states(unites_reservations, ctrl_grille, reservation, IDactivite):
+                    hasPlaces = False
                 if repas_lie and regles_reservations.context(reservation) in accueils_en_attente:
                     hasPlaces = False
                     self.EcritLog(_(u"Repas en attente : toutes les périodes d'accueil demandées ne sont pas confirmées."), log_jumeau)
