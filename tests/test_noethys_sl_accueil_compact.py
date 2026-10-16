@@ -39,6 +39,12 @@ class ReadOnlyFixture:
         (1,105,1,'2026-10-16','absenti',NULL,NULL),
         (1,106,1,'2026-10-15','reservation',NULL,NULL),
         (3,107,4,'2026-10-16','reservation',NULL,NULL);
+        ALTER TABLE ouvertures ADD COLUMN IDgroupe DEFAULT 10;
+        ALTER TABLE evenements ADD COLUMN IDgroupe DEFAULT 10;
+        ALTER TABLE consommations ADD COLUMN IDgroupe DEFAULT 10;
+        CREATE TABLE groupes(IDgroupe,nom,abrege);
+        INSERT INTO groupes VALUES(10,'Bais moins de six ans','Bais −6'),
+        (11,'Moutiers moins de six ans','Mout. −6');
         ''')
         self.before = self.db.total_changes
 
@@ -98,6 +104,15 @@ class ProgrammeTests(unittest.TestCase):
         self.fixture.before=self.fixture.db.total_changes
         rows,_=self.read()
         self.assertEqual((rows[0]['total'],rows[0]['morning'],rows[0]['afternoon']),(2,1,2))
+
+    def test_alsh_separates_groups_without_mixing_sites_or_ages(self):
+        self.fixture.db.execute("INSERT INTO ouvertures VALUES(1,'2026-10-16',11)")
+        self.fixture.db.execute("INSERT INTO consommations VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11)")
+        self.fixture.before=self.fixture.db.total_changes
+        rows,_=self.read()
+        alsh=[r for r in rows if r['alsh']]
+        self.assertEqual([(r['label'],r['morning'],r['afternoon']) for r in alsh],
+                         [('Bais −6',1,2),('Mout. −6',1,0)])
 
     def test_query_failure_cannot_look_like_empty_programme(self):
         with patch.object(self.fixture,'ExecuterReq',return_value=False):
