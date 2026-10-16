@@ -711,7 +711,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                             except :
                                 pass
                         if ouvert:
-                            suggestion += UTILS_Commandes_directeur.SupplementDirecteur(
+                            suggestion += UTILS_Commandes_directeur.SupplementRepasDirection(
                                 dictColonne["parametres"], date, sites_directeur_comptes
                             )
 

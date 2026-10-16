@@ -1,27 +1,61 @@
 # -*- coding: utf-8 -*-
-"""Supplement de commande de repas : directeur detache d'animation (RC8 / #430).
+"""Suggestions de repas de direction (#430), independantes de toute base.
 
-Ce module ne consulte aucune base et ne deduit jamais la presence du directeur.
-L'option explicite du modele signifie que son repas n'est pas deja compte
-par la colonne des adultes. Le resultat reste une suggestion a confirmer
-via « Convertir les suggestions » dans la commande.
+Une organisation mono-site peut commander un repas de directeur par site.
+Une organisation multisite identifiee peut mutualiser ce poste de direction,
+et eventuellement commander un repas de renfort (adjoint ou stagiaire).
+Les deux repas doivent etre explicitement declares comme non deja comptes.
+Ce module ne presume jamais de l'encadrement reglementaire.
 """
 
 
-def SupplementDirecteur(parametres, date, sites_deja_comptes):
-    """Retourne 1 au plus une fois par site/date/service (sinon 0).
-
-    « Site » est l'identifiant renseigne dans le modele de commande ; le
-    meme site peut avoir plusieurs groupes et colonnes sans doublon.
-    """
-    if not isinstance(parametres, dict) or not parametres.get("repas_directeur_detache"):
-        return 0
+def _cle_direction(parametres, date):
+    if not isinstance(parametres, dict):
+        return None
     site = str(parametres.get("site_directeur") or "").strip().casefold()
     service = str(parametres.get("service_directeur") or "").strip().casefold()
     if not site or not service:
+        return None
+    if parametres.get("direction_multisite"):
+        groupe = str(parametres.get("groupe_direction") or "").strip().casefold()
+        if not groupe:
+            return None
+        return (date, service, "multisite", groupe)
+    return (date, service, "site", site)
+
+
+def _supplements(parametres, date, comptes, inclure_renfort):
+    cle = _cle_direction(parametres, date)
+    if cle is None:
         return 0
-    cle = (date, site, service)
-    if cle in sites_deja_comptes:
-        return 0
-    sites_deja_comptes.add(cle)
-    return 1
+    total = 0
+    if parametres.get("repas_directeur_detache"):
+        cle_directeur = cle + ("directeur",)
+        if cle_directeur not in comptes:
+            comptes.add(cle_directeur)
+            total += 1
+    if inclure_renfort and parametres.get("repas_renfort_direction"):
+        if parametres.get("direction_renfort") in ("adjoint", "stagiaire"):
+            # Un poste de renfort au plus, meme si deux colonnes le
+            # qualifient differemment. Ne compte pas automatiquement
+            # le renfort comme animateur de terrain.
+            cle_renfort = cle + ("renfort",)
+            if cle_renfort not in comptes:
+                comptes.add(cle_renfort)
+                total += 1
+    return total
+
+
+def SupplementDirecteur(parametres, date, sites_deja_comptes):
+    """Compatibilite avec le premier lot : un directeur, jamais deux."""
+    return _supplements(parametres, date, sites_deja_comptes, False)
+
+
+def SupplementRepasDirection(parametres, date, personnels_deja_comptes):
+    """Nombre de repas de direction optionnels (0, 1 ou 2).
+
+    Le decompte se limite aux colonnes d'une meme commande. Pour
+    plusieurs commandes independantes, un controle inter-commandes
+    et une affectation de repas restent a developper.
+    """
+    return _supplements(parametres, date, personnels_deja_comptes, True)
