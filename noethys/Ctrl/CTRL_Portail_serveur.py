@@ -37,6 +37,25 @@ class BoutonDemandes(wx.lib.buttons.GenButton):
 
     DrawLabel préserve toutes les lignes et le nombre complet de demandes.
     """
+    def InitOtherEvents(self):
+        self._hover = False
+        self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+        self.Bind(wx.EVT_ENTER_WINDOW, self.OnHover)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnHover)
+
+    def OnHover(self, event):
+        self._hover = event.GetEventType() == wx.wxEVT_ENTER_WINDOW
+        self.Refresh()
+        event.Skip()
+
+    def DrawBezel(self, dc, x1, y1, x2, y2):
+        enabled = self.IsEnabled()
+        active = enabled and (self._hover or self.hasFocus)
+        colour = ('#c3dedb' if not self.up else '#d8ecea') if active else self.GetBackgroundColour()
+        dc.SetBrush(wx.Brush(colour))
+        dc.SetPen(wx.Pen('#17656a' if active else '#7eaaa7', 2 if active else 1))
+        dc.DrawRoundedRectangle(x1+1, y1+1, max(1, x2-x1-2), max(1, y2-y1-2), self.FromDIP(5))
+
     def DrawLabel(self, dc, width, height, dx=0, dy=0):
         dc.SetFont(self.GetFont())
         dc.SetTextForeground(self.GetForegroundColour() if self.IsEnabled()

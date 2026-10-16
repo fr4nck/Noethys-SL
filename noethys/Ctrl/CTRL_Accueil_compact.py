@@ -32,7 +32,7 @@ class Bandeau(wx.Panel):
     def update(self, date, items, error=''):
         self.date, self.items, self.offset = date, items, 0
         self.message = 'Programme indisponible' if error else ''
-        self.SetToolTip(error or 'Effectifs prévus, pas un pointage en temps réel.\n' + '\n'.join('%s : %s participants réservés ou pointés présents' %
+        self.SetToolTip(error or 'Effectifs prévus, pas un pointage en temps réel.\n' + '\n'.join('%s : %s personnes prévues sur ce créneau (M/A pour les accueils de loisirs)' %
                                          (i['name'], i['total']) for i in items) or
                         'Aucune activité programmée aujourd’hui parmi les activités choisies.')
         self.Refresh()

@@ -61,12 +61,31 @@ def read_day(db, today, settings=None):
     catalog = read("""SELECT IDactivite, nom, abrege FROM activites
         WHERE (date_debut IS NULL OR date_debut <= '%s')
         AND (date_fin IS NULL OR date_fin >= '%s') ORDER BY nom;""" % (date, date))
-    scheduled = {(row[0], row[1]) for row in read("""SELECT DISTINCT u.IDactivite, o.IDgroupe
+    openings = read("""SELECT DISTINCT u.IDactivite, o.IDgroupe, u.IDunite,
+        u.heure_debut, u.heure_fin, u.nom
         FROM ouvertures o INNER JOIN unites u ON u.IDunite=o.IDunite
         WHERE o.date='%s' AND (u.date_debut IS NULL OR u.date_debut<='%s')
-        AND (u.date_fin IS NULL OR u.date_fin>='%s');""" % (date, date, date))}
-    scheduled.update((row[0], row[1]) for row in read(
-        "SELECT DISTINCT IDactivite, IDgroupe FROM evenements WHERE date='%s';" % date))
+        AND (u.date_fin IS NULL OR u.date_fin>='%s');""" % (date, date, date))
+    events = read("""SELECT IDactivite, IDgroupe, IDunite, heure_debut, heure_fin,
+        nom, IDevenement FROM evenements WHERE date='%s';""" % date)
+    scheduled = {(row[0], row[1]) for row in openings + events}
+    sessions = {}
+
+    def session(activity, group, unit, start, end, name='', event=None):
+        a, b = minutes(start), minutes(end)
+        # Une séance identifiée reste distincte, même à horaire identique.
+        # Sans séance : même groupe/plage = personnes dédoublonnées entre unités.
+        identity = ('event', event) if event is not None else ('hours', a, b, unit if a is None or b is None else None)
+        key = (activity, group, identity)
+        return sessions.setdefault(key, dict(group=group, start=a, end=b,
+                    event=event, name=name or '', people=set()))
+
+    event_units = {(a,g,u) for a,g,u,*_ in events}
+    for activity, group, unit, start, end, name, event in events:
+        session(activity, group, unit, start, end, name, event)
+    for activity, group, unit, start, end, name in openings:
+        if (activity, group, unit) not in event_units:
+            session(activity, group, unit, start, end, name)
     group_labels = {row[0]: (row[1], row[2]) for row in read('SELECT IDgroupe, nom, abrege FROM groupes;')}
     slots = {}
     for slot_id, activity, name, short, start, end, tags, unit in read("""SELECT r.IDunite_remplissage,
@@ -101,18 +120,28 @@ def read_day(db, today, settings=None):
                                   for s,label in zip(available,labels)]
         resolved[activity] = option
     rows = read("""SELECT c.IDactivite, c.IDindividu, c.etat,
-        c.heure_debut, c.heure_fin, c.IDgroupe, c.IDunite, c.etiquettes
-        FROM consommations c
+        c.heure_debut, c.heure_fin, c.IDgroupe, c.IDunite, c.etiquettes,
+        c.IDevenement, u.heure_debut, u.heure_fin, u.nom,
+        e.heure_debut, e.heure_fin, e.nom
+        FROM consommations c LEFT JOIN unites u ON u.IDunite=c.IDunite AND u.IDactivite=c.IDactivite
+        LEFT JOIN evenements e ON e.IDevenement=c.IDevenement AND e.IDactivite=c.IDactivite AND e.date=c.date
         WHERE c.date='%s';""" % date)
     groups = {}
-    totals = {}
-    for activity, person, state, start, end, group_id, unit, tags in rows:
+    for activity, person, state, start, end, group_id, unit, tags, event, unit_start, unit_end, unit_name, event_start, event_end, event_name in rows:
         scheduled.add((activity, group_id))
         group = groups.setdefault((activity, group_id), dict(total=set(), morning=set(), afternoon=set(), unknown=False))
         if state not in ('reservation', 'present') or person is None:
             continue
-        totals.setdefault(activity, set()).add(person)
         group['total'].add(person)
+        if event:
+            slot = session(activity, group_id, unit, event_start, event_end, event_name, event)
+        elif (activity, group_id, unit) in event_units:
+            # Ancienne consommation sans lien de séance : ne pas inventer son créneau.
+            slot = session(activity, group_id, unit, None, None, 'Créneau non renseigné')
+        else:
+            slot = session(activity, group_id, unit, unit_start if unit_start is not None else start,
+                           unit_end if unit_end is not None else end, unit_name)
+        slot['people'].add(person)
         for key in ('morning','afternoon'):
             slot = slots.get(resolved.get(activity,{}).get(key+'_unit'))
             if not slot:
@@ -136,7 +165,20 @@ def read_day(db, today, settings=None):
         if not scheduled_groups or not item['visible']:
             continue
         if not item['alsh']:
-            result.append(dict(item, total=len(totals.get(activity, set())), morning=None, afternoon=None))
+            activity_sessions = [(key, s) for key, s in sessions.items() if key[0] == activity]
+            activity_sessions.sort(key=lambda pair: (pair[1]['start'] is None, pair[1]['start'] or 0,
+                                                       pair[1]['end'] or 0, str(pair[1]['group']), str(pair[1]['event'])))
+            for key, s in activity_sessions:
+                def hour(value):
+                    return '%02dh%02d' % divmod(int(value), 60) if value is not None else '?'
+                period = '%s–%s' % (hour(s['start']), hour(s['end'])) if s['start'] is not None or s['end'] is not None else 'horaire non renseigné'
+                group_name, group_short = group_labels.get(s['group'], ('', ''))
+                group_text = group_short or group_name
+                # Le groupe distingue aussi deux séances simultanées.
+                event_text = (s['name'] or 'Séance %s' % s['event']) + ' · ' if s['event'] is not None else ''
+                label = '%s · %s%s%s' % (item['label'], (group_text+' · ') if group_text else '', event_text, period)
+                result.append(dict(item, label=label, name='%s · %s · %s' % (item['name'], s['name'], period),
+                                   session=key[2], activity_name=item['name'], session_start=s['start'], group=s['group'], total=len(s['people']), morning=None, afternoon=None))
             continue
         for group_id in scheduled_groups:
             group = groups.get((activity, group_id), dict(total=set(), morning=set(), afternoon=set(), unknown=False))
@@ -148,5 +190,6 @@ def read_day(db, today, settings=None):
                                morning=None if unknown else len(group['morning']),
                                afternoon=None if unknown else len(group['afternoon'])))
     result.sort(key=lambda item: (0 if item['order'] else 1,
-                                  item['order'], not item['alsh'], item['name'].casefold(), item['id']))
+                                  item['order'], not item['alsh'], item.get('activity_name', item['name']).casefold(), item['id'],
+                                  item.get('session_start') is None, item.get('session_start') or 0, item['name'].casefold()))
     return result, choices
