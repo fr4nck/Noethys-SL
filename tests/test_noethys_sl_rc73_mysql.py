@@ -134,6 +134,8 @@ class RecetteMySQLTests(unittest.TestCase):
         expected = day.read_day(fixture, dt.date(2026, 10, 16))
         actual = day.read_day(LocalAdapter(cx), dt.date(2026, 10, 16))
         self.assertEqual(actual, expected)
+        self.assertEqual(day.read_catalog(LocalAdapter(cx), dt.date(2026, 10, 16)),
+                         day.read_catalog(fixture, dt.date(2026, 10, 16)))
         self.assertEqual([(r['morning'], r['afternoon']) for r in actual[0] if r['alsh']], [(1,2),(1,0)])
         self.assertEqual([r['total'] for r in actual[0] if r['id']==2], [1,2])
         self.assertEqual([r['total'] for r in actual[0] if r['id']==4], [1,1])

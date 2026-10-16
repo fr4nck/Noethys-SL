@@ -117,27 +117,40 @@ class Settings(wx.Dialog):
         self.event_count = wx.TextCtrl(day_page, value=str(self.layout['day']['event_count']), size=(80, -1))
         row.Add(self.event_count)
         day_sizer.Add(row, 0, wx.ALL, 10)
-        day_sizer.Add(wx.StaticText(day_page, label='Bandeau : activités actives avec une ouverture, une séance ou une consommation ce jour.\nM/A : accueil de loisirs, effectifs réservés ou présents par demi-journée.\nOrdre 0 : accueils de loisirs prioritaires. Un ordre personnel passe en premier.'), 0, wx.ALL, 10)
+        day_sizer.Add(wx.StaticText(day_page, label='Choisissez les activités et les groupes à afficher. Masquer une activité masque tous ses groupes.\nM/A et les unités se règlent sur la ligne de l’activité. Ordre 0 : accueils de loisirs prioritaires.\nLe bandeau affiche uniquement les activités actives avec une ouverture, une séance ou une consommation ce jour.'), 0, wx.ALL, 10)
         self.activities = activities or []
+        self.activity_rows = []
+        for item in self.activities:
+            self.activity_rows.append((item, None))
+            self.activity_rows.extend((item, group) for group in item.get('group_choices', []))
         self.activity_grid = wx.grid.Grid(day_page)
-        self.activity_grid.CreateGrid(len(self.activities), 6)
-        for col, label in enumerate(('Afficher', 'M/A', 'Ordre', 'Activité', 'Unité matin', 'Unité après-midi')):
+        self.activity_grid.CreateGrid(len(self.activity_rows), 6)
+        for col, label in enumerate(['Afficher', 'M/A', 'Ordre', 'Activité / groupe', 'Unité matin', 'Unité après-midi']):
             self.activity_grid.SetColLabelValue(col, label)
-        for index, item in enumerate(self.activities):
+        for index, (item, group) in enumerate(self.activity_rows):
             option = self.layout['day']['activities'].get(str(item['id']), item)
-            for col, key in ((0, 'visible'), (1, 'alsh')):
+            row_option = option.get('groups', {}).get(str(group['id']), {}) if group else option
+            for col in (0, 1):
                 self.activity_grid.SetCellRenderer(index, col, wx.grid.GridCellBoolRenderer())
                 self.activity_grid.SetCellEditor(index, col, wx.grid.GridCellBoolEditor())
-                self.activity_grid.SetCellValue(index, col, '1' if option[key] else '')
-            self.activity_grid.SetCellEditor(index, 2, wx.grid.GridCellNumberEditor(0, 1000000))
-            self.activity_grid.SetCellValue(index, 2, str(option['order']))
-            self.activity_grid.SetCellValue(index, 3, item['name'])
+            self.activity_grid.SetCellValue(index, 0, '1' if row_option.get('visible', True) else '')
+            self.activity_grid.SetCellValue(index, 1, '1' if not group and option.get('alsh', item.get('alsh', False)) else '')
+            self.activity_grid.SetCellValue(index, 2, str(row_option.get('order', 0)))
+            self.activity_grid.SetCellValue(index, 3, ('    ↳ ' + group['name']) if group else item['name'])
             self.activity_grid.SetReadOnly(index, 3)
-            for col,key in ((4,'morning_unit'),(5,'afternoon_unit')):
+            for col, key in ((4, 'morning_unit'), (5, 'afternoon_unit')):
                 choices = item.get('slot_choices', [])
-                self.activity_grid.SetCellEditor(index,col,wx.grid.GridCellChoiceEditor(['Automatique']+[s['label'] for s in choices]))
-                selected = next((s['label'] for s in choices if s['id']==option.get(key)), 'Automatique')
-                self.activity_grid.SetCellValue(index,col,selected)
+                self.activity_grid.SetCellEditor(index, col, wx.grid.GridCellChoiceEditor(['Automatique'] + [v['label'] for v in choices]))
+                selected = next((v['label'] for v in choices if v['id'] == option.get(key)), 'Automatique')
+                self.activity_grid.SetCellValue(index, col, '' if group else selected)
+                self.activity_grid.SetReadOnly(index, col, bool(group))
+            if group:
+                self.activity_grid.SetReadOnly(index, 1)
+            else:
+                for col in range(6):
+                    self.activity_grid.SetCellBackgroundColour(index, col, wx.SystemSettings.GetColour(wx.SYS_COLOUR_3DFACE))
+        if not self.activities:
+            day_sizer.Add(wx.StaticText(day_page, label='Aucune activité en cours de validité dans ce fichier.'), 0, wx.LEFT | wx.RIGHT, 10)
         self.activity_grid.SetColSize(3, 220)
         self.activity_grid.SetColSize(4, 140)
         self.activity_grid.SetColSize(5, 160)
@@ -250,16 +263,25 @@ class Settings(wx.Dialog):
                 raise ValueError()
         except ValueError:
             raise ValueError('Le nombre d’événements doit être un entier positif, ou 0 pour tous.')
-        activities = dict(self.layout['day']['activities'])
-        for index, item in enumerate(self.activities):
+        if self.activity_grid.IsCellEditControlShown():
+            self.activity_grid.SaveEditControlValue()
+        activities = copy.deepcopy(self.layout['day']['activities'])
+        for index, (item, group) in enumerate(self.activity_rows):
+            if group:
+                activities[str(item['id'])].setdefault('groups', {})[str(group['id'])] = dict(
+                    visible=self.activity_grid.GetCellValue(index, 0) == '1',
+                    order=int(self.activity_grid.GetCellValue(index, 2) or 0))
+                continue
+            previous = activities.get(str(item['id']), {})
             activities[str(item['id'])] = dict(
                 visible=self.activity_grid.GetCellValue(index, 0) == '1',
                 alsh=self.activity_grid.GetCellValue(index, 1) == '1',
-                order=int(self.activity_grid.GetCellValue(index, 2) or 0))
-            for col,key in ((4,'morning_unit'),(5,'afternoon_unit')):
-                selected=self.activity_grid.GetCellValue(index,col)
-                matches=[s['id'] for s in item.get('slot_choices',[]) if s['label']==selected]
-                activities[str(item['id'])][key]=matches[0] if len(matches)==1 else None
+                order=int(self.activity_grid.GetCellValue(index, 2) or 0),
+                groups=copy.deepcopy(previous.get('groups', {})))
+            for col, key in ((4, 'morning_unit'), (5, 'afternoon_unit')):
+                selected = self.activity_grid.GetCellValue(index, col)
+                matches = [v['id'] for v in item.get('slot_choices', []) if v['label'] == selected]
+                activities[str(item['id'])][key] = matches[0] if len(matches) == 1 else None
         blocks = {}
         for key, (visible, column, order) in self.layout_controls.items():
             blocks[key] = {
@@ -657,7 +679,47 @@ class CTRL(wx.lib.scrolledpanel.ScrolledPanel):
             wx.MessageBox("Le chargement est en cours. Les réglages seront disponibles dans quelques secondes.",
                           "Aujourd’hui", wx.OK, self)
             return
-        dialog = Settings(self, self._settings, self._layout, self._result.get('activities', []))
+        if getattr(self, '_catalog_busy', False):
+            return
+        self._catalog_busy = True
+        database = str(UTILS_Config.GetParametre('nomFichier', '') or '')
+        threading.Thread(target=self._load_settings_catalog,
+                         args=(self._generation, database, copy.deepcopy(self._layout['day'])),
+                         daemon=True).start()
+
+    def _load_settings_catalog(self, generation, database, settings):
+        activities, error = [], ''
+        db = None
+        try:
+            if not database:
+                raise ValueError('Aucun fichier ouvert')
+            db = GestionDB.DB(nomFichier=database)
+            activities = programme.read_catalog(db, dt.date.today(), settings)
+        except Exception:
+            error = 'Impossible de charger les activités et leurs groupes. Vérifiez la connexion au fichier puis réessayez.'
+        finally:
+            if db is not None:
+                try:
+                    db.Close()
+                except Exception:
+                    error = 'Impossible de terminer le chargement des activités. Réessayez.'
+        if self._alive:
+            try:
+                wx.CallAfter(self._settings_catalog_ready, generation, database, activities, error)
+            except RuntimeError:
+                pass
+
+    def _settings_catalog_ready(self, generation, database, activities, error):
+        self._catalog_busy = False
+        if not self._alive or generation != self._generation or database != str(UTILS_Config.GetParametre('nomFichier', '') or ''):
+            return
+        if error:
+            wx.MessageBox(error, 'Réglages d’Aujourd’hui', wx.OK | wx.ICON_ERROR, self)
+            return
+        self._open_settings(activities)
+
+    def _open_settings(self, activities):
+        dialog = Settings(self, self._settings, self._layout, activities)
         try:
             if dialog.ShowModal() == wx.ID_OK:
                 old_layout = data.normalize_dashboard_layout(self._layout)
