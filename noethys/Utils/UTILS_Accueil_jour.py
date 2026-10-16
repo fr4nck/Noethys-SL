@@ -58,22 +58,25 @@ def read_day(db, today, settings=None):
     catalog = read("""SELECT IDactivite, nom, abrege FROM activites
         WHERE (date_debut IS NULL OR date_debut <= '%s')
         AND (date_fin IS NULL OR date_fin >= '%s') ORDER BY nom;""" % (date, date))
-    scheduled = {row[0] for row in read("""SELECT DISTINCT u.IDactivite
+    scheduled = {(row[0], row[1]) for row in read("""SELECT DISTINCT u.IDactivite, o.IDgroupe
         FROM ouvertures o INNER JOIN unites u ON u.IDunite=o.IDunite
         WHERE o.date='%s' AND (u.date_debut IS NULL OR u.date_debut<='%s')
         AND (u.date_fin IS NULL OR u.date_fin>='%s');""" % (date, date, date))}
-    scheduled.update(row[0] for row in read(
-        "SELECT DISTINCT IDactivite FROM evenements WHERE date='%s';" % date))
+    scheduled.update((row[0], row[1]) for row in read(
+        "SELECT DISTINCT IDactivite, IDgroupe FROM evenements WHERE date='%s';" % date))
+    group_labels = {row[0]: (row[1], row[2]) for row in read('SELECT IDgroupe, nom, abrege FROM groupes;')}
     rows = read("""SELECT c.IDactivite, c.IDindividu, c.etat,
-        c.heure_debut, c.heure_fin, u.heure_debut, u.heure_fin
+        c.heure_debut, c.heure_fin, u.heure_debut, u.heure_fin, c.IDgroupe
         FROM consommations c LEFT JOIN unites u ON u.IDunite=c.IDunite
         WHERE c.date='%s';""" % date)
     groups = {}
-    for activity, person, state, start, end, unit_start, unit_end in rows:
-        scheduled.add(activity)
-        group = groups.setdefault(activity, dict(total=set(), morning=set(), afternoon=set(), unknown=False))
+    totals = {}
+    for activity, person, state, start, end, unit_start, unit_end, group_id in rows:
+        scheduled.add((activity, group_id))
+        group = groups.setdefault((activity, group_id), dict(total=set(), morning=set(), afternoon=set(), unknown=False))
         if state not in ('reservation', 'present') or person is None:
             continue
+        totals.setdefault(activity, set()).add(person)
         group['total'].add(person)
         start = minutes(start if start is not None else unit_start)
         end = minutes(end if end is not None else unit_end)
@@ -91,12 +94,20 @@ def read_day(db, today, settings=None):
         option = options.get(str(activity), default)
         item = dict(id=activity, name=name or '', label=short or name or '', **option)
         choices.append(item)
-        if activity not in scheduled or not item['visible']:
+        scheduled_groups = sorted({group for act, group in scheduled if act == activity}, key=lambda group: group or 0)
+        if not scheduled_groups or not item['visible']:
             continue
-        group = groups.get(activity, dict(total=set(), morning=set(), afternoon=set(), unknown=False))
-        result.append(dict(item, total=len(group['total']),
-                           morning=None if group['unknown'] else len(group['morning']),
-                           afternoon=None if group['unknown'] else len(group['afternoon'])))
+        if not item['alsh']:
+            result.append(dict(item, total=len(totals.get(activity, set())), morning=None, afternoon=None))
+            continue
+        for group_id in scheduled_groups:
+            group = groups.get((activity, group_id), dict(total=set(), morning=set(), afternoon=set(), unknown=False))
+            group_name, group_short = group_labels.get(group_id, ('', ''))
+            result.append(dict(item, group=group_id, label=group_short or group_name or item['label'],
+                               name=('%s · %s' % (item['name'], group_name)) if group_name else item['name'],
+                               total=len(group['total']),
+                               morning=None if group['unknown'] else len(group['morning']),
+                               afternoon=None if group['unknown'] else len(group['afternoon'])))
     result.sort(key=lambda item: (0 if item['order'] else 1,
                                   item['order'], not item['alsh'], item['name'].casefold(), item['id']))
     return result, choices

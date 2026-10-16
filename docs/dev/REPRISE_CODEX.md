@@ -15,14 +15,19 @@
   aucune prétention de présence temps réel ni de contrôle automatique des absents.
 - Départ vérifié : main `bb08cc752bdb4ca21a4719f73420f6444fd610fe` (avance repas
   conservée), wx initial `c9038741479b637397345d27e2b8fc435d4345d9`, qt initial
-  `ec13651695a0f02ccc58136af335f00abf032edf`. Au fetch : wx `ca12e5a9`, qt
-  `31a2a5d9`. Les quatre fichiers modifiés préexistants ont des blobs identiques
+  `ec13651695a0f02ccc58136af335f00abf032edf`. Attention : les refs de suivi
+  origin/wx `ca12e5a9` et origin/qt `31a2a5d9` étaient ANCIENNES ; ls-remote et
+  FETCH_HEAD confirment les SHA précédents. Les quatre fichiers modifiés préexistants ont des blobs identiques
   sur les trois branches avant intervention. Aucun merge global / nouvelle branche.
-- UTILS_Accueil_jour : quatre SELECT portables MySQL/SQLite, ouvertures / événements /
+- UTILS_Accueil_jour : cinq SELECT portables MySQL/SQLite, ouvertures / événements /
   consommations de la date, réservations et présences seulement, sets par personne.
   Attente et absences exclues ; personne de journée entière dans les deux périodes.
   Horaires manquants : « — » pour M/A, jamais un faux zéro. Heures MySQL timedelta
   et SQLite texte prises en charge. Aucune écriture métier / migration / tarification.
+  Contrôle complémentaire de CTRL_Remplissage : les sites/tranches d'âge sont
+  des GROUPES d'une même activité ALSH. Les lignes du bandeau ALSH sont donc
+  séparées par IDgroupe (Bais −6 / Moutiers −6...), jamais agrégées entre sites.
+  Test SQLite dédié : deux groupes, effectifs distincts, doublons inter-périodes.
 - Préférences : catégorie accueil_aujourdhui, identifiant utilisateur et base, comme
   la disposition historique ; choix des activités, M/A, ordre et nombre d'événements.
   Chargement dans le worker existant, résultat invalidé à fermeture/changement
@@ -43,6 +48,12 @@
   UI Qt native non qualifiée. Aucun appel Connecthys réel, email, production ou
   installateur. Identités et Versions.txt inchangés : RC7.3 demeure une CIBLE,
   pas une version construite/installée. Coupe-circuit adhésions toujours actif.
+- Première qualification CI main du lot `3622f28243c7fe47da3e7d22b99306391a5374ee` :
+  [38875715124](https://github.com/fr4nck/Noethys-SL/actions/runs/38875715124) SUCCESS.
+  Portages préparés et 55 tests ciblés OK sur wx/qt, non publiés à ce stade.
+  La séparation par groupe ALSH est ajoutée ensuite, 41 tests ciblés OK avant
+  nouvelle CI. Les différences repas présentes seulement sur main restent
+  conservées ; ce lot n'affirme pas une synchronisation globale des trois branches.
 
 ## Impression du depot et rappels a 0 EUR — 15/10/2026
 
