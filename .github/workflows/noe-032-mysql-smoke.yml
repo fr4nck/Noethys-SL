@@ -3,12 +3,21 @@ name: Noe-032 MySQL 5.5 - recette synthetique manuelle
 # Execution volontaire uniquement, pour economiser les minutes Actions.
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Recette synthétique à exécuter'
+        default: mysql55
+        type: choice
+        options:
+          - mysql55
+          - accueil
 
 permissions:
   contents: read
 
 jobs:
   mysql55-synthetique:
+    if: inputs.mode != 'accueil'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -55,3 +64,7 @@ jobs:
         if: always()
         shell: bash
         run: docker compose --project-name noethys-sl-noe032 --env-file dev/db/.env -f dev/db/compose.yml down --volumes
+
+  accueil-mysql57:
+    if: inputs.mode == 'accueil'
+    uses: ./.github/workflows/noethys-sl-accueil-mysql.yml
