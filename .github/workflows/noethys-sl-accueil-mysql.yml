@@ -3,6 +3,7 @@ name: Noethys SL - accueil et journal MySQL synthetiques
 # Volontaire seulement ; aucune construction ni publication de candidat.
 on:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 jobs:
