@@ -198,6 +198,21 @@ class JournalTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 stats.read(self.db, *args)
 
+    def test_copie_sqlite_conserve_journal_et_declencheurs(self):
+        stats.activate(self.db)
+        insert(self.db, 1)
+        self.db.Commit()
+        copy = Adapter(str(Path(self.temp.name) / 'restauration.sqlite'))
+        try:
+            self.db.connexion.backup(copy.connexion)
+            self.assertEqual(stats.read(copy, '2026-10-01', '2026-10-31', [1]), self.report())
+            copy.cursor.execute('DELETE FROM consommations')
+            copy.Commit()
+            self.assertEqual(stats.read(copy, '2026-10-01', '2026-10-31', [1])['children'][0]['cancelled'], 1)
+            self.assertEqual(self.report()['children'][0]['cancelled'], 0)
+        finally:
+            copy.Close()
+
 
 class NativeTests(unittest.TestCase):
     @classmethod
