@@ -48,7 +48,7 @@
   isolé inspecté dans qualification/accueil-natif.png, puis largeur corrigée pour
   que Connecthys reste visible à droite à 1200 px. Maquette et captures ne sont
   pas des données de production ; qualification/ reste local hors Git.
-- EN ATTENTE : CI sur le commit final, portages ciblés puis CI wx / commun qt,
+- CI et portages finaux : VALIDÉS dans le tableau ci-dessous. EN ATTENTE :
   recette d'une base MySQL jetable et de la configuration des unités ALSH du pilote.
   UI Qt native non qualifiée. Aucun appel Connecthys réel, email, production ou
   installateur. Identités et Versions.txt inchangés : RC7.3 demeure une CIBLE,
@@ -64,6 +64,38 @@
   BoutonDemandes utilise DC.DrawLabel multiligne ; rendu natif « 22 demandes »
   inspecté après correction, 18 tests ciblés OK. Derniers tests d'alignement : les
   quatre titres ont la même coordonnée Y et Connecthys reste dans le panneau.
+
+### Qualification finale de l'accueil compact
+
+Derniers commits de CODE (les commits de preuves suivants ne changent que ce document) :
+
+| Branche | Code final | CI rapide |
+| --- | --- | --- |
+| main | `a31451d8f7b2ebfefe66b4af17fb09965eba2222` | [38878484485](https://github.com/fr4nck/Noethys-SL/actions/runs/38878484485) SUCCESS : 658 tests / 6 ignorés |
+| wx | `c5c099390d19f7cef805fed25f5c060e89f6090e` | [38878617360](https://github.com/fr4nck/Noethys-SL/actions/runs/38878617360) SUCCESS : 671 tests / 10 ignorés |
+| qt | `a45ffe9ebb915bd65a63c69f8c7e2ad027fa2031` | [38878631894](https://github.com/fr4nck/Noethys-SL/actions/runs/38878631894) SUCCESS : 623 tests / 6 ignorés, code commun wx |
+
+- 17 nouveaux tests d'accueil compact : SQLite native éphémère, compteur distinct,
+  plusieurs groupes d'une activité, repas seul non assimilé à l'après-midi,
+  unités M/A explicites, conditions horaires et étiquettes, choix/ordre/activité
+  inactive, direction circulaire, vrai wx (préférences, titres alignés et largeur,
+  tous les pictogrammes), état Connecthys et échec conservant le compteur précédent.
+  60 tests ciblés finaux OK sur chaque arbre ; suite locale antérieure aux trois
+  derniers tests : wx 667 / 12 ignorés, qt 619 / 6 ignorés. Les CI ci-dessus font foi
+  pour le CODE final, pas ces comptes locaux intermédiaires.
+- Neuf fichiers communs de code et tests comparés par blob : identiques sur les
+  trois SHA. Portages ciblés des seuls commits de ce chantier, aucun écrasement
+  des variantes historiques ni du travail repas de main. Coupe-circuit adhésions
+  toujours True sur les trois arbres. Les runs intermédiaires main remplacés par
+  un nouveau push ont été annulés par la concurrence CI ; pas de test affaibli.
+- VALIDÉ : lectures/sélections/dédoublonnages sur SQLite fictive, UI wx native,
+  non-régression de la suite rapide, contrat de retour réel de synchronisation.
+  EN ATTENTE : serveur MySQL jetable, correspondance des unités du poste pilote,
+  recette DPI 125/150/200 %, UI Qt native et exécutable empaqueté.
+- RC7.3 reste la cible autorisée, pas un candidat fabriqué. Aucun changement
+  d'identité publique, de notes livrées, de tag/release, d'installation, de base
+  de production ni d'envoi d'email. Vérifier les unités M/A avant usage opérationnel
+  des compteurs pour l'encadrement ; « — » signifie correspondance à configurer.
 
 ## Impression du depot et rappels a 0 EUR — 15/10/2026
 
