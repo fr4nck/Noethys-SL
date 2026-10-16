@@ -72,3 +72,28 @@ def protected(case):
     return any(getattr(c, 'etat', None) in ('present', 'absenti', 'absentj') or
                getattr(c, 'verrouillage', 0) or getattr(c, 'IDfacture', None) is not None
                for c in records)
+
+
+def current_period_states(units, grid, meal, activity):
+    """Accueil déjà demandé avant cette action, pour la même inscription.
+
+    Exclut les unités de repas incluses dans une formule Journée pour ne pas
+    créer de dépendance du repas envers lui-même.
+    """
+    relevant = [u for u in units.values() if u.get('IDactivite') == activity]
+    meal_units = {ID for u in relevant if role(u) == 'repas'
+                  for ID in u['unites_principales']+u['unites_secondaires']}
+    period_units = {ID for u in relevant if role(u) in PERIODS
+                    for ID in u['unites_principales']+u['unites_secondaires']} - meal_units
+    states = []
+    for ID in period_units:
+        case = grid.GetCase(ID, meal['date'])
+        if case is None:
+            continue
+        for record in case.GetListeConso():
+            inscription = getattr(record, 'IDinscription', None)
+            if inscription is None and getattr(record, 'etat', None) == 'attente':
+                raise ValueError("Une attente d'accueil sans inscription identifiable nécessite un traitement manuel.")
+            if inscription == meal['IDinscription']:
+                states.append(getattr(record, 'etat', None))
+    return states
