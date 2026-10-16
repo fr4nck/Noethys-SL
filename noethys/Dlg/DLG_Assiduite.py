@@ -12,6 +12,7 @@ EXPLANATION = (
     "Une journée = un enfant, une date et une activité (matin, repas et après-midi regroupés).\n"
     "Annulations = journées suivies dont toutes les réservations confirmées ont été supprimées / journées réservées suivies.\n"
     "Absences = journées entièrement absentes / journées entièrement pointées. Les absences partielles restent séparées.\n"
+    "Situation actuelle : une réinscription le même jour retire cette journée des annulations. Un retrait partiel n'annule pas la journée.\n"
     "Les annulations tardives transformées en absence suivent l'état Noethys. Les suppressions administratives sont incluses."
 )
 
