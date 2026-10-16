@@ -25,7 +25,7 @@ class ReadOnlyFixture:
         INSERT INTO activites VALUES(1,'Accueil de loisirs fictif','ALSH',NULL,NULL),
         (2,'Couture fictive','Couture',NULL,NULL),(3,'Ancienne activité','Ancien',NULL,'2025-01-01'),
         (4,'Sport santé fictif','Sport',NULL,NULL),(5,'Sans séance','Rien',NULL,NULL);
-        INSERT INTO unites VALUES(1,1,'08:00','12:00',NULL,NULL),(2,1,'12:00','18:00',NULL,NULL),
+        INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin,date_debut,date_fin) VALUES(1,1,'08:00','12:00',NULL,NULL),(2,1,'12:00','18:00',NULL,NULL),
         (3,2,'10:00','11:00',NULL,NULL),(4,3,'10:00','11:00',NULL,NULL);
         INSERT INTO ouvertures VALUES(1,'2026-10-16'),(2,'2026-10-16'),(3,'2026-10-16'),(4,'2026-10-16');
         INSERT INTO evenements VALUES(4,'2026-10-16');
@@ -52,6 +52,7 @@ class ReadOnlyFixture:
         (102,1,'Après-midi','APM',NULL,NULL,NULL,NULL,NULL);
         INSERT INTO unites_remplissage_unites VALUES(101,1),(102,2);
         ''')
+        self.db.executescript('ALTER TABLE unites ADD COLUMN nom; ALTER TABLE consommations ADD COLUMN IDevenement; ALTER TABLE evenements ADD COLUMN IDunite; ALTER TABLE evenements ADD COLUMN IDevenement; ALTER TABLE evenements ADD COLUMN heure_debut; ALTER TABLE evenements ADD COLUMN heure_fin; ALTER TABLE evenements ADD COLUMN nom;')
         self.before = self.db.total_changes
 
     def ExecuterReq(self, sql):
@@ -113,7 +114,7 @@ class ProgrammeTests(unittest.TestCase):
 
     def test_alsh_separates_groups_without_mixing_sites_or_ages(self):
         self.fixture.db.execute("INSERT INTO ouvertures VALUES(1,'2026-10-16',11)")
-        self.fixture.db.execute("INSERT INTO consommations VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11,NULL)")
+        self.fixture.db.execute("INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,heure_debut,heure_fin,IDgroupe,etiquettes) VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11,NULL)")
         self.fixture.before=self.fixture.db.total_changes
         rows,_=self.read()
         alsh=[r for r in rows if r['alsh']]
@@ -121,8 +122,8 @@ class ProgrammeTests(unittest.TestCase):
                          [('Bais −6',1,2),('Mout. −6',1,0)])
 
     def test_meal_alone_is_not_an_afternoon_even_when_it_starts_at_noon(self):
-        self.fixture.db.execute("INSERT INTO unites VALUES(9,1,'12:00','13:00',NULL,NULL)")
-        self.fixture.db.execute("INSERT INTO consommations VALUES(1,999,9,'2026-10-16','reservation',NULL,NULL,10,NULL)")
+        self.fixture.db.execute("INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin,date_debut,date_fin) VALUES(9,1,'12:00','13:00',NULL,NULL)")
+        self.fixture.db.execute("INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,heure_debut,heure_fin,IDgroupe,etiquettes) VALUES(1,999,9,'2026-10-16','reservation',NULL,NULL,10,NULL)")
         self.fixture.before=self.fixture.db.total_changes
         rows,_=self.read()
         self.assertEqual((rows[0]['morning'],rows[0]['afternoon']),(1,2))
@@ -149,6 +150,52 @@ class ProgrammeTests(unittest.TestCase):
     def test_query_failure_cannot_look_like_empty_programme(self):
         with patch.object(self.fixture,'ExecuterReq',return_value=False):
             with self.assertRaises(ValueError):self.read()
+
+    def test_non_alsh_separates_slots_and_deduplicates_each_slot(self):
+        self.fixture.db.executescript("""
+        INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin) VALUES(5,2,'14:00','15:00');
+        INSERT INTO ouvertures VALUES(5,'2026-10-16',10);
+        INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,IDgroupe)
+        VALUES(2,201,3,'2026-10-16','reservation',10),
+        (2,201,3,'2026-10-16','present',10),
+        (2,201,5,'2026-10-16','reservation',10),
+        (2,202,5,'2026-10-16','reservation',10),
+        (2,203,5,'2026-10-16','attente',10);
+        """)
+        self.fixture.before = self.fixture.db.total_changes
+        rows, choices = self.read()
+        slots = [r for r in rows if r['id'] == 2]
+        self.assertEqual([r['total'] for r in slots], [1, 2])
+        self.assertIn('10h00–11h00', slots[0]['label'])
+        self.assertIn('14h00–15h00', slots[1]['label'])
+        self.assertEqual(len([r for r in choices if r['id'] == 2]), 1)
+
+    def test_event_identity_and_unknown_link_do_not_merge_same_time_sessions(self):
+        self.fixture.db.executescript("""
+        UPDATE evenements SET IDunite=30, IDevenement=501, nom='Séance A', heure_debut='09:00',heure_fin='10:00' WHERE IDactivite=4;
+        INSERT INTO evenements(IDactivite,date,IDgroupe,IDunite,IDevenement,nom,heure_debut,heure_fin)
+        VALUES(4,'2026-10-16',10,30,502,'Séance B','09:00','10:00');
+        INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,IDgroupe,IDevenement)
+        VALUES(4,201,30,'2026-10-16','reservation',10,501),
+        (4,202,30,'2026-10-16','reservation',10,502),
+        (4,203,30,'2026-10-16','reservation',10,NULL);
+        """)
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read()
+        slots = [r for r in rows if r['id'] == 4]
+        self.assertEqual([r['total'] for r in slots], [1, 1, 1])
+        self.assertIn('Séance A', slots[0]['label'])
+        self.assertIn('Séance B', slots[1]['label'])
+        self.assertIn('horaire non renseigné', slots[2]['label'])
+
+    def test_same_time_different_groups_remain_distinct_even_without_reservations(self):
+        self.fixture.db.execute("INSERT INTO ouvertures VALUES(3,'2026-10-16',11)")
+        self.fixture.before = self.fixture.db.total_changes
+        rows, _ = self.read()
+        slots = [r for r in rows if r['id'] == 2]
+        self.assertEqual(len(slots), 2)
+        self.assertEqual({r['group'] for r in slots}, {10, 11})
+        self.assertTrue(all(r['total'] == 0 for r in slots))
 
     def test_circular_wind_and_unknown_cache(self):
         from test_ephemerides import forecast

@@ -83,12 +83,25 @@ class RecetteMySQLTests(unittest.TestCase):
     def test_accueil_memes_resultats_sqlite_mysql_et_aucune_ecriture(self):
         fixture = ReadOnlyFixture()
         self.addCleanup(fixture.db.close)
-        fixture.db.execute("INSERT INTO unites VALUES(9,1,'12:00','13:00',NULL,NULL)")
-        fixture.db.execute("INSERT INTO consommations VALUES(1,999,9,'2026-10-16','reservation',NULL,NULL,10,NULL)")
+        fixture.db.execute("INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin,date_debut,date_fin) VALUES(9,1,'12:00','13:00',NULL,NULL)")
+        fixture.db.execute("INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,heure_debut,heure_fin,IDgroupe,etiquettes) VALUES(1,999,9,'2026-10-16','reservation',NULL,NULL,10,NULL)")
         fixture.db.execute("INSERT INTO ouvertures VALUES(1,'2026-10-16',11)")
-        fixture.db.execute("INSERT INTO consommations VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11,NULL)")
+        fixture.db.execute("INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,heure_debut,heure_fin,IDgroupe,etiquettes) VALUES(1,201,1,'2026-10-16','reservation',NULL,NULL,11,NULL)")
         fixture.db.execute("UPDATE unites_remplissage SET heure_min='09:00',heure_max='11:00',etiquettes='7' WHERE IDunite_remplissage=101")
         fixture.db.execute("UPDATE consommations SET heure_debut='08:00',heure_fin='12:00',etiquettes='7;9' WHERE IDindividu IN (101,201)")
+        fixture.db.executescript("""
+        INSERT INTO unites(IDunite,IDactivite,heure_debut,heure_fin) VALUES(5,2,'14:00','15:00'),(30,4,'08:00','18:00');
+        INSERT INTO ouvertures VALUES(5,'2026-10-16',10),(30,'2026-10-16',10);
+        UPDATE evenements SET IDunite=30,IDevenement=501,nom='Seance A',heure_debut='09:00',heure_fin='10:00' WHERE IDactivite=4;
+        INSERT INTO evenements(IDactivite,date,IDgroupe,IDunite,IDevenement,nom,heure_debut,heure_fin)
+        VALUES(4,'2026-10-16',10,30,502,'Seance B','09:00','10:00');
+        INSERT INTO consommations(IDactivite,IDindividu,IDunite,date,etat,IDgroupe,IDevenement)
+        VALUES(2,201,3,'2026-10-16','reservation',10,NULL),
+        (2,201,5,'2026-10-16','reservation',10,NULL),
+        (2,202,5,'2026-10-16','reservation',10,NULL),
+        (4,201,30,'2026-10-16','reservation',10,501),
+        (4,202,30,'2026-10-16','reservation',10,502);
+        """)
         cx = self.connect(self.database)
         self.addCleanup(cx.close)
         cur = cx.cursor()
@@ -120,6 +133,8 @@ class RecetteMySQLTests(unittest.TestCase):
         actual = day.read_day(LocalAdapter(cx), dt.date(2026, 10, 16))
         self.assertEqual(actual, expected)
         self.assertEqual([(r['morning'], r['afternoon']) for r in actual[0] if r['alsh']], [(1,2),(1,0)])
+        self.assertEqual([r['total'] for r in actual[0] if r['id']==2], [1,2])
+        self.assertEqual([r['total'] for r in actual[0] if r['id']==4], [1,1])
         self.assertEqual(snapshot(), before)
 
     def test_mailjet_verrou_reel_concurrence_unicode_et_actualisation_comparee(self):
