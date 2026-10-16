@@ -19,15 +19,20 @@
   origin/wx `ca12e5a9` et origin/qt `31a2a5d9` étaient ANCIENNES ; ls-remote et
   FETCH_HEAD confirment les SHA précédents. Les quatre fichiers modifiés préexistants ont des blobs identiques
   sur les trois branches avant intervention. Aucun merge global / nouvelle branche.
-- UTILS_Accueil_jour : cinq SELECT portables MySQL/SQLite, ouvertures / événements /
+- UTILS_Accueil_jour : six SELECT portables MySQL/SQLite, ouvertures / événements /
   consommations de la date, réservations et présences seulement, sets par personne.
   Attente et absences exclues ; personne de journée entière dans les deux périodes.
-  Horaires manquants : « — » pour M/A, jamais un faux zéro. Heures MySQL timedelta
+  Correspondance M/A indéterminée : « — », jamais un faux zéro. Heures MySQL timedelta
   et SQLite texte prises en charge. Aucune écriture métier / migration / tarification.
   Contrôle complémentaire de CTRL_Remplissage : les sites/tranches d'âge sont
   des GROUPES d'une même activité ALSH. Les lignes du bandeau ALSH sont donc
   séparées par IDgroupe (Bais −6 / Moutiers −6...), jamais agrégées entre sites.
   Test SQLite dédié : deux groupes, effectifs distincts, doublons inter-périodes.
+  Contrôle supplémentaire : les deux compteurs réutilisent les associations des
+  unités de remplissage MAT/APM (pas une coupure horaire à midi), leurs plages
+  conditionnelles et étiquettes comme CTRL_Remplissage. Une réservation de repas
+  à midi n'est pas une réservation d'après-midi sans association explicite.
+  Préférences : unités matin/après-midi sélectionnables si les noms sont ambigus.
 - Préférences : catégorie accueil_aujourdhui, identifiant utilisateur et base, comme
   la disposition historique ; choix des activités, M/A, ordre et nombre d'événements.
   Chargement dans le worker existant, résultat invalidé à fermeture/changement
