@@ -39,9 +39,26 @@ class BoutonDemandes(wx.lib.buttons.GenButton):
     """
     def InitOtherEvents(self):
         self._hover = False
+        self._count = None
         self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
         self.Bind(wx.EVT_ENTER_WINDOW, self.OnHover)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnHover)
+
+    def SetCount(self, value):
+        self._count = value
+        self.InvalidateBestSize()
+        self.Refresh()
+
+    def DoGetBestSize(self):
+        dc = wx.ClientDC(self)
+        number_font = wx.Font(self.GetFont())
+        number_font.SetPointSize(28)
+        dc.SetFont(number_font)
+        width = dc.GetTextExtent(str(getattr(self, '_count', None) or 0))[0]
+        return wx.Size(max(self.FromDIP(130), width+self.FromDIP(52)), self.FromDIP(114))
+
+    def GetBackgroundBrush(self, dc):
+        return wx.Brush(self.GetParent().GetBackgroundColour())
 
     def OnHover(self, event):
         self._hover = event.GetEventType() == wx.wxEVT_ENTER_WINDOW
@@ -51,16 +68,30 @@ class BoutonDemandes(wx.lib.buttons.GenButton):
     def DrawBezel(self, dc, x1, y1, x2, y2):
         enabled = self.IsEnabled()
         active = enabled and (self._hover or self.hasFocus)
-        colour = ('#c3dedb' if not self.up else '#d8ecea') if active else self.GetBackgroundColour()
+        colour = ('#1e3c3b' if not self.up else '#355c59') if active else '#2b4646'
+        if not enabled:
+            colour = '#626c6c'
         dc.SetBrush(wx.Brush(colour))
-        dc.SetPen(wx.Pen('#17656a' if active else '#7eaaa7', 2 if active else 1))
-        dc.DrawRoundedRectangle(x1+1, y1+1, max(1, x2-x1-2), max(1, y2-y1-2), self.FromDIP(5))
+        dc.SetPen(wx.Pen('#91d8cc' if active else colour, 2 if active else 1))
+        dc.DrawRoundedRectangle(x1+1, y1+1, max(1, x2-x1-2), max(1, y2-y1-2), self.FromDIP(9))
 
     def DrawLabel(self, dc, width, height, dx=0, dy=0):
-        dc.SetFont(self.GetFont())
-        dc.SetTextForeground(self.GetForegroundColour() if self.IsEnabled()
-                             else wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
-        dc.DrawLabel(self.GetLabel(), wx.Rect(dx, dy, width, height), alignment=wx.ALIGN_CENTER)
+        pad = self.FromDIP(14)
+        number_font = wx.Font(self.GetFont())
+        number_font.SetPointSize(28)
+        dc.SetFont(number_font)
+        dc.SetTextForeground('#a5dfd4' if self.IsEnabled() else '#d0d0d0')
+        dc.DrawText(str(self._count) if self._count is not None else '—', pad, self.FromDIP(12))
+        arrow_font = wx.Font(self.GetFont())
+        arrow_font.SetPointSize(14)
+        dc.SetFont(arrow_font)
+        arrow = '↗'
+        dc.DrawText(arrow, width-pad-dc.GetTextExtent(arrow)[0], self.FromDIP(10))
+        label_font = wx.Font(self.GetFont())
+        label_font.SetPointSize(10)
+        dc.SetFont(label_font)
+        label = 'demande\nà traiter' if self._count == 1 else 'demandes\nà traiter'
+        dc.DrawText(label, pad, self.FromDIP(60))
 
 def AppelerSurThreadUI(fonction, *args, **kwds):
     """ Exécute fonction sur le thread wx : directement si l'on y est déjà
@@ -237,7 +268,13 @@ class Panel(wx.Panel):
         self.bouton_outils = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Outils.png"), wx.BITMAP_TYPE_ANY))
         self.bouton_outils.SetToolTip(wx.ToolTip(_(u"Outils")))
 
-        self.ctrl_etat = wx.Button(self, label='○ En attente\nde synchronisation', style=wx.BU_EXACTFIT)
+        self.ctrl_etat = (wx.lib.buttons.GenButton(self, label='○ En attente', style=wx.BORDER_NONE)
+                          if compact else wx.Button(self, label='○ En attente\nde synchronisation', style=wx.BU_EXACTFIT))
+        if compact:
+            self.ctrl_etat.SetBezelWidth(0)
+            self.ctrl_etat.SetBackgroundColour(self.GetBackgroundColour())
+            self.ctrl_etat.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+            self.ctrl_synchro_detail = wx.StaticText(self, label='Synchronisation\nen attente')
         self.ctrl_etat.SetToolTip('Ouvrir le journal Connecthys')
         self.ctrl_etat.Bind(wx.EVT_BUTTON, self.OnJournal)
 
@@ -265,9 +302,10 @@ class Panel(wx.Panel):
             heading.SetFont(heading_font.Bold())
             heading.SetMinSize((-1, self.FromDIP(20)))
             box.Add(heading, 0, wx.EXPAND | wx.LEFT | wx.TOP, self.FromDIP(4))
-            self.bouton_traiter.SetMinSize(self.FromDIP((130, 70)))
+            self.bouton_traiter.SetMinSize(self.FromDIP((-1, 114)))
             box.Add(self.bouton_traiter, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
             box.Add(self.ctrl_etat, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, self.FromDIP(4))
+            box.Add(self.ctrl_synchro_detail, 0, wx.LEFT | wx.RIGHT | wx.TOP, self.FromDIP(8))
             box.Add(self.gauge, 0, wx.EXPAND | wx.ALL, self.FromDIP(4))
             tools = wx.BoxSizer(wx.HORIZONTAL)
             tools.Add(self.bouton_synchroniser, 0)
@@ -369,6 +407,8 @@ class Panel(wx.Panel):
                     #self.bouton_traiter.Enable(True)
 
                 self.bouton_traiter.SetLabel(texte)
+                if self.compact:
+                    self.bouton_traiter.SetCount(nbre_actions_attente)
 
                 # TaskBarIcon
                 self.parent.taskBarIcon.Connecthys(nbre=nbre_actions_attente, texte=texte)
@@ -613,7 +653,12 @@ class Panel(wx.Panel):
         label, color = {'busy': ('● Synchronisation…', '#99620a'),
                         'success': ('● À jour', '#227749'),
                         'error': ('● Échec', '#b43e36')}[state]
-        self.ctrl_etat.SetLabel(label + ('\n%s' % self._last_success.strftime('%H:%M') if self._last_success else ''))
+        separator = ' · ' if self.compact else '\n'
+        self.ctrl_etat.SetLabel(label + (separator+self._last_success.strftime('%H:%M') if self._last_success else ''))
+        if self.compact:
+            self.ctrl_synchro_detail.SetLabel({'busy': 'Synchronisation\nen cours',
+                                             'success': 'Synchronisation\nréussie',
+                                             'error': 'Échec de la\nsynchronisation'}[state])
         self.ctrl_etat.SetForegroundColour(color)
         self.ctrl_etat.SetToolTip(label + suffix + '\nOuvrir le journal Connecthys')
         self.gauge.Show(state == 'busy')
