@@ -1,5 +1,51 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Candidat Windows RC7.5 fabriqué et vérifié (16/10/2026)
+
+- Autorisation de Franck : « ok go » après proposition d'intégrer les corrections
+  dans un nouvel installateur. Identité distincte RC7.5 ; RC7.4 conservée intacte.
+- Source wx empaquetée : e6958884cfbc2432a36ec388fe948efb90be4cdb.
+  Identité, changelog et workflow Windows seuls modifiés ; version interne 1.3.4.4
+  et historique numérique inchangés. Test assiduité ajouté aux contrats critiques.
+- Contient le catalogue indépendant et la sélection des groupes dans Aujourd'hui,
+  ainsi que les taux de journées annulées/absences par famille et enfant.
+  Le journal reste désactivé par défaut ; activation ADMINISTRATEUR explicite,
+  pas de migration SQL implicite ni reconstitution de l'historique antérieur.
+  Les correctifs RC7.4 Connecthys, impression/rappels, Mailjet et optimisations
+  prudentes restent inclus. Cotisations automatiques toujours suspendues ;
+  chantier RC8 repas directeur propre à main toujours exclu du candidat wx.
+- Avant préparation : main 9f29ec67ea7ba6c56cd798e837141b79951b4e5f,
+  wx 59e4f44df19369229070718038559a211aed43e3,
+  qt 2539e26c13a6a2e96e6f767e0ea1685d15eb7362. Six fichiers communs (accueil,
+  assiduité et tests) comparés identiques après normalisation des fins de ligne.
+  Pas de fusion globale ni de propagation de l'identité Windows vers main/qt.
+- Tests locaux : 61 réussis. CI wx 38939996600 sur source empaquetée : succès,
+  722 tests / 10 ignorés prévus, log téléchargé et inspecté.
+- Construction Windows 38939995981 : succès, 340 tests critiques / 7 ignorés prévus,
+  puis 11 tests MySQL 5.7.44 local jetable sans ignoré. Sauvegarde/restauration
+  du journal, déclencheurs après restauration et concurrence vérifiés ; démarrage
+  binaire Windows puis ZIP extrait/profil Portable réussis sur runner isolé.
+- Artefact 12062244984 : Noethys-SL-0.1.0-rc.7.5-Windows-candidat,
+  250637060 octets, disponible jusqu'au 15/11/2026. Fichiers téléchargés dans
+  qualification/rc75 (hors Git) et SHA256 recalculés conformes :
+  Setup 105287660 octets :
+  41a5dfa39e5209b44903d8a41538f988ca22ee0490953d96998659ec05f0ad2b
+  Portable 147079667 octets :
+  9786527a5c77205521a6277ecd37b08f9fe73439b04e40808a62273bb3cad38b
+- BUILD-INFO et notes de versions vérifiés ; inspection statique du PYZ du binaire
+  confirme Identite RC7.5, Dlg.DLG_Assiduite, Utils.UTILS_Assiduite, le nouveau
+  read_catalog et les callbacks de chargement indépendants des réglages.
+  Aucun exécutable lancé sur ce poste utilisateur. Logs/scripts hors Git :
+  qualification/rc75-build.log, rc75-ci-wx.log, verifier-rc75.py,
+  rc75/verification.json et SHA256SUMS.txt ; paquets RC7.3/RC7.4 préservés.
+- Matrice : code commun VALIDÉ techniquement sur main/wx/qt aux SHA déjà documentés ;
+  paquet Windows wx RC7.5 VALIDÉ techniquement. Qualification métier de déploiement
+  EN ATTENTE sur copie isolée ; Qt natif EN ATTENTE et paquet Qt NON APPLICABLE ici.
+- STOP-GATE conservé : candidat de recette, pas de tag/release stable, ni de
+  déploiement ou d'activation du journal en production. Serveurs autres que MySQL
+  5.7.44, recette terrain du journal et DPI restent à qualifier. Aucun email envoyé,
+  aucune lecture ou modification de données réelles, aucune installation locale.
+
 ## Réglages Aujourd'hui — catalogue activités et groupes (16/10/2026)
 
 - Signalement de Franck : tableau Programme et agenda vide malgré les activités
