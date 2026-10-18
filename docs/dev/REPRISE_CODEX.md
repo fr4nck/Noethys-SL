@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## RC8 — commandes de repas et encadrement : développement poursuivi (18/10/2026)
+
+- Décision utilisateur : **poursuivre le développement avant toute RC8**. Aucun tag/release, installateur, migration SQL ou déploiement effectué dans ce lot ; aucune donnée réelle lue ni modifiée.
+- #430 : suggestion de +1 repas directeur détaché par site/date/service, direction multisite mutualisée par identifiant d'ensemble, repas facultatif d'adjoint ou directeur stagiaire. Option désactivée par défaut ; anti-doublon limité aux colonnes d'une même commande, **pas entre commandes indépendantes**. Le repas déjà compris dans les adultes doit rester explicitement exclu par l'opérateur.
+- #429 : moteur sans interface dans un premier lot puis dialogue **Outils > Simuler les besoins en animateurs** dans les commandes de repas. Configuration explicite site/créneau/cadre/durée/PEDT, sous-effectifs <6 et >=6, prévisionnel (réservations + présents) ou réel (présents). Arrondi par tranche, adultes ignorés, doublons dédupliqués, âges inconnus signalés. **Lecture seule** ; aucune injection dans le bon PDF du restaurateur, aucune certification réglementaire.
+- Sources partagées qualifiées à l'identique par SHA de blob : noethys/Dlg/DLG_Saisie_commande.py, noethys/Dlg/DLG_Encadrement.py, noethys/Utils/UTILS_Encadrement.py, tests/test_noethys_sl_encadrement_dialog.py, docs/metier/ENCADREMENT_RC8.md. Aucune fusion globale, aucune branche créée.
+- **Matrice des commits de développement** : main **5a658703de8a4a743702290cb5df8b418fa9c2f7** ; wx **fd2b7d0df9e7297ef265acce709687133615dffb** ; qt **ca72dd0b653c34038a9b27f04c19d4c1e121fd08**. Workflows adaptes chacun sur sa branche ; variantes propres conservées.
+- Tests sans wx local : **13 PASS / 0 FAIL** du moteur, plus syntaxe du dialogue. [CI Windows main 39164801226](https://github.com/fr4nck/Noethys-SL/actions/runs/39164801226) : **724 tests / 0 échec / 6 ignorés**, compilation et runtime wx PASS. [CI rapide wx 39165107741](https://github.com/fr4nck/Noethys-SL/actions/runs/39165107741) lancée, **conclusion à consulter avant qualification wx**. Qt natif non qualifié ; pas de paquet Qt construit.
+- **Reste hors portée de ce lot** : reconnaissance fiable du choix alimentaire « sans porc » (#430) faute de source explicite qualifiée ; regroupement général des repas adultes dans les 6 ans et plus ; affectation permanente des sites et créneaux ; calcul des personnels réellement disponibles, direction/stagiaire dans le planning ; déduplication des repas entre plusieurs commandes ; recette fonctionnelle sur un poste Windows réel avec base fictive.
+- **STOP-GATE RC8** : terminer les P1 de facturation/adhésion, vérifier les effectifs simultanés et la continuité des temps d'accueil, qualifier les postes de direction et les PDF en copie isolée. Aucune RC8 ne doit être publiée automatiquement.
+
 ## Candidat Windows RC7.5 fabriqué et vérifié (16/10/2026)
 
 - Autorisation de Franck : « ok go » après proposition d'intégrer les corrections
