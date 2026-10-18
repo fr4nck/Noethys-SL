@@ -1,6 +1,6 @@
 # Encadrement previsionnel par site et creneau — chantier #429
 
-**Statut : moteur Python pur qualifie par tests unitaires, non raccorde a l'interface ni a une base utilisateur. RC8 non publiee.**
+**Statut : moteur partage et premiere interface de simulation en lecture seule sur les commandes de repas. Tests Windows et recette utilisateur a qualifier. RC8 non publiee.**
 
 ## Regles de calcul
 
@@ -26,8 +26,16 @@ Le moteur noethys/Utils/UTILS_Encadrement.py expose CalculerEncadrement(consomma
 - date de naissance absente ou incoherente : categorie **age inconnu**, avec calcul_complet=False ; ne jamais presenter la suggestion comme exhaustive.
 - unite sans affectation, cadre inconnu, PEDT incoherent ou taux contradictoires sur le meme site/creneau : erreur explicite au lieu d'un calcul trompeur.
 
-## Integration ulterieure
+## Premiere interface de simulation (commandes de repas)
 
-Le raccordement necessite un parametrage de site/creneau qui ne soit pas confondu avec le parametrage des colonnes du restaurateur, ainsi qu'une lecture de la base en lecture seule et un affichage separe. **Aucun nombre d'animateurs n'est actuellement injecte dans les commandes de repas ou le PDF restaurateur.**
+**Commandes de repas > Outils > Simuler les besoins en animateurs...** ouvre un dialogue **separe**. L'operateur choisit les colonnes de suggestion numerique couvrant les unites a analyser, puis renseigne explicitement le site, le creneau, le cadre d'accueil, la duree consecutive, un PEDT eventuel et le mode previsionnel/reel. Les enfants sont dedoubles entre unites du meme creneau. Les ages sont lus depuis les fiches individus **sans modifier la base** ; aucun nom de mineur n'est affiche ni exporte.
+
+Il s'agit d'une **simulation temporaire**. Les choix de site et de creneau ne sont pas encore memorises dans un referentiel partage. L'operateur doit verifier que toutes les colonnes selectionnees correspondent au **meme site et au meme temps d'accueil**. Le total de repas d'une colonne ne remplace pas le nombre des enfants simultanement presents.
+
+La simulation affiche un resultat par date. Elle n'ajoute aucune ligne a la commande, ne modifie pas le PDF restaurateur, les repas adultes ni les affectations de personnels. L'avertissement « age inconnu » designe un calcul incomplet.
+
+**Limites** : la verification sur un poste Windows reel est a faire ; les horaires de presence exacts et leur chevauchement ne sont pas lus. Le classement du mercredi et des vacances, la mutualisation de direction et la validation des regimes restent des parametres declares, pas des controles reglementaires automatiques. Aucun nombre d'animateurs n'est actuellement injecte dans les commandes de repas ou le PDF restaurateur.
+
+Le raccordement futur necessite un parametrage persistant de site/creneau independant des colonnes du restaurateur, ainsi qu'une lecture de presence horaire si elle est disponible.
 
 Les tests unitaires sont dans tests/test_noethys_sl_encadrement.py ; ils ne lisent aucune base ni aucune donnee des familles. Avant recette RC8 : tests sur base fictive, interface Windows reelle, controle des creaneaux qui se chevauchent et qualification du dispositif de direction multisite (#429/#430).
