@@ -309,12 +309,41 @@ class PAGE_Unites(wx.Panel):
         self.ctrl_unites = CTRL_Unites(self)
         self.ctrl_unites.SetMinSize((100, 50))
         self.check_repas = wx.CheckBox(self, -1, _(u"Afficher uniquement les unités avec repas inclus"))
+        # Opt-in par site et service : ce repas adulte rejoint la colonne 6 ans et plus.
+        self.check_directeur = wx.CheckBox(self, -1, _(u"+1 repas directeur détaché non déjà compté (colonne 6 ans et plus)"))
+        self.label_site_directeur = wx.StaticText(self, -1, _(u"Site (identifiant stable) :"))
+        self.ctrl_site_directeur = wx.TextCtrl(self, -1, "")
+        self.label_service_directeur = wx.StaticText(self, -1, _(u"Service (ex. midi) :"))
+        self.ctrl_service_directeur = wx.TextCtrl(self, -1, "midi")
+        self.check_direction_multisite = wx.CheckBox(self, -1, _(u"Direction commune à plusieurs sites"))
+        self.label_groupe_direction = wx.StaticText(self, -1, _(u"Ensemble multisite (identifiant commun) :"))
+        self.ctrl_groupe_direction = wx.TextCtrl(self, -1, "")
+        self.label_renfort_direction = wx.StaticText(self, -1, _(u"Renfort éventuel de direction :"))
+        self.ctrl_renfort_direction = wx.Choice(self, -1, choices=[_(u"Aucun"), _(u"Adjoint de direction"), _(u"Directeur stagiaire")])
+        self.ctrl_renfort_direction.SetSelection(0)
+        self.check_repas_renfort = wx.CheckBox(self, -1, _(u"+1 repas renfort de direction, non déjà compté"))
 
         # Layout
-        grid_sizer_base = wx.FlexGridSizer(rows=3, cols=1, vgap=5, hgap=5)
+        grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=5, hgap=5)
         grid_sizer_base.Add(self.label_intro, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
         grid_sizer_base.Add(self.ctrl_unites, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 0)
         grid_sizer_base.Add(self.check_repas, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 0)
+        options_directeur = wx.BoxSizer(wx.VERTICAL)
+        options_directeur.Add(self.check_directeur, 0, wx.ALL, 2)
+        options_directeur.Add(self.check_direction_multisite, 0, wx.ALL, 2)
+        champs_directeur = wx.FlexGridSizer(rows=4, cols=2, vgap=3, hgap=5)
+        champs_directeur.Add(self.label_site_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_site_directeur, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_service_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_service_directeur, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_groupe_direction, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_groupe_direction, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_renfort_direction, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_renfort_direction, 1, wx.EXPAND, 0)
+        champs_directeur.AddGrowableCol(1)
+        options_directeur.Add(champs_directeur, 0, wx.EXPAND | wx.ALL, 2)
+        options_directeur.Add(self.check_repas_renfort, 0, wx.ALL, 2)
+        grid_sizer_base.Add(options_directeur, 0, wx.EXPAND, 0)
         grid_sizer_base.AddGrowableCol(0)
         grid_sizer_base.AddGrowableRow(1)
         self.SetSizer(grid_sizer_base)
@@ -336,16 +365,49 @@ class PAGE_Unites(wx.Panel):
             dlg.ShowModal()
             dlg.Destroy()
             return False
+        supplement_repas = self.check_directeur.GetValue() or self.check_repas_renfort.GetValue()
+        if supplement_repas and (not self.ctrl_site_directeur.GetValue().strip() or not self.ctrl_service_directeur.GetValue().strip()):
+            dlg = wx.MessageDialog(self, _(u"Renseignez le site et le service pour identifier les repas de direction."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+        if self.check_direction_multisite.GetValue() and not self.ctrl_groupe_direction.GetValue().strip():
+            dlg = wx.MessageDialog(self, _(u"Renseignez l'identifiant de l'ensemble multisite commun aux sites."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+        if self.check_repas_renfort.GetValue() and self.ctrl_renfort_direction.GetSelection() == 0:
+            dlg = wx.MessageDialog(self, _(u"Choisissez adjoint de direction ou directeur stagiaire pour commander le repas complémentaire."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
         return True
 
     def GetParametres(self):
         listeUnites = self.ctrl_unites.GetCoches()
-        return {"unites" : listeUnites}
+        return {
+            "unites": listeUnites,
+            "repas_directeur_detache": self.check_directeur.GetValue(),
+            "site_directeur": self.ctrl_site_directeur.GetValue().strip(),
+            "service_directeur": self.ctrl_service_directeur.GetValue().strip(),
+            "direction_multisite": self.check_direction_multisite.GetValue(),
+            "groupe_direction": self.ctrl_groupe_direction.GetValue().strip(),
+            "direction_renfort": ("aucun", "adjoint", "stagiaire")[max(0, self.ctrl_renfort_direction.GetSelection())],
+            "repas_renfort_direction": self.check_repas_renfort.GetValue(),
+        }
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str) :
             dictParametres = eval(dictParametres)
-        self.ctrl_unites.SetCoches(dictParametres["unites"])
+        dictParametres = dictParametres or {}
+        self.ctrl_unites.SetCoches(dictParametres.get("unites", []))
+        self.check_directeur.SetValue(bool(dictParametres.get("repas_directeur_detache", False)))
+        self.ctrl_site_directeur.SetValue(dictParametres.get("site_directeur", "") or "")
+        self.ctrl_service_directeur.SetValue(dictParametres.get("service_directeur", "midi") or "midi")
+        self.check_direction_multisite.SetValue(bool(dictParametres.get("direction_multisite", False)))
+        self.ctrl_groupe_direction.SetValue(dictParametres.get("groupe_direction", "") or "")
+        self.ctrl_renfort_direction.SetSelection({"adjoint": 1, "stagiaire": 2}.get(dictParametres.get("direction_renfort"), 0))
+        self.check_repas_renfort.SetValue(bool(dictParametres.get("repas_renfort_direction", False)))
 
 
 

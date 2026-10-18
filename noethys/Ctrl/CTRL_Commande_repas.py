@@ -22,6 +22,7 @@ import six
 from Ctrl import CTRL_Bouton_image
 from Utils import UTILS_Dates
 from Utils import UTILS_Divers
+from Utils import UTILS_Commandes_directeur
 import wx.lib.wordwrap as wordwrap
 
 if 'phoenix' in wx.PlatformInfo:
@@ -670,6 +671,9 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         # création des cases
         self.dictCases = {}
 
+        # Un seul repas supplementaire par site / date / service, meme si
+        # plusieurs colonnes du modele couvrent le meme site.
+        sites_directeur_comptes = set()
         numLigne = 0
         for date in self.dictDonnees["liste_dates"]:
             numColonne = 0
@@ -706,6 +710,10 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                                 suggestion += self.dictDonnees["dict_conso"][date][IDgroupe][IDunite]
                             except :
                                 pass
+                        if ouvert:
+                            suggestion += UTILS_Commandes_directeur.SupplementRepasDirection(
+                                dictColonne["parametres"], date, sites_directeur_comptes
+                            )
 
                     # Recherche information
                     if dictColonne["categorie"] == "texte_infos" :
