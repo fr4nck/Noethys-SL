@@ -88,6 +88,7 @@ jobs:
           tests.test_noethys_sl_suivi_mailjet
           tests.test_noethys_sl_impression_depot
           tests.test_noethys_sl_commandes_directeur
+          tests.test_noethys_sl_encadrement
           tests.test_noethys_sl_rappels_solde
           tests.test_etiquettes_liste_familles_contract
           tests.test_noedoc_deplacer_objet_contract
