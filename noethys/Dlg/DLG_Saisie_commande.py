@@ -344,6 +344,13 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_MENU, self.ctrl_repas.Importer_suggestions, id=id)
 
         menuPop.AppendSeparator()
+        # Simulation de l'encadrement : lecture seule, hors commande au restaurateur.
+        id = wx.Window.NewControlId()
+        item = wx.MenuItem(menuPop, id, _(u"Simuler les besoins en animateurs..."))
+        menuPop.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.OnSimulationEncadrement, id=id)
+
+        menuPop.AppendSeparator()
 
         # RAZ
         id = wx.Window.NewControlId()
@@ -354,6 +361,22 @@ class Dialog(wx.Dialog):
 
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def OnSimulationEncadrement(self, event=None):
+        """Calcul indicatif ; ne modifie pas les valeurs de la commande."""
+        from Dlg import DLG_Encadrement
+        debut = self.ctrl_date_debut.GetDate()
+        fin = self.ctrl_date_fin.GetDate()
+        if debut == None or fin == None or debut > fin:
+            wx.MessageBox(_(u"Renseignez d'abord une periode de commande valide."),
+                          _(u"Simulation incomplete"), wx.OK | wx.ICON_WARNING, self)
+            return
+        dlg = DLG_Encadrement.Dialog(self, colonnes=self.dictDonnees.get("colonnes", []),
+                                    date_debut=debut, date_fin=fin)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
 
     def MAJ(self):
         self.ctrl_repas.MAJ(date_debut=self.ctrl_date_debut.GetDate(), date_fin=self.ctrl_date_fin.GetDate())
