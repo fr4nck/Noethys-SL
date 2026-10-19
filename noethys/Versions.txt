@@ -1,3 +1,11 @@
+Version Noethys SL 0.1.0 RC8.1 (19/10/2026) :
+
+- Correction urgente des adhésions automatiques : préparation des cotisations à l'étape 1 de génération des factures, après participation passée et confirmation explicite, avant l'aperçu
+- Réservations futures exclues des créations financières et sauvegarde des réservations toujours sans création automatique de cotisations
+- Vérification des annulations, dates, titulaires, périodes verrouillées et cotisations existantes sous verrou transactionnel avant écriture
+- Diagnostic en lecture seule des cotisations automatiques anticipées héritées des anciennes versions, avec signalement des écritures déjà facturées ou ventilées
+- Aucune suppression ou régularisation automatique de cotisations antérieures, et aucune migration de la base
+
 Version Noethys SL 0.1.0 RC8 (19/10/2026) :
 
 - Comptage suggéré des repas sans porc depuis une réponse individuelle explicitement configurée, sans exploitation automatique des informations médicales
