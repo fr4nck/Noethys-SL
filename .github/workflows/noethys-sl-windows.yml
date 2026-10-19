@@ -1,15 +1,25 @@
-name: Noethys SL wx - candidat 0.1.0 RC7.5 Windows
+name: Noethys SL wx - publier 0.1.0 RC8 Windows
 
-# Qualification volontaire du candidat ; aucune release automatique.
+# Déclenchement exceptionnel sur UN commit explicitement marqué.
+# Le build et tous ses contrôles sont des barrières AVANT gh release create.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - wx
+    paths:
+      - '.github/workflows/noethys-sl-windows.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
-    name: Construire Noethys SL wx 0.1.0 RC7.5 (candidat)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/wx' &&
+       contains(github.event.head_commit.message, '[publish rc8]'))
+    name: Construire Noethys SL wx 0.1.0 RC8 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -30,13 +40,13 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
 
-      - name: Vérifier syntaxe, identité publique RC7.5 et splash
+      - name: Vérifier syntaxe, identité publique RC8 et splash
         shell: pwsh
         run: |
           python -m compileall -q noethys tests
           if ($LASTEXITCODE -ne 0) { throw 'Échec de compilation Python' }
-          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.7.5', '0.1.0 RC7.5')"
-          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC7.5 incohérente' }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.8', '0.1.0 RC8')"
+          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC8 incohérente' }
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
@@ -47,6 +57,17 @@ jobs:
           tests.test_accueil_logo_organisateur
           tests.test_vanilla_candidate_contract
           tests.test_noethys_sl_facture_export_options
+          tests.test_noethys_sl_repas_alimentaires
+          tests.test_noethys_sl_repas_source
+          tests.test_noethys_sl_repas_totaux
+          tests.test_noethys_sl_repas_validation
+          tests.test_noethys_sl_repas_validation_dialog
+          tests.test_noethys_sl_repas_sqlite_recette
+          tests.test_noethys_sl_repas_pdf_mail_recette
+          tests.test_noethys_sl_commandes_directeur
+          tests.test_noethys_sl_encadrement
+          tests.test_noethys_sl_encadrement_dialog
+          tests.test_noethys_sl_adhesions
           tests.test_vanilla_facture_prestation_sans_activite
           tests.test_noethys_sl_backup_zip_lifecycle
           tests.test_rail1_reportlab5
@@ -151,12 +172,14 @@ jobs:
           @(
             'Produit: Noethys SL'
             'Interface: wxPython'
-            'Version publique: 0.1.0-rc.7.5'
-            'Nouveautés RC7.5 : catalogue activités indépendant, sélection des groupes dans les réglages du bandeau'
-            'Assiduité RC7.5 : taux par famille/enfant ; journal des nouvelles réservations activable explicitement par administrateur'
+            'Version publique: 0.1.0-rc.8'
+            'RC8 : commandes de repas sans porc, adultes inclus dans les 6 ans et plus, vérification avant PDF/email'
+            'RC8 : récapitulatif restaurateur, suggestions distinctes du besoin en animateurs'
+            'Héritage RC7.5 : catalogue activités indépendant, sélection des groupes dans les réglages du bandeau'
+            'Assiduité RC8 : taux par famille/enfant ; journal des nouvelles réservations activable explicitement par administrateur'
             'Assiduité : aucun suivi ni changement de schéma automatique, historique antérieur non reconstitué'
-            'Connecthys RC7.5 : repas liés à toutes les périodes demandées, priorité Journée et rôles configurables'
-            'Corrections RC7.5 : impression dépôt, soldes nuls des rappels, sauvegarde consommations'
+            'Connecthys RC8 : repas liés à toutes les périodes demandées, priorité Journée et rôles configurables'
+            'Corrections RC8 : impression dépôt, soldes nuls des rappels, sauvegarde consommations'
             'Suivi Mailjet : consultation volontaire ; aucun email de recette envoyé'
             'Création automatique des cotisations : toujours suspendue (protection P1)'
             'Historique des corrections intégrées:'
@@ -179,7 +202,7 @@ jobs:
       - name: Vérifier le démarrage sur runner Windows isolé
         shell: pwsh
         run: |
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc75-profile'
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc8-profile'
           $env:APPDATA = Join-Path $profileRoot 'Roaming'
           $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
           New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
@@ -209,12 +232,12 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Échec installation Inno Setup ($LASTEXITCODE)" }
           }
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
-          & $iscc '/DMyAppVersion=0.1.0-rc.7.5' 'packaging\vanilla-installer.iss'
+          & $iscc '/DMyAppVersion=0.1.0-rc.8' 'packaging\vanilla-installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
-          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.7.5-Setup.exe'
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.8-Setup.exe'
 
-      - name: Créer le véritable ZIP portable RC7.5
+      - name: Créer le véritable ZIP portable RC8
         shell: pwsh
         run: |
           # Compress-Archive omet les dossiers vides : sans ce fichier, le ZIP
@@ -222,7 +245,7 @@ jobs:
           New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
           Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt' -ErrorAction Stop
           Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
-          $zip = 'windows-output/Noethys-SL-0.1.0-rc.7.5-Windows-portable.zip'
+          $zip = 'windows-output/Noethys-SL-0.1.0-rc.8-Windows-portable.zip'
           Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
           if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
             throw 'Archive portable absente ou vide'
@@ -270,10 +293,54 @@ jobs:
           $checksums | Set-Content -Path 'windows-output/SHA256SUMS.txt' -Encoding Ascii
           $checksums | ForEach-Object { Write-Host $_ }
 
-      - name: Publier uniquement les artefacts de recette (aucune release)
+      - name: Conserver les artefacts du candidat RC8
         uses: actions/upload-artifact@v7
         with:
-          name: Noethys-SL-0.1.0-rc.7.5-Windows-candidat
+          name: Noethys-SL-0.1.0-rc.8-Windows-candidat
           path: windows-output/*
           if-no-files-found: error
           retention-days: 30
+
+      - name: Vérifier les fichiers et la version avant publication
+        shell: pwsh
+        run: |
+          $expected = @(
+            'windows-output/Noethys-SL-0.1.0-rc.8-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.8-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+            'docs/releases/noethys-sl-0.1.0-rc.8.md'
+          )
+          foreach ($path in $expected) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Fichier RC8 absent : $path" }
+          }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert Identite.PRODUCT_VERSION == '0.1.0-rc.8'; assert Identite.PRODUCT_VERSION_DISPLAY == '0.1.0 RC8'"
+          if ($LASTEXITCODE -ne 0) { throw 'Identite RC8 incoherente' }
+          if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC8 doit provenir de wx' }
+
+      - name: Publier la préversion RC8 (après tous les contrôles)
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[publish rc8]')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'noethys-sl-0.1.0-rc.8'
+          # Ne jamais modifier, remplacer ou écraser une release déjà publiée.
+          gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $tag déjà existant : publication refusée" }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag déjà publiée : publication refusée" }
+          $assets = @(
+            'windows-output/Noethys-SL-0.1.0-rc.8-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.8-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+          )
+          gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Noethys SL 0.1.0 RC8' --notes-file 'docs/releases/noethys-sl-0.1.0-rc.8.md' --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Publication GitHub RC8 en échec' }
+          $publie = gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
+          if (-not $publie.isPrerelease -or $publie.tagName -ne $tag) { throw 'Release créée mais identité/prerelease incohérente' }
+          $livres = @($publie.assets | ForEach-Object { $_.name })
+          foreach ($path in $assets) {
+            $nom = Split-Path $path -Leaf
+            if ($livres -notcontains $nom) { throw "Artefact manquant dans la release : $nom" }
+          }
+          Write-Host "RC8 publiée : $tag, $($assets.Count) assets"
