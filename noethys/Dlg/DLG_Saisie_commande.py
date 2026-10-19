@@ -523,6 +523,14 @@ class Dialog(wx.Dialog):
         try:
             dlg = DLG_Controle_repas.Dialog(self, donnees)
         except ValueError as exc:
+            # Tout modele avec role de repas doit echouer en mode ferme.
+            # Ne pas proposer de contourner un choix alimentaire non qualifie.
+            roles = {c.get("parametres", {}).get("role_repas", "aucun")
+                     for c in donnees.get("liste_colonnes", [])}
+            if any(role not in ("aucun", None, "") for role in roles):
+                wx.MessageBox(_(u"Corrigez le parametrage du modele avant de preparer le PDF ou l'email : %s") % exc,
+                              _(u"Controle des repas obligatoire"), wx.OK | wx.ICON_ERROR, self)
+                return False
             # Compatibilite des anciens modeles : autorisation manuelle visible,
             # jamais une pretention d'avoir valide les effectifs.
             texte = _(u"Le controle automatise des repas n'est pas disponible : %s\n"
