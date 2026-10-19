@@ -516,6 +516,37 @@ class Dialog(wx.Dialog):
     def GetIDcommande(self):
         return self.IDcommande
 
+    def ControleAvantEmission(self):
+        """Affiche une revue modifiable avant la preparation de tout document."""
+        from Dlg import DLG_Controle_repas
+        donnees = self.ctrl_repas.GetDonnees()
+        try:
+            dlg = DLG_Controle_repas.Dialog(self, donnees)
+        except ValueError as exc:
+            # Tout modele avec role de repas doit echouer en mode ferme.
+            # Ne pas proposer de contourner un choix alimentaire non qualifie.
+            roles = {(c.get("parametres") or {}).get("role_repas", "aucun")
+                     for c in donnees.get("liste_colonnes", [])}
+            if any(role not in ("aucun", None, "") for role in roles):
+                wx.MessageBox(_(u"Corrigez le parametrage du modele avant de preparer le PDF ou l'email : %s") % exc,
+                              _(u"Controle des repas obligatoire"), wx.OK | wx.ICON_ERROR, self)
+                return False
+            # Compatibilite des anciens modeles : autorisation manuelle visible,
+            # jamais une pretention d'avoir valide les effectifs.
+            texte = _(u"Le controle automatise des repas n'est pas disponible : %s\n"
+                      u"Continuer avec les valeurs existantes de la commande sans controle RC8 ?") % exc
+            choix = wx.MessageBox(texte, _(u"Ancien modele ou parametrage incomplet"),
+                                  wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self)
+            return choix == wx.YES
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            dlg.Appliquer()
+            self.ctrl_repas.CalcTotaux()
+            return True
+        finally:
+            dlg.Destroy()
+
     def OnBoutonEmail(self, event):
         restaurateur_mail = self.ctrl_repas.GetDonnees()["restaurateur_mail"]
         if restaurateur_mail in ("", None) :
@@ -523,11 +554,15 @@ class Dialog(wx.Dialog):
             dlg.ShowModal()
             dlg.Destroy()
             return False
+        if not self.ControleAvantEmission():
+            return False
         from Utils import UTILS_Envoi_email
         UTILS_Envoi_email.EnvoiEmailFamille(parent=self, nomDoc=FonctionsPerso.GenerationNomDoc("COMMANDE_REPAS", "pdf"), categorie="commande_repas", listeAdresses=[restaurateur_mail,])
 
     def Imprimer(self, event=None):
-        self.CreationPDF()
+        if not self.ControleAvantEmission():
+            return False
+        return self.CreationPDF()
 
     def CreationPDF(self, nomDoc=FonctionsPerso.GenerationNomDoc("COMMANDE_REPAS", "pdf"), afficherDoc=True):
         dictChampsFusion = {}
