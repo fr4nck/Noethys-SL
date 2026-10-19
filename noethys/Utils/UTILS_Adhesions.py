@@ -513,7 +513,7 @@ def _Verrouiller(DB, IDindividu, IDtype_cotisation):
     return lambda: None
 
 
-def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutilisateur=None):
+def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutilisateur=None, date_prestation=None):
     """ Crée UNE adhésion (cotisation + prestation `cotisation` + historique)
     dans une seule transaction, avec exactement les champs écrits par
     DLG_Saisie_cotisation.CTRL_Parametres.Sauvegarde pour une cotisation
@@ -531,6 +531,18 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
     date_fin = CalculerDateFin(date_debut, config["duree"])
     periode = {"date_debut": date_debut, "date_fin": date_fin}
 
+    # Le parcours facture/cloture fournit explicitement la date comptable.
+    # L'API historique (tests et fonctions manuelles) reste inchangée,
+    # mais aucune nouvelle voie financiere ne peut anticiper une seance.
+    mode_echeance = date_prestation is not None
+    if mode_echeance:
+        date_prestation = _en_date(date_prestation)
+        if (date_debut > date_reference or date_prestation > date_reference
+                or date_prestation < date_debut or date_reference > datetime.date.today()):
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="date_financiere_future")
+    else:
+        date_prestation = date_reference
+
     DB = GestionDB.DB()
     liberer = None
     try:
@@ -546,6 +558,46 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             return dict(periode, statut=STATUT_A_VERIFIER, motif="verrou_indisponible")
         except TransactionsNonSupportees:
             return dict(periode, statut=STATUT_A_VERIFIER, motif="transactions_non_supportees")
+
+        # En mode echeance, revalider dans la transaction le fait declenchant,
+        # l'etat non annule et le payeur (il peut avoir change depuis l'apercu).
+        if mode_echeance:
+            if participation["source"] == "consommation":
+                acces.ExecuterReq("""SELECT date, etat, IDactivite, IDcompte_payeur
+                FROM consommations WHERE IDconso=%d AND IDindividu=%d;"""
+                                  % (int(participation["id"]), int(IDindividu)))
+                preuves = [r for r in acces.ResultatReq()
+                           if r[1] in ("reservation", "present")]
+                preuve_valide = bool(preuves) and (
+                    _en_date(preuves[0][0]) == date_debut
+                    and preuves[0][2] == participation["IDactivite"]
+                    and preuves[0][3] == participation.get("IDcompte_payeur"))
+            elif participation["source"] == "prestation":
+                acces.ExecuterReq("""SELECT date, categorie, IDactivite, IDcompte_payeur
+                FROM prestations WHERE IDprestation=%d AND IDindividu=%d;"""
+                                  % (int(participation["id"]), int(IDindividu)))
+                preuves = acces.ResultatReq()
+                preuve_valide = bool(preuves) and (
+                    _en_date(preuves[0][0]) == date_debut
+                    and preuves[0][1] == "consommation"
+                    and preuves[0][2] == participation["IDactivite"]
+                    and preuves[0][3] == participation.get("IDcompte_payeur"))
+                if preuve_valide:
+                    acces.ExecuterReq("""SELECT IDconso FROM consommations
+                    WHERE IDindividu=%d AND IDactivite=%d AND date='%s';"""
+                                      % (IDindividu, participation["IDactivite"], date_debut))
+                    preuve_valide = not acces.ResultatReq()
+            else:
+                preuve_valide = False
+            if not preuve_valide:
+                return dict(periode, statut=STATUT_A_VERIFIER, motif="participation_modifiee")
+            re_titulaire = ResoudreTitulaire(IDindividu, participation, acces)
+            if re_titulaire["motif"] or re_titulaire["IDtitulaire"] != IDtitulaire:
+                return dict(periode, statut=STATUT_A_VERIFIER, motif="titulaire_modifie")
+            acces.ExecuterReq("SELECT IDactivite FROM cotisations_activites WHERE IDtype_cotisation=%d;"
+                              % config["IDtype_cotisation"])
+            if participation["IDactivite"] not in [r[0] for r in acces.ResultatReq()]:
+                return dict(periode, statut=STATUT_A_VERIFIER, motif="activite_non_eligible")
 
         # Re-vérification sous verrou (idempotence)
         acces.ExecuterReq("""SELECT IDcotisation FROM cotisations
@@ -573,7 +625,8 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             if acces.ResultatReq():
                 return {"statut": STATUT_RIEN, "motif": "adhesion_a_venir_existante"}
 
-        if _periode_verrouillee(acces, date_reference):
+        if (_periode_verrouillee(acces, date_prestation)
+                or (mode_echeance and _periode_verrouillee(acces, date_debut))):
             return dict(periode, statut=STATUT_A_VERIFIER, motif="periode_verrouillee")
 
         IDcompte_payeur, IDfamille_payeur = titulaire["IDcompte_payeur"], titulaire["IDfamille"]
@@ -600,14 +653,14 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
             ])
             IDprestation = acces.Inserer("prestations", [
                 ("IDcompte_payeur", IDcompte_payeur),
-                ("date", str(date_reference)),
+                ("date", str(date_prestation)),
                 ("categorie", "cotisation"),
                 ("label", label),
                 ("montant_initial", config["montant"]),
                 ("montant", config["montant"]),
                 ("IDfamille", IDfamille_payeur),
                 ("IDindividu", IDtitulaire),
-                ("date_valeur", str(date_reference)),
+                ("date_valeur", str(date_prestation)),
             ])
             acces.Modifier("UPDATE cotisations SET IDprestation=? WHERE IDcotisation=?", (IDprestation, IDcotisation))
             maintenant = datetime.datetime.now()
@@ -862,6 +915,10 @@ _LIBELLES_MOTIFS = {
     "transactions_non_supportees": u"la base MySQL n'utilise pas de tables transactionnelles (InnoDB) : création automatique désactivée",
     "facturee_ou_reglee": u"elle n'a plus de participation, mais sa prestation est facturée ou réglée : aucune suppression automatique",
     "non_demontrable": u"elle n'a plus de participation sur sa période : à confirmer avant toute suppression manuelle",
+    "date_financiere_future": u"une date future ne peut pas declencher de prestation de cotisation",
+    "participation_modifiee": u"la participation a été annulée ou modifiée depuis la proposition",
+    "titulaire_modifie": u"le titulaire de l'adhésion a changé depuis la proposition",
+    "activite_non_eligible": u"l'activité n'est plus liée à l'adhésion automatique",
 }
 
 
