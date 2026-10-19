@@ -65,6 +65,38 @@ class ControleEmissionUI(unittest.TestCase):
             self.assertTrue(self.module.Dialog.ControleAvantEmission(faux))
         self.assertTrue(message.call_args.args[2] & wx.YES_NO)
 
+    def test_sans_reponse_alimentaire_exige_acquittement(self):
+        from Dlg import DLG_Controle_repas
+        from datetime import date
+        jour = date(2026, 10, 19)
+        classe = MagicMock()
+        classe.GetValeur.return_value = 2
+        donnees = {
+            "liste_dates": [jour, "Total"],
+            "liste_colonnes": [{"IDcolonne": 6, "nom_colonne": "Sans porc",
+                "categorie": "numerique_avec_suggestion",
+                "parametres": {"role_repas": "sans_porc", "site_directeur": "A",
+                               "service_directeur": "midi"}}],
+            "cases": {(0, 0): classe},
+            "sans_porc": {6: {jour: {"sans_porc": 2, "repas": 4,
+                                       "non_renseignes": 1}}},
+            "erreurs_sans_porc": {},
+        }
+        dlg = DLG_Controle_repas.Dialog(None, donnees)
+        try:
+            self.assertEqual(len(dlg.sans_reponse), 1)
+            with patch.object(wx, "MessageBox", return_value=wx.NO) as confirmation, \
+                    patch.object(dlg, "EndModal") as fin:
+                dlg.OnValider(None)
+                fin.assert_not_called()
+                confirmation.assert_called_once()
+            with patch.object(wx, "MessageBox", return_value=wx.YES), \
+                    patch.object(dlg, "EndModal") as fin:
+                dlg.OnValider(None)
+                fin.assert_called_once_with(wx.ID_OK)
+        finally:
+            dlg.Destroy()
+
     def test_dialogue_controle_avec_donnees_fictives(self):
         from Dlg import DLG_Controle_repas
         from datetime import date

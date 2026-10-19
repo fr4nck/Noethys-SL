@@ -55,6 +55,10 @@ def ConstruireControle(donnees):
                 valeur = 0
             entree["valeurs"][CLE_CHAMP[role]] = valeur
             entree["cases"][role] = case
+            if role == "sans_porc":
+                id_colonne = colonnes[col].get("IDcolonne")
+                sous_totaux = donnees.get("sans_porc", {}).get(id_colonne, {})
+                entree["non_renseignes"] = sous_totaux.get(jour, {}).get("non_renseignes", 0)
     lignes = []
     for key, entree in sorted(resultat.items()):
         entree["totaux"] = TotauxRepas(**entree["valeurs"])
@@ -70,3 +74,43 @@ def AppliquerControle(lignes):
     for item in lignes:
         for role, case in item["cases"].items():
             case.SetValeur(item["valeurs"][CLE_CHAMP[role]])
+
+
+def ResumerControle(lignes):
+    """Snapshot non nominatif des valeurs et du contexte confirmes.
+
+    Une cellule changee apres validation invalide l'emission PDF/email.
+    Aucun recalcul des suggestions ni lecture de la base n'est effectue ici.
+    """
+    resultat = []
+    for ligne in lignes:
+        totaux = TotauxRepas(**ligne["valeurs"])
+        resultat.append({
+            "date": ligne["date"],
+            "site": ligne["site"],
+            "service": ligne["service"],
+            "totaux": dict(totaux),
+            "non_renseignes": int(ligne.get("non_renseignes", 0)),
+        })
+    return tuple(resultat)
+
+
+def ResumeDepuisDonnees(donnees):
+    return ResumerControle(ConstruireControle(donnees))
+
+
+def EstModeleType(donnees):
+    return any((col.get("parametres") or {}).get("role_repas") not in
+               (None, "", "aucun") for col in donnees.get("liste_colonnes", []))
+
+
+def FusionTotauxPDF(resume):
+    """Valeurs de fusion identiques pour le PDF et le brouillon de mail."""
+    if not resume:
+        return {}
+    return {
+        "{REPAS_TOTAL}": str(sum(x["totaux"]["total_repas"] for x in resume)),
+        "{REPAS_6_PLUS}": str(sum(x["totaux"]["repas_6_et_plus"] for x in resume)),
+        "{REPAS_ADULTES}": str(sum(x["totaux"]["total_adultes"] for x in resume)),
+        "{REPAS_SANS_PORC}": str(sum(x["totaux"]["sans_porc"] for x in resume)),
+    }

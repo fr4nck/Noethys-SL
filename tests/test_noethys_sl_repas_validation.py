@@ -71,6 +71,28 @@ class ControleRepasTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ConstruireControle(self.donnees)
 
+    def test_snapshot_identique_apres_validation_et_perime_si_modification(self):
+        from Utils.UTILS_Repas_validation import ResumeDepuisDonnees, FusionTotauxPDF
+        resume = ResumeDepuisDonnees(self.donnees)
+        self.assertEqual(FusionTotauxPDF(resume), {
+            "{REPAS_TOTAL}": "55", "{REPAS_6_PLUS}": "37",
+            "{REPAS_ADULTES}": "5", "{REPAS_SANS_PORC}": "7"})
+        self.assertEqual(ResumeDepuisDonnees(self.donnees), resume)
+        self.cases[2].SetValeur(4)
+        self.assertNotEqual(ResumeDepuisDonnees(self.donnees), resume)
+
+    def test_sans_reponse_alimentaire_figure_dans_la_revue(self):
+        from Utils.UTILS_Repas_validation import ResumeDepuisDonnees
+        self.donnees["liste_colonnes"][-1]["IDcolonne"] = 6
+        self.donnees["sans_porc"] = {
+            6: {date(2026, 10, 19): {
+                "sans_porc": 7, "repas": 50, "non_renseignes": 3
+            }}
+        }
+        resume = ResumeDepuisDonnees(self.donnees)
+        self.assertEqual(resume[0]["non_renseignes"], 3)
+        self.assertEqual(resume[0]["totaux"]["total_repas"], 55)
+
     def test_pas_decriture_si_validation_refusee(self):
         rows = ConstruireControle(self.donnees)
         rows[0]["valeurs"]["sans_porc"] = 100
