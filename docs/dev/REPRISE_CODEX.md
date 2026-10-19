@@ -1,5 +1,19 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Publication Noethys SL 0.1.0 RC8 — préversion Windows (19/10/2026)
+
+- **Publication effective et vérifiée**, **prérelease**, pas version stable : [noethys-sl-0.1.0-rc.8](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.8). Date de publication GitHub : 19/10/2026 à 13:13:32 UTC. Tag cible exact `09dfa804133c4ca094c9da9708a54231e42df39d` sur `wx` ; aucun retag RC7 et aucun déploiement automatique.
+- **Versions** : `noethys/Identite.py` affiche `0.1.0-rc.8` / `0.1.0 RC8`, `noethys/Versions.txt` contient la section RC8 en tête. **Version interne numérique conservée à `1.3.4.4`**, et tout l'historique maintenu à l'identique. `main` et `qt` ne reçoivent pas l'identité Windows RC8.
+- **CI rapide wx RC8** : [39256895095](https://github.com/fr4nck/Noethys-SL/actions/runs/39256895095), **789 tests, 0 échec, 10 ignorés**. La même CI sur la source finale [39257658313](https://github.com/fr4nck/Noethys-SL/actions/runs/39257658313) est SUCCESS.
+- **Build complet RC8** : [39257658370](https://github.com/fr4nck/Noethys-SL/actions/runs/39257658370) SUCCESS : **443 tests critiques, 0 échec, 7 ignorés** ; **11 tests MySQL 5.7.44 local jetable, 0 échec** ; compilation, PyInstaller, archive MySQL SHA épinglée, clients mysql/mysqldump, sauvegarde/restauration, smoke binaire Windows et ZIP extrait avec profil `Portable/`, fabrication Setup Inno, SHA256SUMS et upload PASS.
+- **Livrables publics vérifiés**, noms, tailles et digests GitHub cohérents avec les journaux :
+  - Setup `Noethys-SL-0.1.0-rc.8-Setup.exe`, 105 461 328 octets, SHA-256 `98a9c2556a40e17d11c24cc2fac9e4d44f03a33bbf4a1ea3a0f898981170b792`.
+  - Portable `Noethys-SL-0.1.0-rc.8-Windows-portable.zip`, 147 369 923 octets, SHA-256 `357ceb7a8b5befdd22eb8c5da3716c2edfe6facf65009c71bf7e626d7c403d3f`.
+  - `SHA256SUMS.txt` présent sur la release.
+- **Aucune installation sur les postes PMSL**, aucune base réelle ouverte, aucune migration, aucun email envoyé.
+- **Recette terrain restant obligatoire** avant déploiement : commande de repas sur base fictive/copie isolée, contrôle des questions et préférences sans porc manquantes, PDF et brouillon email, identifiants multisites, direction entre commandes distinctes ; anomalies P1 [#426](https://github.com/fr4nck/Noethys-SL/issues/426) (création auto adhésion **toujours suspendue**, refonte complète ouverte) et [#428](https://github.com/fr4nck/Noethys-SL/issues/428) (correctif inclus, validation poste pilote ouverte). Qt natif non qualifié.
+- Notes destinées aux utilisateurs et limites : `docs/releases/noethys-sl-0.1.0-rc.8.md`. Issue métier #430 maintenue ouverte jusqu'à validation terrain.
+
 ## RC8 — Recette fictive des repas, PDF et email (19/10/2026)
 
 **Statut** : développement poursuivi, **RC8 NON PUBLIEE**. Aucune migration SQL, sauvegarde PMSL, accès à la production, téléchargement de paquet, envoi SMTP ou construction d'installateur n'a été effectué dans ce lot.
