@@ -23,6 +23,8 @@ from Ctrl import CTRL_Bouton_image
 from Utils import UTILS_Dates
 from Utils import UTILS_Divers
 from Utils import UTILS_Commandes_directeur
+from Utils import UTILS_Encadrement
+from Utils import UTILS_Repas_source
 import wx.lib.wordwrap as wordwrap
 
 if 'phoenix' in wx.PlatformInfo:
@@ -494,17 +496,25 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         dictDonnees["liste_dates"].append(_(u"Total"))
 
         # Consommations
-        req = """SELECT IDconso, date, IDgroupe, IDunite, IDindividu
-        FROM consommations 
-        WHERE date>='%s' AND date<='%s' AND IDunite IN %s AND consommations.etat IN ('reservation', 'present')
+        req = """SELECT consommations.IDconso, consommations.date, consommations.IDgroupe,
+        consommations.IDunite, consommations.IDindividu, individus.date_naiss
+        FROM consommations
+        LEFT JOIN individus ON individus.IDindividu = consommations.IDindividu
+        WHERE consommations.date>='%s' AND consommations.date<='%s'
+          AND consommations.IDunite IN %s AND consommations.etat IN ('reservation', 'present')
         ;""" % (self.date_debut, self.date_fin, conditionUnites)
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
         dictDonnees["dict_conso"] = {}
+        dictDonnees["dict_conso_individus"] = {}
+        dictDonnees["dict_naissances"] = {}
         dictDonnees["liste_individus"] = []
         dictDonnees["dict_dates"] = {}
-        for IDconso, date, IDgroupe, IDunite, IDindividu in listeDonnees :
+        for IDconso, date, IDgroupe, IDunite, IDindividu, naissance in listeDonnees :
             date = UTILS_Dates.DateEngEnDateDD(date)
+            cle = (date, IDgroupe, IDunite)
+            dictDonnees["dict_conso_individus"].setdefault(cle, set()).add(IDindividu)
+            dictDonnees["dict_naissances"][IDindividu] = naissance
 
             if (date in dictDonnees["dict_conso"]) == False:
                 dictDonnees["dict_conso"][date] = {}
@@ -614,6 +624,19 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
         DB.Close()
 
+        # Une seule lecture alimentaire par colonne choisie et par periode.
+        # Ne jamais inferer « sans porc » des informations medicales.
+        dictDonnees["sans_porc"] = {}
+        dictDonnees["erreurs_sans_porc"] = {}
+        for colonne in dictDonnees["liste_colonnes"]:
+            param = colonne["parametres"] or {}
+            if param.get("role_repas") == "sans_porc":
+                try:
+                    dictDonnees["sans_porc"][colonne["IDcolonne"]] = UTILS_Repas_source.ChargerRepartition(
+                        param.get("question_sans_porc"), param.get("choix_sans_porc"),
+                        param.get("unites", []), self.date_debut, self.date_fin)
+                except (ValueError, TypeError) as exc:
+                    dictDonnees["erreurs_sans_porc"][colonne["IDcolonne"]] = str(exc)
         return dictDonnees
 
     def MAJ(self, date_debut=None, date_fin=None):
@@ -700,19 +723,34 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
                     # Recherche suggestion
                     if dictColonne["categorie"] ==  "numerique_avec_suggestion" :
+                        param = dictColonne["parametres"] or {}
+                        role = param.get("role_repas", "aucun")
                         suggestion = 0
-                        for (IDgroupe, IDunite) in dictColonne["parametres"]["unites"]:
-                            # Recherche si unités ouvertes
-                            if self.RechercheOuverture(date, IDgroupe, IDunite) == False :
+                        personnes = set()
+                        for (IDgroupe, IDunite) in param.get("unites", []):
+                            if self.RechercheOuverture(date, IDgroupe, IDunite) == False:
                                 ouvert = False
-                            # Recherche le nombre de conso
-                            try :
-                                suggestion += self.dictDonnees["dict_conso"][date][IDgroupe][IDunite]
-                            except :
-                                pass
-                        if ouvert:
+                            if role in ("moins_6", "six_plus"):
+                                personnes.update(self.dictDonnees["dict_conso_individus"].get((date, IDgroupe, IDunite), set()))
+                            elif role not in ("sans_porc", "animateurs", "direction", "autres_adultes"):
+                                suggestion += self.dictDonnees["dict_conso"].get(date, {}).get(IDgroupe, {}).get(IDunite, 0)
+                        if role in ("moins_6", "six_plus"):
+                            ages = [UTILS_Encadrement.AgeAuJour(
+                                self.dictDonnees["dict_naissances"].get(i), date) for i in personnes]
+                            if None in ages:
+                                suggestion = None
+                            elif role == "moins_6":
+                                suggestion = sum(age < 6 for age in ages)
+                            else:
+                                suggestion = sum(6 <= age < 18 for age in ages)
+                        elif role == "sans_porc":
+                            if dictColonne["IDcolonne"] in self.dictDonnees["erreurs_sans_porc"]:
+                                suggestion = None
+                            else:
+                                suggestion = self.dictDonnees["sans_porc"].get(dictColonne["IDcolonne"], {}).get(date, {}).get("sans_porc", 0)
+                        if ouvert and suggestion is not None:
                             suggestion += UTILS_Commandes_directeur.SupplementRepasDirection(
-                                dictColonne["parametres"], date, sites_directeur_comptes
+                                param, date, sites_directeur_comptes
                             )
 
                     # Recherche information
@@ -882,7 +920,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                     for numColonne in range(0, len(self.dictDonnees["liste_colonnes"])):
                         if (numLigne, numColonne) in self.dictCases:
                             case = self.dictCases[(numLigne, numColonne)]
-                            if (listeIDcolonne == None or case.IDcolonne in listeIDcolonne) and "numerique" in case.categorieColonne and "total" not in case.categorieColonne:
+                            if (listeIDcolonne == None or case.IDcolonne in listeIDcolonne) and "numerique" in case.categorieColonne and "total" not in case.categorieColonne and self.dictDonnees["dict_colonnes"][numColonne]["parametres"].get("role_repas") != "sans_porc":
                                 valeur += case.GetValeur()
 
                     # On envoie le total à la case de la colonne TOTAL
