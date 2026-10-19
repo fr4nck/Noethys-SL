@@ -106,6 +106,7 @@ jobs:
           tests.test_noethys_sl_grille_synthetic
           tests.test_noethys_sl_profilage_conso
           tests.test_noethys_sl_adhesions
+          tests.test_noethys_sl_adhesions_echeances
           tests.test_noethys_sl_adhesions_concurrence
           tests.test_noethys_sl_adhesions_titulaire
           tests.test_noethys_sl_adhesions_activites

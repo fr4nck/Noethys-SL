@@ -13,6 +13,42 @@ Implémentation : `noethys/Utils/UTILS_Adhesions.py`.
 > Le code source mis à jour ne protège pas les postes RC7 tant qu'un exécutable
 > corrigé n'a pas été installé.
 
+
+## Refonte P1 #426 — chemin de facturation explicitement confirmé
+
+L'ancienne création automatique **pendant la réservation** reste coupée :
+`AUTO_CREATION_SUSPENDUE=True` s'applique à `CTRL_Grille.Sauvegarde()`.
+Elle ne peut pas être réactivée par la simple publication d'un build.
+
+Un nouveau service indépendant, `UTILS_Adhesions_echeances`, fait :
+1. la recherche en **lecture seule** des participations éligibles et de leurs titulaires ;
+2. l'exclusion de toutes les dates futures et des annulations, avec recherche
+   de toute participation antérieure non couverte pour ne pas fausser la date
+   de début ;
+3. la proposition chiffrée des cotisations devant relever de la fenêtre de
+   clôture (date comptable à fin de mois) ou de la facture anticipée
+   (date comptable au plus tard aujourd'hui) ;
+4. après **validation opérateur explicite**, le contrôle de l'aperçu
+   et la révalidation sous verrou transactionnel de la participation,
+   de l'éligibilité, du titulaire et de l'absence de chevauchement ;
+5. la création atomique de la cotisation, de sa prestation et de l'historique,
+   selon les contrats de `UTILS_Adhesions.CreerAdhesion` avec
+   `date_prestation` spécifiée par le nouveau parcours.
+
+La préparation se fait à **l'étape 1 de l'assistant de facturation** avant
+la construction de la liste des factures (et jamais entre aperçu et émission).
+L'interface avertit que les prestations créées restent enregistrées même
+si la facture est ensuite annulée, propose de continuer sans création et
+bloque les cas non qualifiés. Les périodes futures sont exclues.
+
+**Important :** le service ne supprime jamais un enregistrement financier
+existant, même non facturé. Les inscriptions RC7 antérieures et les
+annulations de cotisations préexistantes exigent encore une inspection
+comptable en lecture seule et une validation manuelle ; aucune régularisation
+de masse. Ne pas déclarer le chantier entièrement terminé tant que la
+recette Windows, la clôture mensuelle et les cas multi-postes ne sont pas
+validés.
+
 ## Titulaire de l'adhésion
 
 | Situation | Titulaire | Nombre d'adhésions |
