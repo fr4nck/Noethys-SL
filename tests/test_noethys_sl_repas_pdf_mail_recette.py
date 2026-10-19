@@ -95,7 +95,14 @@ class RecettePDFMailerTests(unittest.TestCase):
         original = SimpleDocTemplate.build
         def capture_story(pdf, story, *args, **kwargs):
             if capture is not None:
-                capture.extend(story[:])
+                # Sauver les donnees *avant* que ReportLab les remplace par
+                # des _ExpandedCellTuple lors de la mise en page PDF.
+                for bloc in story:
+                    if isinstance(bloc, Table):
+                        capture.append([
+                            [getattr(cellule, "text", str(cellule)) for cellule in ligne]
+                            for ligne in bloc._cellvalues
+                        ])
             return original(pdf, story, *args, **kwargs)
         with patch.object(DLG_Options_impression_pdf, "Dialog", return_value=FauxOptions()), \
                 patch.object(UTILS_Organisateur, "GetNom", return_value="Accueil fictif"), \
@@ -117,9 +124,8 @@ class RecettePDFMailerTests(unittest.TestCase):
             self.assertEqual(champs["{REPAS_SANS_PORC}"], "7")
             self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
             self.assertGreater(path.stat().st_size, 1000)
-            tables = [obj for obj in story if isinstance(obj, Table)]
-            recap = tables[-1]._cellvalues
-            line = [cell.text for cell in recap[1]]
+            recap = story[-1]
+            line = recap[1]
             self.assertEqual(line, [
                 "19/10/2026", "Site A / midi", "18", "32", "3/1/1",
                 "37", "7", "55",

@@ -71,13 +71,20 @@ class ControleEmissionUI(unittest.TestCase):
         jour = date(2026, 10, 19)
         classe = MagicMock()
         classe.GetValeur.return_value = 2
+        petits = MagicMock()
+        petits.GetValeur.return_value = 3
         donnees = {
             "liste_dates": [jour, "Total"],
-            "liste_colonnes": [{"IDcolonne": 6, "nom_colonne": "Sans porc",
-                "categorie": "numerique_avec_suggestion",
-                "parametres": {"role_repas": "sans_porc", "site_directeur": "A",
-                               "service_directeur": "midi"}}],
-            "cases": {(0, 0): classe},
+            "liste_colonnes": [
+                {"IDcolonne": 4, "nom_colonne": "Enfants < 6",
+                 "categorie": "numerique_avec_suggestion",
+                 "parametres": {"role_repas": "moins_6", "site_directeur": "A",
+                                "service_directeur": "midi"}},
+                {"IDcolonne": 6, "nom_colonne": "Sans porc",
+                 "categorie": "numerique_avec_suggestion",
+                 "parametres": {"role_repas": "sans_porc", "site_directeur": "A",
+                                "service_directeur": "midi"}}],
+            "cases": {(0, 0): petits, (0, 1): classe},
             "sans_porc": {6: {jour: {"sans_porc": 2, "repas": 4,
                                        "non_renseignes": 1}}},
             "erreurs_sans_porc": {},
