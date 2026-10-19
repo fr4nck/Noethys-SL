@@ -41,6 +41,30 @@ class ControleEmissionUI(unittest.TestCase):
         self.module.Dialog.Imprimer(faux)
         faux.CreationPDF.assert_called_once_with()
 
+    def test_nouveau_modele_invalide_bloque_pdf(self):
+        from Dlg import DLG_Controle_repas
+        faux = MagicMock()
+        faux.ctrl_repas.GetDonnees.return_value = {
+            "liste_colonnes": [{"parametres": {"role_repas": "sans_porc"}}],
+            "erreurs_sans_porc": {5: "Question alimentaire invalide"},
+        }
+        with patch.object(DLG_Controle_repas, "Dialog", side_effect=ValueError("Question invalide")), \
+                patch.object(wx, "MessageBox", return_value=wx.YES) as message:
+            self.assertIs(self.module.Dialog.ControleAvantEmission(faux), False)
+        message.assert_called_once()
+        self.assertEqual(message.call_args.args[2] & wx.YES_NO, 0)
+
+    def test_ancien_modele_demande_confirmation(self):
+        from Dlg import DLG_Controle_repas
+        faux = MagicMock()
+        faux.ctrl_repas.GetDonnees.return_value = {
+            "liste_colonnes": [{"parametres": None}],
+        }
+        with patch.object(DLG_Controle_repas, "Dialog", side_effect=ValueError("Pas de roles")), \
+                patch.object(wx, "MessageBox", return_value=wx.YES) as message:
+            self.assertTrue(self.module.Dialog.ControleAvantEmission(faux))
+        self.assertTrue(message.call_args.args[2] & wx.YES_NO)
+
     def test_dialogue_controle_avec_donnees_fictives(self):
         from Dlg import DLG_Controle_repas
         from datetime import date

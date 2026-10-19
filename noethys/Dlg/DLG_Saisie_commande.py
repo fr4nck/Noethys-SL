@@ -525,7 +525,7 @@ class Dialog(wx.Dialog):
         except ValueError as exc:
             # Tout modele avec role de repas doit echouer en mode ferme.
             # Ne pas proposer de contourner un choix alimentaire non qualifie.
-            roles = {c.get("parametres", {}).get("role_repas", "aucun")
+            roles = {(c.get("parametres") or {}).get("role_repas", "aucun")
                      for c in donnees.get("liste_colonnes", [])}
             if any(role not in ("aucun", None, "") for role in roles):
                 wx.MessageBox(_(u"Corrigez le parametrage du modele avant de preparer le PDF ou l'email : %s") % exc,
