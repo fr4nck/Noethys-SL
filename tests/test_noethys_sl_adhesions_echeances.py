@@ -18,6 +18,36 @@ class EcheancesTests(unittest.TestCase):
                           liste_activites=activites or [1, 2],
                           IDcompte_payeur=payeur)
 
+    def test_audit_rc7_anticipees_sans_ecriture_ni_suppression(self):
+        with Env() as e:
+            e.base.inserer("prestations",
+                           ["IDprestation", "IDcompte_payeur", "IDindividu", "categorie", "date", "montant", "IDfacture"],
+                           [(801, 11, 100, "cotisation", "2026-10-01", 7.5, None),
+                            (802, 11, 100, "cotisation", "2026-10-01", 7.5, 99)])
+            e.base.inserer("cotisations",
+                           ["IDcotisation", "IDindividu", "IDtype_cotisation", "IDunite_cotisation",
+                            "date_saisie", "date_debut", "date_fin", "IDprestation", "observations"],
+                           [(701, 100, 1, 11, "2026-10-01", "2027-01-06", "2028-01-06", 801,
+                             A.MARQUEUR_AUTO),
+                            (702, 100, 1, 11, "2026-10-01", "2027-03-06", "2028-03-06", 802,
+                             A.MARQUEUR_AUTO),
+                            (703, 100, 1, 11, "2026-10-01", "2027-02-06", "2028-02-06",
+                             None, "adhesion manuelle")])
+            avant = (e.compte("cotisations"), e.compte("prestations"))
+            rapport = E.AuditerCotisationsAnticipees(JOUR)
+            self.assertEqual(len(rapport), 2)
+            self.assertEqual([row["IDcotisation"] for row in rapport], [701, 702])
+            self.assertEqual(rapport[0]["statut"], "a_verifier_avant_regularisation")
+            self.assertEqual(rapport[1]["statut"], "reglement_ou_facture_a_regolariser")
+            self.assertIn("prestation_anticipee", rapport[0]["motifs"])
+            self.assertEqual((e.compte("cotisations"), e.compte("prestations")), avant)
+
+    def test_audit_ne_touche_pas_aux_adhesions_manuelles(self):
+        with Env() as e:
+            e.adhesion(100, D(2027, 1, 1), D(2028, 1, 1),
+                       observations="saisie manuelle")
+            self.assertEqual(E.AuditerCotisationsAnticipees(JOUR), [])
+
     def test_reservation_future_jamais_financee(self):
         with Env() as e:
             e.conso(100, D(2027, 1, 6))
