@@ -389,7 +389,8 @@ class PAGE_Unites(wx.Panel):
             dlg.Destroy()
             return False
         supplement_repas = self.check_directeur.GetValue() or self.check_repas_renfort.GetValue()
-        if supplement_repas and (not self.ctrl_site_directeur.GetValue().strip() or not self.ctrl_service_directeur.GetValue().strip()):
+        role = self.roles_repas[self.ctrl_role_repas.GetSelection()][0]
+        if (supplement_repas or role != "aucun") and (not self.ctrl_site_directeur.GetValue().strip() or not self.ctrl_service_directeur.GetValue().strip()):
             dlg = wx.MessageDialog(self, _(u"Renseignez le site et le service pour identifier les repas de direction."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
             dlg.Destroy()
@@ -399,7 +400,6 @@ class PAGE_Unites(wx.Panel):
             dlg.ShowModal()
             dlg.Destroy()
             return False
-        role = self.roles_repas[self.ctrl_role_repas.GetSelection()][0]
         if role == "sans_porc" and (self.ctrl_question_sans_porc.GetValue() <= 0 or self.ctrl_choix_sans_porc.GetValue() <= 0):
             wx.MessageBox(_(u"Renseignez les identifiants de la question et du choix sans porc."),
                           _(u"Paramétrage incomplet"), wx.OK | wx.ICON_WARNING, self)

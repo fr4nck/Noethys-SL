@@ -38,3 +38,18 @@ Pour les anciens modèles sans rôles ou une configuration incompatible, un aver
 - Toute émission reste à tester en conditions représentatives, en conservant les verrous de publication RC8. Aucun lien avec la facturation et aucune migration SQL dans ce lot.
 
 Voir `docs/dev/REPRISE_CODEX.md` et les tickets #429 / #430.
+
+## Recette complète sur données fictives (lot suivant)
+
+Le parcours inclut désormais un **snapshot des quantités confirmées**, distinct des suggestions initiales. Avant de construire le PDF, la commande recompare les cellules au snapshot : toute modification après confirmation annule l'émission, y compris la pièce jointe de l'email. Pour un modèle typé sans confirmation, la génération est bloquée. Les anciens modèles conservent le mécanisme de confirmation de compatibilité documenté ci-dessus.
+
+Le PDF contient un **récapitulatif par date, site et service**, avec les enfants de moins de 6 ans, les enfants de 6 ans et plus, les repas adultes détaillés en animateurs/direction/autres, le total **6 ans et plus adultes compris**, le « dont sans porc » non additif et le total de repas. La même validation fournit les champs de fusion `{REPAS_TOTAL}`, `{REPAS_6_PLUS}`, `{REPAS_ADULTES}` et `{REPAS_SANS_PORC}` pour le brouillon d'email.
+
+Lorsque des enfants n'ont **aucune réponse** alimentaire, un avertissement chiffré apparaît dans la fenêtre de revue. L'utilisateur doit confirmer qu'il a vérifié les quantités avant d'émettre. Le PDF ne contient aucune réponse individuelle ni liste nominative.
+
+Tests ajoutés :
+- `test_noethys_sl_repas_sqlite_recette.py` : **vraie SQLite en mémoire** (jeu inventé), questions et choix explicites, doublons réservation/présence, annulations/absences, deux groupes sur la même unité, réponse inconnue et absence d'écriture SQL.
+- `test_noethys_sl_repas_pdf_mail_recette.py` : génération effective d'un PDF temporaire par ReportLab, inspection de la ligne de récapitulatif, champs de fusion strictement identiques au snapshot, création simulée de la pièce jointe dans un **mailer factice sans SMTP ni destinataire réel**, blocage des valeurs périmées.
+- Tests unitaires complémentaires sur le snapshot, la confirmation du nombre de réponses manquantes et la cohérence des valeurs modifiées.
+
+La CI Windows exécute ces tests dans son environnement isolé. **Ne pas confondre cette recette automatisée avec une recette utilisateur sur le poste Windows PMSL.** L'historique des préférences, le rapprochement entre commandes multisites distinctes et les choix alimentaires non saisis restent des limites du système.
