@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## RC8 — repas sans porc et contrôle avant émission (19/10/2026)
+
+- **Décision** : développer avant RC8 ; aucun tag, release, installateur, migration SQL, envoi d'email ni accès à la production.
+- **Lot #430** : réponses alimentaires individuelles explicites via `questionnaire_questions`, `questionnaire_choix`, `questionnaire_reponses` ; aucun texte médical interprété. Les réponses ne sont pas historisées : impossible de rétablir le choix à une date passée sans autre stockage.
+- **Décompte** : dates / site / service, effectifs enfants séparés à six ans, suggestions « dont sans porc » exclues des totaux additifs ; repas des animateurs, direction, autres adultes saisis séparément, puis tous regroupés dans 6 ans et plus. Absence de preuve d'absence de doublon entre **commandes multisites indépendantes**.
+- **UI** : `DLG_Controle_repas.py` avant boutons PDF/email ; valeurs modifiables, recalcul de totaux, annulation empêche l'émission ; modèles typés invalides bloqués. Anciens modèles non typés conservent un avertissement et une confirmation explicite pour l'ancien flux. Aucun mail automatique envoyé.
+- **Bilan source** : `main` lot métier validé au commit [7da9785](https://github.com/fr4nck/Noethys-SL/commit/7da97850f5d78b431e352b420e4872e08603f436), `wx` [5abdee4](https://github.com/fr4nck/Noethys-SL/commit/5abdee44f8cc0869970705a37b8b2cf5171c3762), `qt` [7dc1557](https://github.com/fr4nck/Noethys-SL/commit/7dc1557922709210bcf5317a1ff71ebdb4eafb5b). Fichiers métier/tests communs reportés par blobs SHA, sans merge global ; workflows de chaque branche conservés.
+- **Tests** : [CI main 39235083395](https://github.com/fr4nck/Noethys-SL/actions/runs/39235083395) : **753 tests, 0 FAIL, 6 SKIP**, compilation PASS et suite Windows PASS. [CI wx 39235956725](https://github.com/fr4nck/Noethys-SL/actions/runs/39235956725) à qualifier par lecture de son verdict ; Qt natif non validé.
+- **STOP-GATE** : recette complète sur base fictive dans l'interface Windows, comparaison PDF/brouillon d'email, préexistants modèles, préférence sans porc inconnue, changement de préférence pendant une période et direction multisite partagée. Ne pas qualifier RC8 sans ces points et résolution des P1 antérieurs.
+- Détails : `docs/metier/REPAS_SANS_PORC_RC8.md`, `docs/metier/REPAS_RC8_VALIDATION.md` et issue #430.
+
 ## RC8 — commandes de repas et encadrement : développement poursuivi (18/10/2026)
 
 - Décision utilisateur : **poursuivre le développement avant toute RC8**. Aucun tag/release, installateur, migration SQL ou déploiement effectué dans ce lot ; aucune donnée réelle lue ni modifiée.
