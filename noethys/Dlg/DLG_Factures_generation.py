@@ -129,10 +129,89 @@ class Dialog(wx.Dialog):
         # On active le bouton annuler
         self.bouton_annuler.Enable(True)
 
+    def PreparerCotisationsPourApercu(self):
+        """P1 #426 : consentement AVANT la sélection et l'aperçu des factures.
+
+        Toute création est visible par le calcul page2.MAJ() qui relit ensuite
+        les prestations. Aucune création au moment du bouton 'Générer'.
+        """
+        params = self.dictParametres
+        if "cotisation" not in params.get("prestations", []):
+            return True
+        from Utils import UTILS_Adhesions_echeances as echeances
+        from Utils import UTILS_Identification
+        try:
+            date_debut = params.get("date_anterieure") or params["date_debut"]
+            propo = echeances.Proposer(
+                date_debut=date_debut, date_fin=params["date_fin"],
+                date_reference=datetime.date.today(),
+                liste_activites=params["listeActivites"],
+                IDcompte_payeur=params["IDcompte_payeur"])
+        except Exception as err:
+            wx.MessageBox(
+                _(u"Impossible de vérifier les cotisations automatiques. "
+                  u"Aucune cotisation n'a été créée.\n\n%s") % err,
+                _(u"Cotisations - vérification nécessaire"),
+                wx.OK | wx.ICON_ERROR, self)
+            return False
+        if propo["a_verifier"]:
+            message = _(u"%d situation(s) d'adhésion nécessitent une vérification "
+                        u"(participations antérieures, chevauchements ou payeur).\n"
+                        u"AUCUNE cotisation automatique ne sera créée dans cette opération.\n\n"
+                        u"Continuer uniquement avec les prestations déjà enregistrées ?") % len(propo["a_verifier"])
+            confirmation = wx.MessageBox(
+                message, _(u"Cotisations à vérifier"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self)
+            return confirmation == wx.YES
+        if not propo["propositions"]:
+            return True
+        somme = sum(float(p["montant"]) for p in propo["propositions"])
+        message = _(u"%d cotisation(s) éligible(s) correspondant à des participations "
+                    u"déjà réalisées : %.2f EUR.\n"
+                    u"Aucune réservation future n'est prise en compte.\n\n"
+                    u"Créer maintenant les cotisations et prestations dans la base, "
+                    u"AVANT de calculer l'aperçu des factures ?\n\n"
+                    u"Oui : création contrôlée (elle reste enregistrée si vous "
+                    u"annulez ensuite la facture).\n"
+                    u"Non : continuer sans création.\n"
+                    u"Annuler : revenir aux paramètres.") % (len(propo["propositions"]), somme)
+        choix = wx.MessageBox(
+            message, _(u"Préparation des cotisations de la période"),
+            wx.YES_NO | wx.CANCEL | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+        if choix == wx.CANCEL:
+            return False
+        if choix != wx.YES:
+            return True
+        try:
+            reponses = echeances.Executer(
+                propo, confirmation=True,
+                liste_activites=params["listeActivites"],
+                IDcompte_payeur=params["IDcompte_payeur"],
+                IDutilisateur=UTILS_Identification.GetIDutilisateur())
+        except Exception as err:
+            wx.MessageBox(
+                _(u"La proposition a changé ou sa création a échoué. "
+                  u"Ne générez aucune facture sans recalculer.\n\n%s") % err,
+                _(u"Facturation interrompue"), wx.OK | wx.ICON_ERROR, self)
+            return False
+        erreurs = [r for r in reponses
+                   if r.get("statut") not in ("cree", "rien_a_faire")]
+        if erreurs or len(reponses) != len(propo["propositions"]):
+            wx.MessageBox(
+                _(u"Certaines cotisations n'ont pas pu être créées "
+                  u"(%d erreur(s)). Des écritures précédentes peuvent exister. "
+                  u"Revenez aux paramètres puis actualisez avant de facturer.") %
+                len(erreurs), _(u"Facturation interrompue"),
+                wx.OK | wx.ICON_ERROR, self)
+            return False
+        return True
+
     def Onbouton_suite(self, event):
         # Vérifie que les données de la page en cours sont valides
         validation = self.ValidationPages()
         if validation == False : return
+        if self.pageVisible == 1 and not self.PreparerCotisationsPourApercu():
+            return
         # Si on est déjà sur la dernière page : on termine
         if self.pageVisible == self.nbrePages :
             self.Terminer()
