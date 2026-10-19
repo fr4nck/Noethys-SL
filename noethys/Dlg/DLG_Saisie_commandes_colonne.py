@@ -322,6 +322,23 @@ class PAGE_Unites(wx.Panel):
         self.ctrl_renfort_direction = wx.Choice(self, -1, choices=[_(u"Aucun"), _(u"Adjoint de direction"), _(u"Directeur stagiaire")])
         self.ctrl_renfort_direction.SetSelection(0)
         self.check_repas_renfort = wx.CheckBox(self, -1, _(u"+1 repas renfort de direction, non déjà compté"))
+        # Classification explicite : pas de detection sur les libelles libres.
+        self.roles_repas = [
+            ("aucun", _(u"Sans classification (ancien modèle)")),
+            ("moins_6", _(u"Enfants de moins de 6 ans")),
+            ("six_plus", _(u"Enfants de 6 ans et plus")),
+            ("animateurs", _(u"Repas animateurs")),
+            ("direction", _(u"Repas direction")),
+            ("autres_adultes", _(u"Autres repas adultes")),
+            ("sans_porc", _(u"Dont repas sans porc")),
+        ]
+        self.label_role_repas = wx.StaticText(self, -1, _(u"Catégorie de repas :"))
+        self.ctrl_role_repas = wx.Choice(self, -1, choices=[label for code, label in self.roles_repas])
+        self.ctrl_role_repas.SetSelection(0)
+        self.label_question_sans_porc = wx.StaticText(self, -1, _(u"Question individuelle (ID, sans porc) :"))
+        self.ctrl_question_sans_porc = wx.SpinCtrl(self, -1, min=0, max=999999, initial=0)
+        self.label_choix_sans_porc = wx.StaticText(self, -1, _(u"Choix sans porc (ID, ou 1 pour case cochée) :"))
+        self.ctrl_choix_sans_porc = wx.SpinCtrl(self, -1, min=0, max=999999, initial=0)
 
         # Layout
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=5, hgap=5)
@@ -331,7 +348,7 @@ class PAGE_Unites(wx.Panel):
         options_directeur = wx.BoxSizer(wx.VERTICAL)
         options_directeur.Add(self.check_directeur, 0, wx.ALL, 2)
         options_directeur.Add(self.check_direction_multisite, 0, wx.ALL, 2)
-        champs_directeur = wx.FlexGridSizer(rows=4, cols=2, vgap=3, hgap=5)
+        champs_directeur = wx.FlexGridSizer(rows=7, cols=2, vgap=3, hgap=5)
         champs_directeur.Add(self.label_site_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_site_directeur, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_service_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
@@ -340,6 +357,12 @@ class PAGE_Unites(wx.Panel):
         champs_directeur.Add(self.ctrl_groupe_direction, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_renfort_direction, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_renfort_direction, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_role_repas, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_role_repas, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_question_sans_porc, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_question_sans_porc, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_choix_sans_porc, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_choix_sans_porc, 1, wx.EXPAND, 0)
         champs_directeur.AddGrowableCol(1)
         options_directeur.Add(champs_directeur, 0, wx.EXPAND | wx.ALL, 2)
         options_directeur.Add(self.check_repas_renfort, 0, wx.ALL, 2)
@@ -376,6 +399,15 @@ class PAGE_Unites(wx.Panel):
             dlg.ShowModal()
             dlg.Destroy()
             return False
+        role = self.roles_repas[self.ctrl_role_repas.GetSelection()][0]
+        if role == "sans_porc" and (self.ctrl_question_sans_porc.GetValue() <= 0 or self.ctrl_choix_sans_porc.GetValue() <= 0):
+            wx.MessageBox(_(u"Renseignez les identifiants de la question et du choix sans porc."),
+                          _(u"Paramétrage incomplet"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        if role != "aucun" and supplement_repas and role != "direction":
+            wx.MessageBox(_(u"Pour distinguer les repas de direction, utilisez une colonne de catégorie « Repas direction »."),
+                          _(u"Paramétrage incohérent"), wx.OK | wx.ICON_WARNING, self)
+            return False
         if self.check_repas_renfort.GetValue() and self.ctrl_renfort_direction.GetSelection() == 0:
             dlg = wx.MessageDialog(self, _(u"Choisissez adjoint de direction ou directeur stagiaire pour commander le repas complémentaire."), _(u"Erreur de saisie"), wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
@@ -394,6 +426,9 @@ class PAGE_Unites(wx.Panel):
             "groupe_direction": self.ctrl_groupe_direction.GetValue().strip(),
             "direction_renfort": ("aucun", "adjoint", "stagiaire")[max(0, self.ctrl_renfort_direction.GetSelection())],
             "repas_renfort_direction": self.check_repas_renfort.GetValue(),
+            "role_repas": self.roles_repas[self.ctrl_role_repas.GetSelection()][0],
+            "question_sans_porc": self.ctrl_question_sans_porc.GetValue(),
+            "choix_sans_porc": self.ctrl_choix_sans_porc.GetValue(),
         }
 
     def SetParametres(self, dictParametres={}):
@@ -408,6 +443,10 @@ class PAGE_Unites(wx.Panel):
         self.ctrl_groupe_direction.SetValue(dictParametres.get("groupe_direction", "") or "")
         self.ctrl_renfort_direction.SetSelection({"adjoint": 1, "stagiaire": 2}.get(dictParametres.get("direction_renfort"), 0))
         self.check_repas_renfort.SetValue(bool(dictParametres.get("repas_renfort_direction", False)))
+        selection_role = dictParametres.get("role_repas", "aucun")
+        self.ctrl_role_repas.SetSelection(next((i for i, (code, _label) in enumerate(self.roles_repas) if code == selection_role), 0))
+        self.ctrl_question_sans_porc.SetValue(int(dictParametres.get("question_sans_porc") or 0))
+        self.ctrl_choix_sans_porc.SetValue(int(dictParametres.get("choix_sans_porc") or 0))
 
 
 
