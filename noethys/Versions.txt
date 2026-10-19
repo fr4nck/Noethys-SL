@@ -1,3 +1,16 @@
+Version Noethys SL 0.1.0 RC8 (19/10/2026) :
+
+- Comptage suggéré des repas sans porc depuis une réponse individuelle explicitement configurée, sans exploitation automatique des informations médicales
+- Séparation des repas enfants de moins de 6 ans, enfants de 6 ans et plus, animateurs, direction et autres adultes
+- Regroupement des repas adultes dans les repas 6 ans et plus destinés au restaurateur, sans addition des repas sans porc une seconde fois
+- Contrôle et correction des quantités avant la création du PDF ou la préparation du brouillon d'email
+- Récapitulatif PDF par date, site et service, avec détail des repas adultes, totaux et sous-total sans porc
+- Blocage de la génération en cas de données non qualifiées ou modifiées depuis la validation des effectifs
+- Signalement des préférences alimentaires manquantes avec confirmation explicite avant émission
+- Simulation indicative des besoins en animateurs par âge, site et créneau, distincte du calcul des repas
+- Direction multisite et repas facultatifs de direction ou de renfort configurables, avec contrôle des doublons dans une même commande
+- Création automatique des cotisations maintenue suspendue par précaution en attente de la refonte métier
+
 Version Noethys SL 0.1.0 RC7.5 (16/10/2026) :
 
 - Correction du tableau vide des activités dans les réglages Aujourd'hui grâce à un catalogue chargé indépendamment du programme du jour
