@@ -26,6 +26,10 @@ class Dialog(wx.Dialog):
         wx.Dialog.__init__(self, parent, -1, _(u"Verification des effectifs et des repas"),
                            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.lignes = UTILS_Repas_validation.ConstruireControle(donnees)
+        self.sans_reponse = [
+            (ligne["date"], ligne["site"], ligne["service"], ligne.get("non_renseignes", 0))
+            for ligne in self.lignes if ligne.get("non_renseignes", 0) > 0
+        ]
         sizer = wx.BoxSizer(wx.VERTICAL)
         texte = _(u"Confirmez les quantites de chaque service. Les repas sans porc sont un sous-total, pas un supplement.")
         sizer.Add(wx.StaticText(self, -1, texte), 0, wx.EXPAND | wx.ALL, 8)
@@ -33,6 +37,10 @@ class Dialog(wx.Dialog):
             sizer.Add(wx.StaticText(self, -1,
                 _(u"ATTENTION : certaines colonnes numeriques ne sont pas classees dans ce controle.")),
                 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+        if self.sans_reponse:
+            sizer.Add(wx.StaticText(self, -1, _(u"ALERTE : %d reponse(s) alimentaires manquante(s). Verifiez avant validation.") %
+                sum(entree[3] for entree in self.sans_reponse)), 0,
+                wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
         self.grid = gridlib.Grid(self, -1)
         self.grid.CreateGrid(len(self.lignes), 3 + len(ENTREES) + len(SORTIES))
         for index, label in enumerate([u"Date", u"Site", u"Service"] +
@@ -105,6 +113,15 @@ class Dialog(wx.Dialog):
             wx.MessageBox(str(exc), _(u"Quantites invalides"),
                           wx.OK | wx.ICON_WARNING, self)
             return
+        if self.sans_reponse:
+            total = sum(ligne[3] for ligne in self.sans_reponse)
+            texte = _(u"%d repas correspondent a des enfants sans reponse alimentaire. "
+                      u"Le comptage sans porc peut etre incomplet. "
+                      u"Avez-vous verifie ou corrige manuellement les quantites ?") % total
+            confirmation = wx.MessageBox(texte, _(u"Preferences alimentaires non renseignees"),
+                                          wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self)
+            if confirmation != wx.YES:
+                return
         self.EndModal(wx.ID_OK)
 
     def Appliquer(self):

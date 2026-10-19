@@ -25,6 +25,7 @@ from Utils import UTILS_Divers
 from Utils import UTILS_Dates
 from Utils import UTILS_Dialogs
 from Utils import UTILS_Images
+from Utils import UTILS_Repas_validation
 from Data import DATA_Civilites as Civilites
 from Ctrl import CTRL_Saisie_date
 from Ctrl import CTRL_Commande_repas
@@ -154,6 +155,7 @@ class Dialog(wx.Dialog):
         self.IDmodele = IDmodele
         self.IDcommande = IDcommande
         self.dictDonnees = {}
+        self._controle_repas_snapshot = None
         
         # Généralités
         self.box_generalites_staticbox = wx.StaticBox(self, wx.ID_ANY, _(u"Généralités"))
@@ -519,6 +521,7 @@ class Dialog(wx.Dialog):
     def ControleAvantEmission(self):
         """Affiche une revue modifiable avant la preparation de tout document."""
         from Dlg import DLG_Controle_repas
+        self._controle_repas_snapshot = None
         donnees = self.ctrl_repas.GetDonnees()
         try:
             dlg = DLG_Controle_repas.Dialog(self, donnees)
@@ -543,6 +546,8 @@ class Dialog(wx.Dialog):
                 return False
             dlg.Appliquer()
             self.ctrl_repas.CalcTotaux()
+            self._controle_repas_snapshot = UTILS_Repas_validation.ResumeDepuisDonnees(
+                self.ctrl_repas.GetDonnees())
             return True
         finally:
             dlg.Destroy()
@@ -573,6 +578,23 @@ class Dialog(wx.Dialog):
         date_fin = self.ctrl_date_fin.GetDate()
         observations = self.ctrl_observations.GetValue()
         dictDonnees = self.ctrl_repas.GetDonnees()
+
+        # Ne pas generer un PDF pour un modele type sans controle recent.
+        # La verification couvre aussi les modifications entre dialogue
+        # de validation, impression et preparation du mail.
+        resume_valide = None
+        if UTILS_Repas_validation.EstModeleType(dictDonnees):
+            resume_valide = getattr(self, "_controle_repas_snapshot", None)
+            try:
+                resume_actuel = UTILS_Repas_validation.ResumeDepuisDonnees(dictDonnees)
+            except (ValueError, TypeError, KeyError) as exc:
+                wx.MessageBox(_(u"Controle des repas incomplet : %s") % exc,
+                              _(u"Impression bloquee"), wx.OK | wx.ICON_ERROR, self)
+                return False
+            if not resume_valide or resume_valide != resume_actuel:
+                wx.MessageBox(_(u"Les quantites ont change depuis leur validation. Revenez a la commande pour les verifier."),
+                              _(u"Impression bloquee"), wx.OK | wx.ICON_ERROR, self)
+                return False
 
         # Récupération des options d'impression
         global DICT_INFOS_IMPRESSION
@@ -750,6 +772,43 @@ class Dialog(wx.Dialog):
         tableau.setStyle(style)
         story.append(tableau)
 
+        # Recapitulatif transmis au restaurateur : valeurs figees apres revue,
+        # y compris les adultes dans la categorie 6 ans et plus.
+        if resume_valide:
+            from xml.sax.saxutils import escape
+            story.append(Spacer(0, 12))
+            titre_resume = ParagraphStyle(name="recap_repas", alignment=0,
+                fontName="Helvetica-Bold", fontSize=9, leading=11, spaceAfter=6)
+            story.append(Paragraph(_(u"Recapitulatif valide des repas par site et service"),
+                                   titre_resume))
+            style_resume = ParagraphStyle(name="cellule_repas", alignment=1,
+                fontName="Helvetica", fontSize=6, leading=7)
+            entetes = (_(u"Date"), _(u"Site / service"), _(u"Enfants < 6"),
+                       _(u"Enfants 6+"), _(u"Adultes A/D/O"),
+                       _(u"6+ adultes inclus"), _(u"Dont sans porc"), _(u"Total"))
+            recap = [[Paragraph(escape(texte), style_resume) for texte in entetes]]
+            for entree in resume_valide:
+                t = entree["totaux"]
+                repas_adultes = "%d/%d/%d" % (
+                    t["animateurs_repas"], t["direction_repas"], t["autres_adultes_repas"])
+                champs = (entree["date"].strftime("%d/%m/%Y"),
+                          entree["site"] + " / " + entree["service"],
+                          str(t["enfants_moins_6"]), str(t["enfants_6_et_plus"]),
+                          repas_adultes, str(t["repas_6_et_plus"]),
+                          str(t["sans_porc"]), str(t["total_repas"]))
+                recap.append([Paragraph(escape(valeur), style_resume) for valeur in champs])
+            largeurs_recap = [largeurContenu * rapport for rapport in
+                              (0.12, 0.20, 0.075, 0.085, 0.155, 0.13, 0.115, 0.12)]
+            table_recap = Table(recap, largeurs_recap, repeatRows=1)
+            table_recap.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BACKGROUND', (0, 0), (-1, 0), couleur_fond_entetes),
+            ]))
+            story.append(table_recap)
+            story.append(Paragraph(_(u"Adultes A/D/O : animateurs / direction / autres adultes."),
+                                   style_resume))
+
         # Observations
         if dictOptions["afficher_observations"] == True and len(observations) > 0:
             style_observations = ParagraphStyle(name="2", alignment=1, fontName="Helvetica", fontSize=dictOptions["taille_texte"], leading=8, spaceBefore=10)
@@ -766,6 +825,7 @@ class Dialog(wx.Dialog):
         dictChampsFusion["{NOM_COMMANDE}"] = nom_commande
         dictChampsFusion["{DATE_DEBUT}"] = UTILS_Dates.DateDDEnFr(date_debut)
         dictChampsFusion["{DATE_FIN}"] = UTILS_Dates.DateDDEnFr(date_fin)
+        dictChampsFusion.update(UTILS_Repas_validation.FusionTotauxPDF(resume_valide))
 
         return dictChampsFusion
 
