@@ -1,0 +1,7 @@
+# RC8 — sans porc : moteur explicite (issue #430)
+
+**En développement, pas de RC8 ni transmission restaurateur.** Le moteur `UTILS_Repas_alimentaires.py` est indépendant de la base. Il ne reconnaît que les réponses explicites aux questions individuelles de type `liste_deroulante`, `liste_coches` (identifiants exacts séparés par point-virgule) ou `case_coche` (=1). Les autres données, dont le texte médical, ne sont jamais interprétées. Les préférences non renseignées sont comptabilisées séparément et ne sont pas supposées négatives.
+
+**Avant de l'utiliser dans l'application** : paramétrer dans le modèle de commande la question individuelle et le choix « sans porc » existants (identifiants, pas simple correspondance sur libellé) ; importer en lecture seule les réponses des individus liés aux unités de repas du site/date/service et neutraliser les doubles consommations ; proposer une colonne de suggestion sans porc, indépendante du total général (ce « dont » ne doit jamais être additionné au total). Les questions ne comportent pas de datation historique native des réponses ; un changement de préférence pendant la période ne peut donc pas être reconstruit automatiquement depuis la table actuelle. Éviter toute prétention de rétroactivité.
+
+La prévalidation des repas adultes/animateurs avant email/PDF reste à raccorder ; **ne pas émettre de document avec un comptage supposé validé**. Le workflow de CI rapide exécute `tests.test_noethys_sl_repas_alimentaires`. Aucun schéma n'a été modifié.
