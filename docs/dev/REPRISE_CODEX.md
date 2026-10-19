@@ -1,5 +1,26 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## RC8 — Recette fictive des repas, PDF et email (19/10/2026)
+
+**Statut** : développement poursuivi, **RC8 NON PUBLIEE**. Aucune migration SQL, sauvegarde PMSL, accès à la production, téléchargement de paquet, envoi SMTP ou construction d'installateur n'a été effectué dans ce lot.
+
+**Points démontrés :**
+- `test_noethys_sl_repas_sqlite_recette` : base SQLite **en mémoire**, données entièrement fictives, question individuelle « sans porc » explicite ; contrôle sur réservations / présences en doublon, absences, même unité dans plusieurs groupes, réponses non renseignées, questions famille refusées et absence d'écriture SQL.
+- `test_noethys_sl_repas_pdf_mail_recette` : vrai PDF temporaire produit avec ReportLab ; récapitulatif par date/site/service, enfants moins de 6 ans, enfants 6 ans et plus, détail repas adultes animation/direction/autres, total **6 ans et plus adultes compris**, « dont sans porc » et total général. L'écran corrige les valeurs avant émission ; le PDF refuse une validation absente ou périmée.
+- Préparation du brouillon d'email via le mécanisme `EnvoiEmailFamille` avec **mailer simulé** : même PDF, mêmes champs de fusion `{REPAS_TOTAL}`, `{REPAS_6_PLUS}`, `{REPAS_ADULTES}`, `{REPAS_SANS_PORC}`. Aucun SMTP ni destinataire réel.
+- Si une préférence alimentaire manque, un avertissement et une confirmation explicite s'affichent avant l'émission.
+- Rendu A4 de contrôle effectué sur un tableau synthétique sans débordement visible (contrôle visuel **hors application**, distinct de la recette utilisateur).
+
+**Qualification traçable** :
+- `main` code [9f6d3e1](https://github.com/fr4nck/Noethys-SL/commit/9f6d3e12026b6f108e09c305fa74f83178daa396) : [CI Windows 39238759686](https://github.com/fr4nck/Noethys-SL/actions/runs/39238759686), **765 tests / 0 FAIL / 6 SKIP**, PASS.
+- `wx` report ciblé [199ff2a](https://github.com/fr4nck/Noethys-SL/commit/199ff2a88c8e6b512651508bd2a8507957af3574) : [CI Windows 39239363460](https://github.com/fr4nck/Noethys-SL/actions/runs/39239363460), **789 tests / 0 FAIL / 10 SKIP**, PASS.
+- `qt` report ciblé [522236f](https://github.com/fr4nck/Noethys-SL/commit/522236ffe06050878bd38735f051824ca69c81f0) : mêmes blobs métier, **Qt natif non qualifié**.
+- Correspondance SHA des fichiers partagés constatée pour le contrôleur des commandes, la prévalidation PDF/email, le dialogue de contrôle et les deux tests de recette ; aucune fusion globale et aucune création de branche.
+
+**Barrières restantes** : une recette avec utilisateur sur poste Windows (base fictive, modèles et bon du restaurateur) ; gestion des préférences modifiées dans le temps **sans historique natif**, direction multisite partagée entre commandes distinctes **sans déduplication garantie**, questions/choix à configurer manuellement, et validation des autres P1 avant tout candidat RC8.
+
+Voir `docs/metier/REPAS_RC8_VALIDATION.md` et le ticket #430.
+
 ## RC8 — repas sans porc et contrôle avant émission (19/10/2026)
 
 - **Décision** : développer avant RC8 ; aucun tag, release, installateur, migration SQL, envoi d'email ni accès à la production.
