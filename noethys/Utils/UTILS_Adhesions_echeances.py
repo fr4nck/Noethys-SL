@@ -165,53 +165,28 @@ def Executer(proposition_validee, liste_activites=None, IDcompte_payeur=None,
     return resultats
 
 
-def AuditerCotisationsAnticipees(date_reference=None):
-    """Inventaire RC7 en lecture seule, sans regularisation implicite.
+def AuditerCotisationsAnticipees(date_reference=None, lire=None):
+    """Inventaire strict en lecture seule ; aucun appel de régularisation.
 
-    Recherche les cotisations automatiques dont la validite commence apres la
-    saisie OU apres la date du jour, ainsi que les prestations de cotisation
-    qui leur sont liees. Les etats factures/ventiles restent signales :
-    l'operateur doit examiner chaque ligne avant toute correction.
+    Le lecteur optionnel sert à auditer une copie explicitement ouverte en
+    lecture seule (outil tools/auditer_cotisations_rc7.py). Sans lecteur,
+    conservation de l'API historique ; la connexion Noethys est fermée même
+    en erreur. L'outil autonome est recommandé pour ne lire aucun profil réel.
     """
-    jour = A._en_date(date_reference) if date_reference else datetime.date.today()
-    req = """SELECT c.IDcotisation, c.IDindividu, c.date_saisie,
-        c.date_debut, c.date_fin, c.IDprestation,
-        p.date, p.IDfacture,
-        (SELECT COUNT(*) FROM ventilation v
-         WHERE v.IDprestation=c.IDprestation) AS nb_ventilations
-    FROM cotisations c
-    LEFT JOIN prestations p ON p.IDprestation=c.IDprestation
-    WHERE c.observations LIKE '%%[adhesion-auto]%%'
-      AND (c.date_debut > c.date_saisie OR c.date_debut > '%s'
-           OR (p.date IS NOT NULL AND p.date < c.date_debut))
-    ORDER BY c.date_debut, c.IDcotisation;""" % jour
-    lignes = A._lire(req)
-    rapport = []
-    for (IDcotisation, IDindividu, saisie, debut, fin, IDprestation,
-         date_prestation, IDfacture, nb_ventilations) in lignes:
-        date_debut = A._en_date(debut)
-        date_saisie = A._en_date(saisie) if saisie else None
-        date_fin = A._en_date(fin)
-        date_comptable = A._en_date(date_prestation) if date_prestation else None
-        motifs = []
-        if date_saisie is not None and date_debut > date_saisie:
-            motifs.append("validite_anticipee")
-        if date_debut > jour:
-            motifs.append("participation_future")
-        if date_comptable is not None and date_comptable < date_debut:
-            motifs.append("prestation_anticipee")
-        if IDprestation is None or date_comptable is None:
-            motifs.append("prestation_introuvable")
-        rapport.append({
-            "IDcotisation": IDcotisation, "IDindividu": IDindividu,
-            "IDprestation": IDprestation, "date_saisie": date_saisie,
-            "date_debut": date_debut, "date_fin": date_fin,
-            "date_prestation": date_comptable,
-            "IDfacture": IDfacture, "nb_ventilations": nb_ventilations or 0,
-            "motifs": tuple(motifs),
-            "statut": ("reglement_ou_facture_a_regolariser"
-                       if IDfacture or nb_ventilations else
-                       "a_verifier_avant_regularisation"),
-        })
-    return rapport
+    from Utils.UTILS_Audit_cotisations import ConstruireInventaire
+    jour = date_reference if date_reference is not None else datetime.date.today()
+    if lire is not None:
+        return ConstruireInventaire(lire, jour)["lignes"]
+    DB = A.GestionDB.DB()
+    try:
+        if getattr(DB, "echec", 0):
+            raise RuntimeError("Connexion impossible : audit interrompu")
+        def lecteur(req):
+            if DB.ExecuterReq(req) != 1:
+                raise RuntimeError("Erreur SQL : audit interrompu, aucun résultat valide")
+            return DB.ResultatReq()
+        return ConstruireInventaire(lecteur, jour)["lignes"]
+    finally:
+        DB.Close()
+
 

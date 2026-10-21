@@ -11,6 +11,7 @@ on:
       - 'noethys/**'
       - 'tests/**'
       - 'scripts/**'
+      - 'tools/**'
       - 'requirements.txt'
       - 'packaging/**'
       - '.github/workflows/noethys-sl-fast.yml'
@@ -23,6 +24,7 @@ on:
       - 'noethys/**'
       - 'tests/**'
       - 'scripts/**'
+      - 'tools/**'
       - 'requirements.txt'
       - 'packaging/**'
       - '.github/workflows/noethys-sl-fast.yml'
@@ -56,7 +58,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler le code et les tests
-        run: python -m compileall -q -x 'C866CA3A' noethys tests scripts
+        run: python -m compileall -q -x 'C866CA3A' noethys tests scripts tools
 
   tests-windows:
     name: Contrats metier et wxPython - Windows
@@ -107,6 +109,7 @@ jobs:
           tests.test_noethys_sl_profilage_conso
           tests.test_noethys_sl_adhesions
           tests.test_noethys_sl_adhesions_echeances
+          tests.test_noethys_sl_audit_cotisations_rc7
           tests.test_noethys_sl_adhesions_concurrence
           tests.test_noethys_sl_adhesions_titulaire
           tests.test_noethys_sl_adhesions_activites
