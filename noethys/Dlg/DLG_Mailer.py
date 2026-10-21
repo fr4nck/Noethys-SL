@@ -21,6 +21,7 @@ import traceback
 import copy
 import datetime
 import threading
+import time
 import smtplib
 import GestionDB
 from Ctrl import CTRL_Bandeau
@@ -107,6 +108,7 @@ class Dialog(wx.Dialog):
         self.listePiecesJointes = []
         self.listeAnomalies = []
         self.listeSucces = []
+        self._envoi_en_cours = False
 
         # Bandeau
         intro = _(u"Vous pouvez ici expédier des Emails par lot. Sélectionnez une adresse d'expéditeur, un objet, un ou plusieurs destinataires avant de rédiger votre texte. Les Emails sont envoyés par lots afin de contourner les protections anti-spam des opérateurs.")
@@ -449,7 +451,7 @@ class Dialog(wx.Dialog):
     def OnBoutonEnvoyer(self, event):
         self.Envoyer(listeDestinataires=self.ctrl_destinataires.GetDonnees())
 
-    def _ExecuterEnvoiUniqueHorsUI(self, messagerie, message, parent_progress):
+    def _ExecuterEnvoiUniqueHorsUI(self, messagerie, message, parent_progress, index=1, total=1, pause_avant=0):
         """Connexion + envoi d'un message sans bloquer le thread wx.
 
         Le worker ne touche jamais à wx. Les seuls changements visuels sont
@@ -458,9 +460,10 @@ class Dialog(wx.Dialog):
         etat = {"succes": False, "erreur": None, "phase": "connexion"}
         if isinstance(messagerie, UTILS_Envoi_email.Mailjet):
             messagerie.PreparerSuivi()
+        libelle = _(u"Message %d/%d : %s") % (index, total, message.GetLabelDestinataires())
         dlg_attente = _DialogAttenteEnvoi(
             parent_progress,
-            _(u"Connexion au serveur de messagerie…"),
+            _(u"%s — connexion au serveur de messagerie…") % libelle,
         )
 
         def _etape(phase, libelle):
@@ -472,14 +475,16 @@ class Dialog(wx.Dialog):
 
         def _worker():
             try:
+                if pause_avant:
+                    time.sleep(pause_avant)
                 messagerie.Connecter()
-                _etape("envoi", _(u"Envoi du message en cours…"))
+                _etape("envoi", _(u"%s — envoi en cours…") % libelle)
                 try:
                     resultat = messagerie.Envoyer(message)
                 except smtplib.SMTPServerDisconnected:
                     _etape("reconnexion", _(u"Connexion interrompue — reconnexion…"))
                     messagerie.Connecter()
-                    _etape("envoi", _(u"Envoi du message en cours…"))
+                    _etape("envoi", _(u"%s — nouvel essai d'envoi…") % libelle)
                     resultat = messagerie.Envoyer(message)
 
                 if resultat in (False, 0, None):
@@ -550,7 +555,119 @@ class Dialog(wx.Dialog):
                 self.listeSucces = []
                 return False
 
+
+    def _EnvoyerLotMailjetHorsUI(self, dictExp, messages, parent_progress):
+        """Traite un à un les destinataires Mailjet sans appel réseau sur wx.
+
+        Chaque acceptation est historisée sur le thread UI, AVANT le message
+        suivant. Un timeout après émission ne permet pas de présumer l'échec :
+        aucun renvoi automatique, ni bouton "Réessayer" dans ce cas.
+        """
+        self.listeSucces = []
+        self.envoi_complet = False
+        self.listeAnomalies = []
+        try:
+            messagerie = UTILS_Envoi_email.Messagerie(
+                backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
+                utilisateur=dictExp["utilisateur"], motdepasse=dictExp["motdepasse"],
+                email_exp=dictExp["adresse"], nom_exp=dictExp["nom_adresse"],
+                timeout=20, use_tls=dictExp["startTLS"], parametres=dictExp["parametres"],
+            )
+        except Exception as err:
+            dlg = DLG_Messagebox.Dialog(
+                parent_progress, titre=_(u"Erreur"),
+                introduction=_(u"La messagerie ne peut pas être initialisée :"),
+                detail=_FormateErreurMessagerie(err), icone=wx.ICON_ERROR,
+                boutons=[_(u"Ok")],
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        anomalies, non_tentes, historique_incomplet = [], [], []
+        total = len(messages)
+        for index, message in enumerate(messages, 1):
+            premiere_tentative = True
+            while True:
+                etat = self._ExecuterEnvoiUniqueHorsUI(
+                    messagerie, message, parent_progress, index=index, total=total,
+                    pause_avant=1 if index > 1 and premiere_tentative else 0,
+                )
+                premiere_tentative = False
+                if etat["succes"]:
+                    self.listeSucces.append(message)
+                    UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
+                    try:
+                        # Jamais de DB ou de widgets wx depuis le worker réseau.
+                        self.MemorisationHistorique(
+                            message.GetLabelDestinataires(), message.sujet, message=message,
+                        )
+                    except Exception as err:
+                        # L'API a déjà accepté le mail : NE JAMAIS le réémettre
+                        # à cause d'une erreur d'historique local.
+                        historique_incomplet.append(message.GetLabelDestinataires())
+                        print("Historique d'un email accepté indisponible : %s" % _FormateErreurMessagerie(err))
+                    break
+
+                erreur = etat["erreur"] or RuntimeError(_(u"Envoi non confirmé."))
+                detail = _FormateErreurMessagerie(erreur)
+                # Seules une connexion non établie et une réponse 4xx explicite
+                # prouvent ici que l'API n'a pas accepté le message.
+                refus_explicite = (
+                    isinstance(erreur, UTILS_Envoi_email.ErreurMailjet)
+                    and bool(re.search(r"HTTP 4\d\d\b", detail))
+                )
+                retry_sur = etat["phase"] == "connexion" or refus_explicite
+                if not retry_sur:
+                    detail = _(u"État incertain : Mailjet a peut-être accepté ce message. "
+                               u"Vérifiez le suivi Mailjet avant tout nouvel envoi.\n") + detail
+                UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
+                anomalies.append((message, detail))
+                suivants = index < total
+                if retry_sur:
+                    boutons = ([_(u"Réessayer"), _(u"Continuer"), _(u"Arrêter")]
+                               if suivants else [_(u"Réessayer"), _(u"Arrêter")])
+                else:
+                    boutons = ([_(u"Continuer"), _(u"Arrêter")]
+                               if suivants else [_(u"Terminer")])
+                dlg = DLG_Messagebox.Dialog(
+                    parent_progress, titre=_(u"Envoi de l'Email"),
+                    introduction=_(u"Le message %d/%d n'est pas confirmé :") % (index, total),
+                    detail=detail,
+                    conclusion=_(u"Les emails déjà acceptés ne seront pas renvoyés."),
+                    icone=wx.ICON_EXCLAMATION, boutons=boutons,
+                )
+                choix = dlg.ShowModal()
+                dlg.Destroy()
+                if retry_sur and choix == 0:
+                    continue  # Uniquement CE message, jamais les précédents.
+                if suivants and (choix < 0 or choix == (2 if retry_sur else 1)):
+                    non_tentes = messages[index:]
+                break
+            if non_tentes:
+                break
+
+        self.listeAnomalies = anomalies
+        self.envoi_complet = len(self.listeSucces) == total
+        UTILS_Envoi_email._AfficherCompteRendu(
+            messagerie, messages, self.listeSucces, anomalies,
+            non_tentes, self.afficher_confirmation_envoi,
+        )
+        if historique_incomplet:
+            dlg = wx.MessageDialog(
+                parent_progress,
+                _(u"%d email(s) accepté(s) par Mailjet n'ont pas pu être ajoutés "
+                  u"à l'historique local. Ne les renvoyez pas pour cette raison.")
+                % len(historique_incomplet),
+                _(u"Historique des emails"), wx.OK | wx.ICON_EXCLAMATION,
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+        return self.envoi_complet
+
     def Envoyer(self, listeDestinataires=[], adresseTest=None):
+        if getattr(self, '_envoi_en_cours', False):
+            return False
         # Expéditeur
         dictExp = self.ctrl_exp.GetDonnees()
         if dictExp == None :
@@ -706,6 +823,16 @@ class Dialog(wx.Dialog):
                 message = liste_messages[0]
                 self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet, message=message)
             return bool(self.listeSucces)
+
+        # Les confirmations Connecthys cachent le Mailer. L'ancien chemin
+        # Mailjet synchrone bloquait alors wx, surtout pour deux adresses.
+        if dictExp["moteur"] == "mailjet":
+            self._envoi_en_cours = True
+            try:
+                return self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)
+            finally:
+                self._envoi_en_cours = False
+                handler.DeleteTemporaryImages()
 
         dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=parent_progress)
         dlg_progress.SetSize((450, 140))
