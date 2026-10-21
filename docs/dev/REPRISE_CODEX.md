@@ -1,5 +1,19 @@
 # Reprise du chantier Noethys-SL — état au 14/10/2026
 
+## P1 #426 — audit RC7 renforcé et préparation de recette RC8.1 (21/10/2026)
+
+- Correctif limité à l'inventaire : `UTILS_Audit_cotisations`, lecteur autonome explicite SQLite/MySQL local, export HTML/JSON/CSV et fiche comptable vide. Aucune régularisation, aucun appel de création financière, aucune donnée PMSL.
+- Trois lacunes reproduites sur l'audit publié : prestation absente hors filtre temporel omise ; prestation présente sans date confondue avec une absence ; date de fin invalide interrompant le rapport.
+- Contrôles : facture référencée vs pièce présente, ventilations détaillées même à somme nulle, règlements référencés, dates invalides, liens partagés et incohérences de payeur. Totaux dédupliqués par prestation ; validité future n'atteste pas de présence réelle.
+- Qualification locale Linux : **31 PASS / 0 FAIL / 0 SKIP**, tables SQLite du schéma canonique ; interdiction des écritures, empreintes avant/après, exports et erreurs SQL couverts. Compilation des fichiers modifiés PASS.
+- Exemple fictif : 9 automatiques examinées, 8 signalées, 6 prestations distinctes, 45,00 EUR ; aucune donnée PMSL. Guide et commandes : `docs/diagnostics/AUDIT_COTISATIONS_RC7_RECETTE_RC81.md`.
+- Synchronisation ciblée préparée depuis main `0500ff0`, wx `f48cf15`, qt `7e9745a` : les blobs initiaux du service et de la fixture adhésions sont identiques. Les workflows et l'historique de cette passation sont conservés proprement à chaque branche, sans merge global.
+- Matrice de qualification du contenu commun : main / wx / qt = correctif d'audit et tests communs présents dans ce lot, qualification Linux sur contenu commun PASS ; runtime Windows et UI Qt **EN ATTENTE**. Le test est ajouté aux futures CI rapides main/wx ; le workflow ne déclenche pas automatiquement sur qt.
+- **CI distante non relancée** (`[skip ci]`) : aucun téléchargement/installation ni build de paquet déclenché dans ce lot. Les 465 tests Windows et 11 tests MySQL du 19/10 restent des preuves de l'ancienne release, pas du nouvel audit. Aucun pilote MySQL dans le conteneur ; nouveau lecteur MySQL non qualifié sur serveur réel.
+- Recherche des sources actualisées : #426 et son seul commentaire restent datés du 19/10 ; release RC8.1 et passation wx récupérées, recherche d'issues actualisées et documentaire sans attestation terrain plus récente trouvée. Cela ne démontre pas une absence d'opérations locales.
+- **Limites d'exploitation maintenues** : copie isolée identifiée indispensable, recette wx sur copie B jetable, validation comptable nominative. Ne pas modifier les tags/binaires RC7/RC8.1 ni fermer #426 ; aucun poste, production, profil utilisateur ou Connecthys modifié.
+
+
 ## RC8 — Recette fictive des repas, PDF et email (19/10/2026)
 
 **Statut** : développement poursuivi, **RC8 NON PUBLIEE**. Aucune migration SQL, sauvegarde PMSL, accès à la production, téléchargement de paquet, envoi SMTP ou construction d'installateur n'a été effectué dans ce lot.
