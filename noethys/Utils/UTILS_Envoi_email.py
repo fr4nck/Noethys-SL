@@ -99,11 +99,15 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
         # Fenêtre cachée
         dlg.OnBoutonEnvoyer(None)
 
-    if len(dlg.listeSucces) > 0 :
-        resultat = True
+    # Un lot partiellement accepté ne valide pas toute la confirmation
+    # Connecthys, même si les adresses effectivement acceptées sont
+    # conservées dans listeSucces pour le bilan et le suivi.
+    resultat = getattr(dlg, "envoi_complet", len(dlg.listeSucces) > 0)
+    if resultat:
         if log : log.EcritLog(_(u"L'Email a été accepté par le serveur d'envoi."))
-    else :
-        resultat = False
+    elif len(dlg.listeSucces) > 0:
+        if log : log.EcritLog(_(u"Envoi partiel : certains Emails ont été acceptés par le serveur d'envoi."))
+    else:
         if log : log.EcritLog(_(u"L'email n'a pas été envoyé."))
 
     dlg.Destroy()
