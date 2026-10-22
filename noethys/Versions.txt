@@ -1,3 +1,9 @@
+Version Noethys SL 0.1.0 RC9 (22/10/2026) :
+
+- Rétablissement de la sélection par cases à cocher des états existants dans l'état global des consommations : réservation, présent, absence justifiée et absence injustifiée
+- Association des inscriptions éligibles par type de cotisation pour la préparation contrôlée des adhésions
+- Maintien des protections RC8.1 : aucune cotisation automatique à la simple saisie d'une réservation, aucune régularisation automatique des anciens dossiers
+
 Version Noethys SL 0.1.0 RC8.1 (19/10/2026) :
 
 - Correction urgente des adhésions automatiques : préparation des cotisations à l'étape 1 de génération des factures, après participation passée et confirmation explicite, avant l'aperçu
