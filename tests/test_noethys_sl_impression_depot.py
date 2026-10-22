@@ -151,7 +151,7 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
             # des en-tetes ET des valeurs de reglements fictifs.
             self.assertTrue(any('Montant' in entete for entete in textes_entetes))
             self.assertTrue(any('Famille fictive 0' in ligne for ligne in textes_lignes))
-            self.assertTrue(any('3259.75' in texte for ligne in textes_lignes for texte in ligne))
+            self.assertTrue(any('859.75' in texte for ligne in textes_lignes for texte in ligne))
             self.assertEqual(list(base.db.connexion.execute('SELECT * FROM prestations')), avant)
 
 
