@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## P1 — Entrée n'ouvre plus la fiche après recherche d'un individu (22/10/2026)
+
+- **Signal utilisateur** : sur l'écran quotidien « liste/recherche des individus », saisir un nom et laisser un seul individu visible ne permet plus d'ouvrir sa fiche famille avec Entrée ; cela fonctionnait en Vanilla. Aucune donnée de famille produite ici.
+- **Code de la RC8.1 et main/wx/qt avant correctif** : `Ol/OL_Individus.py` possède encore `BarreRecherche.OnEnter` et `OuvrirFiche`. La liaison `wx.EVT_TEXT_ENTER` est conservée, mais un événement non livré par le champ natif wx ou le timer de filtrage en attente peuvent empêcher l'ouverture. Cause physique exacte à contre-vérifier sur Windows.
+- **Correctif interface wx** : [021eaf4](https://github.com/fr4nck/Noethys-SL/commit/021eaf4a1140a3050b87b51a6c0f3b65abd41896) conserve le chemin métier unique `OuvrirFicheFamille(track)`, intercepte `EVT_CHAR_HOOK` dans la barre de recherche, reconnaît Entrée et Entrée numérique, synchronise le filtre sans attendre le timer, évite la réouverture pendant le dialogue modal, ne modifie ni ID, ni DB, ni permissions, ni traitement des familles à rattachements multiples.
+- **Tests** : `tests/test_noethys_sl_recherche_individus_entree.py` ajouté à la CI rapide. Touche Entrée/numpad, autres touches, 1 résultat avec timer en cours, 0 résultat, événement réentrant et garde après exception, contrat de raccordement événementiel. Aucune base réelle, aucun message envoyé. [CI Windows](https://github.com/fr4nck/Noethys-SL/actions/runs/39785197180) **EN ATTENTE** au moment de cette note ; compilation Python passée.
+- **Branches** : `wx` : PRESENT `021eaf4`, test et recette à qualifier ; `main` : ABSENT `76ef824` (correction GUI spécifique) ; `qt` : NON APPLICABLE au widget wx (raccourci UX analogue à spécifier dans l'interface Qt), SHA `bd564a0`. Tag RC8.1 `00f53db` inchangé ; aucune nouvelle branche, aucun packaging.
+- **Recette avant prochain candidat** : sous Windows, vérifier l'ouverture par Entrée depuis le champ de recherche dès qu'une seule ligne reste affichée, avec et sans temporisation, ainsi que zéro résultat, plusieurs familles rattachées, absence de droits, clavier numérique et Ctrl/Shift+doubles-clics. Ne pas annoncer une livraison RC avant cet essai métier.
+
 ## P1 — Aperçu des règlements d'un dépôt vide à l'impression (22/10/2026)
 
 - **Signal de recette** : dans Règlements > Gestion des dépôts > modification d'un dépôt verrouillé > Outils > Aperçu avant impression, le titre et les métadonnées du dépôt s'affichent, mais pas les colonnes ni les lignes des règlements. Capture utilisateur ; cause graphique exacte non encore reproduite sur le poste Windows.
