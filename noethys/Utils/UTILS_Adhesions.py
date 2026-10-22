@@ -132,6 +132,132 @@ def CalculerDateFin(date_debut, duree):
 
 # -------------------------------------------------------------- configuration
 
+# Choix par type de cotisation, independant du declenchement financier.
+MODE_ASSOCIATION_INSCRIPTIONS = "inscriptions"
+MODE_ASSOCIATION_PARTICIPATIONS = "participations"
+MODES_ASSOCIATION = (MODE_ASSOCIATION_INSCRIPTIONS, MODE_ASSOCIATION_PARTICIPATIONS)
+CATEGORIE_MODE_ASSOCIATION = "noethys_sl_adhesions_activites"
+
+
+def LireModeAssociation(IDtype_cotisation, acces=None):
+    """Lit le mode sans ecriture ; absence => inscriptions valides."""
+    nom = "type_%d" % int(IDtype_cotisation)
+    req = ("SELECT parametre FROM parametres WHERE categorie='%s' AND nom='%s';"
+           % (CATEGORIE_MODE_ASSOCIATION, nom))
+    if acces is None:
+        valeurs = _lire(req)
+    else:
+        acces.ExecuterReq(req)
+        valeurs = acces.ResultatReq()
+    if not valeurs:
+        return MODE_ASSOCIATION_INSCRIPTIONS
+    if len(valeurs) != 1 or valeurs[0][0] not in MODES_ASSOCIATION:
+        raise ConfigurationAdhesionInvalide(
+            u"Mode d'association des activites invalide ou ambigu pour le type %s."
+            % IDtype_cotisation)
+    return valeurs[0][0]
+
+
+def EnregistrerModeAssociation(IDtype_cotisation, mode):
+    """Modifie uniquement parametres, jamais cotisations ni prestations."""
+    if mode not in MODES_ASSOCIATION:
+        raise ValueError("Mode d'association inconnu : %r" % (mode,))
+    nom = "type_%d" % int(IDtype_cotisation)
+    DB = GestionDB.DB()
+    try:
+        acces = _AccesStrict(DB)
+        acces.ExecuterReq("""SELECT IDparametre, parametre FROM parametres
+        WHERE categorie='%s' AND nom='%s';""" % (CATEGORIE_MODE_ASSOCIATION, nom))
+        lignes = acces.ResultatReq()
+        if len(lignes) > 1:
+            raise ConfigurationAdhesionInvalide(
+                u"Plusieurs parametrages pour le type %s." % IDtype_cotisation)
+        if not lignes:
+            acces.Inserer("parametres", [
+                ("categorie", CATEGORIE_MODE_ASSOCIATION), ("nom", nom),
+                ("parametre", mode),
+            ])
+        elif lignes[0][1] != mode:
+            acces.Modifier("UPDATE parametres SET parametre=? WHERE IDparametre=?",
+                           (mode, lignes[0][0]))
+        else:
+            return False
+        DB.Commit()
+        return True
+    except Exception:
+        if getattr(DB, "connexion", None) is not None:
+            DB.connexion.rollback()
+        raise
+    finally:
+        DB.Close()
+
+
+def _ActivitesInscriptionsValides(IDtitulaire, date_debut, date_fin, acces):
+    """Toutes les inscriptions 'ok' chevauchant la validite de l'adhesion.
+
+    Pour une structure, chaque inscription est rattachee au titulaire
+    determine par son payeur : aucune fuite entre associations distinctes.
+    """
+    membres = _ParticipantsDuTitulaire(IDtitulaire, acces=acces)
+    if not membres:
+        return set()
+    acces.ExecuterReq("""SELECT IDinscription, IDindividu, IDactivite,
+        IDcompte_payeur, date_inscription, date_desinscription
+        FROM inscriptions WHERE IDindividu IN %s AND statut='ok'
+        AND IDactivite IS NOT NULL AND date_inscription IS NOT NULL
+        AND (parti IS NULL OR parti=0 OR date_desinscription IS NOT NULL)
+        AND date_inscription<='%s'
+        AND (date_desinscription IS NULL OR date_desinscription>='%s')
+        ORDER BY IDindividu, IDinscription;"""
+        % (_liste_sql(membres), date_fin, date_debut))
+    lignes = acces.ResultatReq()
+    activites = set()
+    for IDinscription, IDindividu, IDactivite, IDpayeur, debut, fin in lignes:
+        # Les dates de Noethys sont inclusives aux deux bornes.
+        if (_en_date(debut) > date_fin
+                or (fin and (_en_date(fin) < date_debut or _en_date(fin) < _en_date(debut)))):
+            continue
+        titulaire = ResoudreTitulaire(IDindividu, {
+            "IDcompte_payeur": IDpayeur, "IDinscription": IDinscription,
+        }, acces=acces)
+        if not titulaire["motif"] and titulaire["IDtitulaire"] == IDtitulaire:
+            activites.add(int(IDactivite))
+    return activites
+
+
+def ActualiserActivitesApresInscription(IDinscription, date_reference=None,
+                                       IDutilisateur=None):
+    """Recalcule des associations EXISTANTES apres inscription/modification.
+
+    Aucun appel a CreerAdhesion, aucune prestation, aucune actualisation des
+    cotisations manuelles. Une inscription non valide ne declenche rien.
+    """
+    date_reference = _en_date(date_reference) or datetime.date.today()
+    lignes = _lire("""SELECT IDindividu, IDcompte_payeur, statut
+        FROM inscriptions WHERE IDinscription=%d;""" % int(IDinscription))
+    if len(lignes) != 1 or lignes[0][2] != "ok":
+        return []
+    IDindividu, IDpayeur, _statut = lignes[0]
+    titulaire = ResoudreTitulaire(IDindividu, {
+        "IDcompte_payeur": IDpayeur, "IDinscription": int(IDinscription),
+    })
+    if titulaire["motif"]:
+        return []
+    IDtitulaire = titulaire["IDtitulaire"]
+    types = _lire("""SELECT DISTINCT IDtype_cotisation FROM cotisations
+        WHERE IDindividu=%d AND date_debut<='%s' AND date_fin>='%s'
+        AND observations LIKE '%%[adhesion-auto]%%';"""
+        % (IDtitulaire, date_reference, date_reference))
+    modifies = []
+    for (IDtype_cotisation,) in types:
+        if LireModeAssociation(IDtype_cotisation) == MODE_ASSOCIATION_INSCRIPTIONS:
+            modifies.extend(CompleterActivitesAutomatiques(
+                IDindividu, IDtitulaire, {"IDtype_cotisation": IDtype_cotisation},
+                date_reference=date_reference, IDutilisateur=IDutilisateur))
+    return modifies
+
+
+
 def ResoudreConfiguration(IDtype_cotisation=None, IDunite_cotisation=None):
     """ Résout le type et l'unité d'adhésion.
 
@@ -404,18 +530,23 @@ def ResoudreTitulaire(IDindividu, participation, acces=None):
     return titulaire
 
 
-def _ParticipantsDuTitulaire(IDtitulaire):
+def _ParticipantsDuTitulaire(IDtitulaire, acces=None):
     """ Individus dont les participations relèvent de ce titulaire : tous les
     membres des familles dont il est la personne morale titulaire, sinon
     lui seul. """
-    familles = [ligne[0] for ligne in _lire("""SELECT rattachements.IDfamille
+    def lire(req):
+        if acces is None:
+            return _lire(req)
+        acces.ExecuterReq(req)
+        return acces.ResultatReq()
+    familles = [ligne[0] for ligne in lire("""SELECT rattachements.IDfamille
     FROM rattachements
     JOIN individus ON individus.IDindividu = rattachements.IDindividu
     WHERE rattachements.IDindividu=%d AND rattachements.titulaire=1
     AND individus.IDcivilite IN %s;""" % (IDtitulaire, _liste_sql(CIVILITES_PERSONNE_MORALE)))]
     if not familles:
         return [IDtitulaire]
-    membres = _lire("SELECT IDindividu FROM rattachements WHERE IDfamille IN %s;" % _liste_sql(familles))
+    membres = lire("SELECT IDindividu FROM rattachements WHERE IDfamille IN %s;" % _liste_sql(familles))
     return sorted({IDtitulaire} | {ligne[0] for ligne in membres})
 
 
@@ -631,6 +762,16 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
 
         IDcompte_payeur, IDfamille_payeur = titulaire["IDcompte_payeur"], titulaire["IDfamille"]
 
+        # Une inscription enrichit le libelle des activites, jamais le fait
+        # generateur de la prestation qui reste une participation reelle.
+        activites_initiales = {int(participation["IDactivite"])}
+        if LireModeAssociation(config["IDtype_cotisation"], acces) == MODE_ASSOCIATION_INSCRIPTIONS:
+            activites_initiales.update(_ActivitesInscriptionsValides(
+                IDtitulaire, date_debut, date_fin, acces))
+        chaine_activites = ";".join(str(ID) for ID in sorted(activites_initiales))
+        if len(chaine_activites) > 450:
+            return dict(periode, statut=STATUT_A_VERIFIER, motif="trop_activites")
+
         label = config["label_prestation"] or u"%s - %s" % (config["nom_type"], config["nom_unite"])
         observations = u"%s Créée automatiquement le %s à partir de la participation du %s (%s %s, individu %d)." % (
             MARQUEUR_AUTO, date_reference, date_debut, participation["source"], participation["id"], IDindividu)
@@ -649,7 +790,7 @@ def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutil
                 ("date_fin", str(date_fin)),
                 ("observations", observations),
                 # Format natif du formulaire manuel : IDs separes par ';'.
-                ("activites", str(int(participation["IDactivite"]))),
+                ("activites", chaine_activites),
             ])
             IDprestation = acces.Inserer("prestations", [
                 ("IDcompte_payeur", IDcompte_payeur),
@@ -726,6 +867,7 @@ def CompleterActivitesAutomatiques(IDindividu, IDtitulaire, config, date_referen
                      and _en_date(debut) <= date_reference]
         if not adhesions or _periode_verrouillee(acces, date_reference):
             return []
+        mode = LireModeAssociation(config["IDtype_cotisation"], acces)
         acces.ExecuterReq("SELECT DISTINCT IDactivite FROM cotisations_activites WHERE IDtype_cotisation=%d;"
                           % config["IDtype_cotisation"])
         activites = [ligne[0] for ligne in acces.ResultatReq() if ligne[0] is not None]
@@ -747,6 +889,8 @@ def CompleterActivitesAutomatiques(IDindividu, IDtitulaire, config, date_referen
                 continue
             existantes = {int(x) for x in (chaine or "").split(";") if x}
             nouvelles = {p["IDactivite"] for p in retenues if debut <= p["date"] <= fin}
+            if mode == MODE_ASSOCIATION_INSCRIPTIONS:
+                nouvelles.update(_ActivitesInscriptionsValides(IDtitulaire, debut, fin, acces))
             if nouvelles.issubset(existantes):
                 continue
             chaine = ";".join(str(ID) for ID in sorted(existantes | nouvelles))
@@ -919,6 +1063,7 @@ _LIBELLES_MOTIFS = {
     "participation_modifiee": u"la participation a été annulée ou modifiée depuis la proposition",
     "titulaire_modifie": u"le titulaire de l'adhésion a changé depuis la proposition",
     "activite_non_eligible": u"l'activité n'est plus liée à l'adhésion automatique",
+    "trop_activites": u"la liste des activités dépasse la capacité du champ de cotisation",
 }
 
 
