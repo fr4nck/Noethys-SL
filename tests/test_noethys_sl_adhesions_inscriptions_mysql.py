@@ -13,9 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _garde_reseau  # noqa: F401
 from _fixtures_noethys_db import RedirectionGestionDB
-from test_noethys_sl_adhesions_concurrence import ConcurrenceMySQLTests
+import test_noethys_sl_adhesions_concurrence as concurrence
 import GestionDB
-from Data import DATA_Tables as Tables
 from Utils import UTILS_Adhesions as A
 
 D = datetime.date
@@ -25,10 +24,10 @@ JOUR = D(2026, 10, 15)
 @unittest.skipUnless(os.environ.get("NOETHYS_TEST_MYSQL_HOST"),
                      "MySQL local jetable non configure")
 class AssociationsMySQLTests(unittest.TestCase):
-    setUp = ConcurrenceMySQLTests.setUp
-    tearDown = ConcurrenceMySQLTests.tearDown
-    _nom = ConcurrenceMySQLTests._nom
-    _compter = ConcurrenceMySQLTests._compter
+    setUp = concurrence.ConcurrenceMySQLTests.setUp
+    tearDown = concurrence.ConcurrenceMySQLTests.tearDown
+    _nom = concurrence.ConcurrenceMySQLTests._nom
+    _compter = concurrence.ConcurrenceMySQLTests._compter
 
     def _ouvrir(self):
         return GestionDB.DB(nomFichier=self._nom(self.base), suffixe=None)
@@ -36,7 +35,6 @@ class AssociationsMySQLTests(unittest.TestCase):
     def _preparer(self, avec_participation=True):
         db = self._ouvrir()
         try:
-            db.CreationTable("parametres", dicoDB=Tables.DB_DATA)
             for sql in [
                 "INSERT INTO activites (IDactivite,nom) VALUES (2,'Activite B');",
                 "INSERT INTO activites (IDactivite,nom) VALUES (3,'Activite C');",
