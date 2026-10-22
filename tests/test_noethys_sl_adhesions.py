@@ -26,7 +26,7 @@ TABLES = (
     "individus", "familles", "rattachements", "comptes_payeurs", "activites", "inscriptions",
     "consommations", "prestations", "ventilation", "types_cotisations", "unites_cotisations",
     "cotisations", "cotisations_activites", "periodes_gestion", "historique",
-    "factures", "reglements",
+    "factures", "reglements", "parametres",
 )
 
 

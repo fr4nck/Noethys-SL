@@ -193,17 +193,23 @@ class CheckListBoxCotisations(wx.CheckListBox):
         listeCotisations = DB.ResultatReq()
         if len(listeCotisations) > 0 : 
             listeID = []
-            for IDcotisation_activite, IDtype_cotisation in listeCotisations :
-                liste_ancienne.append(IDtype_cotisation)
+            associations_existantes = {}
+        for IDcotisation_activite, IDtype_cotisation in listeCotisations:
+            liste_ancienne.append(IDtype_cotisation)
+            associations_existantes[IDtype_cotisation] = IDcotisation_activite
         # On rattache les nouveaux type de cotisations
         for IDtype_cotisation in liste_nouvelle :
             if IDtype_cotisation not in liste_ancienne :
                 listeDonnees = [ ("IDactivite", self.IDactivite ), ("IDtype_cotisation", IDtype_cotisation ), ]
                 IDcotisation_activite = DB.ReqInsert("cotisations_activites", listeDonnees)
         # On enlève les anciens types de cotisations
-        for IDtype_cotisation in liste_ancienne :
-            if IDtype_cotisation not in liste_nouvelle :
-                DB.ReqDEL("cotisations_activites", "IDtype_cotisation", IDtype_cotisation)
+        # Supprimer l'association de CETTE activité uniquement.
+        # La suppression par IDtype_cotisation effaçait aussi les liens des
+        # autres activités et pouvait désactiver leurs adhésions obligatoires.
+        for IDtype_cotisation in liste_ancienne:
+            if IDtype_cotisation not in liste_nouvelle:
+                DB.ReqDEL("cotisations_activites", "IDcotisation_activite",
+                          associations_existantes[IDtype_cotisation])
         DB.Close()
         
 # -----------------------------------------------------------------------------------------------------------------------

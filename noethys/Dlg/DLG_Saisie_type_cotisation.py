@@ -67,6 +67,12 @@ class Dialog(wx.Dialog):
         self.ctrl_code_comptable = wx.TextCtrl(self, -1, u"")
         self.label_code_produit_local = wx.StaticText(self, -1, _(u"Code produit local :"))
         self.ctrl_code_produit_local = wx.TextCtrl(self, -1, "")
+        self.label_mode_adhesion = wx.StaticText(self, -1, _(u"Activités associées automatiquement :"))
+        self.ctrl_mode_adhesion = wx.Choice(self, -1, choices=[
+            _(u"Toutes les inscriptions valides (conseillé)"),
+            _(u"Participations constatées uniquement"),
+        ])
+        self.ctrl_mode_adhesion.SetSelection(0)
 
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Ok"), cheminImage="Images/32x32/Valider.png")
@@ -81,6 +87,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOk, self.bouton_ok)
         self.Bind(wx.EVT_BUTTON, self.SetDefaut, self.bouton_defaut)
+        self.Bind(wx.EVT_CHOICE, self.OnTypeCotisation, self.ctrl_type)
         
         if self.IDtype_cotisation == None :
             self.SetTitle(_(u"Saisie d'un type de cotisation"))
@@ -88,6 +95,7 @@ class Dialog(wx.Dialog):
         else:
             self.SetTitle(_(u"Modification d'un type de cotisation"))
             self.Importation()
+        self.OnTypeCotisation(None)
             
             
 
@@ -103,7 +111,10 @@ class Dialog(wx.Dialog):
         self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
         self.bouton_ok.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour valider")))
         self.bouton_annuler.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour annuler")))
-        self.SetMinSize((510, 590))
+        self.ctrl_mode_adhesion.SetToolTip(wx.ToolTip(
+            _(u"Les inscriptions peuvent enrichir une adhésion existante. "
+              u"Elles ne déclenchent pas la création d'une prestation financière.")))
+        self.SetMinSize((650, 590))
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
@@ -136,12 +147,17 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(staticbox_unites, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
 
         staticbox_options = wx.StaticBoxSizer(self.staticbox_options_staticbox, wx.VERTICAL)
-        grid_sizer_options = wx.FlexGridSizer(rows=1, cols=5, vgap=5, hgap=5)
+        grid_sizer_options = wx.FlexGridSizer(rows=2, cols=5, vgap=5, hgap=5)
         grid_sizer_options.Add(self.label_code_comptable, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_options.Add(self.ctrl_code_comptable, 1, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 0)
         grid_sizer_options.Add((5, 5), 0, 0, 0)
         grid_sizer_options.Add(self.label_code_produit_local, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_options.Add(self.ctrl_code_produit_local, 1, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 0)
+        grid_sizer_options.Add(self.label_mode_adhesion, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_options.Add(self.ctrl_mode_adhesion, 1, wx.EXPAND, 0)
+        grid_sizer_options.Add((5, 5), 0, 0, 0)
+        grid_sizer_options.Add((5, 5), 0, 0, 0)
+        grid_sizer_options.Add((5, 5), 0, 0, 0)
         grid_sizer_options.AddGrowableCol(1)
         grid_sizer_options.AddGrowableCol(4)
         staticbox_options.Add(grid_sizer_options, 1, wx.ALL|wx.EXPAND, 10)
@@ -161,6 +177,11 @@ class Dialog(wx.Dialog):
         grid_sizer_base.AddGrowableCol(0)
         self.Layout()
         self.CenterOnScreen()
+
+    def OnTypeCotisation(self, event):
+        # Les règles automatiques visent les adhésions individuelles
+        # (les cotisations familiales restent entièrement manuelles).
+        self.ctrl_mode_adhesion.Enable(self.ctrl_type.GetSelection() == 1)
 
     def Importation(self):
         """ Importation des donnees de la base """
@@ -187,7 +208,12 @@ class Dialog(wx.Dialog):
             self.ctrl_code_produit_local.SetValue(code_produit_local)
         # Mémorisation du DEFAUT
         self.defaut = defaut
-        
+        if type == "individu":
+            from Utils import UTILS_Adhesions
+            mode = UTILS_Adhesions.LireModeAssociation(self.IDtype_cotisation)
+            self.ctrl_mode_adhesion.SetSelection(
+                0 if mode == UTILS_Adhesions.MODE_ASSOCIATION_INSCRIPTIONS else 1)
+
         # Importation des unités de pièces
         req = """SELECT IDunite_cotisation, date_debut, date_fin, 
         defaut, nom, montant, label_prestation, duree
@@ -314,7 +340,26 @@ class Dialog(wx.Dialog):
                 DB.ReqDEL("unites_cotisations", "IDunite_cotisation", IDunite_cotisation)
         
         DB.Close()
-        
+
+        # Option de mode par type d'adhésion : en dehors de la saisie
+        # financière, sans migration de schéma de la base historique.
+        if type == "individu":
+            from Utils import UTILS_Adhesions
+            mode = (UTILS_Adhesions.MODE_ASSOCIATION_INSCRIPTIONS
+                    if self.ctrl_mode_adhesion.GetSelection() == 0
+                    else UTILS_Adhesions.MODE_ASSOCIATION_PARTICIPATIONS)
+            try:
+                UTILS_Adhesions.EnregistrerModeAssociation(self.IDtype_cotisation, mode)
+            except Exception as err:
+                dlg = wx.MessageDialog(
+                    self, _(u"Le type de cotisation a été enregistré mais pas son "
+                            u"mode d'association des activités :\n%s") % err,
+                    _(u"Paramétrage incomplet"), wx.OK | wx.ICON_ERROR,
+                )
+                dlg.ShowModal()
+                dlg.Destroy()
+                return False
+
         # Fermeture
         self.EndModal(wx.ID_OK)
 

@@ -699,6 +699,27 @@ class Page_Activite(wx.Panel):
                 dlg.ShowModal()
                 dlg.Destroy()
 
+        # Association des activités à une adhésion automatique existante.
+        # Ce hook n'appelle JAMAIS la création financière : RC8.1 reste
+        # protégée contre une facturation anticipée par simple inscription.
+        if self.IDinscription is not None:
+            from Utils import UTILS_Adhesions
+            try:
+                UTILS_Adhesions.ActualiserActivitesApresInscription(self.IDinscription)
+            except Exception as err:
+                import traceback
+                traceback.print_exc()
+                dlg = wx.MessageDialog(
+                    self,
+                    _(u"L'inscription a été enregistrée, mais ses activités n'ont pas "
+                      u"pu être ajoutées à l'adhésion automatique existante. "
+                      u"Aucune cotisation supplémentaire n'a été créée.\n\n%s") % err,
+                    _(u"Association des activités non actualisée"),
+                    wx.OK | wx.ICON_EXCLAMATION,
+                )
+                dlg.ShowModal()
+                dlg.Destroy()
+
         return self.IDinscription
 
     def GetCompteFamille(self, IDfamille=None):
