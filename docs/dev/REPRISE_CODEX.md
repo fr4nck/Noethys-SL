@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — Associations automatiques inscriptions (22/10/2026, non qualifiées)
+
+- **Décision fonctionnelle** : par type de cotisation individuelle, mode par défaut `inscriptions` (toutes inscriptions au statut `ok` qui chevauchent l'adhésion) ; alternative `participations`. Un seul tarif et une seule échéance. Les nouvelles inscriptions complètent uniquement les adhésions automatiques déjà créées, sans prestation nouvelle ; les adhésions manuelles restent inchangées et aucun lien historique n'est supprimé.
+- **Moteur commun publié** : `main` [cf30a6e](https://github.com/fr4nck/Noethys-SL/commit/cf30a6e9a3033d41f4710f8a7ea69dc2bbdf9a6a), `wx` [6e8d310](https://github.com/fr4nck/Noethys-SL/commit/6e8d310da1865377b23fe72dec7ec03a12122369), `qt` [7f38d33](https://github.com/fr4nck/Noethys-SL/commit/7f38d333de453d6f1ebc6d26366408aca1d01d97). Blob moteur `b6d7465bb3f49ab0a7ec7d584290bdb709a34310` identique sur les trois ; option stockée par type dans `parametres` (schéma inchangé). Le moteur de création est toujours conditionné à la participation et à la validation RC8.1.
+- **wx** : choix dans `DLG_Saisie_type_cotisation`, hook après commit dans `DLG_Inscription`, garde sur la suppression de liens `cotisations_activites` limitée à `IDcotisation_activite` pour ne plus retirer le même type d'autres activités.
+- **Tests ajoutés au manifeste CI** : `tests/test_noethys_sl_adhesions_inscriptions.py` (13 scénarios fictifs SQLite), `tests/test_noethys_sl_adhesions_inscriptions_wx.py` (3 contrats statiques UI wx uniquement). Aucun accès aux bases PMSL ni envoi réseau.
+- **Statut d'exécution** : **tests NON EXÉCUTÉS pour ce lot** ; commits marqués `[skip ci]` afin de ne déclencher aucun téléchargement de dépendances sans consentement. PASS/FAIL non disponibles ; ne pas reprendre les chiffres des CI antérieures comme preuve de RC9. Aucune RC9, aucun binaire, aucun tag ni workflow de packaging créé.
+- **Barrière obligatoire** : autorisation préalable avant tests CI qui téléchargent des dépendances, puis vérifier compilation, suite SQLite et MySQL de recette, inspection réelle des écrans wx, comportement sur inscription sans participation, passage de groupe, facture inchangée et périodes verrouillées. Publication d'une candidate RC9 séparée, seulement après qualification. Une adaptation de l'écran Qt natif reste à faire lorsque l'édition Qt sera disponible.
+- **Spécification** : `docs/metier/ADHESIONS_MULTI_ACTIVITES_RC9.md`. Les correctifs précédents Mailjet, impression des dépôts et Entrée/fiche famille restent présents sur `wx`.
+
 ## P1 — Entrée n'ouvre plus la fiche après recherche d'un individu (22/10/2026)
 
 - **Signal utilisateur** : sur l'écran quotidien « liste/recherche des individus », saisir un nom et laisser un seul individu visible ne permet plus d'ouvrir sa fiche famille avec Entrée ; cela fonctionnait en Vanilla. Aucune donnée de famille produite ici.
