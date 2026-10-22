@@ -154,7 +154,7 @@ class EchecEcritureTests(unittest.TestCase):
 
 TABLES_MYSQL = ("individus", "familles", "rattachements", "comptes_payeurs", "activites", "inscriptions",
                 "consommations", "prestations", "ventilation", "types_cotisations", "unites_cotisations",
-                "cotisations", "cotisations_activites", "periodes_gestion", "historique")
+                "cotisations", "cotisations_activites", "periodes_gestion", "historique", "parametres")
 
 
 @unittest.skipUnless(os.environ.get("NOETHYS_TEST_MYSQL_HOST"), "serveur MySQL local de test non déclaré (NOETHYS_TEST_MYSQL_*)")
