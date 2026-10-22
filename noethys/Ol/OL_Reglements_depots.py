@@ -46,6 +46,93 @@ def DateEngEnDateDD(dateEng):
         
         
     
+
+class _CelluleImpressionDepot(object):
+    """Valeur d'impression figee : aucune dependance a la grille wx active."""
+    def __init__(self, texte):
+        self.texte = u"" if texte is None else str(texte)
+
+    def GetText(self):
+        return self.texte
+
+    def GetImage(self):
+        return -1
+
+
+class _ColonneImpressionDepot(_CelluleImpressionDepot):
+    def __init__(self, titre, largeur, alignement):
+        _CelluleImpressionDepot.__init__(self, titre)
+        self.largeur = largeur
+        self.alignement = alignement
+
+    def GetAlign(self):
+        return self.alignement
+
+
+class _VueImpressionDepot(object):
+    """Instantane en lecture seule pour ListCtrlPrinter.
+
+    Le moteur d'impression attend une interface de type wx.ListCtrl, mais
+    n'utilise que les accesseurs exposes ici. Ainsi, ni les colonnes masquees
+    ni les controles d'edition du depot ne conditionnent son contenu.
+    """
+    useExpansionColumn = False
+    ctrl_footer = None
+
+    def __init__(self, liste, tracks):
+        self.liste = liste
+        gauche = wx.LIST_FORMAT_LEFT
+        droit = wx.LIST_FORMAT_RIGHT
+        self.colonnes = [
+            _ColonneImpressionDepot(_(u"Date"), 85, gauche),
+            _ColonneImpressionDepot(_(u"Mode"), 105, gauche),
+            _ColonneImpressionDepot(_(u"Émetteur"), 125, gauche),
+            _ColonneImpressionDepot(_(u"N° pièce"), 85, gauche),
+            _ColonneImpressionDepot(_(u"Famille"), 155, gauche),
+            _ColonneImpressionDepot(_(u"Payeur"), 135, gauche),
+            _ColonneImpressionDepot(_(u"Montant"), 90, droit),
+            _ColonneImpressionDepot(_(u"Observations"), 135, gauche),
+        ]
+        self.lignes = []
+        for track in tracks:
+            montant = u"%.2f %s" % (track.montant or 0.0, SYMBOLE)
+            date = DateEngFr(str(track.date)) if track.date is not None else u""
+            self.lignes.append(tuple(map(_CelluleImpressionDepot, (
+                date, track.nom_mode, track.nom_emetteur, track.numero_piece,
+                track.nomTitulaires, track.nom_payeur, montant, track.observations,
+            ))))
+
+    def GetTopLevelParent(self):
+        return self.liste.GetTopLevelParent()
+
+    def InReportView(self):
+        return True
+
+    def GetColumnCount(self):
+        return len(self.colonnes)
+
+    def GetColumn(self, index):
+        return self.colonnes[index]
+
+    def GetColumnWidth(self, index):
+        return self.colonnes[index].largeur
+
+    def GetItemCount(self):
+        return len(self.lignes)
+
+    def GetItem(self, ligne, colonne):
+        return self.lignes[ligne][colonne]
+
+    def IsVirtual(self):
+        return False
+
+    def GetItemFont(self, ligne):
+        return None
+
+    def GetItemTextColour(self, ligne):
+        return None
+
+
 class ListView(FastObjectListView):
     def __init__(self, *args, **kwds):
         # Récupération des paramêtres perso
@@ -383,6 +470,50 @@ class ListView(FastObjectListView):
 
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def _ImprimerReleveDepot(self, apercu):
+        """Imprime les reglements inclus, pas l'etat graphique de la grille."""
+        if not self.donnees:
+            dlg = wx.MessageDialog(
+                self, _(u"Aucun règlement n'est associé à ce dépôt dans la liste actuelle. "
+                          u"L'aperçu ne peut pas contenir de lignes."),
+                _(u"Dépôt sans règlements"), wx.OK | wx.ICON_INFORMATION,
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        try:
+            from Utils import UTILS_Printer
+            vue = _VueImpressionDepot(self, list(self.donnees))
+            parametres = self.GetParametresImpression()
+            prt = UTILS_Printer.ObjectListViewPrinter(
+                vue, titre=parametres["titre"], intro=parametres["intro"],
+                total=parametres["total"], format="A",
+                orientation=parametres["orientation"],
+            )
+            return prt.Preview() if apercu else prt.Print()
+        except Exception:
+            import sys
+            import traceback
+            traceback.print_exc(file=sys.stdout)
+            dlg = wx.MessageDialog(
+                self,
+                _(u"Impossible d'ouvrir l'aperçu ou l'impression de cette liste.\n\n"
+                  u"Le détail de l'erreur est dans le journal de Noethys."),
+                _(u"Erreur d'impression"), wx.OK | wx.ICON_ERROR,
+            )
+            try:
+                dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+            return False
+
+    def Apercu(self, event=None):
+        return self._ImprimerReleveDepot(apercu=True)
+
+    def Imprimer(self, event=None):
+        return self._ImprimerReleveDepot(apercu=False)
 
     def GetParametresImpression(self):
         if self.GetGrandParent().GetName() == "DLG_Saisie_depot" :

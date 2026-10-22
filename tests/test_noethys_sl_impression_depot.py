@@ -4,6 +4,7 @@
 Aucun pilote d'impression, spool, PDF, email ni profil de production utilise.
 """
 import subprocess
+import datetime
 import sys
 import unittest
 from pathlib import Path
@@ -34,9 +35,17 @@ class ImpressionDepotTests(unittest.TestCase):
         with patch.object(Depot.UTILS_Titulaires, 'GetTitulaires', return_value={}):
             self.liste = Depot.ListView(panel, style=wx.LC_REPORT)
         self.liste.SetColumns([ColumnDefn('Famille', 'left', 180, 'nom'), ColumnDefn('Montant', 'right', 90, 'montant')])
-        self.liste.donnees = [SimpleNamespace(nom='Famille fictive %d' % i, IDmode=1, nom_mode='Chèque',
-                                             montant=50.0 if i < 48 else 859.75, inclus=True)
-                               for i in range(49)]
+        self.liste.donnees = [
+            SimpleNamespace(
+                nom='Famille fictive %d' % i,
+                nomTitulaires='Famille fictive %d' % i,
+                IDmode=1, nom_mode='Chèque', montant=50.0 if i < 48 else 859.75,
+                date=datetime.date(2026, 10, 20), nom_emetteur='Emetteur test',
+                numero_piece='C-%03d' % i, nom_payeur='Payeur fictif',
+                observations='Observation fictive', inclus=True,
+            )
+            for i in range(49)
+        ]
         self.liste.SetObjects(self.liste.donnees)
 
     def test_import_sans_repertoire_outils_sur_sys_path(self):
@@ -71,6 +80,13 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
             classe.return_value.Print.assert_called_once_with()
             self.assertEqual(classe.call_count, 2)
             for appel in classe.call_args_list:
+                vue = appel.args[0]
+                self.assertIsInstance(vue, Depot._VueImpressionDepot)
+                self.assertEqual(vue.GetItemCount(), 49)
+                self.assertEqual(vue.GetColumnCount(), 8)
+                self.assertIn('Famille fictive 0', vue.GetItem(0, 4).GetText())
+                self.assertEqual(vue.GetColumn(6).GetText(), 'Montant')
+                self.assertFalse(vue.useExpansionColumn)
                 self.assertEqual(appel.kwargs['orientation'], wx.LANDSCAPE)
                 self.assertIn('3259.75', appel.kwargs['total'])
                 self.assertIn('49', appel.kwargs['total'])
@@ -81,36 +97,85 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
                 patch.object(P.ObjectListViewPrinter, 'GetNomOrganisateur', return_value='Organisme fictif'):
             avant = list(base.db.connexion.execute('SELECT * FROM prestations'))
             vrai_dialogue = P.DLG_Options_impression_listes.Dialog
+            vue = Depot._VueImpressionDepot(self.liste, self.liste.donnees)
             with patch.object(P.DLG_Options_impression_listes, 'Dialog', wraps=vrai_dialogue) as constructeur:
-                imprimante = P.ObjectListViewPrinter(self.liste, **self.liste.GetParametresImpression())
+                imprimante = P.ObjectListViewPrinter(vue, **self.liste.GetParametresImpression())
                 self.assertTrue(imprimante.InitParametres())
+            self.assertIs(imprimante.printer.engine.listCtrls[0][0], vue)
+            self.assertEqual(vue.GetItemCount(), 49)
                 self.assertIs(constructeur.call_args.args[0], self.frame)
             self.assertIn('3259.75', P.ListCtrlPrinter.LISTFOOTER)
             bitmap = wx.Bitmap(1100, 750)
             dc = wx.MemoryDC(bitmap)
+            textes_lignes = []
+            textes_entetes = []
+            classe_ligne = P.ListCtrlPrinter.RowBlock
+            classe_entete = P.ListCtrlPrinter.ColumnHeaderBlock
+            original_ligne = classe_ligne.GetTexts
+            original_entete = classe_entete.GetTexts
+
+            def lire_ligne(bloc):
+                textes = original_ligne(bloc)
+                textes_lignes.append(textes)
+                return textes
+
+            def lire_entete(bloc):
+                textes = original_entete(bloc)
+                textes_entetes.append(textes)
+                return textes
             try:
                 dc.SetBackground(wx.WHITE_BRUSH)
                 dc.Clear()
                 bounds = wx.Rect(10, 10, 1080, 730)
-                pages = imprimante.printer.CalculateTotalPages(dc, bounds)
-                self.assertGreater(pages, 0)
-                imprimante.printer.StartPrinting()
-                for page in range(1, pages + 1):
-                    encore = imprimante.printer.PrintPage(dc, page, bounds)
-                self.assertFalse(encore)  # False signifie derniere page, pas une erreur.
-                self.assertEqual(imprimante.printer.engine.currentPage, pages)
-                # Le meme rendu via le callback wx doit reussir jusqu'a la
-                # derniere page : False ici annulerait le travail natif.
-                printout = imprimante.printer.printout
-                printout.bounds = bounds
-                with patch.object(printout, 'GetDC', return_value=dc), patch.object(printout, 'SetScaleAndBounds'):
+                with patch.object(classe_ligne, 'GetTexts', lire_ligne), \
+                     patch.object(classe_entete, 'GetTexts', lire_entete):
+                    pages = imprimante.printer.CalculateTotalPages(dc, bounds)
+                    self.assertGreater(pages, 0)
+                    imprimante.printer.StartPrinting()
                     for page in range(1, pages + 1):
-                        self.assertTrue(printout.OnPrintPage(page))
+                        encore = imprimante.printer.PrintPage(dc, page, bounds)
+                    self.assertFalse(encore)  # False signifie derniere page, pas une erreur.
+                    self.assertEqual(imprimante.printer.engine.currentPage, pages)
+                    # Le meme rendu via le callback wx doit reussir jusqu'a la
+                    # derniere page : False ici annulerait le travail natif.
+                    printout = imprimante.printer.printout
+                    printout.bounds = bounds
+                    with patch.object(printout, 'GetDC', return_value=dc), patch.object(printout, 'SetScaleAndBounds'):
+                        for page in range(1, pages + 1):
+                            self.assertTrue(printout.OnPrintPage(page))
             finally:
                 dc.SelectObject(wx.NullBitmap)
             pixels = bytes(bitmap.ConvertToImage().GetData())
             self.assertTrue(any(pixel != 255 for pixel in pixels))
+            # Le titre ne suffit plus : le moteur doit avoir reellement lu
+            # des en-tetes ET des valeurs de reglements fictifs.
+            self.assertTrue(any('Montant' in entete for entete in textes_entetes))
+            self.assertTrue(any('Famille fictive 0' in ligne for ligne in textes_lignes))
+            self.assertTrue(any('3259.75' in texte for ligne in textes_lignes for texte in ligne))
             self.assertEqual(list(base.db.connexion.execute('SELECT * FROM prestations')), avant)
+
+
+    def test_snapshot_ne_depend_pas_des_colonnes_graphiques_ni_du_retri(self):
+        vue = Depot._VueImpressionDepot(self.liste, self.liste.donnees)
+        self.assertEqual(vue.GetColumnCount(), 8)
+        self.assertEqual(vue.GetItemCount(), 49)
+        self.assertEqual(vue.GetColumn(4).GetText(), 'Famille')
+        self.assertEqual(vue.GetItem(0, 4).GetText(), 'Famille fictive 0')
+        self.assertEqual(vue.GetItem(48, 6).GetText(), '859.75 €')
+        self.assertIs(vue.GetTopLevelParent(), self.frame)
+        self.liste.SetObjects([])
+        self.assertEqual(vue.GetItemCount(), 49)
+        self.assertEqual(vue.GetItem(0, 4).GetText(), 'Famille fictive 0')
+
+    def test_depot_sans_reglements_interdit_un_apercu_vide(self):
+        self.liste.donnees = []
+        self.liste.SetObjects([])
+        with patch.object(Depot.wx, 'MessageDialog') as alerte, \
+             patch.object(P, 'ObjectListViewPrinter') as constructeur:
+            self.assertFalse(self.liste.Apercu())
+            constructeur.assert_not_called()
+            alerte.return_value.ShowModal.assert_called_once_with()
+            self.assertIn('Aucun règlement', alerte.call_args.args[1])
 
     def test_epaisseurs_fractionnaires_acceptables_par_wx(self):
         for largeur, attendu in ((.25, 0), (.75, 1), (1.5, 2), (2, 2)):
