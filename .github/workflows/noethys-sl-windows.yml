@@ -1,4 +1,5 @@
-name: Noethys SL wx - candidat 0.1.0 RC4 Windows
+name: Noethys SL wx - Construction Windows (selectionner wx)
+run-name: "Noethys SL wx - ancien candidat RC4 (branche main)"
 
 # Fabrication de qualification uniquement sur demande. Aucune release.
 on:
