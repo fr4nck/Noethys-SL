@@ -1,0 +1,92 @@
+name: Noethys SL - qualification RC9 MySQL sans publication
+
+# Tests uniquement : aucun installateur, tag ou release.
+# Sur push, exécution uniquement si commit [qualif rc9].
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-rc9-qualification.yml'
+      - 'tests/test_noethys_sl_adhesions_inscriptions_mysql.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-rc9-mysql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mysql-jetable-windows:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[qualif rc9]')
+    name: Adhésions RC9 / MySQL 5.7.44 jetable (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
+      NOETHYS_TEST_MYSQL_PORT: '3399'
+      NOETHYS_TEST_MYSQL_USER: recette_rc9
+      NOETHYS_TEST_MYSQL_PASSWORD: 'dummy-recette-rc9'
+      NOETHYS_TEST_MYSQL_EXIGER: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Dépendances isolées de tests (sans packaging)
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Échec des dépendances Noethys' }
+          python -m pip install pyttsx3 wxPython==4.2.5
+          if ($LASTEXITCODE -ne 0) { throw 'Échec des dépendances Windows wx' }
+
+      - name: Vérification syntaxique des modules et tests RC9
+        shell: pwsh
+        run: |
+          python -m py_compile noethys/Utils/UTILS_Adhesions.py tests/test_noethys_sl_adhesions_inscriptions.py tests/test_noethys_sl_adhesions_inscriptions_mysql.py
+          if ($LASTEXITCODE -ne 0) { throw 'Syntaxe RC9 invalide' }
+
+      - name: Télécharger MySQL 5.7.44 officiel avec SHA-256 épinglé
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $zip
+          $sha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($sha -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Empreinte inattendue du serveur de test : $sha"
+          }
+          Write-Host 'Archive officielle vérifiée : SHA-256 conforme.'
+
+      - name: Recette en vraie base MySQL locale éphémère
+        shell: pwsh
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP 'mysql57-recette-rc9'
+          python -c "import sys, zipfile; z=zipfile.ZipFile(sys.argv[1]); [z.extract(m,sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m == 'mysql-5.7.44-winx64/bin/mysqld.exe']" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
+          if ($LASTEXITCODE -ne 0) { throw 'Extraction MySQL en échec' }
+          $root = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'data'
+          & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation du serveur MySQL jetable en échec' }
+          $serveur = Start-Process -WindowStyle Hidden -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root", "--datadir=$data", '--port=3399',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8'
+          )
+          try {
+            python tests/recette_mysql_jetable_preparer.py
+            if ($LASTEXITCODE -ne 0) { throw 'Initialisation utilisateur de recette en échec' }
+            python -m unittest -v tests.test_noethys_sl_adhesions_inscriptions_mysql tests.test_noethys_sl_adhesions_concurrence.ConcurrenceMySQLTests tests.test_noethys_sl_adhesions_activites.ConcurrenceActivitesMySQLTests
+            if ($LASTEXITCODE -ne 0) { throw 'Échec tests RC9 MySQL' }
+          }
+          finally {
+            Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
+          }
