@@ -191,9 +191,8 @@ class CheckListBoxCotisations(wx.CheckListBox):
         FROM cotisations_activites WHERE IDactivite=%d;""" % self.IDactivite
         DB.ExecuterReq(req)
         listeCotisations = DB.ResultatReq()
-        if len(listeCotisations) > 0 : 
-            listeID = []
-            associations_existantes = {}
+        # Initialisation même si l'activité n'a encore aucun lien.
+        associations_existantes = {}
         for IDcotisation_activite, IDtype_cotisation in listeCotisations:
             liste_ancienne.append(IDtype_cotisation)
             associations_existantes[IDtype_cotisation] = IDcotisation_activite
