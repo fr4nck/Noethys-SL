@@ -103,7 +103,7 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
                 self.assertTrue(imprimante.InitParametres())
             self.assertIs(imprimante.printer.engine.listCtrls[0][0], vue)
             self.assertEqual(vue.GetItemCount(), 49)
-                self.assertIs(constructeur.call_args.args[0], self.frame)
+            self.assertIs(constructeur.call_args.args[0], self.frame)
             self.assertIn('3259.75', P.ListCtrlPrinter.LISTFOOTER)
             bitmap = wx.Bitmap(1100, 750)
             dc = wx.MemoryDC(bitmap)
