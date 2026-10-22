@@ -1,6 +1,6 @@
 # Noethys-SL — Association automatique multi-activités (candidat RC9)
 
-Date : 22 octobre 2026. **État : code préparé ; recette et publication RC9 suspendues.**
+Date : 22 octobre 2026. **État : tests Windows/SQLite et MySQL PASS ; recette de l'interface et publication RC9 suspendues.**
 
 ## Contrat métier validé
 
@@ -84,8 +84,23 @@ Tests conçus :
 - contrats de l'interface wx et non-destruction des associations des autres
   activités lors du décochage d'une cotisation requise.
 
-**Barrières avant RC9** : tests effectivement exécutés et chiffrés
-(PASS/FAIL/SKIP) sur CI Windows, MySQL jetable, recette de la vraie fenêtre
-avec base de test et contrôle du comportement financier RC8.1. Pas de
-publication de release, tag, installeur ni déploiement sans ces preuves.
+**Qualifications réalisées sur `wx` après accord de téléchargement GitHub** :
+- [Windows / SQLite](https://github.com/fr4nck/Noethys-SL/actions/runs/39803880546) :
+  **863 tests exécutés, 853 PASS / 0 FAIL / 10 SKIP**, nouveaux tests
+  d'adhésions et anciens contrôles Mailjet, impressions, familles inclus.
+- [Windows / MySQL officiel 5.7.44](https://github.com/fr4nck/Noethys-SL/actions/runs/39804841036) :
+  **7 PASS / 0 FAIL / 0 SKIP**, dont 4 nouveaux scénarios et 3
+  contrôles de concurrence / transaction. Empreinte officielle vérifiée,
+  serveur local éphémère démarré puis arrêté.
+- La première exécution MySQL a échoué sur 3 **anciennes fixtures**
+  dépourvues de la table fictive `parametres`; la fixture a été corrigée
+  et les 7 tests ont réussi ensuite. Pas de correction du schéma de production.
+
+**Barrières restantes avant RC9** : recette visuelle/fonctionnelle de
+l'écran de paramétrage et de l'ajout d'inscription sur Windows avec une base
+fictive, vérification explicite d'absence de facturation anticipée et
+contrôle des scénarios limites (nouveau groupe, dates, verrouillage).
+Les tests automatisés ne valident pas encore le comportement de la
+fenêtre et des interactions physiques. Aucune publication de release,
+tag, installateur ni déploiement n'est autorisée à ce stade.
 Aucune lecture ni modification des bases PMSL de production.
