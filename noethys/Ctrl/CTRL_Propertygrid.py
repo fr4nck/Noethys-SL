@@ -197,27 +197,37 @@ class Propriete_multichoix(ArrayStringProperty):
         return (True, liste_id)
 
     def OnEvent(self, propgrid, primaryEditor, event):
-        if event.GetEventType() == wx.wxEVT_COMMAND_BUTTON_CLICKED:
-            dlg = wx.MultiChoiceDialog(propgrid, _(u"Cochez les éléments à sélectionner :"), _(u"sélection"), [x[1] for x in self.liste_choix])
-            liste_index = []
-            index = 0
-            for id, valeur in self.liste_choix :
-                if id in (self.m_value or []):
-                    liste_index.append(index)
-                index += 1
-            dlg.SetSelections(liste_index)
-            if dlg.ShowModal() == wx.ID_OK:
-                liste_id = []
-                for index in dlg.GetSelections() :
-                    liste_id.append(self.liste_choix[index][0])
-                self.SetValueInEvent(liste_id)
-                retval = True
-            else:
-                retval = False
-            dlg.Destroy()
-            return retval
-        return False
+        if event.GetEventType() != wx.wxEVT_COMMAND_BUTTON_CLICKED:
+            return False
 
+        # Keep the existing choice IDs and values; only replace the selection
+        # dialog because wx.MultiChoiceDialog can show an empty list on Windows.
+        dlg = wx.Dialog(propgrid, title=_(u"Sélection"),
+                        style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        try:
+            layout = wx.BoxSizer(wx.VERTICAL)
+            layout.Add(wx.StaticText(dlg, label=_(u"Cochez les éléments à sélectionner :")),
+                       0, wx.ALL, 10)
+            liste = wx.CheckListBox(dlg, choices=[label for identifiant, label in self.liste_choix])
+            selections = self.GetValue() or []
+            for index, (identifiant, label) in enumerate(self.liste_choix):
+                liste.Check(index, identifiant in selections)
+            layout.Add(liste, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+            buttons = dlg.CreateButtonSizer(wx.OK | wx.CANCEL)
+            if buttons:
+                layout.Add(buttons, 0, wx.EXPAND | wx.ALL, 10)
+            dlg.SetSizer(layout)
+            dlg.SetMinSize((340, 260))
+            dlg.Fit()
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            self.SetValueInEvent([
+                identifiant for index, (identifiant, label) in enumerate(self.liste_choix)
+                if liste.IsChecked(index)
+            ])
+            return True
+        finally:
+            dlg.Destroy()
 
 
 # -------------------------------------------------------------------------------------------------
