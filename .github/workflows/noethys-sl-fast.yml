@@ -164,6 +164,7 @@ jobs:
           tests.test_audit_reseau_connecthys
           tests.test_accueil_logo_organisateur
           tests.test_individu_rattachement_hardening
+          tests.test_noethys_sl_recherche_individus_entree
           tests.test_branch_contracts_batch_16
           tests.test_tarification_track_filter_delete
           tests.test_branch_contracts_batch_17

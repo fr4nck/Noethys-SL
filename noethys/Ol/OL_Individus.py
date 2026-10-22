@@ -809,6 +809,7 @@ class BarreRecherche(wx.SearchCtrl):
         self.parent = parent
         self.historique = historique
         self.ouvrir_fiche = False
+        self._ouverture_entree_en_cours = False
         
         self.SetDescriptiveText(_(u"Rechercher un individu..."))
         self.ShowSearchButton(True)
@@ -828,6 +829,11 @@ class BarreRecherche(wx.SearchCtrl):
         self.Bind(wx.EVT_TIMER, self.Recherche, self.timer)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.OnDestroyRecherche)
 
+        # SearchCtrl encapsule un champ natif : EVT_TEXT_ENTER seul ne
+        # remonte pas toujours depuis ce champ sous wxPython/Phoenix Windows.
+        # CHAR_HOOK intercepte Entree depuis la saisie, sans retirer la voie
+        # EVT_TEXT_ENTER historique utilisee sur les autres plateformes.
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnKeyDown)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.OnSearch)
         self.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self.OnCancel)
@@ -851,17 +857,34 @@ class BarreRecherche(wx.SearchCtrl):
         event.Skip()
 
     def OnKeyDown(self, event):
-        """ Efface tout si touche ECHAP """
+        """Raccourcis valides aussi depuis le champ natif de wx.SearchCtrl."""
         keycode = event.GetKeyCode()
-        if keycode == wx.WXK_ESCAPE :
-            self.OnCancel(None) 
+        if keycode in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            # Consommer la touche, sinon le champ peut emettre un second
+            # EVT_TEXT_ENTER apres l'ouverture de la boite modale.
+            self.OnEnter(None)
+            return
+        if keycode == wx.WXK_ESCAPE:
+            self.OnCancel(None)
+            return
         event.Skip()
 
     def OnEnter(self, evt):
-        if self.timer.IsRunning():
-            self.ouvrir_fiche = True
-        else :
+        """Rechercher immediatement, puis ouvrir la fiche du resultat.
+
+        Le timer est un debounce de saisie, pas une condition d'ouverture.
+        Ce garde protege contre une double livraison des evenements natifs
+        pendant que la fiche famille modale est affichée.
+        """
+        if self._ouverture_entree_en_cours:
+            return
+        self._ouverture_entree_en_cours = True
+        try:
+            self.ouvrir_fiche = False
+            self.Recherche()
             self.OuvrirFiche()
+        finally:
+            self._ouverture_entree_en_cours = False
 
     def OuvrirFiche(self):
         listeObjets = self.listView.GetFilteredObjects()
