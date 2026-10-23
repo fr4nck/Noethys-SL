@@ -964,14 +964,18 @@ class Dialog(wx.Dialog):
         self.ctrl_options.SetMinSize((-1, 130))
 
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
+        # Bouton CAF / AFAS masqué provisoirement (23/10/2026) : le calcul AFAS V1
+        # n'est pas qualifié pour une déclaration CAF. Le code AFAS (OnAFAS,
+        # DLG_AFAS_Actualisation, Utils) est conservé mais n'est plus raccordé.
+        # Voir docs/incidents/2026-10-23-afas-v1-bouton-masque.md.
         self.bouton_afas = wx.Button(self, label="CAF / AFAS")
+        self.bouton_afas.Hide()
         self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Aperçu"), cheminImage="Images/32x32/Apercu.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         self.__set_properties()
         self.__do_layout()
 
-        self.Bind(wx.EVT_BUTTON, self.OnAFAS, self.bouton_afas)
         self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_ok)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
@@ -1027,10 +1031,9 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
 
         # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
-        grid_sizer_boutons.Add(self.bouton_afas, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_ok, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_boutons.AddGrowableCol(1)

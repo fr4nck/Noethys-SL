@@ -66,5 +66,6 @@ nav:
       - Diagnostic Mailjet: audit/DIAGNOSTIC_MAILJET.md
       - Incident du 08/10/2026 — tests et base réseau: incidents/2026-10-08-tests-base-reseau.md
       - Incident du 14/10/2026 — identifiants MySQL versionnés: incidents/2026-10-14-identifiants-mysql-portable.md
+      - Incident du 23/10/2026 — AFAS V1 masqué: incidents/2026-10-23-afas-v1-bouton-masque.md
   - Gouvernance:
       - Stratégie du projet: governance/PROJECT_STRATEGY.md

@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — Bouton « CAF / AFAS » masqué provisoirement (23/10/2026, wx uniquement)
+
+- **Décision utilisateur** du 23/10 : masquer le bouton « CAF / AFAS » de l'état global sur `wx` (base `f1fe871`) après l'audit contradictoire AFAS (P0 reproduits : couples activité/groupe, doubles comptages, séparation péri/extra, statuts). Mesure temporaire, ne remplace pas les corrections de fond.
+- **Périmètre** : `DLG_Etat_global.py` (bouton créé puis masqué, `Bind` vers `OnAFAS` retiré, sizer des boutons ramené à 4 colonnes) ; `OnAFAS`, `DLG_AFAS_Actualisation.py` et `UTILS_AFAS*.py` conservés sans modification ; aucun calcul de l'état global modifié. `Versions.txt` (section RC9), `docs/releases/noethys-sl-0.1.0-rc.9.md`, consigne RC8/RC8.1 `docs/incidents/2026-10-23-afas-v1-bouton-masque.md`.
+- **Branches** : `main` et `qt` non modifiés (le bouton reste présent sur `main`, où les corrections AFAS P0/P1 reprennent, sans report automatique sur `wx`). Aucun tag, installateur ni publication RC9.
+- **Reste à faire** : recette visuelle Windows de l'état global (bouton absent, Aide/Aperçu/Fermer intacts, aperçu PDF et profils fonctionnels).
+
 ## RC9 — Associations automatiques inscriptions (22/10/2026, moteur qualifié / recette UI à faire)
 
 - **Décision fonctionnelle** : par type de cotisation individuelle, mode par défaut `inscriptions` (toutes inscriptions au statut `ok` qui chevauchent l'adhésion) ; alternative `participations`. Un seul tarif et une seule échéance. Les nouvelles inscriptions complètent uniquement les adhésions automatiques déjà créées, sans prestation nouvelle ; les adhésions manuelles restent inchangées et aucun lien historique n'est supprimé.

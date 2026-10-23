@@ -12,3 +12,9 @@ Les tests automatiques vérifient la compatibilité du code, les contrats métie
 **Aucune migration ni intervention automatique sur la base de données n'est demandée pour ce correctif d'interface.**
 
 - Correction de la saisie conjointe d'une attestation et d'un quotient familial : l'option « Validité illimitée » est désormais acceptée, avec conservation de la convention interne de date du 01/01/2999.
+
+## Bouton « CAF / AFAS » masqué provisoirement
+
+Le bouton « CAF / AFAS » de l'état global est masqué dans RC9. Son calcul (AFAS V1) n'est pas qualifié pour une déclaration CAF : l'audit contradictoire du 23/10/2026 a reproduit des heures comptées hors périmètre, des doubles comptages et des statuts de consommation non distingués. Les autres fonctions de l'état global (paramètres, options, profils, aperçu PDF) sont inchangées. Le code AFAS est conservé et sera réactivé uniquement après correction et requalification.
+
+**Utilisateurs de RC8 et RC8.1 :** le bouton « CAF / AFAS » y est encore visible. Ses résultats ne doivent pas être utilisés pour une déclaration CAF sans contrôle manuel indépendant. Voir [la consigne détaillée](../incidents/2026-10-23-afas-v1-bouton-masque.md).
