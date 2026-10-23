@@ -333,19 +333,16 @@ class Calculateur(object):
         return self._JourExtra(IDindividu, date, retenues, anomalies, mode_jour)
 
     def _Qualifier(self, conso, mode_jour, anomalies):
-        """('retenue' | 'exclue' | 'bloquee', motif) avant tout calcul."""
+        """('retenue' | 'exclue' | 'bloquee', motif) avant tout calcul.
+
+        Une consommation d'un jour hors du mode déclaré est exclue avant tout
+        contrôle de classement ou de statut : elle relève de l'autre
+        déclaration et n'y bloque rien."""
         unite = self.unites.get(conso["IDunite"])
-        if unite is None:
-            self._anomalie(anomalies, conso, "Unité non classée dans le preset", "Calcul bloqué : classer l'unité")
-            return "bloquee", "unité inconnue"
         statut_etat = Calendrier.ClasserStatut(conso.get("etat"))
         if statut_etat == "technique":
             return "exclue", "état technique %s" % conso.get("etat")
-        if statut_etat == "inconnu":
-            self._anomalie(anomalies, conso, "Statut de consommation inconnu ou absent : %r" % (conso.get("etat"),),
-                           "Calcul bloqué : corriger le statut dans Noethys")
-            return "bloquee", "statut inconnu"
-        if unite["categorie"] in CATEGORIES_IGNOREES:
+        if unite is not None and unite["categorie"] in CATEGORIES_IGNOREES:
             return "exclue", "unité %s" % unite["categorie"]
         if mode_jour == Calendrier.INCONNU:
             calendrier = self.ctx["calendrier"]
@@ -363,14 +360,21 @@ class Calculateur(object):
                                                             Calendrier.AnneeScolaire(conso["date"]) + 1),
                            "Calcul bloqué : saisir les samedis avec école (ou aucun) dans le référentiel")
             return "bloquee", "samedi à qualifier"
+        if self.mode == PERI and mode_jour != PERI:
+            return "exclue", "hors période périscolaire (%s)" % mode_jour
+        if self.mode == EXTRA and mode_jour == PERI:
+            return "exclue", "hors période extrascolaire"
+        if unite is None:
+            self._anomalie(anomalies, conso, "Unité non classée dans le preset", "Calcul bloqué : classer l'unité")
+            return "bloquee", "unité inconnue"
+        if statut_etat == "inconnu":
+            self._anomalie(anomalies, conso, "Statut de consommation inconnu ou absent : %r" % (conso.get("etat"),),
+                           "Calcul bloqué : corriger le statut dans Noethys")
+            return "bloquee", "statut inconnu"
         if unite["categorie"] == "a_qualifier":
             self._anomalie(anomalies, conso, "Unité à qualifier", "Calcul bloqué : classer l'unité dans le preset")
             return "bloquee", "unité à qualifier"
-        if self.mode == PERI and mode_jour != PERI:
-            return "exclue", "hors période périscolaire (%s)" % mode_jour
         if self.mode == EXTRA:
-            if mode_jour == PERI:
-                return "exclue", "hors période extrascolaire"
             site = self.couples[(conso["IDactivite"], conso["IDgroupe"])]
             sejour = self._sejour(site, conso["date"])
             if unite["categorie"] == "sejour" and sejour is None:

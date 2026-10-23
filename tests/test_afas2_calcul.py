@@ -388,6 +388,21 @@ class AnomaliesTests(unittest.TestCase):
         r = calculer(M.PERI, [inconnue])
         self.assertIn("Unité non classée dans le preset", natures(r))
 
+    def test_unite_de_l_autre_mode_non_bloquante_hors_de_son_mode(self):
+        # Même activité, mêmes groupes : les unités de vacances non classées dans le preset
+        # périscolaire n'y bloquent rien les jours de vacances (et inversement).
+        unites = {ID: u for ID, u in UNITES.items() if ID < 200}
+        consos = [conso(LUNDI_SCOLAIRE, 101), conso(LUNDI_VACANCES, 201)]
+        consos[1]["IDunite"] = 999
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertEqual((r["indicateurs"]["heures_realisees"], r["bloquant"]), (H + 15 * 60, False))
+        r = calculer(M.EXTRA, [conso(LUNDI_SCOLAIRE, 101, etat="xyz")], unites={ID: u for ID, u in UNITES.items() if ID > 200})
+        self.assertFalse(r["bloquant"])
+        # Le même défaut un jour du mode déclaré reste bloquant.
+        consos = [conso(LUNDI_SCOLAIRE, 101)]
+        consos[0]["IDunite"] = 999
+        self.assertTrue(calculer(M.PERI, consos)["bloquant"])
+
     def test_hors_couple_ignore(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101, couple=(1, 99)), conso(LUNDI_SCOLAIRE, 101, couple=(2, 11))])
         self.assertEqual((r["indicateurs"]["heures_realisees"], r["lignes"]), (0, []))

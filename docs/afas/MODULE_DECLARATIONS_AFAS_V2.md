@@ -100,6 +100,11 @@ Une déclaration est **validable** si aucune anomalie n'est bloquante, si une co
 | Séjour + journée le même jour ; séjour seul | bloquant ; 10 h réalisées et facturées, déclaration non validable (rubrique) | `SejoursTests`, `test_afas2_declaration.test_sejours_integres_mais_rubrique_non_confirmee` |
 | Moutiers confirmé sans formulaire ; minicamp sans justificatif | non validable | `test_28_*`, `test_minicamp_sans_justificatif_non_validable` |
 
+## Qualification
+
+- **SQLite** (CI rapide) et **MySQL 5.7.44** (workflow manuel « Noethys SL - AFAS V2 MySQL fictif ») : `tests/test_afas2_qualification_bases.py` sur le jeu fictif `tests/afas2_base_fictive.py`, résultats attendus calculés à la main, comparaison MySQL / SQLite (indicateurs, anomalies, jours, empreinte), persistance des presets, de l'historique et d'un texte accentué de 27 000 caractères.
+- **Recette visuelle Windows** et **rapprochement chiffré** sur extrait pseudonymisé : `docs/recette/RECETTE_AFAS2_WINDOWS.md`, outils `tests/recette_afas2.py` (`peupler`, `extraire`, `rapprocher`).
+
 ## Décisions et pièces encore attendues
 
 Voir `TRACABILITE_CONVENTIONS_2025_2027.md` (décisions du 23/10/2026, pièces manquantes). Restent à obtenir : formulaires d'implantation (Moutiers, minicamps), confirmation Caf de la rubrique AFAS des séjours et de l'arrondi du complément inclusif, grilles tarifaires, addenda.

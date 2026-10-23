@@ -48,6 +48,7 @@ nav:
       - AFAS V2 — module Déclarations AFAS: afas/MODULE_DECLARATIONS_AFAS_V2.md
   - Recettes:
       - Recette du candidat du 08/10/2026: recette/RECETTE_CANDIDAT_2026-10-08.md
+      - Recette AFAS V2 (Windows et rapprochement): recette/RECETTE_AFAS2_WINDOWS.md
       - Recette des conventions: recette_conventions/README.md
       - Recette « Aujourd'hui »: ephemerides/recette.md
   - Développer:
