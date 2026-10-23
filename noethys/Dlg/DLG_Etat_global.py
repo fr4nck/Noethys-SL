@@ -172,6 +172,16 @@ def ConditionSQLCouples(listeCouples):
     return "AND (%s)" % " OR ".join("(consommations.IDactivite = %d AND consommations.IDgroupe = %d)" % couple for couple in couples)
 
 
+REGEX_TEMPS_FACTURE = re.compile(r"^\d{1,4}:[0-5]\d$")
+
+
+def TempsFactureValide(temps_facture):
+    """ prestations.temps_facture attendu au format HH:MM, positif ou nul
+    (ex. "09:00", "00:00"). Aucun plafond n'est appliqué : un forfait peut
+    couvrir plusieurs journées. """
+    return isinstance(temps_facture, six.string_types) and REGEX_TEMPS_FACTURE.match(temps_facture) is not None
+
+
 def DetecterDoublon(dict_plages_jour, listeDoublons, IDconso, IDindividu, date, IDunite, heure_debut, heure_fin):
     """ Contrôle optionnel (dict_options["controle_doublons"]) : signale deux
     consommations retenues d'un même individu le même jour qui se chevauchent
@@ -283,7 +293,11 @@ class CalculateurEtatGlobal():
 
         dict_options["controle_doublons"] (optionnel, défaut False) : active
         DetecterDoublon() ; les anomalies sont renvoyées dans
-        "listeDoublons" sans modifier aucun résultat. """
+        "listeDoublons" sans modifier aucun résultat.
+
+        dict_options["controle_temps_facture"] (optionnel, défaut False) :
+        un prestations.temps_facture mal formé ou négatif n'est pas compté et
+        est signalé dans "listeTempsFactures" (cf. TempsFactureValide). """
         conditionSQL_couples = ConditionSQLCouples(listeCouples)
         listeAnomalies = []
 
@@ -434,6 +448,10 @@ class CalculateurEtatGlobal():
         controle_doublons = dict_options.get("controle_doublons", False)
         dict_plages_jour = {}
         listeDoublons = []
+        # Contrôle optionnel des temps facturés (appelants AFAS) : format HH:MM
+        # positif exigé ; absent des anciens profils -> comportement historique.
+        controle_temps_facture = dict_options.get("controle_temps_facture", False)
+        listeTempsFactures = []
         heure_debut_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_debut_presence_midi", "12:30"))
         heure_fin_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_fin_presence_midi", "13:30"))
 
@@ -734,8 +752,11 @@ class CalculateurEtatGlobal():
                     # Si c'est en fonction du temps facturé
                     if temps_facture != None and temps_facture != "" :
                         if IDprestation not in listePrestationsTraitees :
-                            hr, mn = temps_facture.split(":")
-                            valeur = datetime.timedelta(hours=int(hr), minutes=int(mn))
+                            if controle_temps_facture and not TempsFactureValide(temps_facture) :
+                                listeTempsFactures.append(_(u"Temps facturé invalide (%s) : prestation %s, consommation %d du %s.") % (temps_facture, IDprestation, IDconso, UTILS_Dates.DateDDEnFr(date)))
+                            else :
+                                hr, mn = temps_facture.split(":")
+                                valeur = datetime.timedelta(hours=int(hr), minutes=int(mn))
                             listePrestationsTraitees.append(IDprestation)
 
                 elif dictCalcul["typeCalcul"] == 3:
@@ -850,6 +871,7 @@ class CalculateurEtatGlobal():
             "listeRegimesUtilises": listeRegimesUtilises,
             "listeAnomalies": listeAnomalies,
             "listeDoublons": listeDoublons,
+            "listeTempsFactures": listeTempsFactures,
             "dictRegimes": dictRegimes,
             "dictEvenements": dictEvenements,
             "dictEtiquettes": dictEtiquettes,

@@ -37,7 +37,7 @@ def GetDonneesPerimetre(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, 
     `heures` est obtenu via listeActivites=[IDactivite],
     listeGroupes=[IDgroupe] (filtre ajouté en LOT 3A) ; `jours_ouverts` via
     le même couple, sans jamais filtrer par IDunite. """
-    dict_options = dict(dict_options, controle_doublons=True)
+    dict_options = dict(dict_options, controle_doublons=True, controle_temps_facture=True)
     calculateur = DLG_Etat_global.CalculateurEtatGlobal()
     resultat = calculateur.CalculerEtatGlobal(
         date_debut=date_debut,

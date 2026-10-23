@@ -57,9 +57,11 @@ class AnomalieAFAS(ValueError):
 
 
 def VerifierAnomalies(resultat):
-    """ Bloque le calcul AFAS sur les doublons/chevauchements détectés et sur
-    les anomalies de période du moteur (jamais ignorées silencieusement). """
-    anomalies = list(resultat.get("listeDoublons", [])) + list(resultat.get("listeAnomalies", []))
+    """ Bloque le calcul AFAS sur les doublons/chevauchements détectés, les
+    temps facturés invalides et les anomalies de période du moteur (jamais
+    ignorées silencieusement). """
+    anomalies = (list(resultat.get("listeDoublons", [])) + list(resultat.get("listeTempsFactures", []))
+                 + list(resultat.get("listeAnomalies", [])))
     if anomalies:
         texte = "\n".join(anomalies[:_ANOMALIES_AFFICHEES])
         if len(anomalies) > _ANOMALIES_AFFICHEES:
@@ -90,6 +92,7 @@ def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUni
     options_individu = dict(dict_options)
     options_individu["regroupement_principal"] = "individu"
     options_individu["controle_doublons"] = True
+    options_individu["controle_temps_facture"] = True
 
     calculateur = DLG_Etat_global.CalculateurEtatGlobal()
     resultat = calculateur.CalculerEtatGlobal(
