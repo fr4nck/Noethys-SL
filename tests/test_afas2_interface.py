@@ -87,8 +87,10 @@ class DialogueTests(unittest.TestCase):
                   [(101, 1, "Matin", "Unitaire", "07:30", "08:45"), (201, 1, "Journée", "Unitaire", "08:30", "17:30")])
         b.inserer("individus", ["IDindividu", "nom", "prenom", "IDcivilite"], [(1, "FICTIF", "Lea", 1)])
         vacances = []
-        for annee in (2025, 2026, 2027):
-            vacances += [("Eté", "%d-07-05" % annee, "%d-08-31" % annee), ("Toussaint", "%d-10-18" % annee, "%d-11-02" % annee)]
+        for annee in (2025, 2026, 2027):  # calendrier fictif complet (cinq périodes par année scolaire)
+            vacances += [("Hiver", "%d-02-14" % annee, "%d-02-28" % annee), ("Printemps", "%d-04-11" % annee, "%d-04-26" % annee),
+                         ("Eté", "%d-07-05" % annee, "%d-08-31" % annee), ("Toussaint", "%d-10-18" % annee, "%d-11-02" % annee),
+                         ("Noël", "%d-12-20" % annee, "%d-01-04" % (annee + 1))]
         b.inserer("vacances", ["IDvacance", "nom", "annee", "date_debut", "date_fin"],
                   [(i, nom, int(d[:4]), d, f) for i, (nom, d, f) in enumerate(vacances, 1)])
         b.inserer("ouvertures", ["IDactivite", "IDunite", "IDgroupe", "date"], [(1, 101, 11, "2026-03-03"), (1, 101, 11, "2026-03-04")])
@@ -119,6 +121,7 @@ class DialogueTests(unittest.TestCase):
         self.assertNotIn("Minicamps 6/8", sites)  # aucun minicamp en périscolaire
         d.ctrl_sites.Check(sites.index("Bais +6 ans"), True)
         d.unites_classees = {101: "accueil", 201: "journee"}
+        d.plages_declarees = {101: "07:30-08:45", 201: "08:30-17:30"}
 
     def test_parcours_complet(self):
         d = self.dlg
@@ -160,6 +163,62 @@ class DialogueTests(unittest.TestCase):
         autre.ctrl_preset.SetSelection(1)
         autre.OnChoixPreset(None)
         self.assertEqual(autre.LirePreset(), attendu)
+
+    def test_statuts_proposes_admissibles_uniquement(self):
+        d = self.dlg
+        self.assertEqual([d.ctrl_realise.GetString(i) for i in range(d.ctrl_realise.GetCount())], ["Présent"])
+        self.assertNotIn("Pointage en attente", [d.ctrl_facture.GetString(i) for i in range(d.ctrl_facture.GetCount())])
+        self.assertFalse(hasattr(d, "ctrl_samedis"))  # plus de choix permanent des samedis avec école
+
+    def test_plage_non_declaree_empeche_l_enregistrement(self):
+        self.configurer()
+        self.dlg.plages_declarees = {101: "07:30-08:45"}
+        self.assertFalse(self.dlg.OnEnregistrer(None))
+        self.assertTrue(any("plage horaire réellement organisée" in m for m in self.messages))
+
+    def test_classement_des_unites_et_reprise_des_horaires(self):
+        from Utils import UTILS_AFAS2_Donnees as Donnees
+        unites = Donnees.ChargerUnites([1])
+        dlg = self.module.DialogUnites(self.dlg, unites, {101: "accueil", 201: "annexe"}, {})
+        self.addCleanup(dlg.Destroy)
+        dlg.OnReprendre(None)
+        self.assertEqual(dlg.GetClassement(), ({101: "accueil", 201: "annexe"}, {101: "07:30-08:45"}))
+
+    def test_referentiel_samedis_justificatifs_regularisations(self):
+        from Utils import UTILS_AFAS2_Referentiel as R
+        dlg = self.module.DialogReferentiel(self.dlg, R.ChargerReferentiel())
+        self.addCleanup(dlg.Destroy)
+        dlg.ctrl_samedis.SetValue("2025 : aucun\n2026 : 2026-11-28")
+        dlg.ctrl_justificatifs["Minicamps 6/8"].SetValue("Déclaration fictive n° 1")
+        dlg.OnAjouterRegularisation(None, saisie=("9001", "", "Remboursement fictif"))
+        ref = dlg.LireReferentiel()
+        self.assertEqual(ref["samedis_avec_ecole"], {"2025": [], "2026": ["2026-11-28"]})
+        self.assertEqual(ref["justificatifs"], {"Minicamps 6/8": "Déclaration fictive n° 1"})
+        self.assertEqual(ref["regularisations"]["9001"]["consommations_annulees"], [])
+        R.EnregistrerReferentiel(ref)
+        self.assertEqual(R.ChargerReferentiel()["samedis_avec_ecole"]["2026"], ["2026-11-28"])
+
+    def test_preset_format_1_migre_dans_le_dialogue(self):
+        import json
+        from Utils import UTILS_AFAS2_Presets as P
+        from Utils import UTILS_AFAS2_Referentiel as R
+        self.configurer()
+        self.assertTrue(self.dlg.OnEnregistrer(None))
+        ancien = self.dlg.LirePreset()
+        ancien.update(format=1, criteres_periodes={"samedis_avec_ecole": True})
+        del ancien["plages_declarees"]
+        R.EcrireJSONProfil(self.dlg.IDprofil, P.NOM_PARAMETRE, ancien)
+        autre = self.module.Dialog(None)
+        self.addCleanup(autre.Destroy)
+        messages = []
+        autre.Message = lambda texte, *a, **k: messages.append(texte)
+        autre.Erreur = lambda erreur: messages.append("ERREUR " + str(erreur))
+        self.assertFalse(autre.ChargerPreset(self.dlg.IDprofil))
+        self.assertTrue(any("samedis avec école" in m for m in messages), messages)
+        autre.plages_declarees = {101: "07:30-08:45", 201: "08:30-17:30"}
+        self.assertTrue(autre.OnEnregistrer(None), messages)
+        self.assertEqual(P.ChargerPreset(autre.IDprofil)["format"], 2)
+        self.assertNotIn("samedis_avec_ecole", json.dumps(P.ChargerPreset(autre.IDprofil)))
 
     def test_annee_et_phase_jamais_dans_le_preset(self):
         self.configurer()

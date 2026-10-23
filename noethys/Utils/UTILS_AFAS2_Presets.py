@@ -8,6 +8,12 @@ de date : le schéma est fermé (toute clé inconnue est refusée, à tous les
 niveaux) et le nom est contrôlé. L'année, la phase et les dates résolues
 appartiennent à la demande de calcul et à son historique.
 
+Format 2 : les samedis avec école ne sont plus un booléen permanent mais
+une règle générique (`regle_samedis` = calendrier daté, dates tenues dans
+le référentiel par année scolaire) ; chaque unité à plage horaire porte la
+plage réellement organisée et déclarée (`plages_declarees`), contrôlée à
+chaque calcul contre les horaires de l'unité dans Noethys.
+
 Persistance : table `profils` (catégorie afas_v2_preset), un unique
 paramètre texte JSON par preset, réécrit intégralement (aucun résidu,
 aucun eval). Le cœur (validation, migration, empreinte) n'importe ni wx ni
@@ -25,13 +31,15 @@ from Utils import UTILS_AFAS2_Calendrier as Calendrier
 from Utils import UTILS_AFAS2_Conventions as Conventions
 from Utils import UTILS_AFAS2_Referentiel as Referentiel
 
-FORMAT_PRESET = 1
+FORMAT_PRESET = 2
+REGLE_SAMEDIS_CALENDRIER = "calendrier_date"
 CATEGORIE_PROFIL = "afas_v2_preset"
 NOM_PARAMETRE = "preset_json"
 
 CHAMPS = {"format", "preset_id", "nom", "version", "source_preset_id", "activite", "mode", "equipement", "sites",
-          "unites", "etats_realise", "etats_facture", "criteres_periodes", "choix_conventionnels"}
-CHAMPS_CRITERES = {"samedis_avec_ecole"}
+          "unites", "plages_declarees", "etats_realise", "etats_facture", "criteres_periodes", "choix_conventionnels"}
+CHAMPS_CRITERES = {"regle_samedis"}
+_PLAGE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-4]):[0-5]\d$")
 CHAMPS_CHOIX = {"inclure_repas_meridien", "inclure_garderie_caf"}
 
 _TERMES_INTERDITS = ("annee", "year", "phase", "exercice", "millesime", "previsionnel", "actualisation",
@@ -42,6 +50,28 @@ _IDENTIFIANT = re.compile(r"^[0-9a-f]{32}$")
 
 class PresetInvalide(ValueError):
     pass
+
+
+class PresetAMigrer(PresetInvalide):
+    """Preset enregistré dans un format antérieur : brouillon migré à compléter."""
+
+    def __init__(self, brouillon, a_completer):
+        PresetInvalide.__init__(self, "Preset au format antérieur : à compléter puis enregistrer (%s)" % " ; ".join(a_completer))
+        self.brouillon = brouillon
+        self.a_completer = a_completer
+
+
+def ValiderPlage(texte):
+    """'HH:MM-HH:MM' (début < fin) -> (debut, fin) en secondes."""
+    if not isinstance(texte, str) or not _PLAGE.match(texte):
+        raise PresetInvalide("Plage déclarée invalide : %r (HH:MM-HH:MM attendu)" % (texte,))
+    try:
+        debut, fin = (Calcul.Secondes(h) for h in texte.split("-"))
+    except ValueError:
+        raise PresetInvalide("Plage déclarée invalide : %r" % texte)
+    if debut >= fin:
+        raise PresetInvalide("Plage déclarée incohérente : %s" % texte)
+    return debut, fin
 
 
 def _normalise(texte):
@@ -118,26 +148,38 @@ def ValiderPreset(preset):
             raise PresetInvalide("Identifiant d'unité invalide : %r" % (cle,))
         if categorie not in Calcul.CODES_CATEGORIES:
             raise PresetInvalide("Catégorie d'unité inconnue : %r" % (categorie,))
+    plages = preset["plages_declarees"]
+    if not isinstance(plages, dict):
+        raise PresetInvalide("Plages déclarées invalides")
+    for cle, categorie in unites.items():
+        if categorie in Calcul.CATEGORIES_A_PLAGE and cle not in plages:
+            raise PresetInvalide("Unité %s (%s) : plage horaire réellement organisée à déclarer"
+                                 % (cle, dict(Calcul.CATEGORIES)[categorie]))
+    for cle, plage in plages.items():
+        if unites.get(cle) not in Calcul.CATEGORIES_A_PLAGE:
+            raise PresetInvalide("Plage déclarée pour l'unité %s qui n'est pas une unité à plage horaire" % (cle,))
+        ValiderPlage(plage)
     try:
-        Calendrier.ValiderEtats(preset["etats_realise"], "Statuts du réalisé")
-        Calendrier.ValiderEtats(preset["etats_facture"], "Statuts du facturé")
+        Calendrier.ValiderEtatsRealise(preset["etats_realise"])
+        Calendrier.ValiderEtatsFacture(preset["etats_facture"])
     except ValueError as erreur:
         raise PresetInvalide(str(erreur))
     _fermer(preset["criteres_periodes"], CHAMPS_CRITERES, "Critères de période")
-    _booleen(preset["criteres_periodes"]["samedis_avec_ecole"], "samedis_avec_ecole")
+    if preset["criteres_periodes"]["regle_samedis"] != REGLE_SAMEDIS_CALENDRIER:
+        raise PresetInvalide("Règle des samedis : seul le calendrier daté des samedis avec école est admis")
     _fermer(preset["choix_conventionnels"], CHAMPS_CHOIX, "Choix conventionnels")
     for cle in CHAMPS_CHOIX:
         _booleen(preset["choix_conventionnels"][cle], cle)
     return copy.deepcopy(preset)
 
 
-def NouveauPreset(nom, mode, equipement, sites=None, unites=None):
+def NouveauPreset(nom, mode, equipement, sites=None, unites=None, plages=None):
     preset = {
         "format": FORMAT_PRESET, "preset_id": uuid.uuid4().hex, "nom": nom, "version": 1, "source_preset_id": None,
         "activite": Referentiel.ACTIVITE_ALSH, "mode": mode, "equipement": equipement,
-        "sites": list(sites or []), "unites": dict(unites or {}),
+        "sites": list(sites or []), "unites": dict(unites or {}), "plages_declarees": dict(plages or {}),
         "etats_realise": list(Calendrier.ETATS_REALISE_DEFAUT), "etats_facture": list(Calendrier.ETATS_FACTURE_DEFAUT),
-        "criteres_periodes": {"samedis_avec_ecole": False},
+        "criteres_periodes": {"regle_samedis": REGLE_SAMEDIS_CALENDRIER},
         "choix_conventionnels": {"inclure_repas_meridien": True, "inclure_garderie_caf": False},
     }
     return preset
@@ -159,6 +201,33 @@ def AjusterSitesAuMode(sites, activite, mode):
     """Retire les sites devenus incompatibles après un changement d'activité ou de mode."""
     admissibles = Referentiel.SitesAdmissibles(activite, mode)
     return [site for site in sites if site in admissibles]
+
+
+def MigrerFormat1(ancien):
+    """Preset V2 format 1 -> brouillon format 2 et liste des éléments à compléter.
+
+    Le booléen permanent « samedis avec école » disparaît : s'il était coché,
+    les dates doivent être saisies dans le référentiel. Les plages des unités
+    doivent être déclarées. Les statuts devenus inadmissibles sont retirés."""
+    if not isinstance(ancien, dict) or ancien.get("format") != 1:
+        raise PresetInvalide("Preset de format 1 attendu")
+    brouillon = copy.deepcopy(ancien)
+    a_completer = []
+    criteres = brouillon.pop("criteres_periodes", {}) or {}
+    if criteres.get("samedis_avec_ecole"):
+        a_completer.append("samedis avec école : saisir leurs dates dans le référentiel (le choix permanent est supprimé)")
+    brouillon["criteres_periodes"] = {"regle_samedis": REGLE_SAMEDIS_CALENDRIER}
+    brouillon["format"] = FORMAT_PRESET
+    brouillon["plages_declarees"] = {}
+    if any(c in Calcul.CATEGORIES_A_PLAGE for c in brouillon.get("unites", {}).values()):
+        a_completer.append("plages horaires réellement organisées des unités à déclarer")
+    for champ, admis in (("etats_realise", Calendrier.ETATS_REALISE_ADMIS), ("etats_facture", Calendrier.ETATS_FACTURE_ADMIS)):
+        etats = list(brouillon.get(champ) or [])
+        retenus = [e for e in etats if e in admis]
+        if retenus != etats:
+            a_completer.append("%s : statuts retirés %s" % (champ, ", ".join(e for e in etats if e not in admis)))
+        brouillon[champ] = retenus
+    return brouillon, a_completer
 
 
 _LIBELLES_VERS_CODES = {libelle: code for code, libelle in Calendrier.STATUTS}
@@ -194,11 +263,14 @@ def MigrerAncienFormat(ancien):
     realise = ancien.get("realised_states", ancien.get("admissible_states"))
     if realise:
         brouillon["etats_realise"] = [_LIBELLES_VERS_CODES.get(libelle, libelle) for libelle in realise]
+        if [e for e in brouillon["etats_realise"] if e not in Calendrier.ETATS_REALISE_ADMIS]:
+            a_completer.append("statuts du réalisé : présence attestée uniquement")
     if "caf_billed_states" in ancien:
         brouillon["etats_facture"] = [_LIBELLES_VERS_CODES.get(libelle, libelle) for libelle in ancien["caf_billed_states"]]
     else:
         a_completer.append("statuts retenus pour le facturé (absents de l'ancien format)")
     a_completer.append("équipement")
+    a_completer.append("plages horaires réellement organisées des unités à déclarer")
     ignorees = sorted(set(ancien) - {"profile_id", "name", "activity", "mode", "sites", "selected_sites", "included_units",
                                      "excluded_units", "garderie_units", "realised_states", "admissible_states",
                                      "caf_billed_states", "version", "config_version"})
@@ -220,6 +292,15 @@ def ChargerPreset(IDprofil):
     contenu = Referentiel.LireJSONProfil(IDprofil, NOM_PARAMETRE)
     if isinstance(contenu, dict) and contenu.get("format") != FORMAT_PRESET and ("profile_id" in contenu):
         raise PresetInvalide("Preset au format prototype : utiliser la migration explicite")
+    if isinstance(contenu, dict) and contenu.get("format") == 1:
+        brouillon, a_completer = MigrerFormat1(contenu)
+        try:
+            preset = ValiderPreset(brouillon)
+        except PresetInvalide as erreur:
+            raise PresetAMigrer(brouillon, a_completer + [str(erreur)])
+        if a_completer:
+            raise PresetAMigrer(brouillon, a_completer)
+        return preset
     return ValiderPreset(contenu)
 
 

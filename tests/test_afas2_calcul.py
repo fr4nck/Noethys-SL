@@ -16,7 +16,7 @@ for chemin in (RACINE / "noethys", RACINE / "tests"):
 
 from Utils import UTILS_AFAS2_Calcul as M  # noqa: E402
 from Utils import UTILS_AFAS2_Calendrier as K  # noqa: E402
-from test_afas2_calendrier import VACANCES_FICTIVES  # noqa: E402
+from test_afas2_calendrier import SAMEDIS_FICTIFS, VACANCES_FICTIVES  # noqa: E402
 
 H = 3600
 D = datetime.date
@@ -42,7 +42,12 @@ UNITES = {
     208: {"nom": "Accueil horaire", "type": "Horaire", "heure_debut": "08:00", "heure_fin": "18:00", "categorie": "accueil"},
     209: {"nom": "Inconnue", "type": "Unitaire", "heure_debut": "08:00", "heure_fin": "09:00", "categorie": "a_qualifier"},
     210: {"nom": "Ultra courte", "type": "Unitaire", "heure_debut": "10:00", "heure_fin": "11:30", "categorie": "journee"},
+    211: {"nom": "Repas extra", "type": "Unitaire", "heure_debut": "12:00", "heure_fin": "13:30", "categorie": "repas"},
 }
+# Plages réellement organisées déclarées dans le preset (identiques aux horaires Noethys).
+for _unite in UNITES.values():
+    if _unite["categorie"] in M.CATEGORIES_A_PLAGE:
+        _unite["plage_declaree"] = "%s-%s" % (_unite["heure_debut"], _unite["heure_fin"])
 
 MERCREDI_SCOLAIRE = D(2026, 10, 14)
 LUNDI_SCOLAIRE = D(2026, 10, 12)
@@ -57,7 +62,7 @@ def contexte(mode, couples=None, ouvertures=None, **kw):
         "mode": mode, "equipement": "BAIS",
         "couples": couples or {BAIS_PLUS: "Bais +6 ans", BAIS_MOINS: "Bais -6 ans", MINICAMP: "Minicamps 6/8"},
         "unites": UNITES, "etats_realise": ["present"], "etats_facture": ["present", "absentj", "absenti"],
-        "options": {}, "calendrier": K.Calendrier(VACANCES_FICTIVES),
+        "options": {}, "calendrier": K.Calendrier(VACANCES_FICTIVES), "samedis_avec_ecole": SAMEDIS_FICTIFS,
         "ouvertures": ouvertures if ouvertures is not None else set(),
         "aeeh": {}, "sejours": [], "date_reference": D(2027, 1, 15),
     }
@@ -69,14 +74,19 @@ _ID = [0]
 
 
 def conso(date, IDunite, couple=BAIS_PLUS, etat="present", individu=1, hd=None, hf=None, IDprestation=None,
-          IDfacture=None, facture_etat=None):
+          IDfacture=None, facture_etat=None, **prestation):
     _ID[0] += 1
     unite = UNITES[IDunite]
-    return {"IDconso": _ID[0], "IDindividu": individu, "date": date, "IDunite": IDunite,
-            "IDactivite": couple[0], "IDgroupe": couple[1], "etat": etat,
-            "heure_debut": unite["heure_debut"] if hd is None else hd,
-            "heure_fin": unite["heure_fin"] if hf is None else hf,
-            "IDprestation": IDprestation, "IDfacture": IDfacture, "facture_etat": facture_etat}
+    resultat = {"IDconso": _ID[0], "IDindividu": individu, "date": date, "IDunite": IDunite,
+                "IDactivite": couple[0], "IDgroupe": couple[1], "etat": etat,
+                "heure_debut": unite["heure_debut"] if hd is None else hd,
+                "heure_fin": unite["heure_fin"] if hf is None else hf, "quantite": None,
+                "IDprestation": IDprestation, "IDfacture": IDfacture, "facture_etat": facture_etat,
+                "IDfamille": 1000 + individu, "prestation_montant": 12.5 if IDprestation else None,
+                "prestation_forfait": None, "prestation_forfait_debut": None,
+                "prestation_IDindividu": individu if IDprestation else None}
+    resultat.update(prestation)
+    return resultat
 
 
 def ouvert(consos, extra_unites=()):
@@ -218,9 +228,12 @@ class ExtrascolaireTests(unittest.TestCase):
 
     def test_deux_demi_journees_equivalent_journee(self):
         consos = [self.facturee(LUNDI_VACANCES, 202), self.facturee(LUNDI_VACANCES, 203)]
-        r = calculer(M.EXTRA, consos)
+        # Ouverture continue grâce au temps de repas organisé entre les deux demi-journées.
+        r = calculer(M.EXTRA, consos, ouvertures=ouvert(consos, [(BAIS_PLUS, 211, LUNDI_VACANCES)]))
         self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
         self.assertFalse(r["bloquant"])
+        # Sans plage intermédiaire organisée : ouverture discontinue, jamais combinée.
+        self.assertTrue(calculer(M.EXTRA, consos)["bloquant"])
 
     def test_journee_et_demi_journee_bloquant(self):
         consos = [self.facturee(LUNDI_VACANCES, 201), self.facturee(LUNDI_VACANCES, 203)]
@@ -228,10 +241,19 @@ class ExtrascolaireTests(unittest.TestCase):
         self.assertTrue(r["bloquant"])
         self.assertTrue(any("Facturation supérieure à une journée" in n for n in natures(r)))
 
-    def test_prestation_partagee_comptee_une_fois(self):
+    def test_prestation_couvrant_deux_demi_journees_indeterminable(self):
+        # Une seule prestation pour matin + après-midi : une journée ou une demi ? Jamais supposé.
         consos = [self.facturee(LUNDI_VACANCES, 202, prestation=500), self.facturee(LUNDI_VACANCES, 203, prestation=500)]
+        r = calculer(M.EXTRA, consos, ouvertures=ouvert(consos, [(BAIS_PLUS, 201, LUNDI_VACANCES)]))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any("nature facturée indéterminable" in n for n in natures(r)))
+
+    def test_prestation_journee_avec_repas_combines(self):
+        # Combinaison tarifaire journée + repas : une seule unité journée/demi, la prestation reste justifiable.
+        consos = [self.facturee(LUNDI_VACANCES, 201, prestation=501), self.facturee(LUNDI_VACANCES, 211, prestation=501)]
         r = calculer(M.EXTRA, consos)
-        self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["bloquant"]), (8 * H, False))
 
     def test_12_samedi_sans_ecole(self):
         r = calculer(M.EXTRA, [self.facturee(SAMEDI_SANS_ECOLE, 201)])
@@ -274,7 +296,23 @@ class SejoursTests(unittest.TestCase):
         consos = [conso(D(2026, 10, j), 205, couple=MINICAMP) for j in (22, 23, 24)]
         r = calculer(M.EXTRA, consos, sejours=[self.SEJOUR])
         self.assertEqual(r["indicateurs"]["heures_sejours"], 30 * H)
-        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)  # jamais cumulé avec l'option 2
+        # Intégrées aux actes ouvrant droit (réalisés et facturés), sans entrer dans la présence physique.
+        self.assertEqual((r["indicateurs"]["heures_realisees"], r["indicateurs"]["heures_facturees"],
+                          r["indicateurs"]["heures_physiques"]), (30 * H, 30 * H, 0))
+
+    def test_sejour_et_accueil_meme_jour_sans_double_comptage(self):
+        jour = D(2026, 10, 22)
+        consos = [conso(jour, 205, couple=MINICAMP), conso(jour, 201, couple=MINICAMP, IDprestation=880, IDfacture=1)]
+        r = calculer(M.EXTRA, consos, sejours=[self.SEJOUR])
+        self.assertIn("Séjour et accueil le même jour pour un enfant", natures(r))
+        self.assertTrue(r["bloquant"])
+
+    def test_sejour_et_journee_d_autres_enfants_additionnes(self):
+        jour = D(2026, 10, 22)
+        consos = [conso(jour, 205, couple=MINICAMP, individu=1), conso(jour, 201, individu=2, IDprestation=881, IDfacture=1)]
+        r = calculer(M.EXTRA, consos, sejours=[self.SEJOUR])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 10 * H + 8 * H)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 10 * H + 9 * H)
 
     def test_13_dimanche_de_sejour_eligible(self):
         r = calculer(M.EXTRA, [conso(DIMANCHE_SEJOUR, 205, couple=MINICAMP)], sejours=[self.SEJOUR])
@@ -316,7 +354,14 @@ class AnomaliesTests(unittest.TestCase):
 
     def test_26_calendrier_absent_bloquant(self):
         r = calculer(M.PERI, [conso(D(2027, 10, 13), 107)], debut=D(2027, 1, 1), fin=D(2027, 12, 31))
-        self.assertIn("Calendrier des vacances absent pour l'année scolaire", natures(r))
+        self.assertIn("Calendrier des vacances incomplet pour l'année scolaire "
+                      "(manque : Toussaint, Noël, Hiver, Printemps, Été)", natures(r))
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+
+    def test_26b_periode_de_vacances_manquante_bloquante(self):
+        cal = K.Calendrier([p for p in VACANCES_FICTIVES if p[1] != "2027-02-13"])
+        r = calculer(M.EXTRA, [conso(D(2027, 2, 17), 201)], debut=D(2027, 1, 1), fin=D(2027, 12, 31), calendrier=cal)
+        self.assertIn("Calendrier des vacances incomplet pour l'année scolaire (manque : Hiver)", natures(r))
         self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
 
     def test_sans_ouverture_bloquant(self):
@@ -352,6 +397,197 @@ class AnomaliesTests(unittest.TestCase):
         anomalie = r["anomalies"][0]
         for champ in ("date", "IDindividu", "IDconso", "IDactivite", "IDgroupe", "IDunite", "unite", "site", "nature", "consequence"):
             self.assertIn(champ, anomalie)
+
+
+class PlagesDeclareesTests(unittest.TestCase):
+    """Décision 1 : plages Noethys utilisées seulement si elles correspondent aux plages réellement organisées."""
+
+    def unites(self, IDunite, **modif):
+        unites = {ID: dict(u) for ID, u in UNITES.items()}
+        unites[IDunite].update(modif)
+        return unites
+
+    def test_plage_non_declaree_bloquante(self):
+        r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)], unites=self.unites(101, plage_declaree=None))
+        self.assertTrue(any("plage réellement organisée non déclarée" in n for n in natures(r)))
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+
+    def test_horaires_noethys_modifies_bloquants(self):
+        r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)], unites=self.unites(101, heure_fin="09:15"))
+        self.assertTrue(any("différents de la plage déclarée 07:30-08:45" in n for n in natures(r)))
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+
+    def test_horaires_absents_ou_incoherents_bloquants(self):
+        for modif in (dict(heure_debut=None), dict(heure_debut="09:00", heure_fin="08:00"), dict(heure_fin="8h45")):
+            with self.subTest(modif=modif):
+                r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)], unites=self.unites(101, **modif))
+                self.assertTrue(r["bloquant"])
+                self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+
+    def test_duree_de_pointage_jamais_substituee_a_la_plage(self):
+        r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 103, hd="16:30", hf="22:00")])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 2 * H)
+
+    def test_unite_ouverte_sans_plage_declaree_bloque_l_amplitude(self):
+        consos = [conso(LUNDI_VACANCES, 201, IDprestation=700, IDfacture=1)]
+        unites = self.unites(211, plage_declaree=None)
+        r = calculer(M.EXTRA, consos, unites=unites, ouvertures=ouvert(consos, [(BAIS_PLUS, 211, LUNDI_VACANCES)]))
+        self.assertTrue(any(n.startswith("Amplitude d'ouverture indéterminable") for n in natures(r)))
+
+
+class AmplitudeTests(unittest.TestCase):
+    """Décision 2 : amplitude = ouverture effective continue du site de l'enfant."""
+
+    def facturee(self, IDunite, couple=BAIS_PLUS, individu=1):
+        return conso(LUNDI_VACANCES, IDunite, couple=couple, individu=individu, IDprestation=7000 + _ID[0], IDfacture=1)
+
+    def test_ouverture_continue_avec_repas(self):
+        consos = [self.facturee(202)]
+        ouv = ouvert(consos, [(BAIS_PLUS, 211, LUNDI_VACANCES), (BAIS_PLUS, 203, LUNDI_VACANCES)])
+        r = calculer(M.EXTRA, consos, ouvertures=ouv)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)  # 08:30-17:30 = 9 h -> 4 h
+        self.assertEqual(r["jours"][0]["plages_ouverture"], "08:30-17:30")
+        self.assertFalse(r["bloquant"])
+
+    def test_ouverture_discontinue_bloquante(self):
+        # Matin 08:30-12:00 et après-midi 13:30-17:30 sans plage intermédiaire : pas d'amplitude 08:30-17:30.
+        consos = [self.facturee(202)]
+        r = calculer(M.EXTRA, consos, ouvertures=ouvert(consos, [(BAIS_PLUS, 203, LUNDI_VACANCES)]))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertTrue(any("ouverture discontinue (08:30-12:00, 13:30-17:30)" in n for n in natures(r)))
+        self.assertEqual(r["jours"][0]["plages_ouverture"], "08:30-12:00 + 13:30-17:30")
+
+    def test_implantations_jamais_combinees(self):
+        # Bais +6 ouvert le matin seulement, Bais -6 l'après-midi seulement : 3 h 30 pour Bais +6, pas 9 h.
+        consos = [self.facturee(202)]
+        r = calculer(M.EXTRA, consos, ouvertures=ouvert(consos, [(BAIS_MOINS, 203, LUNDI_VACANCES)]))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 3 * H // 2 + 15 * 60)  # demi = amplitude 3 h 30 / 2
+        self.assertTrue(any(n.startswith("Amplitudes d'ouverture différentes selon les sites") for n in natures(r)))
+        self.assertFalse(r["bloquant"])
+
+    def test_amplitudes_differentes_par_site(self):
+        consos = [self.facturee(201), self.facturee(206, couple=BAIS_MOINS, individu=2)]
+        r = calculer(M.EXTRA, consos)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H + 6 * H)
+        anomalies = [a for a in r["anomalies"] if a["nature"].startswith("Amplitudes d'ouverture différentes")]
+        self.assertEqual(len(anomalies), 1)  # une seule fois par jour
+        self.assertIn("Bais +6 ans 08:30-17:30", anomalies[0]["nature"])
+        self.assertIn("Bais -6 ans 10:00-16:00", anomalies[0]["nature"])
+
+    def test_equivalences_option_2_strictes(self):
+        for IDunite, attendu in ((201, 8 * H), (206, 6 * H)):
+            with self.subTest(unite=IDunite):
+                r = calculer(M.EXTRA, [self.facturee(IDunite)])
+                self.assertEqual(r["indicateurs"]["heures_facturees"], attendu)
+
+
+class FacturationTests(unittest.TestCase):
+    """Décision 3 : chaque journée ou demi-journée retenue est justifiée par la facturation."""
+
+    def facturee(self, IDunite=201, date=LUNDI_VACANCES, individu=1, **kw):
+        kw.setdefault("IDprestation", 8000 + _ID[0])
+        kw.setdefault("IDfacture", 31)
+        return conso(date, IDunite, individu=individu, **kw)
+
+    def regul(self, **kw):
+        regul = {"IDprestation": 9001, "IDindividu": 1, "IDfamille": 1001, "IDactivite": 1, "date": D(2026, 11, 5),
+                 "montant": -15.0, "label": "Avoir absence", "IDfacture": 40, "facture_etat": None}
+        regul.update(kw)
+        return regul
+
+    def test_justification_par_prestation_et_facture(self):
+        c = self.facturee(IDprestation=8500, IDfacture=31)
+        r = calculer(M.EXTRA, [c])
+        self.assertEqual(r["jours"][0]["justification_facture"], "journée P8500 F31")
+        self.assertEqual((r["lignes"][0]["IDprestation"], r["lignes"][0]["IDfacture"]), (8500, 31))
+
+    def test_montant_jamais_converti_en_heures(self):
+        for montant in (0.0, 1.0, 48.0):
+            with self.subTest(montant=montant):
+                r = calculer(M.EXTRA, [self.facturee(prestation_montant=montant)])
+                self.assertEqual((r["indicateurs"]["heures_facturees"], r["bloquant"]), (8 * H, False))
+
+    def test_remise_ne_retire_pas_l_unite(self):
+        # Une déduction (remise, aide) réduit le montant, pas l'unité facturée.
+        r = calculer(M.EXTRA, [self.facturee(prestation_montant=2.5)])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+
+    def test_regularisation_non_qualifiee_bloquante(self):
+        r = calculer(M.EXTRA, [self.facturee()], regularisations=[self.regul()])
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any(n.startswith("Régularisation négative non rattachée") for n in natures(r)))
+
+    def test_avoir_familial_bloquant(self):
+        r = calculer(M.EXTRA, [self.facturee()], regularisations=[self.regul(IDindividu=None)])
+        self.assertTrue(r["bloquant"])
+
+    def test_regularisation_d_une_autre_famille_ignoree(self):
+        r = calculer(M.EXTRA, [self.facturee()], regularisations=[self.regul(IDindividu=None, IDfamille=5555),
+                                                                  self.regul(IDindividu=77, IDfamille=5555)])
+        self.assertFalse(r["bloquant"])
+
+    def test_regularisation_qualifiee_annulant_la_journee(self):
+        c = self.facturee()
+        qualifiees = {"9001": {"consommations_annulees": [c["IDconso"]], "justification": "Avoir maladie"}}
+        r = calculer(M.EXTRA, [c], regularisations=[self.regul()], regularisations_qualifiees=qualifiees)
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["bloquant"]), (0, False))
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 9 * H)  # la présence reste
+
+    def test_regularisation_qualifiee_sans_annulation(self):
+        qualifiees = {"9001": {"consommations_annulees": [], "justification": "Remboursement de trop-perçu"}}
+        r = calculer(M.EXTRA, [self.facturee()], regularisations=[self.regul()], regularisations_qualifiees=qualifiees)
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["bloquant"]), (8 * H, False))
+
+    def test_regularisation_sans_effet_en_periscolaire(self):
+        r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)], regularisations=[self.regul()])
+        self.assertFalse(r["bloquant"])
+
+    def test_annulation_partielle_facture_annulee_puis_refacturee(self):
+        annulee = self.facturee(facture_etat="annulation")
+        refacturee = self.facturee(individu=2, IDfacture=32)
+        r = calculer(M.EXTRA, [annulee, refacturee])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+
+    def test_quantite_indeterminable_bloquante(self):
+        cas = {"prestation de montant négatif": dict(prestation_montant=-12.0),
+               "prestation forfaitaire": dict(prestation_forfait=2),
+               "forfait daté": dict(prestation_forfait_debut="2026-10-19"),
+               "quantité facturée": dict(quantite=2),
+               "autre enfant": dict(prestation_IDindividu=99)}
+        for motif, modif in cas.items():
+            with self.subTest(motif=motif):
+                r = calculer(M.EXTRA, [self.facturee(**modif)])
+                self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+                self.assertTrue(any(n.startswith("Facturation indéterminable") for n in natures(r)))
+
+    def test_prestation_partagee_entre_deux_jours_bloquante(self):
+        consos = [self.facturee(IDprestation=8888), self.facturee(date=D(2026, 10, 20), IDprestation=8888)]
+        r = calculer(M.EXTRA, consos)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertTrue(any("partagée entre plusieurs jours" in n for n in natures(r)))
+
+    def test_absence_facturee_jamais_presence(self):
+        r = calculer(M.EXTRA, [self.facturee(etat="absenti")])
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"],
+                          r["indicateurs"]["heures_physiques"]), (8 * H, 0, 0))
+
+
+class SamedisTests(unittest.TestCase):
+    """Décision 4 : samedis avec école identifiés par un calendrier daté."""
+
+    def test_samedi_sans_calendrier_date_bloquant(self):
+        r = calculer(M.EXTRA, [conso(SAMEDI_SANS_ECOLE, 201)], samedis_avec_ecole={})
+        self.assertTrue(any(n.startswith("Samedi hors vacances : calendrier daté") for n in natures(r)))
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+
+    def test_samedi_avec_ecole_date_periscolaire(self):
+        samedi = D(2026, 11, 28)
+        self.assertEqual(calculer(M.EXTRA, [conso(samedi, 201)])["indicateurs"]["heures_realisees"], 0)
+        self.assertEqual(calculer(M.PERI, [conso(samedi, 101)])["indicateurs"]["heures_realisees"], H + 15 * 60)
+
+    def test_ancienne_option_booleenne_ignoree(self):
+        r = calculer(M.PERI, [conso(SAMEDI_SANS_ECOLE, 101)], options={"samedis_avec_ecole": True})
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
 
 
 class AEEHTests(unittest.TestCase):
@@ -401,6 +637,10 @@ class ContexteTests(unittest.TestCase):
     def test_statuts_et_categories_valides(self):
         with self.assertRaises(ValueError):
             M.Calculateur(contexte(M.PERI, etats_realise=[]))
+        for champ, etats in (("etats_realise", ["present", "reservation"]), ("etats_realise", ["present", "absenti"]),
+                             ("etats_facture", ["present", "reservation"])):
+            with self.subTest(champ=champ, etats=etats), self.assertRaises(ValueError):
+                M.Calculateur(contexte(M.PERI, **{champ: etats}))
         unites = dict(UNITES)
         unites[301] = {"nom": "X", "heure_debut": "08:00", "heure_fin": "09:00", "categorie": "garderie"}
         with self.assertRaises(M.ContexteInvalide):

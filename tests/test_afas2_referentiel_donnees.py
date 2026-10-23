@@ -28,7 +28,8 @@ GROUPES = [(11, 1, "Bais +6 ans"), (12, 1, "Bais -6 ans"), (13, 1, "Moutiers"), 
 def referentiel():
     def lien(IDgroupe, nom, equipement):
         return {"IDactivite": 1, "IDgroupe": IDgroupe, "nom_groupe": nom, "equipement": equipement}
-    return {"format": 1, "moutiers_rattachement_confirme": False, "sejours": [], "sites": {
+    return {"format": 2, "moutiers_rattachement_confirme": False, "sejours": [], "samedis_avec_ecole": {},
+            "justificatifs": {R.MINICAMPS_6_8: "Déclaration fictive n° 0001"}, "regularisations": {}, "sites": {
         R.BAIS_PLUS_6: lien(11, "Bais +6 ans", "BAIS"), R.BAIS_MOINS_6: lien(12, "Bais -6 ans", "BAIS"),
         R.MOUTIERS: lien(13, "Moutiers", "LA_GUERCHE_MOUTIERS"), R.LA_GUERCHE: lien(14, "La Guerche", "LA_GUERCHE_MOUTIERS"),
         R.MINICAMPS_6_8: lien(15, "Minicamps 6/8", "BAIS"), R.MINICAMPS_8_10: lien(16, "Minicamps 8/10", None)}}
@@ -101,12 +102,85 @@ class ReferentielTests(unittest.TestCase):
         ref = R.ValiderReferentiel(referentiel(), groupes_dict())
         self.assertEqual(R.StatutSite(ref, R.MOUTIERS, "periscolaire")[0], False)
         ref["moutiers_rattachement_confirme"] = True
+        # Confirmation seule : le formulaire d'implantation doit être référencé.
+        self.assertFalse(R.StatutSite(ref, R.MOUTIERS, "periscolaire")[0])
+        ref["justificatifs"][R.MOUTIERS] = "Formulaire d'implantation fictif"
         self.assertEqual(R.StatutSite(ref, R.MOUTIERS, "periscolaire"), (True, ""))
 
     def test_minicamp_sans_equipement_non_validable(self):
         ref = R.ValiderReferentiel(referentiel(), groupes_dict())
         self.assertFalse(R.StatutSite(ref, R.MINICAMPS_8_10, "extrascolaire")[0])
         self.assertTrue(R.StatutSite(ref, R.MINICAMPS_6_8, "extrascolaire")[0])
+
+    def test_minicamp_sans_justificatif_non_validable(self):
+        # Rattachement choisi mais non fondé sur la déclaration de l'équipement organisateur.
+        ref = referentiel()
+        del ref["justificatifs"][R.MINICAMPS_6_8]
+        ref = R.ValiderReferentiel(ref, groupes_dict())
+        validable, motif = R.StatutSite(ref, R.MINICAMPS_6_8, "extrascolaire")
+        self.assertFalse(validable)
+        self.assertIn("justificatif", motif)
+
+    def test_justificatif_sans_objet_ou_vide_refuse(self):
+        for justificatifs in ({R.LA_GUERCHE: "x"}, {R.MINICAMPS_6_8: "  "}, {R.MINICAMPS_6_8: 3},
+                              {R.MINICAMPS_6_8: "x" * 301}):
+            ref = referentiel()
+            ref["justificatifs"] = justificatifs
+            with self.subTest(justificatifs=justificatifs), self.assertRaises(R.ReferentielInvalide):
+                R.ValiderReferentiel(ref, groupes_dict())
+
+    def test_samedis_avec_ecole_dates(self):
+        ref = referentiel()
+        ref["samedis_avec_ecole"] = {"2026": ["2026-11-28"], "2025": []}
+        self.assertEqual(R.ValiderReferentiel(ref, groupes_dict())["samedis_avec_ecole"]["2026"], ["2026-11-28"])
+        for samedis in ({"2026": ["2026-11-27"]},              # vendredi
+                        {"2025": ["2026-11-28"]},              # autre année scolaire
+                        {"2026": ["2026-11-28", "2026-11-28"]},
+                        {"26": []}, {"2026": "2026-11-28"}, []):
+            ref["samedis_avec_ecole"] = samedis
+            with self.subTest(samedis=samedis), self.assertRaises(R.ReferentielInvalide):
+                R.ValiderReferentiel(ref, groupes_dict())
+
+    def test_saisie_texte_des_samedis(self):
+        calendrier = R.LireSamedisTexte("2026 : 2026-11-28, 2027-03-13\n\n2025 : aucun")
+        self.assertEqual(calendrier, {"2026": ["2026-11-28", "2027-03-13"], "2025": []})
+        self.assertEqual(R.LireSamedisTexte(R.TexteSamedis(calendrier)), calendrier)
+        for texte in ("2026", "2026 :", "2026 : 2026-11-27", "2026 : aucun\n2026 : aucun"):
+            with self.subTest(texte=texte), self.assertRaises(R.ReferentielInvalide):
+                R.LireSamedisTexte(texte)
+
+    def test_saisie_d_une_regularisation(self):
+        self.assertEqual(R.LireRegularisation(" 9001 ", "12, 13", " Avoir "),
+                         ("9001", {"consommations_annulees": [12, 13], "justification": "Avoir"}))
+        self.assertEqual(R.LireRegularisation("9002", "", "Trop-perçu")[1]["consommations_annulees"], [])
+        for saisie in (("x", "", "a"), ("9001", "a,b", "a"), ("9001", "1", "")):
+            with self.subTest(saisie=saisie), self.assertRaises(R.ReferentielInvalide):
+                R.LireRegularisation(*saisie)
+
+    def test_migration_format_1(self):
+        ancien = referentiel()
+        ancien["format"] = 1
+        del ancien["samedis_avec_ecole"], ancien["justificatifs"], ancien["regularisations"]
+        migre = R.ValiderReferentiel(ancien, groupes_dict())
+        self.assertEqual((migre["format"], migre["samedis_avec_ecole"], migre["justificatifs"], migre["regularisations"]),
+                         (2, {}, {}, {}))
+        # Plus strict après migration : les minicamps doivent être justifiés.
+        self.assertFalse(R.StatutSite(migre, R.MINICAMPS_6_8, "extrascolaire")[0])
+
+    def test_regularisations_qualifiees(self):
+        ref = referentiel()
+        ref["regularisations"] = {"9001": {"consommations_annulees": [12, 13], "justification": "Avoir maladie (fictif)"},
+                                  "9002": {"consommations_annulees": [], "justification": "Remboursement de trop-perçu"}}
+        self.assertEqual(len(R.ValiderReferentiel(ref, groupes_dict())["regularisations"]), 2)
+        for regularisations in ({"x": {"consommations_annulees": [], "justification": "a"}},
+                                {"09001": {"consommations_annulees": [], "justification": "a"}},
+                                {"9001": {"consommations_annulees": [1, 1], "justification": "a"}},
+                                {"9001": {"consommations_annulees": ["1"], "justification": "a"}},
+                                {"9001": {"consommations_annulees": [], "justification": " "}},
+                                {"9001": {"consommations_annulees": []}}, []):
+            ref["regularisations"] = regularisations
+            with self.subTest(regularisations=regularisations), self.assertRaises(R.ReferentielInvalide):
+                R.ValiderReferentiel(ref, groupes_dict())
 
     def test_cle_inconnue_refusee(self):
         ref = referentiel()
@@ -184,6 +258,34 @@ class DonneesTests(_BaseDB):
         lignes = Donnees.ChargerConsommations([(1, 11)], D(2026, 1, 1), D(2026, 12, 31))
         self.assertEqual([(l["IDfacture"], l["facture_etat"]) for l in lignes], [(1, None), (2, "annulation"), (None, None)])
 
+    def test_detail_de_la_prestation_charge(self):
+        self.base.inserer("factures", ["IDfacture", "numero", "etat"], [(1, 1, None)])
+        self.base.inserer("prestations", ["IDprestation", "IDfacture", "montant", "forfait", "forfait_date_debut",
+                                          "IDindividu", "IDfamille"],
+                          [(10, 1, 12.5, None, None, 1, 501), (11, 1, 30.0, 2, "2026-10-19", 2, 502)])
+        self.conso(1, 1, "2026-10-19", 201, 1, 11, IDprestation=10)
+        self.conso(2, 2, "2026-10-19", 201, 1, 11, IDprestation=11)
+        lignes = Donnees.ChargerConsommations([(1, 11)], D(2026, 1, 1), D(2026, 12, 31))
+        self.assertEqual([(l["prestation_montant"], l["prestation_forfait"], l["prestation_forfait_debut"],
+                           l["prestation_IDindividu"], l["IDfamille"]) for l in lignes],
+                         [(12.5, None, None, 1, 501), (30.0, 2, "2026-10-19", 2, 502)])
+        self.assertIn("quantite", lignes[0])
+
+    def test_regularisations_non_rattachees(self):
+        self.base.inserer("factures", ["IDfacture", "numero", "etat"], [(5, 5, None)])
+        self.base.inserer("prestations", ["IDprestation", "IDfacture", "montant", "date", "IDactivite", "IDindividu",
+                                          "IDfamille", "label", "categorie"], [
+            (20, 5, -15.0, "2026-11-05", 1, 1, 501, "Avoir absence", "consommation"),     # retenue
+            (21, None, -8.0, "2026-11-06", None, None, 501, "Avoir famille", "autre"),     # retenue (famille)
+            (22, None, -8.0, "2026-11-06", 2, 9, 900, "Avoir ados", "consommation"),        # hors périmètre
+            (23, None, 12.0, "2026-11-06", 1, 1, 501, "Positive", "consommation"),          # positive
+            (24, None, -5.0, "2027-06-01", 1, 1, 501, "Hors fenêtre", "consommation"),      # hors fenêtre
+            (25, None, -5.0, "2026-11-07", 1, 1, 501, "Rattachée", "consommation")])        # rattachée à une conso
+        self.conso(1, 1, "2026-10-19", 201, 1, 11, IDprestation=25)
+        lignes = Donnees.ChargerRegularisations([1], [1], [501], D(2026, 1, 1), D(2027, 3, 31))
+        self.assertEqual([(l["IDprestation"], l["IDindividu"], l["IDfacture"]) for l in lignes], [(20, 1, 5), (21, None, None)])
+        self.assertEqual(Donnees.ChargerRegularisations([], [], [], D(2026, 1, 1), D(2027, 3, 31)), [])
+
     def test_ouvertures_unites_aeeh(self):
         self.base.inserer("ouvertures", ["IDactivite", "IDunite", "IDgroupe", "date"],
                           [(1, 201, 11, "2026-10-19"), (1, 201, 12, "2026-10-19"), (2, 301, 11, "2026-10-19")])
@@ -219,7 +321,7 @@ class PersistanceReferentielTests(_BaseDB):
         with self.assertRaises(ValueError):
             R.ChargerReferentiel()
         R.EnregistrerReferentiel(referentiel())
-        self.assertEqual(R.ChargerReferentiel()["format"], 1)
+        self.assertEqual(R.ChargerReferentiel()["format"], 2)
 
     def test_enregistrement_refuse_un_referentiel_invalide(self):
         ref = referentiel()

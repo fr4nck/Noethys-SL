@@ -20,6 +20,8 @@ from Utils import UTILS_AFAS2_Presets as Presets
 from Utils import UTILS_AFAS2_Referentiel as Referentiel
 
 MODES = ((Conventions.PERISCOLAIRE, "Périscolaire"), (Conventions.EXTRASCOLAIRE, "Extrascolaire"))
+STATUTS_REALISE = tuple((code, libelle) for code, libelle in Calendrier.STATUTS if code in Calendrier.ETATS_REALISE_ADMIS)
+STATUTS_FACTURE = tuple((code, libelle) for code, libelle in Calendrier.STATUTS if code in Calendrier.ETATS_FACTURE_ADMIS)
 EQUIPEMENTS = tuple((code, valeur["libelle"]) for code, valeur in sorted(Conventions.EQUIPEMENTS.items()))
 LIBELLES_CATEGORIES = dict(Calcul.CATEGORIES)
 
@@ -30,6 +32,7 @@ class Dialog(wx.Dialog):
         self.IDprofil = None
         self.preset_courant = None
         self.unites_classees = {}
+        self.plages_declarees = {}
         self.rapport = None
         self.referentiel = Referentiel.ReferentielVide()
         self.erreur_referentiel = None
@@ -61,9 +64,10 @@ class Dialog(wx.Dialog):
         self.bouton_unites = wx.Button(self, label="Classer les unités…")
         self.bouton_unites.Bind(wx.EVT_BUTTON, self.OnUnites)
         self.label_unites = wx.StaticText(self, label="")
-        self.ctrl_realise = wx.CheckListBox(self, choices=[libelle for code, libelle in Calendrier.STATUTS])
-        self.ctrl_facture = wx.CheckListBox(self, choices=[libelle for code, libelle in Calendrier.STATUTS])
-        self.ctrl_samedis = wx.CheckBox(self, label="Samedis avec école (sinon : samedis sans école, extrascolaires)")
+        self.ctrl_realise = wx.CheckListBox(self, choices=[libelle for code, libelle in STATUTS_REALISE])
+        self.ctrl_facture = wx.CheckListBox(self, choices=[libelle for code, libelle in STATUTS_FACTURE])
+        self.label_samedis = wx.StaticText(self, label="Samedis hors vacances : calendrier daté des samedis avec école "
+                                                       "saisi dans le référentiel, par année scolaire")
         self.ctrl_repas = wx.CheckBox(self, label="Inclure le temps de repas méridien (conventions périscolaires, art. 1.5)")
         self.ctrl_garderie = wx.CheckBox(self, label="Ajouter les garderies aux heures CAF (choix explicite)")
 
@@ -78,7 +82,8 @@ class Dialog(wx.Dialog):
         # H. Résultats
         self.label_statut = wx.StaticText(self, label="Aucun calcul.")
         self.ctrl_resultats = wx.ListCtrl(self, style=wx.LC_REPORT)
-        for indice, (titre, largeur) in enumerate((("Indicateur", 330), ("Réalisé", 110), ("Prévision", 110), ("Total", 110))):
+        for indice, (titre, largeur) in enumerate((("Indicateur", 330), ("Nature", 90), ("Réalisé", 110), ("Prévision", 110),
+                                                   ("Total", 110))):
             self.ctrl_resultats.InsertColumn(indice, titre, width=largeur)
         self.ctrl_resultats.SetMinSize((-1, 230))
         self.ctrl_anomalies = wx.ListCtrl(self, style=wx.LC_REPORT)
@@ -119,7 +124,7 @@ class Dialog(wx.Dialog):
         grille.AddGrowableCol(1)
         grille.AddGrowableCol(3)
         sizer.Add(grille, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
-        for case in (self.ctrl_samedis, self.ctrl_repas, self.ctrl_garderie):
+        for case in (self.label_samedis, self.ctrl_repas, self.ctrl_garderie):
             sizer.Add(case, 0, wx.LEFT | wx.TOP, 8)
         ligne = wx.BoxSizer(wx.HORIZONTAL)
         for libelle, ctrl in (("Année", self.ctrl_annee), ("Phase", self.ctrl_phase), ("Prévision", self.ctrl_methode)):
@@ -203,12 +208,14 @@ class Dialog(wx.Dialog):
         for i, site in enumerate(proposes):
             self.ctrl_sites.Check(i, site in sites)
 
-    def _cocher(self, ctrl, codes):
-        for i, (code, libelle) in enumerate(Calendrier.STATUTS):
+    @staticmethod
+    def _cocher(ctrl, statuts, codes):
+        for i, (code, libelle) in enumerate(statuts):
             ctrl.Check(i, code in codes)
 
-    def _codes(self, ctrl):
-        return [code for i, (code, libelle) in enumerate(Calendrier.STATUTS) if ctrl.IsChecked(i)]
+    @staticmethod
+    def _codes(ctrl, statuts):
+        return [code for i, (code, libelle) in enumerate(statuts) if ctrl.IsChecked(i)]
 
     # ------------------------------------------------------------------ preset <-> interface
     def AppliquerPreset(self, preset):
@@ -220,9 +227,9 @@ class Dialog(wx.Dialog):
         self.ctrl_equipement.SetSelection([code for code, libelle in EQUIPEMENTS].index(preset["equipement"]))
         self.CocherSites(preset["sites"])
         self.unites_classees = {int(cle): categorie for cle, categorie in preset["unites"].items()}
-        self._cocher(self.ctrl_realise, preset["etats_realise"])
-        self._cocher(self.ctrl_facture, preset["etats_facture"])
-        self.ctrl_samedis.SetValue(preset["criteres_periodes"]["samedis_avec_ecole"])
+        self.plages_declarees = {int(cle): plage for cle, plage in preset["plages_declarees"].items()}
+        self._cocher(self.ctrl_realise, STATUTS_REALISE, preset["etats_realise"])
+        self._cocher(self.ctrl_facture, STATUTS_FACTURE, preset["etats_facture"])
         self.ctrl_repas.SetValue(preset["choix_conventionnels"]["inclure_repas_meridien"])
         self.ctrl_garderie.SetValue(preset["choix_conventionnels"]["inclure_garderie_caf"])
         self.MajLabelUnites()
@@ -235,8 +242,11 @@ class Dialog(wx.Dialog):
         preset.update(nom=self.ctrl_nom.GetValue().strip(), mode=self.Mode(), equipement=self.Equipement(),
                       activite=self.ctrl_activite.GetStringSelection(), sites=self.SitesCoches(),
                       unites={str(ID): categorie for ID, categorie in sorted(self.unites_classees.items())},
-                      etats_realise=self._codes(self.ctrl_realise), etats_facture=self._codes(self.ctrl_facture),
-                      criteres_periodes={"samedis_avec_ecole": self.ctrl_samedis.GetValue()},
+                      plages_declarees={str(ID): plage for ID, plage in sorted(self.plages_declarees.items())
+                                        if self.unites_classees.get(ID) in Calcul.CATEGORIES_A_PLAGE},
+                      etats_realise=self._codes(self.ctrl_realise, STATUTS_REALISE),
+                      etats_facture=self._codes(self.ctrl_facture, STATUTS_FACTURE),
+                      criteres_periodes={"regle_samedis": Presets.REGLE_SAMEDIS_CALENDRIER},
                       choix_conventionnels={"inclure_repas_meridien": self.ctrl_repas.GetValue(),
                                             "inclure_garderie_caf": self.ctrl_garderie.GetValue()})
         return Presets.ValiderPreset(preset)
@@ -244,7 +254,13 @@ class Dialog(wx.Dialog):
     def MajLabelUnites(self):
         nombre = len(self.unites_classees)
         a_qualifier = sum(1 for c in self.unites_classees.values() if c == "a_qualifier")
-        self.label_unites.SetLabel("%d unité(s) classée(s)%s" % (nombre, " dont %d à qualifier" % a_qualifier if a_qualifier else ""))
+        sans_plage = sum(1 for ID, c in self.unites_classees.items() if c in Calcul.CATEGORIES_A_PLAGE and ID not in self.plages_declarees)
+        details = []
+        if a_qualifier:
+            details.append("%d à qualifier" % a_qualifier)
+        if sans_plage:
+            details.append("%d sans plage déclarée" % sans_plage)
+        self.label_unites.SetLabel("%d unité(s) classée(s)%s" % (nombre, " dont " + ", ".join(details) if details else ""))
 
     def MajListePresets(self, IDselection=None):
         self.presets = Presets.ListerPresets()
@@ -267,6 +283,23 @@ class Dialog(wx.Dialog):
     def ChargerPreset(self, IDprofil):
         try:
             preset = Presets.ChargerPreset(IDprofil)
+        except Presets.PresetAMigrer as migration:
+            # Brouillon au nouveau format affiché sans être enregistré : à compléter puis enregistrer.
+            self.IDprofil = IDprofil
+            brouillon = migration.brouillon
+            self.preset_courant = brouillon
+            self.ctrl_nom.SetValue(brouillon["nom"])
+            self.ctrl_mode.SetSelection([code for code, libelle in MODES].index(brouillon["mode"]))
+            self.ctrl_equipement.SetSelection([code for code, libelle in EQUIPEMENTS].index(brouillon["equipement"]))
+            self.CocherSites(brouillon["sites"])
+            self.unites_classees = {int(cle): categorie for cle, categorie in brouillon["unites"].items()}
+            self.plages_declarees = {int(cle): plage for cle, plage in brouillon["plages_declarees"].items()}
+            self._cocher(self.ctrl_realise, STATUTS_REALISE, brouillon["etats_realise"])
+            self._cocher(self.ctrl_facture, STATUTS_FACTURE, brouillon["etats_facture"])
+            self.MajLabelUnites()
+            self.MajListePresets(IDprofil)
+            self.Message("Preset à mettre à jour avant tout calcul :\n- " + "\n- ".join(migration.a_completer))
+            return False
         except ValueError as erreur:
             self.Erreur("Preset illisible ou invalide : %s" % erreur)
             return False
@@ -354,9 +387,9 @@ class Dialog(wx.Dialog):
         unites = self.UnitesNoethys()
         if not unites:
             return self.Message("Sélectionner des sites reliés au référentiel pour classer leurs unités.")
-        with DialogUnites(self, unites, self.unites_classees) as dlg:
+        with DialogUnites(self, unites, self.unites_classees, self.plages_declarees) as dlg:
             if dlg.ShowModal() == wx.ID_OK:
-                self.unites_classees = dlg.GetClassement()
+                self.unites_classees, self.plages_declarees = dlg.GetClassement()
                 self.MajLabelUnites()
 
     def OnReferentiel(self, event):
@@ -391,7 +424,8 @@ class Dialog(wx.Dialog):
     def AfficherRapport(self, rapport):
         for ligne in rapport["indicateurs"]:
             index = self.ctrl_resultats.InsertItem(self.ctrl_resultats.GetItemCount(), ligne["libelle"])
-            for colonne, champ in enumerate(("realise", "prevision", "total"), 1):
+            self.ctrl_resultats.SetItem(index, 1, ligne.get("nature", ""))
+            for colonne, champ in enumerate(("realise", "prevision", "total"), 2):
                 self.ctrl_resultats.SetItem(index, colonne, Declaration.Heures(ligne[champ]))
         for anomalie in rapport["anomalies"]:
             index = self.ctrl_anomalies.InsertItem(self.ctrl_anomalies.GetItemCount(), str(anomalie["date"]))
@@ -453,14 +487,18 @@ class Dialog(wx.Dialog):
 
 
 class DialogUnites(wx.Dialog):
-    """Classement explicite des unités Noethys (jamais déduit du libellé)."""
+    """Classement explicite des unités Noethys (jamais déduit du libellé) et
+    plage réellement organisée de chaque unité à plage horaire."""
 
-    def __init__(self, parent, unites, classement):
+    def __init__(self, parent, unites, classement, plages):
         super().__init__(parent, title="Classement des unités", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-        self.choix = {}
+        self.unites = unites
+        self.choix, self.plages = {}, {}
         panneau = wx.ScrolledWindow(self)
         panneau.SetScrollRate(0, 20)
-        grille = wx.FlexGridSizer(cols=3, vgap=4, hgap=10)
+        grille = wx.FlexGridSizer(cols=4, vgap=4, hgap=10)
+        for titre in ("Unité", "Horaires Noethys", "Catégorie", "Plage réellement organisée (HH:MM-HH:MM)"):
+            grille.Add(wx.StaticText(panneau, label=titre))
         for IDunite, unite in sorted(unites.items(), key=lambda x: (x[1]["IDactivite"], x[1]["nom"])):
             grille.Add(wx.StaticText(panneau, label="%s (%d)" % (unite["nom"], IDunite)), 0, wx.ALIGN_CENTER_VERTICAL)
             grille.Add(wx.StaticText(panneau, label="%s, %s → %s" % (unite.get("type") or "?", unite.get("heure_debut") or "--:--",
@@ -468,16 +506,44 @@ class DialogUnites(wx.Dialog):
             choix = wx.Choice(panneau, choices=[libelle for code, libelle in Calcul.CATEGORIES])
             choix.SetSelection(Calcul.CODES_CATEGORIES.index(classement.get(IDunite, "a_qualifier")))
             grille.Add(choix)
+            plage = wx.TextCtrl(panneau, value=plages.get(IDunite, ""), size=(110, -1))
+            grille.Add(plage)
             self.choix[IDunite] = choix
+            self.plages[IDunite] = plage
         panneau.SetSizer(grille)
+        reprendre = wx.Button(self, label="Reprendre les horaires Noethys dans les plages vides (après vérification)")
+        reprendre.Bind(wx.EVT_BUTTON, self.OnReprendre)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(panneau, 1, wx.EXPAND | wx.ALL, 8)
+        sizer.Add(reprendre, 0, wx.LEFT | wx.RIGHT, 8)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 8)
         self.SetSizer(sizer)
-        self.SetSize((720, 520))
+        self.SetSize((900, 560))
+        self.Bind(wx.EVT_BUTTON, self.OnOk, id=wx.ID_OK)
+
+    def OnReprendre(self, event):
+        for IDunite, ctrl in self.plages.items():
+            unite = self.unites[IDunite]
+            categorie = Calcul.CODES_CATEGORIES[self.choix[IDunite].GetSelection()]
+            if categorie in Calcul.CATEGORIES_A_PLAGE and not ctrl.GetValue().strip() \
+                    and unite.get("heure_debut") and unite.get("heure_fin"):
+                ctrl.SetValue("%s-%s" % (str(unite["heure_debut"])[:5], str(unite["heure_fin"])[:5]))
 
     def GetClassement(self):
-        return {IDunite: Calcul.CODES_CATEGORIES[choix.GetSelection()] for IDunite, choix in self.choix.items()}
+        classement = {IDunite: Calcul.CODES_CATEGORIES[choix.GetSelection()] for IDunite, choix in self.choix.items()}
+        plages = {IDunite: ctrl.GetValue().strip() for IDunite, ctrl in self.plages.items()
+                  if ctrl.GetValue().strip() and classement[IDunite] in Calcul.CATEGORIES_A_PLAGE}
+        return classement, plages
+
+    def OnOk(self, event):
+        classement, plages = self.GetClassement()
+        for IDunite, plage in plages.items():
+            try:
+                Presets.ValiderPlage(plage)
+            except Presets.PresetInvalide as erreur:
+                wx.MessageBox("%s : %s" % (self.unites[IDunite]["nom"], erreur), "Classement des unités", wx.OK | wx.ICON_ERROR, self)
+                return
+        self.EndModal(wx.ID_OK)
 
 
 class DialogReferentiel(wx.Dialog):
@@ -516,6 +582,26 @@ class DialogReferentiel(wx.Dialog):
         self.ctrl_moutiers = wx.CheckBox(self, label="Rattachement de Moutiers à la convention « La Guerche-Moutiers » confirmé "
                                                      "(formulaire d'implantation vérifié)")
         self.ctrl_moutiers.SetValue(referentiel["moutiers_rattachement_confirme"])
+        grille_justif = wx.FlexGridSizer(cols=2, vgap=4, hgap=10)
+        self.ctrl_justificatifs = {}
+        for site in Referentiel.SITES_A_JUSTIFIER:
+            grille_justif.Add(wx.StaticText(self, label="Justificatif — %s" % site), 0, wx.ALIGN_CENTER_VERTICAL)
+            ctrl = wx.TextCtrl(self, value=referentiel["justificatifs"].get(site, ""))
+            ctrl.SetToolTip("Référence du formulaire d'implantation ou de la déclaration désignant l'équipement organisateur")
+            grille_justif.Add(ctrl, 1, wx.EXPAND)
+            self.ctrl_justificatifs[site] = ctrl
+        grille_justif.AddGrowableCol(1)
+        self.ctrl_samedis = wx.TextCtrl(self, value=Referentiel.TexteSamedis(referentiel["samedis_avec_ecole"]),
+                                        style=wx.TE_MULTILINE)
+        self.ctrl_samedis.SetMinSize((-1, 60))
+        self.regularisations = dict(referentiel["regularisations"])
+        self.ctrl_regularisations = wx.ListBox(self)
+        self.ctrl_regularisations.SetMinSize((-1, 70))
+        ajouter_regul = wx.Button(self, label="Qualifier une régularisation…")
+        retirer_regul = wx.Button(self, label="Retirer la qualification")
+        ajouter_regul.Bind(wx.EVT_BUTTON, self.OnAjouterRegularisation)
+        retirer_regul.Bind(wx.EVT_BUTTON, self.OnRetirerRegularisation)
+        self.MajRegularisations()
         self.ctrl_sejours = wx.ListBox(self)
         self.ctrl_sejours.SetMinSize((-1, 100))
         ajouter = wx.Button(self, label="Ajouter un séjour qualifié…")
@@ -526,12 +612,22 @@ class DialogReferentiel(wx.Dialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(grille, 0, wx.EXPAND | wx.ALL, 8)
         sizer.Add(self.ctrl_moutiers, 0, wx.ALL, 8)
+        sizer.Add(grille_justif, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+        sizer.Add(wx.StaticText(self, label="Samedis avec école par année scolaire (« 2026 : 2026-11-28, 2027-03-13 » ou "
+                                            "« 2026 : aucun ») — une année non saisie bloque ses samedis hors vacances"), 0, wx.ALL, 8)
+        sizer.Add(self.ctrl_samedis, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
         sizer.Add(wx.StaticText(self, label="Séjours qualifiés (1 à 4 nuits, ou 5 nuits / 6 jours sous conditions) — 10 h par journée réalisée"), 0, wx.LEFT, 8)
         sizer.Add(self.ctrl_sejours, 1, wx.EXPAND | wx.ALL, 8)
         boutons = wx.BoxSizer(wx.HORIZONTAL)
         boutons.Add(ajouter, 0, wx.RIGHT, 6)
         boutons.Add(retirer)
         sizer.Add(boutons, 0, wx.LEFT, 8)
+        sizer.Add(wx.StaticText(self, label="Régularisations qualifiées (avoirs non rattachés à une consommation)"), 0, wx.ALL, 8)
+        sizer.Add(self.ctrl_regularisations, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+        boutons = wx.BoxSizer(wx.HORIZONTAL)
+        boutons.Add(ajouter_regul, 0, wx.RIGHT, 6)
+        boutons.Add(retirer_regul)
+        sizer.Add(boutons, 0, wx.LEFT | wx.TOP, 8)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 8)
         self.SetSizerAndFit(sizer)
         self.Bind(wx.EVT_BUTTON, self.OnOk, id=wx.ID_OK)
@@ -540,7 +636,7 @@ class DialogReferentiel(wx.Dialog):
         self.ctrl_sejours.Set(["%s — %s du %s au %s (%d nuit(s))" % (s["libelle"], s["site"], s["date_debut"], s["date_fin"], s["nuits"])
                                for s in self.sejours])
 
-    def LireReferentiel(self):
+    def LireSites(self):
         sites = {}
         for site, choix in self.ctrl_groupes.items():
             index = choix.GetSelection()
@@ -552,11 +648,39 @@ class DialogReferentiel(wx.Dialog):
                 selection = self.ctrl_equipements[site].GetSelection()
                 equipement = EQUIPEMENTS[selection - 1][0] if selection > 0 else None
             sites[site] = {"IDactivite": IDactivite, "IDgroupe": IDgroupe, "nom_groupe": nom, "equipement": equipement}
-        return {"format": Referentiel.FORMAT_REFERENTIEL, "sites": sites,
-                "moutiers_rattachement_confirme": self.ctrl_moutiers.GetValue(), "sejours": list(self.sejours)}
+        return sites
+
+    def LireReferentiel(self):
+        return {"format": Referentiel.FORMAT_REFERENTIEL, "sites": self.LireSites(),
+                "moutiers_rattachement_confirme": self.ctrl_moutiers.GetValue(), "sejours": list(self.sejours),
+                "samedis_avec_ecole": Referentiel.LireSamedisTexte(self.ctrl_samedis.GetValue()),
+                "justificatifs": {site: ctrl.GetValue().strip() for site, ctrl in self.ctrl_justificatifs.items()
+                                  if ctrl.GetValue().strip()},
+                "regularisations": dict(self.regularisations)}
+
+    def MajRegularisations(self):
+        self.ctrl_regularisations.Set(["Prestation %s — annule %s — %s" % (
+            ID, ", ".join(str(i) for i in q["consommations_annulees"]) or "aucune unité", q["justification"])
+            for ID, q in sorted(self.regularisations.items(), key=lambda x: int(x[0]))])
+
+    def OnAjouterRegularisation(self, event, saisie=None):
+        if saisie is None:
+            with DialogRegularisation(self) as dlg:
+                if dlg.ShowModal() != wx.ID_OK:
+                    return
+                saisie = dlg.saisie
+        cle, qualification = Referentiel.LireRegularisation(*saisie)
+        self.regularisations[cle] = qualification
+        self.MajRegularisations()
+
+    def OnRetirerRegularisation(self, event):
+        index = self.ctrl_regularisations.GetSelection()
+        if index != wx.NOT_FOUND:
+            del self.regularisations[sorted(self.regularisations, key=int)[index]]
+            self.MajRegularisations()
 
     def OnAjouterSejour(self, event):
-        with DialogSejour(self, self.LireReferentiel()["sites"]) as dlg:
+        with DialogSejour(self, self.LireSites()) as dlg:
             if dlg.ShowModal() == wx.ID_OK:
                 self.sejours.append(dlg.sejour)
                 self.MajSejours()
@@ -573,6 +697,37 @@ class DialogReferentiel(wx.Dialog):
         except (ValueError, Referentiel.ReferentielInvalide) as erreur:
             wx.MessageBox(str(erreur), "Référentiel AFAS", wx.OK | wx.ICON_ERROR, self)
             return
+        self.EndModal(wx.ID_OK)
+
+
+class DialogRegularisation(wx.Dialog):
+    def __init__(self, parent):
+        super().__init__(parent, title="Régularisation qualifiée")
+        self.saisie = None
+        self.ctrl_prestation = wx.TextCtrl(self)
+        self.ctrl_consos = wx.TextCtrl(self)
+        self.ctrl_consos.SetToolTip("IDconso dont la facturation est annulée, séparés par des virgules ; vide si aucune")
+        self.ctrl_justification = wx.TextCtrl(self)
+        grille = wx.FlexGridSizer(cols=2, vgap=4, hgap=8)
+        for libelle, ctrl in (("IDprestation (négative)", self.ctrl_prestation), ("Consommations annulées", self.ctrl_consos),
+                              ("Pièce justificative", self.ctrl_justification)):
+            grille.Add(wx.StaticText(self, label=libelle), 0, wx.ALIGN_CENTER_VERTICAL)
+            grille.Add(ctrl, 1, wx.EXPAND)
+        grille.AddGrowableCol(1)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(grille, 0, wx.EXPAND | wx.ALL, 8)
+        sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 8)
+        self.SetSizerAndFit(sizer)
+        self.Bind(wx.EVT_BUTTON, self.OnOk, id=wx.ID_OK)
+
+    def OnOk(self, event):
+        saisie = (self.ctrl_prestation.GetValue(), self.ctrl_consos.GetValue(), self.ctrl_justification.GetValue())
+        try:
+            Referentiel.LireRegularisation(*saisie)
+        except Referentiel.ReferentielInvalide as erreur:
+            wx.MessageBox(str(erreur), "Régularisation qualifiée", wx.OK | wx.ICON_ERROR, self)
+            return
+        self.saisie = saisie
         self.EndModal(wx.ID_OK)
 
 

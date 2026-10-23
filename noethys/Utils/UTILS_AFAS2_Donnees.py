@@ -50,9 +50,12 @@ def ChargerUnites(IDactivites):
 
 def ChargerConsommations(couples, date_debut, date_fin):
     """Toutes les consommations du périmètre, quel que soit leur statut (les
-    statuts inconnus doivent être détectés, pas filtrés en amont)."""
+    statuts inconnus doivent être détectés, pas filtrés en amont), avec la
+    prestation qui les facture et sa facture. Le montant n'est lu que pour
+    détecter une prestation négative : il n'est jamais converti en heures."""
     req = """SELECT c.IDconso, c.IDindividu, c.date, c.IDunite, c.IDactivite, c.IDgroupe, c.heure_debut, c.heure_fin,
-        c.etat, c.IDprestation, f.IDfacture, f.etat, i.nom, i.prenom
+        c.etat, c.quantite, c.IDprestation, p.montant, p.forfait, p.forfait_date_debut, p.IDindividu, p.IDfamille,
+        f.IDfacture, f.etat, i.nom, i.prenom
         FROM consommations c
         LEFT JOIN prestations p ON p.IDprestation = c.IDprestation
         LEFT JOIN factures f ON f.IDfacture = p.IDfacture
@@ -60,14 +63,52 @@ def ChargerConsommations(couples, date_debut, date_fin):
         WHERE c.date>='%s' AND c.date<='%s' AND %s
         ORDER BY c.date, c.IDindividu, c.IDconso;""" % (_date(date_debut), _date(date_fin), ConditionCouples(couples, "c"))
     resultat = []
-    for (IDconso, IDindividu, date, IDunite, IDactivite, IDgroupe, heure_debut, heure_fin, etat, IDprestation,
-         IDfacture, facture_etat, nom, prenom) in _requete(req):
+    for (IDconso, IDindividu, date, IDunite, IDactivite, IDgroupe, heure_debut, heure_fin, etat, quantite, IDprestation,
+         montant, forfait, forfait_debut, prestation_IDindividu, IDfamille, IDfacture, facture_etat, nom, prenom) in _requete(req):
         resultat.append({
             "IDconso": IDconso, "IDindividu": IDindividu, "individu": " ".join(x for x in (nom, prenom) if x),
             "date": _date(date), "IDunite": IDunite, "IDactivite": IDactivite, "IDgroupe": IDgroupe,
-            "heure_debut": heure_debut, "heure_fin": heure_fin, "etat": etat, "IDprestation": IDprestation,
-            "IDfacture": IDfacture, "facture_etat": facture_etat})
+            "heure_debut": heure_debut, "heure_fin": heure_fin, "etat": etat, "quantite": quantite,
+            "IDprestation": IDprestation, "prestation_montant": montant, "prestation_forfait": forfait,
+            "prestation_forfait_debut": forfait_debut, "prestation_IDindividu": prestation_IDindividu,
+            "IDfamille": IDfamille, "IDfacture": IDfacture, "facture_etat": facture_etat})
     return resultat
+
+
+def ChargerRegularisations(IDactivites, IDindividus, IDfamilles, date_debut, date_fin):
+    """Prestations négatives (avoirs, régularisations) non rattachées à une
+    consommation, datées de la période, portant sur les activités du
+    périmètre, ses enfants ou leurs familles."""
+    IDactivites = sorted({i for i in IDactivites if type(i) is int})
+    IDindividus = sorted({i for i in IDindividus if type(i) is int})
+    IDfamilles = sorted({i for i in IDfamilles if type(i) is int})
+    conditions = []
+    if IDactivites:
+        conditions.append("p.IDactivite IN (%s)" % ", ".join(map(str, IDactivites)))
+    if IDindividus:
+        conditions.append("p.IDindividu IN (%s)" % ", ".join(map(str, IDindividus)))
+    if IDfamilles:
+        conditions.append("p.IDfamille IN (%s)" % ", ".join(map(str, IDfamilles)))
+    if not conditions:
+        return []
+    req = """SELECT p.IDprestation, p.IDindividu, p.IDfamille, p.IDactivite, p.date, p.montant, p.label, p.categorie,
+        f.IDfacture, f.etat
+        FROM prestations p
+        LEFT JOIN factures f ON f.IDfacture = p.IDfacture
+        WHERE p.montant < 0 AND p.date>='%s' AND p.date<='%s' AND (%s)
+        ORDER BY p.date, p.IDprestation;""" % (_date(date_debut), _date(date_fin), " OR ".join(conditions))
+    candidates = _requete(req)
+    if not candidates:
+        return []
+    # consommations.IDprestation n'est pas indexé : une seule requête pour toutes les candidates.
+    rattachees = {IDprestation for (IDprestation,) in _requete(
+        "SELECT DISTINCT IDprestation FROM consommations WHERE IDprestation IN (%s);"
+        % ", ".join(str(ligne[0]) for ligne in candidates))}
+    return [{"IDprestation": IDprestation, "IDindividu": IDindividu or None, "IDfamille": IDfamille,
+             "IDactivite": IDactivite, "date": _date(date), "montant": montant, "label": label, "categorie": categorie,
+             "IDfacture": IDfacture, "facture_etat": facture_etat}
+            for IDprestation, IDindividu, IDfamille, IDactivite, date, montant, label, categorie, IDfacture, facture_etat
+            in candidates if IDprestation not in rattachees]
 
 
 def ChargerOuvertures(couples, date_debut, date_fin):

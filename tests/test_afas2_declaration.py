@@ -26,8 +26,9 @@ from Utils import UTILS_AFAS2_Presets as P  # noqa: E402
 H = 3600
 D = datetime.date
 VACANCES = []
-for annee in range(2023, 2029):  # calendrier fictif régulier, construit pour les tests
-    VACANCES += [("Eté", "%d-07-05" % annee, "%d-08-31" % annee), ("Toussaint", "%d-10-19" % annee, "%d-11-03" % annee),
+for annee in range(2023, 2029):  # calendrier fictif régulier et complet, construit pour les tests
+    VACANCES += [("Hiver", "%d-02-10" % annee, "%d-02-24" % annee), ("Printemps", "%d-04-14" % annee, "%d-04-28" % annee),
+                 ("Eté", "%d-07-05" % annee, "%d-08-31" % annee), ("Toussaint", "%d-10-19" % annee, "%d-11-03" % annee),
                  ("Noël", "%d-12-21" % annee, "%d-01-04" % (annee + 1))]
 
 GROUPES = {11: (1, "Bais +6 ans"), 12: (1, "Bais -6 ans"), 13: (1, "Moutiers"), 14: (1, "La Guerche"), 15: (1, "Minicamps 6/8")}
@@ -38,7 +39,8 @@ UNITES = {101: {"IDactivite": 1, "nom": "Matin", "type": "Unitaire", "heure_debu
 def referentiel(**kw):
     def lien(g, e):
         return {"IDactivite": 1, "IDgroupe": g, "nom_groupe": GROUPES[g][1], "equipement": e}
-    ref = {"format": 1, "moutiers_rattachement_confirme": False, "sejours": [], "sites": {
+    ref = {"format": 2, "moutiers_rattachement_confirme": False, "sejours": [], "justificatifs": {}, "regularisations": {},
+           "samedis_avec_ecole": {str(a): [] for a in range(2023, 2029)}, "sites": {
         "Bais +6 ans": lien(11, "BAIS"), "Bais -6 ans": lien(12, "BAIS"), "Moutiers": lien(13, "LA_GUERCHE_MOUTIERS"),
         "La Guerche-de-Bretagne": lien(14, "LA_GUERCHE_MOUTIERS"), "Minicamps 6/8": lien(15, None)}}
     ref.update(kw)
@@ -46,15 +48,22 @@ def referentiel(**kw):
 
 
 def preset(mode="periscolaire", sites=("Bais +6 ans",), equipement="BAIS"):
-    p = P.NouveauPreset("Bais accueil", mode, equipement, sites=list(sites), unites={"101": "accueil", "201": "journee"})
+    p = P.NouveauPreset("Bais accueil", mode, equipement, sites=list(sites), unites={"101": "accueil", "201": "journee"},
+                        plages={"101": "07:30-08:45", "201": "08:30-17:30"})
     return P.ValiderPreset(p)
 
 
 class SourceFactice(object):
-    def __init__(self, consos=(), ouvertures=(), aeeh=None):
+    def __init__(self, consos=(), ouvertures=(), aeeh=None, regularisations=()):
         self.consos = list(consos)
         self.ouvertures = set(ouvertures)
         self.aeeh = aeeh or {}
+        self.regularisations = list(regularisations)
+        self.fenetre_regularisations = None
+
+    def Regularisations(self, IDactivites, IDindividus, IDfamilles, debut, fin):
+        self.fenetre_regularisations = (debut, fin)
+        return [dict(r) for r in self.regularisations if debut <= r["date"] <= fin]
 
     def Groupes(self):
         return dict(GROUPES)
@@ -190,9 +199,15 @@ class ValidabiliteTests(unittest.TestCase):
         r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13))
         self.assertFalse(r["validable"])
         self.assertTrue(any("Moutiers" in m for m in r["motifs_non_validable"]))
+        # Confirmation sans formulaire d'implantation référencé : toujours non validable.
         r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13),
                      ref=referentiel(moutiers_rattachement_confirme=True))
+        self.assertFalse(r["validable"])
+        r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13),
+                     ref=referentiel(moutiers_rattachement_confirme=True,
+                                     justificatifs={"Moutiers": "Formulaire d'implantation fictif"}))
         self.assertTrue(r["validable"])
+        self.assertEqual(r["justificatifs"], {"Moutiers": "Formulaire d'implantation fictif"})
 
     def test_minicamp_sans_equipement_non_validable(self):
         p = preset(mode="extrascolaire", sites=("Bais +6 ans", "Minicamps 6/8"))
@@ -213,6 +228,7 @@ class ValidabiliteTests(unittest.TestCase):
     def test_unite_du_preset_supprimee_de_noethys(self):
         p = preset()
         p["unites"]["999"] = "accueil"
+        p["plages_declarees"]["999"] = "07:30-08:45"
         with self.assertRaisesRegex(DECL.DeclarationImpossible, "n'existe plus"):
             executer(p, 2026, AFAS.PHASE_REEL, SourceFactice())
 
@@ -230,6 +246,83 @@ class ValidabiliteTests(unittest.TestCase):
             self.assertEqual(lignes[1][9], "Statut de consommation inconnu ou absent : 'xyz'")
 
 
+def extra(date, individu=1, groupe=11, unite=201, etat="present", **kw):
+    _ID[0] += 1
+    c = {"IDconso": _ID[0], "IDindividu": individu, "individu": "FICTIF", "date": date, "IDunite": unite, "IDactivite": 1,
+         "IDgroupe": groupe, "heure_debut": "08:30", "heure_fin": "17:30", "etat": etat, "quantite": None,
+         "IDprestation": 5000 + _ID[0], "prestation_montant": 15.0, "prestation_forfait": None,
+         "prestation_forfait_debut": None, "prestation_IDindividu": individu, "IDfamille": 100 + individu,
+         "IDfacture": 70, "facture_etat": None}
+    c.update(kw)
+    return c
+
+
+class ExtrascolaireDeclarationTests(unittest.TestCase):
+    JOUR = D(2026, 10, 21)  # mercredi de vacances (calendrier fictif)
+
+    def source(self, consos, **kw):
+        return SourceFactice(consos, {(1, c["IDunite"], c["IDgroupe"], c["date"]) for c in consos}, **kw)
+
+    def test_extrascolaire_validable_avec_justification(self):
+        r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, self.source([extra(self.JOUR)]))
+        self.assertTrue(r["validable"], r["motifs_non_validable"])
+        self.assertEqual(ligne(r, "heures_facturees")["realise"], 8 * H)
+        self.assertTrue(r["jours"][0]["justification_facture"].startswith("journée P"))
+
+    def test_regularisations_recherchees_apres_la_periode(self):
+        source = self.source([extra(self.JOUR)], regularisations=[
+            {"IDprestation": 9100, "IDindividu": 1, "IDfamille": 101, "IDactivite": 1, "date": D(2027, 1, 20),
+             "montant": -15.0, "label": "Avoir", "IDfacture": None, "facture_etat": None}])
+        r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, source)
+        self.assertEqual(source.fenetre_regularisations, (D(2026, 1, 1), D(2027, 4, 2)))
+        self.assertFalse(r["validable"])
+        qualifiee = referentiel(regularisations={"9100": {"consommations_annulees": [source.consos[0]["IDconso"]],
+                                                          "justification": "Avoir pour absence maladie (fictif)"}})
+        r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, source, ref=qualifiee)
+        self.assertTrue(r["validable"], r["motifs_non_validable"])
+        self.assertEqual(ligne(r, "heures_facturees")["realise"], 0)
+        self.assertIn("9100", r["regularisations_qualifiees"])
+
+    def test_sejours_integres_mais_rubrique_non_confirmee(self):
+        p = P.NouveauPreset("Bais extrascolaire", "extrascolaire", "BAIS", sites=["Bais +6 ans"],
+                            unites={"201": "journee", "205": "sejour"}, plages={"201": "08:30-17:30"})
+        sejour = {"id": "s1", "libelle": "Minicamp fictif", "site": "Bais +6 ans", "date_debut": "2026-10-21",
+                  "date_fin": "2026-10-23", "nuits": 2, "prevu_declaration_annuelle": True,
+                  "integre_projet_educatif": True, "declare_sejour_vacances": False}
+        unites = dict(UNITES)
+        unites[205] = {"IDactivite": 1, "nom": "Minicamp", "type": "Unitaire", "heure_debut": None, "heure_fin": None}
+        source = self.source([extra(self.JOUR, unite=205)])
+        source.Unites = lambda IDactivites: copy.deepcopy(unites)
+        r = executer(P.ValiderPreset(p), 2026, AFAS.PHASE_REEL, source, ref=referentiel(sejours=[sejour]))
+        self.assertEqual((ligne(r, "heures_sejours")["realise"], ligne(r, "heures_realisees")["realise"],
+                          ligne(r, "heures_facturees")["realise"]), (10 * H, 10 * H, 10 * H))
+        self.assertFalse(r["validable"])
+        self.assertTrue(any("rubrique AFAS des séjours" in m for m in r["motifs_non_validable"]))
+        with tempfile.TemporaryDirectory() as dossier:
+            DECL.ExporterControle(dossier, r, "afas")  # le contrôle reste exportable
+            with self.assertRaises(DECL.DeclarationImpossible):
+                DECL.ExporterDeclaration(dossier, r, "afas")
+
+    def test_samedi_sans_calendrier_date_bloquant(self):
+        ref = referentiel(samedis_avec_ecole={})
+        r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, self.source([extra(D(2026, 10, 10))]), ref=ref)
+        self.assertFalse(r["validable"])
+        self.assertTrue(r["bloquant"])
+
+    def test_nature_des_indicateurs_dans_la_synthese(self):
+        r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, self.source([extra(self.JOUR)]))
+        self.assertEqual(ligne(r, "complement_inclusif_arrondi")["nature"], "hypothèse")
+        with tempfile.TemporaryDirectory() as dossier:
+            chemins = DECL.ExporterDeclaration(dossier, r, "afas")
+            with open(chemins["synthese"], encoding="utf-8-sig") as f:
+                textes = {l[0]: l[1:] for l in csv.reader(f, delimiter=";") if l}
+            self.assertEqual(textes["Heures facturées CAF"], ["déclaratif", "8,00", "0,00", "8,00"])
+            self.assertEqual(textes["Complément inclusif : arrondi à l'heure supérieure par jour (hypothèse)"][0], "hypothèse")
+            with open(chemins["jours"], encoding="utf-8-sig") as f:
+                jours = list(csv.reader(f, delimiter=";"))
+            self.assertEqual(jours[1][4], "08:30-17:30")
+
+
 class ExportsEtHistoriqueTests(unittest.TestCase):
     def test_29_export_avec_empreinte_et_instantane(self):
         r = executer(preset(), 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)]))
@@ -242,8 +335,8 @@ class ExportsEtHistoriqueTests(unittest.TestCase):
             self.assertEqual(textes["Empreinte de la déclaration"], [r["empreinte"]])
             self.assertEqual(textes["Empreinte du preset"], [r["empreinte_preset"]])
             self.assertEqual(textes["Convention"], ["PERI_BAIS_2025_2027"])
-            self.assertEqual(textes["Heures de présence conventionnelles CAF"], ["1,25", "0,00", "1,25"])
-            self.assertEqual(textes["Heures facturées CAF"], ["non applicable"] * 3)
+            self.assertEqual(textes["Heures de présence conventionnelles CAF"], ["déclaratif", "1,25", "0,00", "1,25"])
+            self.assertEqual(textes["Heures facturées CAF"], ["déclaratif"] + ["non applicable"] * 3)
             with open(chemins["instantane"], encoding="utf-8") as f:
                 instantane = json.load(f)
             self.assertEqual(instantane["preset"]["preset_id"], r["preset"]["preset_id"])

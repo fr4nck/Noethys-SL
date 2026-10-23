@@ -20,7 +20,8 @@ from Utils import UTILS_AFAS2_Presets as P  # noqa: E402
 
 def preset(**kw):
     p = P.NouveauPreset("ALSH Bais périscolaire", "periscolaire", "BAIS", sites=["Bais +6 ans", "Bais -6 ans"],
-                        unites={"101": "accueil", "104": "repas", "105": "garderie_matin"})
+                        unites={"101": "accueil", "104": "repas", "105": "garderie_matin", "106": "annexe"},
+                        plages={"101": "16:30-18:00", "104": "12:00-13:30", "105": "07:30-08:30"})
     p.update(kw)
     return p
 
@@ -32,8 +33,8 @@ class ValidationTests(unittest.TestCase):
     def test_23_annee_et_phase_refusees_a_tous_les_niveaux(self):
         cas = [
             dict(annee=2026), dict(phase="reel"), dict(date_debut="2026-01-01"), dict(Year=2026),
-            dict(criteres_periodes={"samedis_avec_ecole": False, "annee": 2026}),
-            dict(criteres_periodes={"samedis_avec_ecole": False, "phase": "actualisation_juin"}),
+            dict(criteres_periodes={"regle_samedis": "calendrier_date", "annee": 2026}),
+            dict(criteres_periodes={"regle_samedis": "calendrier_date", "phase": "actualisation_juin"}),
             dict(choix_conventionnels={"inclure_repas_meridien": True, "inclure_garderie_caf": False, "exercice": 2026}),
             dict(nom="ALSH Bais 2026"), dict(nom="Bais actualisation de juin"), dict(nom="Bais prévisionnel"),
             dict(nom="Bais septembre"), dict(nom="Date limite"),
@@ -44,14 +45,17 @@ class ValidationTests(unittest.TestCase):
 
     def test_unites_avec_identifiant_numerique_admises(self):
         # Un IDunite égal à 2026 n'est pas une année : c'est un identifiant.
-        P.ValiderPreset(preset(unites={"2026": "accueil"}))
+        P.ValiderPreset(preset(unites={"2026": "accueil"}, plages_declarees={"2026": "16:30-18:00"}))
 
     def test_schema_ferme_et_types(self):
         cas = [dict(format=0), dict(preset_id="abc"), dict(version=0), dict(version=True), dict(activite="ALSH Ados"),
                dict(mode="Périscolaire"), dict(equipement="ADOS"), dict(sites=[]), dict(sites=["Bais +6 ans", "Bais +6 ans"]),
                dict(sites=["Minicamps 6/8"]), dict(sites=["Bais"]), dict(unites={}), dict(unites={"1": "garderie"}),
                dict(unites={"01": "accueil"}), dict(unites={"x": "accueil"}), dict(etats_realise=[]),
-               dict(etats_facture=["refus"]), dict(criteres_periodes={"samedis_avec_ecole": "non"}),
+               dict(etats_facture=["refus"]), dict(criteres_periodes={"regle_samedis": "non"}),
+               dict(criteres_periodes={"samedis_avec_ecole": True}), dict(criteres_periodes={"samedis_avec_ecole": False}),
+               dict(etats_realise=["present", "reservation"]), dict(etats_realise=["present", "absentj"]),
+               dict(etats_facture=["present", "reservation"]),
                dict(choix_conventionnels={"inclure_repas_meridien": 1, "inclure_garderie_caf": False}),
                dict(champ_libre=1), dict(nom="")]
         for modif in cas:
@@ -60,6 +64,23 @@ class ValidationTests(unittest.TestCase):
         for corrompu in (None, [], "texte", {}):
             with self.subTest(corrompu=corrompu), self.assertRaises(P.PresetInvalide):
                 P.ValiderPreset(corrompu)
+
+    def test_plages_declarees_obligatoires_et_coherentes(self):
+        cas = [dict(plages_declarees={"101": "16:30-18:00", "104": "12:00-13:30"}),           # garderie sans plage
+               dict(plages_declarees=dict(preset()["plages_declarees"], **{"106": "10:00-11:00"})),  # annexe
+               dict(plages_declarees=dict(preset()["plages_declarees"], **{"101": "18:00-16:30"})),
+               dict(plages_declarees=dict(preset()["plages_declarees"], **{"101": "16h30-18h"})),
+               dict(plages_declarees=dict(preset()["plages_declarees"], **{"101": "24:30-25:00"})),
+               dict(plages_declarees=[])]
+        for modif in cas:
+            with self.subTest(modif=modif), self.assertRaises(P.PresetInvalide):
+                P.ValiderPreset(preset(**modif))
+
+    def test_samedis_regle_generique_sans_dates_dans_le_preset(self):
+        p = P.ValiderPreset(preset())
+        self.assertEqual(p["criteres_periodes"], {"regle_samedis": "calendrier_date"})
+        with self.assertRaises(P.PresetInvalide):
+            P.ValiderPreset(preset(criteres_periodes={"regle_samedis": "calendrier_date", "dates": ["2026-11-28"]}))
 
     def test_27_perimetre_bais_la_guerche_melange_refuse(self):
         with self.assertRaisesRegex(P.PresetInvalide, "périmètres mélangés"):
@@ -94,7 +115,35 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(len(p["sites"]), 2)
 
 
+def format1(**criteres):
+    ancien = P.ValiderPreset(preset())
+    ancien.update(format=1, criteres_periodes=dict({"samedis_avec_ecole": False}, **criteres))
+    del ancien["plages_declarees"]
+    return ancien
+
+
 class MigrationTests(unittest.TestCase):
+    def test_migration_format_1_samedis_non_coches(self):
+        brouillon, a_completer = P.MigrerFormat1(format1())
+        self.assertEqual(brouillon["criteres_periodes"], {"regle_samedis": "calendrier_date"})
+        self.assertEqual(a_completer, ["plages horaires réellement organisées des unités à déclarer"])
+        with self.assertRaises(P.PresetInvalide):
+            P.ValiderPreset(brouillon)
+        brouillon["plages_declarees"] = preset()["plages_declarees"]
+        P.ValiderPreset(brouillon)
+
+    def test_migration_format_1_samedis_coches_a_dater(self):
+        brouillon, a_completer = P.MigrerFormat1(format1(samedis_avec_ecole=True))
+        self.assertTrue(any("samedis avec école" in x for x in a_completer))
+        self.assertEqual(brouillon["criteres_periodes"], {"regle_samedis": "calendrier_date"})
+
+    def test_migration_format_1_statuts_inadmissibles_retires(self):
+        ancien = format1()
+        ancien.update(etats_realise=["present", "reservation", "absentj"], etats_facture=["present", "reservation"])
+        brouillon, a_completer = P.MigrerFormat1(ancien)
+        self.assertEqual((brouillon["etats_realise"], brouillon["etats_facture"]), (["present"], ["present"]))
+        self.assertEqual(len([x for x in a_completer if "statuts retirés" in x]), 2)
+
     def test_migration_prototype_lot4(self):
         ancien = {"profile_id": "alsh-peri", "name": "ALSH Bais periscolaire", "activity": "ALSH", "mode": "Périscolaire",
                   "sites": ["Bais +6 ans"], "included_units": [1], "excluded_units": [2], "garderie_units": [3],
@@ -109,6 +158,10 @@ class MigrationTests(unittest.TestCase):
             P.ValiderPreset(brouillon)  # équipement à compléter
         brouillon["equipement"] = "BAIS"
         brouillon["unites"]["3"] = "garderie_matin"
+        with self.assertRaises(P.PresetInvalide):
+            P.ValiderPreset(brouillon)  # plages à déclarer
+        self.assertIn("plages horaires réellement organisées des unités à déclarer", a_completer)
+        brouillon["plages_declarees"] = {"1": "16:30-18:00", "3": "07:30-08:30"}
         P.ValiderPreset(brouillon)
 
     def test_migration_prototype_lot1(self):
@@ -199,6 +252,20 @@ class PersistanceTests(unittest.TestCase):
         self.base.db.Commit()
         with self.assertRaisesRegex(P.PresetInvalide, "migration"):
             P.ChargerPreset(IDprofil)
+
+    def test_preset_format_1_enregistre_propose_un_brouillon(self):
+        IDprofil, p = P.EnregistrerPreset(preset())
+        ancien = format1()
+        ancien["preset_id"] = p["preset_id"]
+        self.base.db.ExecuterReq("UPDATE profils_parametres SET parametre='%s' WHERE IDprofil=%d;"
+                                 % (json.dumps(ancien).replace("'", "''"), IDprofil))
+        self.base.db.Commit()
+        with self.assertRaises(P.PresetAMigrer) as contexte:
+            P.ChargerPreset(IDprofil)
+        brouillon = contexte.exception.brouillon
+        brouillon["plages_declarees"] = preset()["plages_declarees"]
+        IDprofil, migre = P.EnregistrerPreset(brouillon, IDprofil)
+        self.assertEqual((migre["format"], P.ChargerPreset(IDprofil)["preset_id"]), (2, p["preset_id"]))
 
 
 if __name__ == "__main__":

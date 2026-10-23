@@ -1,5 +1,11 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## AFAS V2 — décisions de la direction appliquées sur `main` (23/10/2026)
+
+- **Décisions** (huit interprétations arbitrées) : plages déclarées par unité et comparées aux horaires Noethys ; amplitude continue par site, jamais combinée entre plages disjointes ou implantations ; facturation justifiée prestation par prestation, régularisations négatives non rattachées bloquantes jusqu'à qualification ; samedis avec école datés dans le référentiel (plus de booléen dans le preset) ; réalisé = présent seul, facturé sans réservation ; arrondi AEEH = hypothèse non retenue ; séjours intégrés aux actes, déclaration non validable tant que la rubrique AFAS n'est pas confirmée ; justificatif obligatoire pour Moutiers et les minicamps. Calendrier scolaire complet exigé (cinq périodes). Détail et tests : `docs/afas/TRACABILITE_CONVENTIONS_2025_2027.md`, `docs/afas/MODULE_DECLARATIONS_AFAS_V2.md`.
+- **Formats** : référentiel 2 et preset 2 (migrations explicites et testées depuis le format 1), rapport 2 (archives format 1 toujours lisibles), règles `2025-2027.2`.
+- **Hors périmètre maintenu** : aucun report sur `wx`, AFAS V1 non réactivé, aucune version publiée, ALSH Ados exclus jusqu'à réception de leur convention.
+
 ## AFAS V2 — module « Déclarations AFAS » ALSH développé sur `main` (23/10/2026)
 
 - **Sources** : quatre conventions CAF 2025-2027 (PERI/EXTRA Bais et La Guerche-Moutiers) lues intégralement ; traçabilité `docs/afas/TRACABILITE_CONVENTIONS_2025_2027.md` ; module `docs/afas/MODULE_DECLARATIONS_AFAS_V2.md`.

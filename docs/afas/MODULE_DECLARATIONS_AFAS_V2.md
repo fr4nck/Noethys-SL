@@ -23,14 +23,15 @@ Le moteur V1 (`UTILS_AFAS*.py`) n'est pas utilisé par le calcul V2 ; seul `UTIL
 
 ## Paramétrage initial (une fois)
 
-1. **Référentiel…** : relier chaque site (Bais +6 ans, Bais -6 ans, Moutiers, La Guerche-de-Bretagne, Minicamps 6/8, Minicamps 8/10) à son groupe Noethys. Le nom du groupe est mémorisé et revérifié à chaque ouverture (groupe supprimé, renommé, permuté ou d'une autre activité : refus). Choisir l'équipement des minicamps. Confirmer le rattachement de Moutiers après vérification du formulaire d'implantation. Enregistrer les séjours qualifiés (dates, nuits, conditions).
-2. **Preset** : nom (sans année ni phase), mode, équipement, sites, **classement explicite de chaque unité** (accueil, journée, demi-journée, garderie matin/soir, repas, séjour, annexe, exclue, à qualifier), statuts retenus pour le réalisé (défaut : présent) et pour le facturé (défaut : présent, absence justifiée, absence injustifiée — sous réserve d'une facture non annulée), samedis avec école, repas méridien, garderies.
+1. **Référentiel…** (format 2) : relier chaque site (Bais +6 ans, Bais -6 ans, Moutiers, La Guerche-de-Bretagne, Minicamps 6/8, Minicamps 8/10) à son groupe Noethys. Le nom du groupe est mémorisé et revérifié à chaque ouverture (groupe supprimé, renommé, permuté ou d'une autre activité : refus). Choisir l'équipement des minicamps et **référencer le justificatif** (déclaration de l'accueil désignant l'équipement organisateur). Confirmer le rattachement de Moutiers **et référencer le formulaire d'implantation**. Saisir, par année scolaire, les **samedis avec école** (« 2026 : 2026-11-28 » ou « 2026 : aucun »). Enregistrer les séjours qualifiés (dates, nuits, conditions) et **qualifier les régularisations** signalées par le calcul (consommations dont elles annulent la facturation, ou aucune, avec la pièce justificative). Un référentiel format 1 est migré sans perte à la lecture (calendrier des samedis et justificatifs vides : à compléter).
+2. **Preset** (format 2) : nom (sans année ni phase), mode, équipement, sites, **classement explicite de chaque unité** (accueil, journée, demi-journée, garderie matin/soir, repas, séjour, annexe, exclue, à qualifier) et **plage réellement organisée** de chaque unité à plage horaire (HH:MM-HH:MM ; le bouton « Reprendre les horaires Noethys » ne remplit que les plages vides, après vérification), statuts retenus pour le réalisé (présent uniquement) et pour le facturé (présent, absence justifiée, absence injustifiée — jamais la réservation), repas méridien, garderies. Un preset format 1 est ouvert comme brouillon à compléter (plages, samedis datés si la case était cochée, statuts retirés), puis enregistré au format 2 sous le même identifiant.
 
 ## Calcul
 
-- **Périscolaire** (Bais, La Guerche-Moutiers) : pour chaque enfant et chaque jour scolaire, union des plages des unités où il est présent, plafond 9 h ; présence physique (horaires de la consommation) restituée séparément ; heures facturées non applicables.
-- **Extrascolaire** (option n°2) : réalisé = présence effective ; facturé = journées et demi-journées figurant sur une facture non annulée, converties selon l'amplitude d'ouverture de l'équipement ce jour-là (8 h / 4 h, ou amplitude et moitié) ; séjours qualifiés : 10 h par journée réalisée, jamais cumulées avec l'option 2.
-- **AEEH** : jour par jour selon `aeeh_periodes` ; complément inclusif brut et arrondi à l'heure supérieure par jour.
+- **Calendrier** : une année scolaire n'est connue que si ses cinq périodes de vacances sont saisies ; les samedis hors vacances sont classés par le calendrier daté du référentiel.
+- **Périscolaire** (Bais, La Guerche-Moutiers) : pour chaque enfant et chaque jour scolaire, union des plages déclarées des unités où il est présent (plage Noethys identique exigée), plafond 9 h ; présence physique (horaires de la consommation) restituée séparément, jamais substituée à la plage ; heures facturées non applicables.
+- **Extrascolaire** (option n°2) : réalisé = présence effective ; facturé = journées et demi-journées justifiées par une prestation (une unité, un jour, un enfant) figurant sur une facture non annulée et non annulée par une régularisation qualifiée, converties selon l'amplitude d'ouverture **continue du site de l'enfant** ce jour-là (8 h / 4 h, ou amplitude et moitié) ; séjours qualifiés : 10 h par journée réalisée, intégrées aux heures réalisées et facturées (« dont séjours »), jamais cumulées avec une journée d'accueil.
+- **AEEH** : jour par jour selon `aeeh_periodes` ; complément inclusif brut (contrôle) et arrondi à l'heure supérieure par jour (hypothèse, jamais retenue automatiquement).
 - **Garderies** : matin, soir, total, non ajoutés aux heures CAF sauf choix explicite.
 
 ## Phases
@@ -46,11 +47,11 @@ Prévision : même période de N-1 ajustée aux jours d'ouverture programmés (r
 
 ## Anomalies
 
-Chaque anomalie indique date, individu, IDconso, activité, groupe, site, unité, nature et conséquence. Bloquantes : calendrier de vacances absent, jour sans ouverture, statut inconnu ou vide, pointage en attente sur une date passée, unité non classée ou à qualifier, doublon, même enfant sur deux sites, facturation supérieure à une journée, amplitude absente ou inférieure à 2 h, séjour non qualifié, unité horaire facturée en extrascolaire, présence sans horaires. Les données ne sont jamais corrigées par le module.
+Chaque anomalie indique date, individu, IDconso, activité, groupe, site, unité, nature et conséquence. Bloquantes : calendrier de vacances incomplet (périodes manquantes nommées), samedi hors vacances sans calendrier daté, samedi avec école pendant des vacances, jour sans ouverture, statut inconnu ou vide, pointage en attente sur une date passée, unité non classée ou à qualifier, plage non déclarée ou différente des horaires Noethys, doublon, même enfant sur deux sites, facturation supérieure à une journée, facturation indéterminable (prestation négative, forfait, quantité, autre enfant, prestation partagée ou couvrant deux unités), régularisation négative non qualifiée, journée facturée sur deux sites, ouverture discontinue, amplitude absente ou inférieure à 2 h, séjour non qualifié, séjour et accueil le même jour, unité horaire facturée en extrascolaire, présence sans horaires. Non bloquantes (contrôle) : dimanche hors séjour, amplitudes différentes selon les sites. Les données ne sont jamais corrigées par le module.
 
 ## Validabilité et exports
 
-Une déclaration est **validable** si aucune anomalie n'est bloquante, si une convention couvre l'année entière, si Moutiers est confirmé (quand il est déclaré) et si chaque minicamp a un équipement. L'export déclaratif (synthèse, détail, jours, anomalies, instantané JSON) n'est possible que pour une déclaration validable ; il est archivé dans l'historique avec ses empreintes. L'export de contrôle est toujours possible.
+Une déclaration est **validable** si aucune anomalie n'est bloquante, si une convention couvre l'année entière, si la période réalisée est terminée, si Moutiers est confirmé avec son formulaire d'implantation référencé (quand il est déclaré), si chaque minicamp a un équipement justifié et si elle ne comporte aucune heure de séjour tant que la rubrique AFAS des séjours n'est pas confirmée par la Caf. L'export déclaratif (synthèse, détail, jours, anomalies, instantané JSON) n'est possible que pour une déclaration validable ; il est archivé dans l'historique avec ses empreintes. L'export de contrôle est toujours possible.
 
 ## Correspondance des tests d'acceptation
 
@@ -80,6 +81,25 @@ Une déclaration est **validable** si aucune anomalie n'est bloquante, si une co
 | 29 | Export avec empreinte et instantané | `test_afas2_declaration.ExportsEtHistoriqueTests.test_29_*` |
 | 30 | Non-régression de l'état global | suites historiques inchangées ; `test_afas2_interface.test_bouton_afas_v1_non_reactive` |
 
+## Cas contradictoires convertis en tests permanents (décisions du 23/10/2026)
+
+| Cas | Résultat attendu | Test |
+|---|---|---|
+| Une période de vacances + l'été seulement | année inconnue, périodes manquantes nommées | `test_afas2_calendrier.test_une_periode_et_l_ete_ne_suffisent_pas`, `test_26b_*` |
+| Samedi sans calendrier daté / samedi avec école daté / ancien booléen | bloquant / périscolaire / ignoré | `test_afas2_calcul.SamedisTests` |
+| Horaires Noethys modifiés après déclaration de la plage | bloquant | `PlagesDeclareesTests.test_horaires_noethys_modifies_bloquants` |
+| Pointage plus long que la plage | plage seule retenue | `PlagesDeclareesTests.test_duree_de_pointage_jamais_substituee_a_la_plage` |
+| Matin et après-midi ouverts sans plage intermédiaire | ouverture discontinue bloquante | `AmplitudeTests.test_ouverture_discontinue_bloquante` |
+| Matin ouvert sur un site, après-midi sur un autre | amplitudes non combinées | `AmplitudeTests.test_implantations_jamais_combinees` |
+| Amplitudes différentes selon les sites | chaque site valorisé avec la sienne, signalement unique | `AmplitudeTests.test_amplitudes_differentes_par_site` |
+| Avoir non rattaché, avoir familial, avoir d'une autre famille | bloquant, bloquant, ignoré | `FacturationTests.test_regularisation_*`, `test_avoir_familial_bloquant` |
+| Régularisation qualifiée (annulant ou non) | journée retirée du facturé / conservée | `FacturationTests.test_regularisation_qualifiee_*` |
+| Remise, montant nul ou variable | unité conservée, heures indépendantes du montant | `FacturationTests.test_remise_*`, `test_montant_jamais_converti_en_heures` |
+| Forfait, quantité 2, prestation d'un autre enfant, prestation sur deux jours, une prestation pour deux demi-journées | bloquant | `FacturationTests.test_quantite_indeterminable_bloquante`, `test_prestation_partagee_*`, `ExtrascolaireTests.test_prestation_couvrant_deux_demi_journees_indeterminable` |
+| Réservation ou absence dans les statuts du réalisé ; réservation dans le facturé | refusé | `test_afas2_calendrier.test_realise_*`, `test_facture_*`, `ContexteTests` |
+| Séjour + journée le même jour ; séjour seul | bloquant ; 10 h réalisées et facturées, déclaration non validable (rubrique) | `SejoursTests`, `test_afas2_declaration.test_sejours_integres_mais_rubrique_non_confirmee` |
+| Moutiers confirmé sans formulaire ; minicamp sans justificatif | non validable | `test_28_*`, `test_minicamp_sans_justificatif_non_validable` |
+
 ## Décisions et pièces encore attendues
 
-Voir `TRACABILITE_CONVENTIONS_2025_2027.md` (interprétations à valider, pièces manquantes). En particulier : plages d'accueil réelles par unité, amplitude d'ouverture, traitement des absences facturées, mode d'arrondi du complément inclusif, rattachement de Moutiers et des minicamps, ventilation des heures de séjour dans la déclaration AFAS, statuts retenus.
+Voir `TRACABILITE_CONVENTIONS_2025_2027.md` (décisions du 23/10/2026, pièces manquantes). Restent à obtenir : formulaires d'implantation (Moutiers, minicamps), confirmation Caf de la rubrique AFAS des séjours et de l'arrondi du complément inclusif, grilles tarifaires, addenda.

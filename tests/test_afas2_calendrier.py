@@ -33,6 +33,11 @@ VACANCES_FICTIVES = [
 ]
 
 
+# Calendrier daté des samedis avec école : établi pour 2025-2026 et
+# 2026-2027, aucun samedi avec école sauf le 2026-11-28 (fictif).
+SAMEDIS_FICTIFS = K.SamedisAvecEcole({"2025": [], "2026": ["2026-11-28"]})
+
+
 def calendrier():
     return K.Calendrier(VACANCES_FICTIVES)
 
@@ -49,10 +54,24 @@ class ModeDateTests(unittest.TestCase):
         self.assertEqual(K.ModeDate(D(2026, 10, 19), calendrier()), K.EXTRASCOLAIRE)
 
     def test_samedi_sans_ecole_extrascolaire(self):
-        self.assertEqual(K.ModeDate(D(2026, 10, 10), calendrier()), K.EXTRASCOLAIRE)
+        self.assertEqual(K.ModeDate(D(2026, 10, 10), calendrier(), SAMEDIS_FICTIFS), K.EXTRASCOLAIRE)
 
-    def test_samedi_avec_ecole_si_declare(self):
-        self.assertEqual(K.ModeDate(D(2026, 10, 10), calendrier(), samedis_avec_ecole=True), K.PERISCOLAIRE)
+    def test_samedi_avec_ecole_identifie_par_sa_date(self):
+        self.assertEqual(K.ModeDate(D(2026, 11, 28), calendrier(), SAMEDIS_FICTIFS), K.PERISCOLAIRE)
+        # Les autres samedis de la même année scolaire restent sans école.
+        self.assertEqual(K.ModeDate(D(2026, 12, 5), calendrier(), SAMEDIS_FICTIFS), K.EXTRASCOLAIRE)
+
+    def test_samedi_sans_calendrier_date_a_qualifier(self):
+        # Aucun calendrier des samedis établi : jamais classé par défaut.
+        self.assertEqual(K.ModeDate(D(2026, 10, 10), calendrier()), K.SAMEDI_A_QUALIFIER)
+        self.assertEqual(K.ModeDate(D(2026, 10, 10), calendrier(), {2025: frozenset()}), K.SAMEDI_A_QUALIFIER)
+
+    def test_samedi_de_vacances_reste_extrascolaire_sans_calendrier_des_samedis(self):
+        self.assertEqual(K.ModeDate(D(2026, 10, 24), calendrier()), K.EXTRASCOLAIRE)
+
+    def test_samedi_avec_ecole_pendant_les_vacances_contradictoire(self):
+        samedis = K.SamedisAvecEcole({"2026": ["2026-10-24"]})
+        self.assertEqual(K.ModeDate(D(2026, 10, 24), calendrier(), samedis), K.INCONNU)
 
     def test_dimanche_jamais_periscolaire(self):
         for jour in (D(2026, 10, 11), D(2026, 10, 25)):
@@ -88,12 +107,32 @@ class ModeDateTests(unittest.TestCase):
         cal = K.Calendrier([p for p in VACANCES_FICTIVES if p[1] != "2027-07-03"])
         self.assertEqual(K.ModeDate(D(2026, 10, 14), cal), K.INCONNU)
 
+    def test_une_periode_et_l_ete_ne_suffisent_pas(self):
+        # Ancienne règle trop faible : une seule période d'octobre à juin + l'été.
+        cal = K.Calendrier([("Toussaint", "2026-10-17", "2026-11-01"), ("Eté", "2027-07-03", "2027-08-31")])
+        self.assertEqual(cal.PeriodesManquantes(2026), ["Noël", "Hiver", "Printemps"])
+        self.assertEqual(K.ModeDate(D(2027, 2, 17), cal), K.INCONNU)  # vacances d'hiver non saisies
+        self.assertEqual(K.ModeDate(D(2026, 10, 14), cal), K.INCONNU)
+
+    def test_chaque_periode_manquante_rend_l_annee_inconnue(self):
+        for debut in ("2026-10-17", "2026-12-19", "2027-02-13", "2027-04-10", "2027-07-03"):
+            with self.subTest(retiree=debut):
+                cal = K.Calendrier([p for p in VACANCES_FICTIVES if p[1] != debut])
+                self.assertEqual(len(cal.PeriodesManquantes(2026)), 1)
+                self.assertEqual(K.ModeDate(D(2027, 3, 10), cal, SAMEDIS_FICTIFS), K.INCONNU)
+        self.assertEqual(calendrier().PeriodesManquantes(2026), [])
+
+    def test_periode_manquante_jamais_presumee_scolaire(self):
+        # Printemps absent : le mercredi 14/04/2027 (vacances réelles) ne devient pas périscolaire.
+        cal = K.Calendrier([p for p in VACANCES_FICTIVES if p[1] != "2027-04-10"])
+        self.assertNotEqual(K.ModeDate(D(2027, 4, 14), cal, SAMEDIS_FICTIFS), K.PERISCOLAIRE)
+
     def test_ete_rattache_a_l_annee_qui_s_acheve(self):
         self.assertEqual(K.AnneeScolaire(D(2026, 7, 15)), 2025)
         self.assertEqual(K.AnneeScolaire(D(2026, 9, 1)), 2026)
 
     def test_detail_des_periodes(self):
-        segments = K.DetailPeriodes(D(2026, 10, 15), D(2026, 10, 19), calendrier())
+        segments = K.DetailPeriodes(D(2026, 10, 15), D(2026, 10, 19), calendrier(), SAMEDIS_FICTIFS)
         self.assertEqual([s[2] for s in segments], [K.PERISCOLAIRE, K.EXTRASCOLAIRE, K.DIMANCHE, K.EXTRASCOLAIRE])
         self.assertEqual(segments[1][:2], (D(2026, 10, 17), D(2026, 10, 17)))
 
@@ -124,6 +163,17 @@ class StatutsTests(unittest.TestCase):
         for etats in ([], None, ["present", "present"], ["refus"], ["xyz"], "present"):
             with self.subTest(etats=etats), self.assertRaises(ValueError):
                 K.ValiderEtats(etats, "Réalisé")
+
+    def test_realise_presence_attestee_uniquement(self):
+        self.assertEqual(K.ValiderEtatsRealise(["present"]), ["present"])
+        for etats in (["reservation"], ["present", "reservation"], ["present", "absentj"], ["absenti"]):
+            with self.subTest(etats=etats), self.assertRaises(ValueError):
+                K.ValiderEtatsRealise(etats)
+
+    def test_facture_jamais_une_reservation(self):
+        self.assertEqual(K.ValiderEtatsFacture(["present", "absentj", "absenti"]), ["present", "absentj", "absenti"])
+        with self.assertRaises(ValueError):
+            K.ValiderEtatsFacture(["present", "reservation"])
 
 
 class ChargementNoethysTests(unittest.TestCase):

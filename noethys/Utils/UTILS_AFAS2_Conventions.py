@@ -30,6 +30,11 @@ PLAFOND_PERISCOLAIRE_JOUR = 9 * SECONDES_HEURE
 JOURNEE_OPTION2_MAX = 8 * SECONDES_HEURE
 DEMI_JOURNEE_OPTION2_MAX = 4 * SECONDES_HEURE
 SEJOUR_JOURNEE = 10 * SECONDES_HEURE
+# Les conventions fixent les actes des séjours (10 h par journée réalisée)
+# sans désigner la rubrique de la déclaration AFAS qui les reçoit : tant
+# qu'elle n'est pas confirmée par la Caf, une déclaration comportant des
+# heures de séjours n'est pas validable (l'export de contrôle reste permis).
+RUBRIQUE_SEJOURS_CONFIRMEE = False
 DUREE_MINIMALE_JOURNEE_EXTRA = 2 * SECONDES_HEURE
 
 DEBUT_2025_2027 = datetime.date(2025, 1, 1)
@@ -123,7 +128,7 @@ CONVENTIONS = {
 
 # Version du jeu de règles : à incrémenter à chaque modification d'une règle
 # ou d'une convention (tracée dans chaque instantané de calcul).
-VERSION_REGLES = "2025-2027.1"
+VERSION_REGLES = "2025-2027.2"
 
 SOURCES = {
     "periscolaire_definition": [

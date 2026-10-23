@@ -39,7 +39,8 @@ METHODE_MANUELLE = "manuelle"
 # Indicateurs pouvant recevoir une prévision manuelle (les autres restent
 # « non qualifiés » en saisie manuelle, jamais remplacés par un zéro).
 INDICATEURS_PREVISION_MANUELLE = ("heures_realisees", "heures_facturees", "heures_realisees_aeeh", "heures_facturees_aeeh")
-FORMAT_RAPPORT = 1
+FORMAT_RAPPORT = 2
+FORMATS_RAPPORT_LISIBLES = (1, 2)
 CATEGORIE_HISTORIQUE = "afas_v2_historique"
 NOM_PARAMETRE_HISTORIQUE = "declaration_json"
 TAILLE_MAX_HISTORIQUE = 28000  # profils_parametres.parametre : VARCHAR(30000)
@@ -89,6 +90,10 @@ class Source(object):
         from Utils import UTILS_AFAS2_Donnees
         return UTILS_AFAS2_Donnees.ChargerOuvertures(couples, debut, fin)
 
+    def Regularisations(self, IDactivites, IDindividus, IDfamilles, debut, fin):
+        from Utils import UTILS_AFAS2_Donnees
+        return UTILS_AFAS2_Donnees.ChargerRegularisations(IDactivites, IDindividus, IDfamilles, debut, fin)
+
     def AEEH(self, IDindividus):
         from Utils import UTILS_AFAS2_Donnees
         return UTILS_AFAS2_Donnees.ChargerAEEH(IDindividus)
@@ -122,22 +127,35 @@ def _contexte(preset, referentiel, couples, source, debut, fin, date_reference):
         IDunite = int(cle)
         if IDunite not in unites_noethys:
             raise DeclarationImpossible("L'unité %d classée dans le preset n'existe plus dans Noethys" % IDunite)
-        unites[IDunite] = dict(unites_noethys[IDunite], categorie=categorie)
+        unites[IDunite] = dict(unites_noethys[IDunite], categorie=categorie,
+                               plage_declaree=preset["plages_declarees"].get(cle))
     sites = set(couples.values())
     return {
         "mode": preset["mode"], "equipement": preset["equipement"], "couples": couples, "unites": unites,
         "etats_realise": preset["etats_realise"], "etats_facture": preset["etats_facture"],
-        "options": dict(preset["criteres_periodes"], **preset["choix_conventionnels"]),
-        "calendrier": source.Calendrier(debut, fin), "ouvertures": source.Ouvertures(list(couples), debut, fin),
+        "options": dict(preset["choix_conventionnels"]),
+        "calendrier": source.Calendrier(debut, fin),
+        "samedis_avec_ecole": Calendrier.SamedisAvecEcole(referentiel["samedis_avec_ecole"]),
+        "ouvertures": source.Ouvertures(list(couples), debut, fin),
         "aeeh": {}, "sejours": [s for s in referentiel["sejours"] if s["site"] in sites],
+        "regularisations": [], "regularisations_qualifiees": referentiel["regularisations"],
         "date_reference": date_reference,
     }
+
+
+# Une régularisation est souvent émise après la période qu'elle corrige :
+# elles sont recherchées jusqu'à trois mois après la fin de la période.
+DELAI_REGULARISATIONS = datetime.timedelta(days=92)
 
 
 def CalculerPeriode(preset, referentiel, couples, source, debut, fin, date_reference):
     contexte = _contexte(preset, referentiel, couples, source, debut, fin, date_reference)
     consommations = source.Consommations(list(couples), debut, fin)
     contexte["aeeh"] = source.AEEH({c["IDindividu"] for c in consommations})
+    if preset["mode"] == Conventions.EXTRASCOLAIRE:
+        contexte["regularisations"] = source.Regularisations(
+            {a for a, g in couples}, {c["IDindividu"] for c in consommations},
+            {c.get("IDfamille") for c in consommations}, debut, fin + DELAI_REGULARISATIONS)
     resultat = Calcul.Calculateur(contexte).Calculer(consommations, debut, fin)
     resultat["jours_ouverts"] = len({date for a, u, g, date in contexte["ouvertures"]})
     resultat["periode"] = (debut, fin)
@@ -224,7 +242,12 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
             total = "non_qualifie"
         else:
             total = valeur_r + valeur_p
-        lignes.append({"cle": cle, "libelle": libelle, "realise": valeur_r, "prevision": valeur_p, "total": total})
+        lignes.append({"cle": cle, "libelle": libelle, "nature": Calcul.NATURES_INDICATEURS[cle],
+                       "realise": valeur_r, "prevision": valeur_p, "total": total})
+    sejours = [l for l in lignes if l["cle"] == "heures_sejours"][0]
+    if any(isinstance(sejours[champ], int) and sejours[champ] > 0 for champ in ("realise", "prevision")) \
+            and not Conventions.RUBRIQUE_SEJOURS_CONFIRMEE:
+        motifs.append("heures de séjours intégrées aux actes : rubrique AFAS des séjours non confirmée par la Caf")
 
     anomalies = (realise["anomalies"] if realise else [])
     bloquant = any(a["bloquante"] for a in anomalies)
@@ -242,6 +265,11 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
         "convention": convention, "version_regles": Conventions.VERSION_REGLES,
         "preset": instantane_preset, "empreinte_preset": Presets.Empreinte(instantane_preset),
         "sites": {site: referentiel["sites"][site] for site in instantane_preset["sites"]},
+        "justificatifs": {site: referentiel["justificatifs"][site] for site in instantane_preset["sites"]
+                          if site in referentiel["justificatifs"]},
+        "samedis_avec_ecole": {scolaire: dates for scolaire, dates in referentiel["samedis_avec_ecole"].items()
+                               if scolaire in (str(annee - 1), str(annee))},
+        "regularisations_qualifiees": referentiel["regularisations"],
         "indicateurs": lignes, "anomalies": anomalies, "bloquant": bloquant,
         "validable": validable, "motifs_non_validable": motifs + (["anomalies bloquantes à corriger"] if bloquant else []),
         "jours": realise["jours"] if realise else [], "lignes": realise["lignes"] if realise else [],
@@ -292,7 +320,7 @@ def ListerHistorique():
 
 def ChargerHistorique(IDprofil):
     resume = Referentiel.LireJSONProfil(IDprofil, NOM_PARAMETRE_HISTORIQUE)
-    if not isinstance(resume, dict) or resume.get("format") != FORMAT_RAPPORT:
+    if not isinstance(resume, dict) or resume.get("format") not in FORMATS_RAPPORT_LISIBLES:
         raise ValueError("Déclaration archivée illisible")
     attendue = resume.pop("empreinte_archive", None)
     resume["integrite"] = attendue is not None and attendue == Presets.Empreinte(resume)
@@ -311,14 +339,18 @@ def ExporterControle(dossier, rapport, prefixe):
     chemins = {}
     chemins["detail"] = os.path.join(dossier, prefixe + "_detail.csv")
     entete = ["Date", "IDindividu", "Individu", "IDconso", "IDactivite", "IDgroupe", "Site", "IDunite", "Unité",
-              "Catégorie", "Statut conso", "Mode du jour", "Traitement", "Motif"]
+              "Catégorie", "Statut conso", "Mode du jour", "Traitement", "Motif", "IDprestation", "IDfacture"]
     _ecrire_csv(chemins["detail"], [entete] + [
         [l["date"], l["IDindividu"], l["individu"], l["IDconso"], l["IDactivite"], l["IDgroupe"], l["site"], l["IDunite"],
-         l["unite"], l["categorie"], l["etat"], l["mode_jour"], l["statut"], l["motif"]] for l in rapport["lignes"]])
+         l["unite"], l["categorie"], l["etat"], l["mode_jour"], l["statut"], l["motif"], l.get("IDprestation") or "",
+         l.get("IDfacture") or ""] for l in rapport["lignes"]])
     chemins["jours"] = os.path.join(dossier, prefixe + "_jours.csv")
     cles = [cle for cle, libelle in Calcul.INDICATEURS if cle != "garderie_total"]
-    _ecrire_csv(chemins["jours"], [["Date", "IDindividu", "AEEH", "Amplitude"] + [libelle for cle, libelle in Calcul.INDICATEURS if cle != "garderie_total"]] + [
-        [j["date"], j["IDindividu"], "oui" if j["aeeh"] else "non", Heures(j["amplitude"]) if j["amplitude"] else ""]
+    _ecrire_csv(chemins["jours"], [["Date", "IDindividu", "AEEH", "Amplitude", "Plages d'ouverture retenues",
+                                    "Justification de la facturation"]
+                                   + [libelle for cle, libelle in Calcul.INDICATEURS if cle != "garderie_total"]] + [
+        [j["date"], j["IDindividu"], "oui" if j["aeeh"] else "non", Heures(j["amplitude"]) if j["amplitude"] else "",
+         j.get("plages_ouverture", ""), j.get("justification_facture", "")]
         + [Heures(j.get(cle, 0)) for cle in cles] for j in rapport["jours"]])
     chemins["anomalies"] = os.path.join(dossier, prefixe + "_anomalies.csv")
     _ecrire_csv(chemins["anomalies"], [["Date", "IDindividu", "Individu", "IDconso", "IDactivite", "IDgroupe", "Site",
@@ -349,11 +381,13 @@ def ExporterDeclaration(dossier, rapport, prefixe):
         ["Date d'exécution", rapport["date_execution"]],
         ["Statuts retenus — réalisé", ", ".join(preset["etats_realise"])],
         ["Statuts retenus — facturé", ", ".join(preset["etats_facture"])],
+        ["Complément inclusif", "présence effective brute et arrondi par jour présentés ; aucun n'est retenu "
+                                "automatiquement tant que la modalité Caf n'est pas confirmée"],
         [],
-        ["Indicateur (heures)", "Réalisé", "Prévision", "Total"],
+        ["Indicateur (heures)", "Nature", "Réalisé", "Prévision", "Total"],
     ]
-    _ecrire_csv(chemins["synthese"], entete + [[l["libelle"], Heures(l["realise"]), Heures(l["prevision"]), Heures(l["total"])]
-                                               for l in rapport["indicateurs"]])
+    _ecrire_csv(chemins["synthese"], entete + [[l["libelle"], l["nature"], Heures(l["realise"]), Heures(l["prevision"]),
+                                                Heures(l["total"])] for l in rapport["indicateurs"]])
     chemins["instantane"] = os.path.join(dossier, prefixe + "_instantane.json")
     with open(chemins["instantane"], "w", encoding="utf-8") as fichier:
         json.dump(ResumeHistorique(rapport), fichier, ensure_ascii=False, indent=1, sort_keys=True, default=str)

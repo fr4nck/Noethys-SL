@@ -6,7 +6,14 @@ saisi dans Noethys (table `vacances`), selon la définition des conventions
 (art. 1.1) : périscolaire = semaines d'école hors samedis sans école et
 dimanches ; extrascolaire = vacances scolaires et samedis sans école ;
 dimanche = séjours uniquement. Une date dont l'année scolaire n'a pas de
-calendrier saisi n'est jamais classée par défaut : elle est inconnue.
+calendrier complet (les cinq périodes de vacances : Toussaint, Noël, hiver,
+printemps, été) n'est jamais classée par défaut : elle est inconnue.
+
+Samedis : un samedi hors vacances n'est extrascolaire (samedi sans école)
+que si le calendrier daté des samedis avec école de son année scolaire a
+été établi dans le référentiel (liste éventuellement vide) ; les samedis
+listés sont périscolaires. Sans calendrier établi, le samedi est à
+qualifier (jamais classé par défaut).
 
 Le cœur (Calendrier, ModeDate, statuts) n'importe ni wx ni GestionDB ;
 seul ChargerCalendrier lit la base.
@@ -19,6 +26,20 @@ PERISCOLAIRE = Conventions.PERISCOLAIRE
 EXTRASCOLAIRE = Conventions.EXTRASCOLAIRE
 DIMANCHE = "dimanche"
 INCONNU = "inconnu"
+SAMEDI_A_QUALIFIER = "samedi_a_qualifier"
+
+# Fenêtres de contrôle de complétude du calendrier saisi (contrôle de
+# cohérence, pas une règle CAF) : chaque année scolaire doit comporter une
+# période de vacances intersectant chacune de ces fenêtres. Bornes larges
+# couvrant les trois zones ; (mois, jour) relatifs à l'année de rentrée (0)
+# ou à l'année suivante (1).
+FENETRES_VACANCES = (
+    ("Toussaint", (0, 10, 10), (0, 11, 10)),
+    ("Noël", (0, 12, 15), (1, 1, 10)),
+    ("Hiver", (1, 2, 1), (1, 3, 15)),
+    ("Printemps", (1, 4, 1), (1, 5, 15)),
+    ("Été", (1, 7, 1), (1, 8, 31)),
+)
 
 STATUTS = (
     ("reservation", "Pointage en attente"),
@@ -33,22 +54,36 @@ STATUTS_TECHNIQUES_EXCLUS = ("attente", "refus")
 
 ETATS_REALISE_DEFAUT = ("present",)
 ETATS_FACTURE_DEFAUT = ("present", "absentj", "absenti")
+# Seule une présence attestée produit des heures réalisées ; une réservation
+# (pointage en attente) ne produit jamais d'heure, ni réalisée ni facturée.
+ETATS_REALISE_ADMIS = ("present",)
+ETATS_FACTURE_ADMIS = ("present", "absentj", "absenti")
 
 
 class CalendrierIncomplet(ValueError):
     """Aucune période de vacances saisie pour l'année scolaire concernée."""
 
 
-def ValiderEtats(etats, nom):
+def ValiderEtats(etats, nom, admis=CODES_STATUTS):
     """Liste de codes de statuts admis, non vide et sans doublon."""
     if not isinstance(etats, (list, tuple)) or not etats:
         raise ValueError("%s : au moins un statut doit être retenu" % nom)
     if len(set(etats)) != len(etats):
         raise ValueError("%s : statut en double" % nom)
-    inconnus = [e for e in etats if e not in CODES_STATUTS]
+    inconnus = [e for e in etats if e not in admis]
     if inconnus:
         raise ValueError("%s : statut inconnu ou non admissible %r" % (nom, inconnus))
     return list(etats)
+
+
+def ValiderEtatsRealise(etats):
+    """Réalisé : présence attestée uniquement (ni réservation, ni absence)."""
+    return ValiderEtats(etats, "Statuts du réalisé", ETATS_REALISE_ADMIS)
+
+
+def ValiderEtatsFacture(etats):
+    """Facturé : présence ou absence facturée ; jamais une réservation."""
+    return ValiderEtats(etats, "Statuts du facturé", ETATS_FACTURE_ADMIS)
 
 
 def ClasserStatut(etat):
@@ -92,13 +127,20 @@ class Calendrier(object):
     def _intersecte(self, debut, fin):
         return any(d <= fin and f >= debut for d, f, nom in self.periodes)
 
+    def PeriodesManquantes(self, annee):
+        """Noms des périodes de vacances absentes du calendrier de l'année
+        scolaire `annee` (année de rentrée)."""
+        manquantes = []
+        for nom, (a1, m1, j1), (a2, m2, j2) in FENETRES_VACANCES:
+            if not self._intersecte(datetime.date(annee + a1, m1, j1), datetime.date(annee + a2, m2, j2)):
+                manquantes.append(nom)
+        return manquantes
+
     def AnneeScolaireCouverte(self, date):
-        """Le calendrier de l'année scolaire de `date` est saisi : au moins une
-        période de vacances pendant l'année scolaire (octobre à juin) et la
-        période d'été qui la clôt (juillet-août)."""
-        annee = AnneeScolaire(date)
-        return (self._intersecte(datetime.date(annee, 10, 1), datetime.date(annee + 1, 6, 30))
-                and self._intersecte(datetime.date(annee + 1, 7, 1), datetime.date(annee + 1, 8, 31)))
+        """Le calendrier de l'année scolaire de `date` est complet : une période
+        de vacances pour chacune des cinq fenêtres (Toussaint, Noël, hiver,
+        printemps, été). Une période absente n'est jamais présumée scolaire."""
+        return not self.PeriodesManquantes(AnneeScolaire(_date(date)))
 
     def Vacances(self, date):
         for debut, fin, nom in self.periodes:
@@ -107,24 +149,41 @@ class Calendrier(object):
         return None
 
 
-def ModeDate(date, calendrier, samedis_avec_ecole=False):
-    """Mode d'accueil d'une date : PERISCOLAIRE, EXTRASCOLAIRE, DIMANCHE ou INCONNU.
+def SamedisAvecEcole(calendrier_samedis):
+    """{annee_scolaire (int): frozenset(dates)} depuis le référentiel
+    ({"AAAA": ["AAAA-MM-JJ", ...]}). Une année absente = calendrier non établi."""
+    resultat = {}
+    for annee, dates in (calendrier_samedis or {}).items():
+        resultat[int(annee)] = frozenset(_date(d) for d in dates)
+    return resultat
 
-    DIMANCHE n'est admissible qu'en extrascolaire pour un séjour qualifié ;
-    INCONNU signale un calendrier de vacances absent pour l'année scolaire."""
+
+def ModeDate(date, calendrier, samedis_avec_ecole=None):
+    """Mode d'accueil d'une date : PERISCOLAIRE, EXTRASCOLAIRE, DIMANCHE,
+    SAMEDI_A_QUALIFIER ou INCONNU.
+
+    samedis_avec_ecole : {annee_scolaire: ensemble des samedis avec école},
+    voir SamedisAvecEcole. DIMANCHE n'est admissible qu'en extrascolaire
+    pour un séjour qualifié ; INCONNU signale un calendrier de vacances
+    incomplet ou contradictoire pour l'année scolaire."""
     date = _date(date)
     if not calendrier.AnneeScolaireCouverte(date):
         return INCONNU
     if date.weekday() == 6:
         return DIMANCHE
+    samedis = (samedis_avec_ecole or {}).get(AnneeScolaire(date))
     if calendrier.EstVacances(date):
+        if samedis and date in samedis:
+            return INCONNU  # samedi déclaré avec école pendant des vacances
         return EXTRASCOLAIRE
-    if date.weekday() == 5 and not samedis_avec_ecole:
-        return EXTRASCOLAIRE
+    if date.weekday() == 5:
+        if samedis is None:
+            return SAMEDI_A_QUALIFIER
+        return PERISCOLAIRE if date in samedis else EXTRASCOLAIRE
     return PERISCOLAIRE
 
 
-def DetailPeriodes(date_debut, date_fin, calendrier, samedis_avec_ecole=False):
+def DetailPeriodes(date_debut, date_fin, calendrier, samedis_avec_ecole=None):
     """Liste chronologique de segments (debut, fin, mode, vacances) pour contrôle utilisateur."""
     segments = []
     jour = _date(date_debut)
