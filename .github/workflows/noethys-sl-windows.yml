@@ -18,7 +18,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.ref == 'refs/heads/wx' &&
-       contains(github.event.head_commit.message, '[publish rc9]'))
+       (contains(github.event.head_commit.message, '[candidate rc9]') ||
+        contains(github.event.head_commit.message, '[publish rc9]')))
     name: Construire Noethys SL wx 0.1.0 RC9 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
