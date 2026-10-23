@@ -37,4 +37,14 @@ class Tests(unittest.TestCase):
   with self.assertRaises(CalculAFASInvalide):calculate([row(),row(aeeh=True,start=600,end=630)],S,P)
  def test_unknown_category(self):
   with self.assertRaises(CalculAFASInvalide):calculate([row(category="inconnue")],S,P)
+ def test_duplicate_consumption_id_rejected(self):
+  a=row(); a["IDconso"]=101
+  b=row(start=600,end=630); b["IDconso"]=101
+  with self.assertRaises(CalculAFASInvalide): calculate([a,b],S,P)
+ def test_billable_over_day_rejected(self):
+  p=dict(P,billable_minutes=lambda key, intervals: 1500)
+  with self.assertRaises(CalculAFASInvalide): calculate([row()],S,p)
+ def test_garderie_rule_numeric_rejected(self):
+  p=dict(P,include_garderie_realisee=1)
+  with self.assertRaises(CalculAFASInvalide): calculate([row()],S,p)
 if __name__=="__main__": unittest.main()
