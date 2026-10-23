@@ -105,6 +105,34 @@ class PortablePathsTests(unittest.TestCase):
             self.assertNotIn("outside-", str(data))
 
 
+    def test_real_config_is_written_and_reloaded_inside_portable(self):
+        """Exercise the production JSON writer, not an artificial smoke file."""
+        from Utils import UTILS_Config
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            portable = root / "Portable"
+            portable.mkdir()
+            user_profile = root / "outside-user-config"
+            module = _load_utils_files(root, config_root=user_profile)
+
+            with mock.patch.object(UTILS_Config.UTILS_Fichiers, "GetRepUtilisateur",
+                                   side_effect=module.GetRepUtilisateur):
+                writer = UTILS_Config.FichierConfig()
+                writer.SetItemConfig("test_preference_portable", 42)
+                config_path = portable / "Config.json"
+                self.assertEqual(Path(writer.nomFichier), config_path)
+                self.assertTrue(config_path.is_file())
+                self.assertEqual(UTILS_Config.FichierConfig().GetItemConfig(
+                    "test_preference_portable"), 42)
+
+                # A new FichierConfig instance acts like a second launch.
+                restarted = UTILS_Config.FichierConfig()
+                self.assertEqual(restarted.GetItemConfig("test_preference_portable"), 42)
+
+            self.assertFalse((user_profile / "noethys").exists())
+
+
+
 class InstallableConfigPathsTests(unittest.TestCase):
     def test_config_path_is_independent_from_process_working_directory(self):
         with tempfile.TemporaryDirectory() as temp:
