@@ -4,7 +4,6 @@ Aucun accès DB, aucun import wx. Les politiques conventionnelles sont injectée
 jamais inventées. Les prestations annexes ne créent pas d'heures de présence.
 """
 from collections import defaultdict
-from datetime import datetime
 
 class CalculAFASInvalide(ValueError):
     pass
@@ -53,6 +52,7 @@ def calculate(rows, eligible_pairs, policy):
     if not isinstance(eligible_pairs, (set, frozenset)) or not eligible_pairs:
         raise CalculAFASInvalide("Perimetre vide")
     retained = defaultdict(lambda: defaultdict(list))
+    seen_row_ids = set()
     flags = defaultdict(set)
     for row in rows:
         pair = (row["IDactivite"], row["IDgroupe"])
@@ -63,6 +63,12 @@ def calculate(rows, eligible_pairs, policy):
             raise CalculAFASInvalide("Unite non qualifiee")
         if cat == "annexe":
             continue
+        # Identifiants de consommation optionnels, mais uniques quand fournis.
+        consumption_id = row.get("IDconso")
+        if consumption_id is not None:
+            if consumption_id in seen_row_ids:
+                raise CalculAFASInvalide("Consommation repetee : IDconso duplique")
+            seen_row_ids.add(consumption_id)
         key = (row["individual"], row["date"])
         start, end = _minutes(row["start"], row["end"])
         retained[key][cat].append((start, end))
@@ -84,7 +90,11 @@ def calculate(rows, eligible_pairs, policy):
         minutes_facturees = policy["billable_minutes"](key, tuple(cats["accueil"]))
         if type(minutes_facturees) is not int or not 0 <= minutes_facturees:
             raise CalculAFASInvalide("Resultat facturation CAF invalide")
-        if policy.get("include_garderie_realisee") not in (True, False):
+        # Le total facturable peut differer du realise, mais une valeur superieure
+        # a 24 heures pour un individu/jour necessite un traitement hors prototype.
+        if minutes_facturees > 1440:
+            raise CalculAFASInvalide("Volume facture CAF incoherent (> 24h/jour)")
+        if type(policy.get("include_garderie_realisee")) is not bool:
             raise CalculAFASInvalide("Regle heures realisees garderie non qualifiee")
         realised = accueil + (matin + soir if policy["include_garderie_realisee"] else 0)
         totals["heures_realisees"] += realised
