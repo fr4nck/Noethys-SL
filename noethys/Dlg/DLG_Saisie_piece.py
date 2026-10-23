@@ -687,9 +687,8 @@ class Dialog(wx.Dialog):
             montant_valide = False
         if (selection is None or selection["IDfamille"] is None or
                 not montant_valide or
-                self.ctrl_type_quotient.GetID() is None or
-                not self.radio_date_fin_1.GetValue()):
-            wx.MessageBox(_(u"Pour enregistrer le quotient, sélectionnez une famille et un type de quotient, saisissez son montant et une date de fin."),
+                self.ctrl_type_quotient.GetID() is None):
+            wx.MessageBox(_(u"Pour enregistrer le quotient, sélectionnez une famille et un type de quotient, saisissez son montant. La validité illimitée est acceptée."),
                           _(u"Quotient à compléter"), wx.OK | wx.ICON_EXCLAMATION, self)
             return False
         return True
@@ -703,7 +702,7 @@ class Dialog(wx.Dialog):
         dlg = DLG_Saisie_quotient.Dialog(self, IDfamille=selection["IDfamille"])
         try:
             dlg.SetDateDebut(self.ctrl_date_debut.GetDate())
-            dlg.SetDateFin(self.ctrl_date_fin.GetDate())
+            dlg.SetDateFin(self.ctrl_date_fin.GetDate() if self.radio_date_fin_1.GetValue() else datetime.date(2999, 1, 1))
             dlg.SetTypeQuotient(self.ctrl_type_quotient.GetID())
             dlg.SetQuotient(int(self.ctrl_quotient.GetValue()))
             return dlg.ValiderEtEnregistrer()
