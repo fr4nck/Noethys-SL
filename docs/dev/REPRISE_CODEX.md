@@ -1,5 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## AFAS — corrections P0/P1 sur `main` après audit contradictoire (23/10/2026)
+
+- **Base** : `main` `3263cd4` ; audit contradictoire du 23/10 (P0-1 à P0-4, P1). `wx` : bouton « CAF / AFAS » masqué séparément en `385112b` ; **aucun report automatique de ces corrections sur `wx`** (report ciblé et testé seulement après requalification et recette Windows).
+- **Lots poussés** (contrôles optionnels dans `CalculerEtatGlobal`, activés par AFAS uniquement ; l'état global sans ces options garde son comportement historique, testé) :
+  - `1755300` P0-1 : paramètre `listeCouples`, filtre SQL par couples exacts (IDactivite, IDgroupe) — `tests/test_noethys_sl_afas_couples.py`.
+  - `f03da4a` P0-2 : `controle_doublons` (chevauchements, doublons, même unité sans horaires) + anomalies de période du moteur remontées ; calcul AFAS bloqué par `AnomalieAFAS`, aucune déduplication inventée — `tests/test_noethys_sl_afas_doublons.py`.
+  - `a9258ae` P1 : `controle_temps_facture` (format HH:MM positif) ; aucun plafond fixé — `tests/test_noethys_sl_afas_temps_facture.py`.
+  - `44ea11e` P1 : `ValiderConfiguration` (profils anciens/corrompus), blocage du calcul si groupes supprimés — `tests/test_noethys_sl_afas_profils.py`.
+- **Preuves** : chaque test reproduit l'anomalie sur `3263cd4` puis passe ; suites AFAS/état global/AEEH inchangées avant/après. CI rapide Windows `a9258ae` [39972906567](https://github.com/fr4nck/Noethys-SL/actions/runs/39972906567) : 858 exécutés, OK (6 SKIP) ; `44ea11e` [39974317698](https://github.com/fr4nck/Noethys-SL/actions/runs/39974317698) : 868 exécutés, 862 PASS, 0 FAIL, 6 SKIP (couples 11, doublons 13, temps facturé 8, profils 10, actualisation 7 : tous ok).
+- **En attente de décisions métier (aucune règle inventée)** : P0-3 séparation périscolaire/extrascolaire ; P0-4 statuts retenus séparément pour le réalisé et le facturé CAF ; calendrier de vacances absent ; consommations un jour sans ouverture ; plafond éventuel des temps facturés ; règle AEEH ; garderies et repas.
+- **Restent ouverts** : référentiel V2 (noms de groupes), presets V2 (année/phase imbriquées, persistance), `eval` de `CTRL_Profil` (antérieur à AFAS, décision séparée), interface autonome, recette Windows.
+
 ## P1 #426 — audit RC7 renforcé et préparation de recette RC8.1 (21/10/2026)
 
 - Correctif limité à l'inventaire : `UTILS_Audit_cotisations`, lecteur autonome explicite SQLite/MySQL local, export HTML/JSON/CSV et fiche comptable vide. Aucune régularisation, aucun appel de création financière, aucune donnée PMSL.
