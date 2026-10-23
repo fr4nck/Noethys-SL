@@ -10,3 +10,5 @@ RC9 rassemble les correctifs présents sur la branche Windows `wx` depuis RC8.1,
 Les tests automatiques vérifient la compatibilité du code, les contrats métiers et le démarrage Windows. Le rendu réel du sélecteur devra être confirmé en recette manuelle sur Windows.
 
 **Aucune migration ni intervention automatique sur la base de données n'est demandée pour ce correctif d'interface.**
+
+- Correction de la saisie conjointe d'une attestation et d'un quotient familial : l'option « Validité illimitée » est désormais acceptée, avec conservation de la convention interne de date du 01/01/2999.
