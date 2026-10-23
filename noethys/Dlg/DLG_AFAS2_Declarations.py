@@ -106,8 +106,12 @@ class Dialog(wx.Dialog):
         sizer.Add(ligne, 0, wx.EXPAND | wx.ALL, 8)
         grille = wx.FlexGridSizer(cols=4, vgap=6, hgap=8)
         for libelle, ctrl in (("Nom du preset", self.ctrl_nom), ("Activité", self.ctrl_activite), ("Mode d'accueil", self.ctrl_mode),
-                              ("Équipement", self.ctrl_equipement), ("Sites et groupes", self.ctrl_sites), ("Unités", self.bouton_unites),
-                              ("Statuts — heures réalisées", self.ctrl_realise), ("Statuts — heures facturées CAF", self.ctrl_facture)):
+                              ("Équipement", self.ctrl_equipement), ("Sites et groupes", self.ctrl_sites)):
+            grille.Add(wx.StaticText(self, label=libelle), 0, wx.ALIGN_TOP)
+            grille.Add(ctrl, 1, wx.EXPAND)
+        grille.Add(wx.StaticText(self, label="Unités"), 0, wx.ALIGN_TOP)
+        grille.Add(self.bouton_unites, 0)
+        for libelle, ctrl in (("Statuts — heures réalisées", self.ctrl_realise), ("Statuts — heures facturées CAF", self.ctrl_facture)):
             grille.Add(wx.StaticText(self, label=libelle), 0, wx.ALIGN_TOP)
             grille.Add(ctrl, 1, wx.EXPAND)
         grille.Add((1, 1))

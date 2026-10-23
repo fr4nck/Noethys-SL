@@ -1,5 +1,7 @@
 # AFAS V2 — prototype préparatoire (non intégré)
 
+> **Remplacé** : le module développé se trouve dans `noethys/Utils/UTILS_AFAS2_*.py` et `noethys/Dlg/DLG_AFAS2_Declarations.py` (voir `docs/afas/MODULE_DECLARATIONS_AFAS_V2.md`). Ces prototypes restent comme référence historique ; leurs anciens formats de preset sont convertibles par `UTILS_AFAS2_Presets.MigrerAncienFormat`.
+
 Ce répertoire contient un contrat Python autonome et ses tests fictifs. Aucun module applicatif Noethys, aucune base PMSL et aucune branche wx/qt n'est modifiée par ce lot.
 
 - `afas_contract.py` : matrice ALSH/ALSH Ados, validation de catalogue, filtrage de sélection, résolution explicite des couples IDactivite/IDgroupe, validation des catégories d'unités, sérialisation JSON en mémoire.

@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## AFAS V2 — module « Déclarations AFAS » ALSH développé sur `main` (23/10/2026)
+
+- **Sources** : quatre conventions CAF 2025-2027 (PERI/EXTRA Bais et La Guerche-Moutiers) lues intégralement ; traçabilité `docs/afas/TRACABILITE_CONVENTIONS_2025_2027.md` ; module `docs/afas/MODULE_DECLARATIONS_AFAS_V2.md`.
+- **Lots sur `main`** (base `2d24cec`) : A `9b83e3b` conventions ; B `30e266a` calendrier/statuts ; C `5eb3c89` moteur, référentiel, chargement ; D `3c69e11` presets ; E+G `fd9c568` phases, historique, exports ; F `b796be8` menu Consommations → Déclarations AFAS + dialogue ; correctif placement bouton + documentation (ce commit).
+- **Tests** : 11 suites AFAS (couples, doublons, temps facturé, profils, afas2_*) dans la CI rapide ; CI Windows `b796be8` : 1032 tests, 1 FAIL (`test_vanilla_boutons_places`, bouton placé via boucle, corrigé ici), 6 SKIP ; recette du dialogue wxPython réel 4/4.
+- **Non intégré à `wx` / RC9** ; bouton AFAS V1 toujours masqué sur `wx`. Aucun report automatique.
+- **Décisions attendues** : interprétations listées dans la traçabilité (plages, amplitude, absences facturées, arrondi du complément inclusif, Moutiers, minicamps, ventilation des séjours) ; pièces manquantes (addenda, formulaires d'implantation, grilles tarifaires). Recette Windows sur base fictive à faire avant toute intégration.
+
 ## AFAS — corrections P0/P1 sur `main` après audit contradictoire (23/10/2026)
 
 - **Base** : `main` `3263cd4` ; audit contradictoire du 23/10 (P0-1 à P0-4, P1). `wx` : bouton « CAF / AFAS » masqué séparément en `385112b` ; **aucun report automatique de ces corrections sur `wx`** (report ciblé et testé seulement après requalification et recette Windows).
