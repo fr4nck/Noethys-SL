@@ -60,6 +60,19 @@ class ReceptionTests(unittest.TestCase):
         self.base.db.ExecuterReq('SELECT IDfamille, date_debut, date_fin, quotient, IDtype_quotient FROM quotients')
         self.assertEqual(self.base.db.ResultatReq(), [(42, '2026-10-02', '2027-01-09', 790.0, 1)])
 
+    def test_validite_illimitee_recue_dans_piece_et_quotient(self):
+        self.completer()
+        self.dialog.radio_date_fin_2.SetValue(True)
+        self.dialog.radio_date_fin_1.SetValue(False)
+        self.dialog.OnRadioDateFin(None)
+        with patch.object(self.dialog, 'EndModal') as close:
+            self.dialog.OnBoutonOk(None)
+        close.assert_called_once_with(wx.ID_OK)
+        self.base.db.ExecuterReq('SELECT date_debut, date_fin FROM pieces')
+        self.assertEqual(self.base.db.ResultatReq(), [('2026-10-02', '2999-01-01')])
+        self.base.db.ExecuterReq('SELECT date_debut, date_fin, quotient FROM quotients')
+        self.assertEqual(self.base.db.ResultatReq(), [('2026-10-02', '2999-01-01', 790.0)])
+
     def test_echec_piece_ne_cree_pas_quotient(self):
         self.completer()
         with patch.object(self.dialog, 'Sauvegarde', return_value=False), patch.object(self.dialog, 'SaisirQuotient') as save:
