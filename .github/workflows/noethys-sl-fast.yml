@@ -144,6 +144,7 @@ jobs:
           tests.test_afas2_referentiel_donnees
           tests.test_afas2_presets
           tests.test_afas2_declaration
+          tests.test_afas2_interface
           tests.test_ephemerides
           tests.test_ephemerides_ui
           tests.test_noethys_sl_accueil_compact

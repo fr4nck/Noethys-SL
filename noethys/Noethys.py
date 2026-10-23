@@ -1065,6 +1065,7 @@ class MainFrame(wx.Frame):
                     {"code" : "synthese_conso", "label" : _(u"Synthèse des consommations"), "infobulle" : _(u"Synthèse des consommations"), "image" : "Images/16x16/Diagramme.png", "action" : self.On_conso_synthese_conso},
                     {"code" : "etat_global", "label" : _(u"Etat global"), "infobulle" : _(u"Etat global"), "image" : "Images/16x16/Tableaux.png", "action" : self.On_conso_etat_global},
                     {"code" : "etat_nominatif", "label" : _(u"Etat nominatif"), "infobulle" : _(u"Etat nominatif"), "image" : "Images/16x16/Tableaux.png", "action" : self.On_conso_etat_nominatif},
+                    {"code" : "declarations_afas", "label" : _(u"Déclarations AFAS"), "infobulle" : _(u"Déclarations d'activité AFAS des ALSH (CAF)"), "image" : "Images/16x16/Tableaux.png", "action" : self.On_conso_declarations_afas},
                     "-",
                     {"code" : "badgeage", "label" : _(u"Badgeage"), "infobulle" : _(u"Badgeage"), "image" : "Images/16x16/Badgeage.png", "action" : self.On_conso_badgeage},
             ],
@@ -3417,6 +3418,12 @@ class MainFrame(wx.Frame):
         dlg.ShowModal() 
         dlg.Destroy()
         
+    def On_conso_declarations_afas(self, event):
+        from Dlg import DLG_AFAS2_Declarations
+        dlg = DLG_AFAS2_Declarations.Dialog(self)
+        dlg.ShowModal()
+        dlg.Destroy()
+
     def On_conso_badgeage(self, event):
         from Dlg import DLG_Badgeage
         dlg = DLG_Badgeage.Dialog(self)
