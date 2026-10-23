@@ -19,6 +19,7 @@ UTILS_AFAS.py lui-même. """
 import datetime
 
 from Dlg import DLG_Etat_global
+from Utils import UTILS_AFAS_Donnees
 from Utils import UTILS_Ouvertures
 
 
@@ -36,6 +37,7 @@ def GetDonneesPerimetre(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, 
     `heures` est obtenu via listeActivites=[IDactivite],
     listeGroupes=[IDgroupe] (filtre ajouté en LOT 3A) ; `jours_ouverts` via
     le même couple, sans jamais filtrer par IDunite. """
+    dict_options = dict(dict_options, controle_doublons=True)
     calculateur = DLG_Etat_global.CalculateurEtatGlobal()
     resultat = calculateur.CalculerEtatGlobal(
         date_debut=date_debut,
@@ -48,6 +50,7 @@ def GetDonneesPerimetre(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, 
         dictInfosFamilles=dictInfosFamilles or {},
         listeCouples=[(IDactivite, IDgroupe)],
     )
+    UTILS_AFAS_Donnees.VerifierAnomalies(resultat)
 
     total = datetime.timedelta(0)
     for dict_tranches in resultat["dict_resultats"].values():

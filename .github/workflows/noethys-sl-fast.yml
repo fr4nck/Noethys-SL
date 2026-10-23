@@ -135,6 +135,7 @@ jobs:
           tests.test_vanilla_recette_menus
           tests.test_noethys_sl_afas_actualisation
           tests.test_noethys_sl_afas_couples
+          tests.test_noethys_sl_afas_doublons
           tests.test_ephemerides
           tests.test_ephemerides_ui
           tests.test_noethys_sl_accueil_compact

@@ -49,6 +49,23 @@ from Utils import UTILS_Ouvertures
 
 
 _LABEL_AEEH = "AEEH"
+_ANOMALIES_AFFICHEES = 20
+
+
+class AnomalieAFAS(ValueError):
+    """ Calcul AFAS bloqué : les données ne permettent pas un comptage fiable. """
+
+
+def VerifierAnomalies(resultat):
+    """ Bloque le calcul AFAS sur les doublons/chevauchements détectés et sur
+    les anomalies de période du moteur (jamais ignorées silencieusement). """
+    anomalies = list(resultat.get("listeDoublons", [])) + list(resultat.get("listeAnomalies", []))
+    if anomalies:
+        texte = "\n".join(anomalies[:_ANOMALIES_AFFICHEES])
+        if len(anomalies) > _ANOMALIES_AFFICHEES:
+            texte += "\n... et %d autre(s) anomalie(s)." % (len(anomalies) - _ANOMALIES_AFFICHEES)
+        raise AnomalieAFAS("Calcul AFAS impossible : %d anomalie(s) à corriger dans les consommations "
+                           "ou le calendrier.\n%s" % (len(anomalies), texte))
 
 
 def _couples(IDactivite, IDgroupe, perimetres):
@@ -72,6 +89,7 @@ def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUni
     comment chacune est calculée (même dictUnites, mêmes filtres). """
     options_individu = dict(dict_options)
     options_individu["regroupement_principal"] = "individu"
+    options_individu["controle_doublons"] = True
 
     calculateur = DLG_Etat_global.CalculateurEtatGlobal()
     resultat = calculateur.CalculerEtatGlobal(
@@ -85,6 +103,7 @@ def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUni
         dictInfosFamilles={},
         listeCouples=_couples(IDactivite, IDgroupe, perimetres),
     )
+    VerifierAnomalies(resultat)
 
     total = datetime.timedelta(0)
     total_aeeh = datetime.timedelta(0)

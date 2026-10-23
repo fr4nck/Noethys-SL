@@ -172,6 +172,24 @@ def ConditionSQLCouples(listeCouples):
     return "AND (%s)" % " OR ".join("(consommations.IDactivite = %d AND consommations.IDgroupe = %d)" % couple for couple in couples)
 
 
+def DetecterDoublon(dict_plages_jour, listeDoublons, IDconso, IDindividu, date, IDunite, heure_debut, heure_fin):
+    """ Contrôle optionnel (dict_options["controle_doublons"]) : signale deux
+    consommations retenues d'un même individu le même jour qui se chevauchent
+    (horaires renseignés des deux côtés) ou, faute d'horaires, qui portent la
+    même unité. Les plages contiguës et les unités multi-horaires sans
+    chevauchement ne sont pas signalées. Aucune valeur n'est corrigée. """
+    horaires = isinstance(heure_debut, datetime.time) and isinstance(heure_fin, datetime.time)
+    plages = dict_plages_jour.setdefault((IDindividu, date), [])
+    for autre in plages :
+        if horaires and autre["horaires"] :
+            anomalie = heure_debut < autre["fin"] and heure_fin > autre["debut"]
+        else :
+            anomalie = autre["IDunite"] == IDunite
+        if anomalie :
+            listeDoublons.append(_(u"Doublon ou chevauchement : individu %d le %s, consommations %d et %d.") % (IDindividu, UTILS_Dates.DateDDEnFr(date), autre["IDconso"], IDconso))
+    plages.append({"IDconso": IDconso, "IDunite": IDunite, "horaires": horaires, "debut": heure_debut, "fin": heure_fin})
+
+
 class CalculateurEtatGlobal():
     """ Moteur de calcul de l'état global des consommations, indépendant
     de tout wx.Dialog -- appelable sans instancier Dialog (ex. par un futur
@@ -261,7 +279,11 @@ class CalculateurEtatGlobal():
         la liste sont retenues -- jamais le produit croisé des activités et
         des groupes. Apercu() ne fournit jamais ce paramètre : comportement
         historique inchangé. Une liste vide ou un identifiant non entier lève
-        ErreurCalculEtatGlobal. """
+        ErreurCalculEtatGlobal.
+
+        dict_options["controle_doublons"] (optionnel, défaut False) : active
+        DetecterDoublon() ; les anomalies sont renvoyées dans
+        "listeDoublons" sans modifier aucun résultat. """
         conditionSQL_couples = ConditionSQLCouples(listeCouples)
         listeAnomalies = []
 
@@ -406,6 +428,12 @@ class CalculateurEtatGlobal():
         # lu via .get() pour qu'un dict_options existant sans ces clés (anciens
         # profils) conserve exactement son comportement actuel.
         forfait_presence_midi = dict_options.get("forfait_presence_midi", 0)
+
+        # Contrôle optionnel des doublons et chevauchements (appelants AFAS) :
+        # absent des anciens profils -> comportement historique inchangé.
+        controle_doublons = dict_options.get("controle_doublons", False)
+        dict_plages_jour = {}
+        listeDoublons = []
         heure_debut_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_debut_presence_midi", "12:30"))
         heure_fin_presence_midi = UTILS_Dates.HeureStrEnTime(dict_options.get("heure_fin_presence_midi", "13:30"))
 
@@ -636,6 +664,9 @@ class CalculateurEtatGlobal():
             # Calculs
             if valide == True :
 
+                if controle_doublons :
+                    DetecterDoublon(dict_plages_jour, listeDoublons, IDconso, IDindividu, date, IDunite, heure_debut, heure_fin)
+
                 # ----- Recherche de la méthode de calcul pour cette unité -----
                 dictCalcul = dictUnites[IDunite]
                 valeur = datetime.timedelta(hours=0, minutes=0)
@@ -818,6 +849,7 @@ class CalculateurEtatGlobal():
             "dict_stats": dict_stats,
             "listeRegimesUtilises": listeRegimesUtilises,
             "listeAnomalies": listeAnomalies,
+            "listeDoublons": listeDoublons,
             "dictRegimes": dictRegimes,
             "dictEvenements": dictEvenements,
             "dictEtiquettes": dictEtiquettes,

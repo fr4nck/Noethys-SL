@@ -26,12 +26,12 @@ class _BaseCouples(_BaseAFASDonneesTests):
                           [(1, 10, "Groupe A1"), (2, 20, "Groupe B2"), (3, 10, "Groupe A3")])
         self._commit()
 
-    def _conso(self, IDconso, IDactivite, IDgroupe, IDunite=51, IDprestation=None):
+    def _conso(self, IDconso, IDactivite, IDgroupe, IDunite=51, IDprestation=None, heures=("08:00", "10:00")):
         self.base.inserer(
             "consommations",
             ["IDconso", "IDindividu", "IDunite", "date", "heure_debut", "heure_fin", "etat", "quantite",
              "IDactivite", "IDprestation", "IDcompte_payeur", "IDgroupe"],
-            [(IDconso, 1, IDunite, "2026-03-04", "08:00", "10:00", "present", None, IDactivite,
+            [(IDconso, 1, IDunite, "2026-03-04", heures[0], heures[1], "present", None, IDactivite,
               IDprestation, 1, IDgroupe)],
         )
 
@@ -61,7 +61,7 @@ class CouplesExactsTests(_BaseCouples):
 
     def test_couples_demandes_retenus(self):
         self._conso(1, 10, 1)
-        self._conso(2, 20, 2, IDunite=61)
+        self._conso(2, 20, 2, IDunite=61, heures=("10:00", "12:00"))
         self.assertEqual(self._periode([(10, 1), (20, 2)])["heures_reelles"], 4)
 
     def test_facture_restreint_aux_couples(self):
