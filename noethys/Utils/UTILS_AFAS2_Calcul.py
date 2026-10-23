@@ -121,6 +121,11 @@ class Calculateur(object):
             self.unites[IDunite] = dict(unite, debut=Secondes(unite.get("heure_debut")),
                                         fin=Secondes(unite.get("heure_fin")))
         self.sejours = [dict(s, debut=_date(s["date_debut"]), fin=_date(s["date_fin"])) for s in contexte.get("sejours", [])]
+        # Ouvertures indexées par date (amplitude calculée une fois par jour, pas par enfant).
+        self._ouvertures_par_date = {}
+        for IDactivite, IDunite, IDgroupe, jour in contexte["ouvertures"]:
+            self._ouvertures_par_date.setdefault(jour, []).append((IDactivite, IDunite, IDgroupe))
+        self._amplitudes = {}
 
     # -- outils ----------------------------------------------------------
     def _aeeh(self, IDindividu, date):
@@ -132,9 +137,14 @@ class Calculateur(object):
     def _amplitude(self, date):
         """Amplitude d'ouverture effective de l'équipement ce jour-là : étendue des
         plages des unités d'accueil ouvertes pour les groupes déclarés."""
+        if date not in self._amplitudes:
+            self._amplitudes[date] = self._calculer_amplitude(date)
+        return self._amplitudes[date]
+
+    def _calculer_amplitude(self, date):
         plages = []
-        for IDactivite, IDunite, IDgroupe, jour in self.ctx["ouvertures"]:
-            if jour != date or (IDactivite, IDgroupe) not in self.couples:
+        for IDactivite, IDunite, IDgroupe in self._ouvertures_par_date.get(date, []):
+            if (IDactivite, IDgroupe) not in self.couples:
                 continue
             unite = self.unites.get(IDunite)
             if unite and unite["categorie"] in ("accueil", "journee", "demi_journee"):

@@ -135,6 +135,15 @@ class PhasesTests(unittest.TestCase):
                 self.assertEqual(ligne(r, "heures_realisees")["realise"], H + 15 * 60)
                 self.assertEqual(r["preset"], p)
 
+    def test_periode_realisee_non_terminee_non_validable(self):
+        source = source_peri([D(2026, 3, 3)])
+        r = executer(preset(), 2026, AFAS.PHASE_REEL, source, date_reference=D(2026, 10, 23))
+        self.assertFalse(r["validable"])
+        self.assertTrue(any("non terminée" in m for m in r["motifs_non_validable"]))
+        r = executer(preset(), 2026, AFAS.PHASE_ACTUALISATION_JUIN, source_peri(
+            [D(2026, 3, 3)], ouvertures_supp=[D(2025, 7, 7), D(2026, 7, 7)]), date_reference=D(2026, 10, 23))
+        self.assertTrue(r["validable"])
+
     def test_convention_jamais_etendue_hors_2025_2027(self):
         r = executer(preset(), 2028, AFAS.PHASE_REEL, source_peri([D(2028, 3, 6)]))
         self.assertIsNone(r["convention"])

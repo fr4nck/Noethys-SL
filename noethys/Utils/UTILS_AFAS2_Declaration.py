@@ -184,6 +184,9 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
         convention = None
         motifs.append(str(erreur))
 
+    if debut_r and fin_r >= date_reference:
+        motifs.append("période réalisée non terminée (%s au %s, calcul du %s) : chiffres provisoires"
+                      % (debut_r.strftime("%d/%m/%Y"), fin_r.strftime("%d/%m/%Y"), date_reference.strftime("%d/%m/%Y")))
     realise = CalculerPeriode(preset, referentiel, couples, source, debut_r, fin_r, date_reference) if debut_r else None
     historique_n1 = None
     prevision = None

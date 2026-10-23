@@ -384,6 +384,19 @@ class AEEHTests(unittest.TestCase):
         self.assertLessEqual(r["indicateurs"]["heures_facturees_aeeh"], r["indicateurs"]["heures_facturees"])
 
 
+class PerformanceTests(unittest.TestCase):
+    def test_annee_complete_volumineuse(self):
+        # 120 enfants x 40 jours de vacances, 6 unités ouvertes par jour : calcul en temps borné.
+        import time
+        jours = [D(2026, 7, 6) + datetime.timedelta(days=i) for i in range(56) if (D(2026, 7, 6) + datetime.timedelta(days=i)).weekday() < 5]
+        consos = [conso(j, 201, individu=i, IDprestation=10000 * i + n, IDfacture=1) for i in range(120) for n, j in enumerate(jours)]
+        ouvertures = {(1, u, g, j) for j in jours for u in (201, 202, 203) for g in (11, 12)}
+        debut = time.time()
+        r = calculer(M.EXTRA, consos, ouvertures=ouvertures)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], len(consos) * 8 * H)
+        self.assertLess(time.time() - debut, 20)
+
+
 class ContexteTests(unittest.TestCase):
     def test_statuts_et_categories_valides(self):
         with self.assertRaises(ValueError):
