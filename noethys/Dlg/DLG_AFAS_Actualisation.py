@@ -14,7 +14,16 @@ class Profil(CTRL_Profil.CTRL):
         super().__init__(parent, categorie="afas_equipement")
 
     def Recevoir_parametres(self):
-        self.Enregistrer(self.GetParent().GetConfiguration())
+        if self.Enregistrer(self.GetParent().GetConfiguration()) is not False:
+            # Le profil réenregistré ne contient plus que des groupes existants.
+            self.GetParent().perimetres_manquants = []
+
+    def OnChoixProfil(self, event=None):
+        # Profil corrompu (relu par eval dans CTRL_Profil) : erreur contrôlée.
+        try:
+            super().OnChoixProfil(event)
+        except (SyntaxError, ValueError, TypeError, NameError) as erreur:
+            wx.MessageBox("Profil AFAS illisible : %s" % erreur, "Configuration AFAS", wx.OK | wx.ICON_ERROR, self)
 
     def Envoyer_parametres(self, configuration=None):
         if configuration:
@@ -28,6 +37,7 @@ class Dialog(wx.Dialog):
         self.unites, self.options = unites, options
         self.valeurs_par_declaration = {}
         self.cle_declaration = None
+        self.perimetres_manquants = []
         db = GestionDB.DB()
         try:
             db.ExecuterReq("SELECT activites.IDactivite, groupes.IDgroupe, activites.nom, groupes.nom "
@@ -100,20 +110,27 @@ class Dialog(wx.Dialog):
                     valeurs_par_declaration=self.valeurs_par_declaration)
 
     def SetConfiguration(self, configuration):
-        self.equipement.SetValue(configuration.get("nom", ""))
-        selection = configuration.get("perimetres", [])
+        try:
+            configuration, manquants = AFAS.ValiderConfiguration(
+                configuration, [(r[0], r[1]) for r in self.perimetres])
+        except ValueError as erreur:
+            wx.MessageBox(str(erreur), "Configuration AFAS", wx.OK | wx.ICON_ERROR, self)
+            return
+        self.equipement.SetValue(configuration["nom"])
+        selection = configuration["perimetres"]
         for i, row in enumerate(self.perimetres):
             self.groupes.Check(i, (row[0], row[1]) in selection)
-        manquants = set(map(tuple, selection)) - {(r[0], r[1]) for r in self.perimetres}
+        self.perimetres_manquants = manquants
         self.unites = configuration["unites"]
         self.options = configuration["options"]
-        self.methode.SetSelection(configuration.get("methode", 0))
-        self.valeurs_par_declaration = configuration.get("valeurs_par_declaration", {})
+        self.methode.SetSelection(configuration["methode"])
+        self.valeurs_par_declaration = configuration["valeurs_par_declaration"]
         self.cle_declaration = None
         self.OnPhase(None)
         if manquants:
-            wx.MessageBox("Certains groupes enregistrés n'existent plus : vérifiez le périmètre avant de calculer.",
-                          "Configuration AFAS", wx.OK | wx.ICON_INFORMATION, self)
+            wx.MessageBox("Certains groupes enregistrés n'existent plus : le calcul est bloqué. "
+                          "Vérifiez le périmètre puis réenregistrez le profil.",
+                          "Configuration AFAS", wx.OK | wx.ICON_WARNING, self)
 
     def MemoriserValeurs(self):
         if self.cle_declaration is not None:
@@ -146,6 +163,9 @@ class Dialog(wx.Dialog):
 
     def Calculer(self):
         self.resultats.DeleteAllItems()
+        if self.perimetres_manquants:
+            raise ValueError("Le profil référence des groupes supprimés %s : vérifiez le périmètre "
+                             "puis réenregistrez le profil avant de calculer." % self.perimetres_manquants)
         selection = [(row[0], row[1]) for i, row in enumerate(self.perimetres) if self.groupes.IsChecked(i)]
         rapport = AFAS.PreparerActualisation(self.annee.GetValue(), selection, self.unites, self.options,
             methode=UTILS_AFAS.METHODE_MANUEL if self.methode.GetSelection() == 1 else UTILS_AFAS.METHODE_N1_AJUSTE,

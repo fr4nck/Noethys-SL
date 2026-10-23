@@ -41,6 +41,48 @@ METRIQUES = (
 )
 
 
+OPTIONS_REQUISES = ("regroupement_principal", "regroupement_age", "periodes_detaillees",
+                    "jours_hors_vacances", "jours_vacances", "etat_consommations",
+                    "plafond_journalier_individu", "associer_regime_inconnu")
+
+
+def ValiderConfiguration(configuration, perimetres_existants):
+    """Contrôle un profil AFAS relu par CTRL_Profil avant de l'appliquer.
+
+    Retourne (configuration normalisée, périmètres enregistrés absents de la
+    base). Lève ValueError, sans rien appliquer, pour un profil illisible,
+    ancien ou incomplet (unités ou options de l'état global absentes)."""
+    if not isinstance(configuration, dict):
+        raise ValueError("Profil AFAS illisible : configuration attendue sous forme de dictionnaire")
+    unites = configuration.get("unites")
+    if not isinstance(unites, dict) or not unites or not all(
+            isinstance(u, dict) and "IDactivite" in u and "typeCalcul" in u for u in unites.values()):
+        raise ValueError("Profil AFAS ancien ou incomplet : unités de calcul absentes. "
+                         "Paramétrez les unités dans l'état global puis réenregistrez le profil.")
+    options = configuration.get("options")
+    if not isinstance(options, dict) or any(cle not in options for cle in OPTIONS_REQUISES):
+        raise ValueError("Profil AFAS ancien ou incomplet : options de l'état global absentes. "
+                         "Paramétrez les options dans l'état global puis réenregistrez le profil.")
+    perimetres = configuration.get("perimetres", [])
+    if not isinstance(perimetres, (list, tuple)) or not all(
+            isinstance(p, (list, tuple)) and len(p) == 2 and all(type(i) is int for i in p) for p in perimetres):
+        raise ValueError("Profil AFAS illisible : périmètres (activité, groupe) invalides")
+    methode = configuration.get("methode", 0)
+    if methode not in (0, 1):
+        raise ValueError("Profil AFAS illisible : méthode de prévision invalide")
+    valeurs = configuration.get("valeurs_par_declaration", {})
+    if not isinstance(valeurs, dict):
+        raise ValueError("Profil AFAS illisible : valeurs saisies invalides")
+    nom = configuration.get("nom", "")
+    if not isinstance(nom, str):
+        raise ValueError("Profil AFAS illisible : nom d'équipement invalide")
+    perimetres = [tuple(p) for p in perimetres]
+    existants = {tuple(p) for p in perimetres_existants}
+    manquants = [p for p in perimetres if p not in existants]
+    return dict(nom=nom, perimetres=perimetres, unites=unites, options=options, methode=methode,
+                valeurs_par_declaration=valeurs), manquants
+
+
 def NombrePositif(valeur):
     nombre = float(str(valeur).replace(",", "."))
     if not math.isfinite(nombre) or nombre < 0:
