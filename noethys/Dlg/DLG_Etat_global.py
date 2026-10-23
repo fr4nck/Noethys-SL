@@ -152,6 +152,26 @@ class Unite():
         self.duree = self.fin - self.debut
 
 
+def ConditionSQLCouples(listeCouples):
+    """ Condition SQL restreignant les consommations aux couples exacts
+    (IDactivite, IDgroupe). None -> aucune restriction (comportement
+    historique). Les identifiants doivent être des entiers. """
+    if listeCouples is None :
+        return ""
+    couples = []
+    for couple in listeCouples :
+        if not isinstance(couple, (tuple, list)) or len(couple) != 2 :
+            raise ErreurCalculEtatGlobal(_(u"Couple activité/groupe invalide : %r.") % (couple,), titre=_(u"Erreur"))
+        IDactivite, IDgroupe = couple
+        if type(IDactivite) is not int or type(IDgroupe) is not int :
+            raise ErreurCalculEtatGlobal(_(u"Couple activité/groupe invalide : %r.") % (couple,), titre=_(u"Erreur"))
+        if (IDactivite, IDgroupe) not in couples :
+            couples.append((IDactivite, IDgroupe))
+    if not couples :
+        raise ErreurCalculEtatGlobal(_(u"Aucun couple activité/groupe sélectionné."), titre=_(u"Erreur"))
+    return "AND (%s)" % " OR ".join("(consommations.IDactivite = %d AND consommations.IDgroupe = %d)" % couple for couple in couples)
+
+
 class CalculateurEtatGlobal():
     """ Moteur de calcul de l'état global des consommations, indépendant
     de tout wx.Dialog -- appelable sans instancier Dialog (ex. par un futur
@@ -197,7 +217,7 @@ class CalculateurEtatGlobal():
 
         return resultat
 
-    def CalculerEtatGlobal(self, date_debut=None, date_fin=None, listeActivites=None, dictUnites=None, dict_options=None, dictInfosIndividus=None, dictInfosFamilles=None, listeGroupes=None):
+    def CalculerEtatGlobal(self, date_debut=None, date_fin=None, listeActivites=None, dictUnites=None, dict_options=None, dictInfosIndividus=None, dictInfosFamilles=None, listeGroupes=None, listeCouples=None):
         """ Calcul métier de l'état global des consommations, indépendant du rendu PDF.
 
         Extrait tel quel (même sémantique, mêmes résultats) du corps de
@@ -233,7 +253,16 @@ class CalculateurEtatGlobal():
         futur appelant AFAS) peut donc transmettre cet index brut : il est
         décodé ici avec exactement la même correspondance que le GUI
         (ARRONDIS_PAR_INDEX). Toute autre valeur lève ErreurCalculEtatGlobal
-        explicitement. """
+        explicitement.
+
+        listeCouples (optionnel) : liste de couples exacts (IDactivite,
+        IDgroupe). Lorsqu'elle est fournie, seules les consommations dont le
+        couple (consommations.IDactivite, consommations.IDgroupe) figure dans
+        la liste sont retenues -- jamais le produit croisé des activités et
+        des groupes. Apercu() ne fournit jamais ce paramètre : comportement
+        historique inchangé. Une liste vide ou un identifiant non entier lève
+        ErreurCalculEtatGlobal. """
+        conditionSQL_couples = ConditionSQLCouples(listeCouples)
         listeAnomalies = []
 
         DB = GestionDB.DB()
@@ -448,7 +477,8 @@ class CalculateurEtatGlobal():
         AND consommations.etat NOT IN ('attente', 'refus')
         %s
         %s
-        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL, conditionSQL_groupes)
+        %s
+        ORDER BY consommations.date;""" % (str(date_debut), str(date_fin), conditionSQL, conditionSQL_groupes, conditionSQL_couples)
         DB.ExecuterReq(req)
         listeDonnees = DB.ResultatReq()
 

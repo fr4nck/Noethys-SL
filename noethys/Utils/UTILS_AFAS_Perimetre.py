@@ -46,6 +46,7 @@ def GetDonneesPerimetre(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, 
         dict_options=dict_options,
         dictInfosIndividus=dictInfosIndividus or {},
         dictInfosFamilles=dictInfosFamilles or {},
+        listeCouples=[(IDactivite, IDgroupe)],
     )
 
     total = datetime.timedelta(0)

@@ -51,8 +51,18 @@ from Utils import UTILS_Ouvertures
 _LABEL_AEEH = "AEEH"
 
 
+def _couples(IDactivite, IDgroupe, perimetres):
+    """ Couples exacts (IDactivite, IDgroupe) transmis au moteur : jamais le
+    produit croisé des listes d'activités et de groupes. """
+    if perimetres is not None:
+        return [tuple(perimetre) for perimetre in perimetres]
+    if isinstance(IDactivite, list) or isinstance(IDgroupe, list):
+        raise ValueError("Couples (IDactivite, IDgroupe) requis pour un périmètre multiple")
+    return [(IDactivite, IDgroupe)]
+
+
 def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, dict_options,
-                              dictInfosIndividus_aeeh):
+                              dictInfosIndividus_aeeh, perimetres=None):
     """ Calcule le total d'heures du périmètre et son sous-total "dont
     AEEH", en UNE SEULE exécution du moteur : le regroupement "individu"
     (déjà existant, cf. DLG_Etat_global.CalculerEtatGlobal) bascule chaque
@@ -73,6 +83,7 @@ def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUni
         dict_options=options_individu,
         dictInfosIndividus=dictInfosIndividus_aeeh,
         dictInfosFamilles={},
+        listeCouples=_couples(IDactivite, IDgroupe, perimetres),
     )
 
     total = datetime.timedelta(0)
@@ -143,7 +154,7 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
 
     Une seule exécution par métrique conserve la déduplication des prestations
     et les plafonds individuels entre groupes. Les jours ouverts sont une union.
-    Les IDs de groupe sont uniques dans la base.
+    Le moteur ne retient que les couples exacts (IDactivite, IDgroupe) fournis.
     """
     if not perimetres or date_fin < date_debut:
         raise ValueError("Périmètre ou période invalide")
@@ -154,6 +165,7 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
 
     heures_reelles, heures_reelles_aeeh = _sommer_par_regroupement(
         IDactivite, IDgroupe, date_debut, date_fin, dictUnites_reel, dict_options, dictInfosIndividus_aeeh,
+        perimetres=perimetres,
     )
 
     # Verdict vérifié sur données réelles PMSL (cf. docstring module) :
@@ -164,6 +176,7 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
     dict_options_facture["forfait_presence_midi"] = 0
     heures_facturees, heures_facturees_aeeh = _sommer_par_regroupement(
         IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, dict_options_facture, dictInfosIndividus_aeeh,
+        perimetres=perimetres,
     )
 
     jours_ouverts = len(set(date for activite, groupe in perimetres
