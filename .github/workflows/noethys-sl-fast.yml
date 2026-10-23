@@ -138,6 +138,7 @@ jobs:
           tests.test_noethys_sl_afas_doublons
           tests.test_noethys_sl_afas_temps_facture
           tests.test_noethys_sl_afas_profils
+          tests.test_afas2_conventions
           tests.test_ephemerides
           tests.test_ephemerides_ui
           tests.test_noethys_sl_accueil_compact
