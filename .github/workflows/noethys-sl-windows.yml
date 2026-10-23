@@ -105,6 +105,7 @@ jobs:
           tests.test_noethys_sl_performance_grille
           tests.test_noethys_sl_grille_synthetic
           tests.test_noethys_sl_profilage_conso
+          tests.test_noe_041_portable_paths
           -v
 
       - name: Construire le binaire wxPython
@@ -263,24 +264,9 @@ jobs:
             if ($entrees -notcontains $attendu) { throw "Entrée absente du ZIP portable : $attendu" }
           }
 
-      - name: Démarrer le ZIP portable extrait et vérifier que le profil reste dans Portable/
+      - name: Qualifier deux demarrages portables et la persistance de Config.json
         shell: pwsh
-        run: |
-          $zip = Get-ChildItem 'windows-output' -Filter '*-Windows-portable.zip' | Select-Object -First 1
-          $extrait = Join-Path $env:RUNNER_TEMP 'portable-extrait'
-          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extrait -Force
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'profil-windows-vide'
-          $env:APPDATA = Join-Path $profileRoot 'Roaming'
-          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
-          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
-          $process = Start-Process -WindowStyle Hidden -FilePath (Join-Path $extrait 'Noethys.exe') -WorkingDirectory $extrait -PassThru
-          Start-Sleep -Seconds 15
-          if ($process.HasExited -and $process.ExitCode -ne 0) { throw "Noethys.exe portable a quitté avec le code $($process.ExitCode)" }
-          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
-          if (Test-Path (Join-Path $env:APPDATA 'noethys')) { throw 'Le ZIP portable a écrit son profil dans %APPDATA%' }
-          $crees = @(Get-ChildItem (Join-Path $extrait 'Portable') -Recurse | Where-Object { $_.Name -ne 'README.txt' })
-          if ($crees.Count -eq 0) { throw 'Aucun fichier de profil créé dans Portable/' }
-          $crees | ForEach-Object { Write-Host "Profil portable : $($_.FullName.Substring($extrait.Length))" }
+        run: ./scripts/verify_windows_portable_rc9.ps1
 
       - name: Calculer les empreintes SHA-256
         shell: pwsh
