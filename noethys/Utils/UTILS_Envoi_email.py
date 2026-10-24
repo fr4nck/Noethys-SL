@@ -53,7 +53,31 @@ def _TexteUtf8(valeur):
 
 
 
-def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", listeAdresses=[], visible=True, log=None, CreationPDF=None, IDmodele=None):
+def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", listeAdresses=[], visible=True, log=None, CreationPDF=None, IDmodele=None, cle_suivi=None):
+    """Envoie un document à la famille. Renvoie True seulement si TOUTES les
+    adresses visées ont été acceptées par le serveur d'envoi.
+
+    cle_suivi (confirmations Connecthys envoyées sans éditeur) : les adresses
+    déjà acceptées lors d'un essai précédent ne reçoivent pas de nouveau le
+    message ; si toutes l'ont déjà été, rien n'est renvoyé et le résultat
+    est True. Voir UTILS_Emails_acceptes."""
+    deja_acceptees = set()
+    if cle_suivi is not None and not visible:
+        from Utils import UTILS_Emails_acceptes
+        deja_acceptees = UTILS_Emails_acceptes.Lire(cle_suivi)
+        if deja_acceptees:
+            if len(listeAdresses) == 0:
+                listeAdresses = GetAdresseFamille(IDfamille)
+                if listeAdresses == False or len(listeAdresses) == 0:
+                    return False
+            restantes = [a for a in listeAdresses if UTILS_Emails_acceptes.Normaliser(a) not in deja_acceptees]
+            if not restantes:
+                UTILS_Emails_acceptes.Effacer(cle_suivi)
+                if log : log.EcritLog(_(u"L'Email avait déjà été accepté pour toutes les adresses lors d'un envoi précédent : aucun renvoi."))
+                return True
+            if log : log.EcritLog(_(u"Envoi limité aux adresses non encore acceptées (%d sur %d).") % (len(restantes), len(listeAdresses)))
+            listeAdresses = restantes
+
     # Création du PDF
     if CreationPDF != None :
         temp = CreationPDF
@@ -100,9 +124,18 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
         dlg.OnBoutonEnvoyer(None)
 
     # Un lot partiellement accepté ne valide pas toute la confirmation
-    # Connecthys, même si les adresses effectivement acceptées sont
-    # conservées dans listeSucces pour le bilan et le suivi.
-    resultat = getattr(dlg, "envoi_complet", len(dlg.listeSucces) > 0)
+    # Connecthys (quel que soit le moteur : SMTP ou Mailjet) ; les adresses
+    # effectivement acceptées sont mémorisées pour ne pas les renvoyer.
+    resultat = bool(dlg.envoi_complet)
+    if cle_suivi is not None and not visible:
+        from Utils import UTILS_Emails_acceptes
+        visees = {UTILS_Emails_acceptes.Normaliser(a) for a in listeAdresses}
+        acceptees = {UTILS_Emails_acceptes.Normaliser(d) for message in dlg.listeSucces
+                     for d in getattr(message, "destinataires", [])} & visees
+        if resultat:
+            UTILS_Emails_acceptes.Effacer(cle_suivi)
+        elif acceptees:
+            UTILS_Emails_acceptes.Enregistrer(cle_suivi, deja_acceptees | acceptees)
     if resultat:
         if log : log.EcritLog(_(u"L'Email a été accepté par le serveur d'envoi."))
     elif len(dlg.listeSucces) > 0:
@@ -121,6 +154,15 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
 
     return resultat
 
+
+
+def CleSuiviDemande(IDaction, document):
+    """Clé de suivi des adresses acceptées pour une confirmation Connecthys ;
+    None si la demande n'a pas d'identifiant (aucun suivi, comportement normal)."""
+    if IDaction in (None, ""):
+        return None
+    from Utils import UTILS_Emails_acceptes
+    return UTILS_Emails_acceptes.CleDemande(IDaction, document)
 
 
 def ValidationEmail(email):

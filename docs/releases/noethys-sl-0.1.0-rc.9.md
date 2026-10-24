@@ -11,6 +11,7 @@ Les tests automatiques vérifient la compatibilité du code, les contrats métie
 
 **Aucune migration ni intervention automatique sur la base de données n'est demandée pour ce correctif d'interface.**
 
+- Confirmations Connecthys (réponse à une demande, reçu, facture) envoyées à plusieurs adresses : la demande n'est validée que si toutes les adresses ont été acceptées par le serveur d'envoi, quel que soit le moteur (SMTP ou Mailjet). Un nouvel essai n'envoie le message qu'aux adresses qui ne l'ont pas encore reçu. Les états et réponses transmis au portail Connecthys sont inchangés. Les envois par lot depuis l'éditeur d'emails retrouvent le moteur Mailjet de RC8.1 (progression, arrêt, « ne plus signaler les erreurs »).
 - Correction de la saisie conjointe d'une attestation et d'un quotient familial : l'option « Validité illimitée » est désormais acceptée, avec conservation de la convention interne de date du 01/01/2999.
 
 ## Bouton « CAF / AFAS » masqué provisoirement

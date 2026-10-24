@@ -1071,7 +1071,8 @@ class Dialog(wx.Dialog):
         else :
             nomDoc = False
 
-        resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=self.categorie_email, listeAdresses=[], visible=visible, log=self.track, CreationPDF=self.CreationPDF, IDmodele=IDmodele)
+        resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=self.categorie_email, listeAdresses=[], visible=visible, log=self.track, CreationPDF=self.CreationPDF, IDmodele=IDmodele,
+                                                       cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "reponse"))
 
         # Mémorise la date de l'envoi de l'email -- uniquement en cas de succès réel
         if resultat == True :
@@ -1272,7 +1273,8 @@ class Traitement():
 
             # Envoi par Email
             if self.dict_parametres["methode_envoi"] == "email" :
-                resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track)
+                resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track,
+                                                               cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "recu"))
                 # Même contrat que Traitement_factures : si l'email n'a pas
                 # été accepté, la demande reste "attente" (aucun nouvel état,
                 # aucun changement de protocole Connecthys) au lieu d'annoncer
@@ -1416,7 +1418,8 @@ class Traitement():
     def Traitement_factures(self):
         # Récupération des paramètres
         IDfacture = int(self.dict_parametres["IDfacture"])
-        edition = Edition_facture(parent=self.parent, IDfacture=IDfacture, IDfamille=self.track.IDfamille)
+        edition = Edition_facture(parent=self.parent, IDfacture=IDfacture, IDfamille=self.track.IDfamille,
+                                  cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "facture"))
 
         # Traitement manuel
         if self.mode == "manuel" :
@@ -2047,10 +2050,11 @@ class Traitement():
 
 class Edition_facture():
     """ Classe spéciale pour l'édition des factures """
-    def __init__(self, parent=None, IDfacture=None, IDfamille=None):
+    def __init__(self, parent=None, IDfacture=None, IDfamille=None, cle_suivi=None):
         self.parent = parent
         self.IDfacture = IDfacture
         self.IDfamille = IDfamille
+        self.cle_suivi = cle_suivi
 
     def Reedition(self, afficherOptions=True):
         self.afficherOptions = afficherOptions
@@ -2059,7 +2063,8 @@ class Edition_facture():
 
     def EnvoyerEmail(self, visible=True):
         self.afficherOptions = visible
-        resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self.parent, IDfamille=self.IDfamille, nomDoc=FonctionsPerso.GenerationNomDoc("FACTURE", "pdf"), categorie="facture", visible=visible, CreationPDF=self.CreationPDF)
+        resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self.parent, IDfamille=self.IDfamille, nomDoc=FonctionsPerso.GenerationNomDoc("FACTURE", "pdf"), categorie="facture", visible=visible, CreationPDF=self.CreationPDF,
+                                                       cle_suivi=self.cle_suivi)
         return resultat
 
     def CreationPDF(self, nomDoc="", afficherDoc=True):

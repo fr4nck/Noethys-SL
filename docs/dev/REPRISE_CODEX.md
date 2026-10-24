@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — NO-GO, lot 2 : confirmations Mailjet/Connecthys (24/10/2026, wx uniquement)
+
+- **Anomalies traitées (audit différentiel)** : sémantique incohérente d'une confirmation partielle (SMTP : validée ; Mailjet : refusée) et renvoi aux adresses déjà acceptées lors d'un nouvel essai ; moteur Mailjet message par message appliqué à tous les lots, y compris depuis l'éditeur affiché ; tests Mailjet asynchrone et pièce/quotient absents de toute CI.
+- **Correctif** : `DLG_Mailer.envoi_complet` défini pour tous les chemins (faux pour un message de test) ; `EnvoiEmailFamille` renvoie vrai seulement si toutes les adresses sont acceptées. Confirmations Connecthys sans éditeur (réponse, reçu, facture) : clé de suivi par demande et document, adresses acceptées mémorisées localement (`Utils/UTILS_Emails_acceptes.py`, table native `parametres`, catégorie `noethys_sl_emails_acceptes`, JSON, sans migration) ; un nouvel essai n'envoie qu'aux adresses restantes, la mémoire est effacée quand la confirmation est complète. Chemin Mailjet hors UI réservé au Mailer caché ; l'éditeur affiché retrouve `Mailjet.Envoyer_lot` (RC8.1).
+- **Compatibilité Connecthys (I. Lucas)** : aucun nouvel état de demande, réponses et `email_date` inchangés, aucun paramètre de catégorie `portail` ; la synchronisation ne lit pas la nouvelle catégorie (test).
+- **Tests** : `test_connecthys_confirmation_partielle` (nouveau), `test_connecthys_mailjet_lot_asynchrone` (contrats mis à jour), `test_piece_quotient_dialog` désormais en CI rapide ; ancrage de `test_audit_reseau_emails` mis à jour (contrat « reçu non envoyé → attente » inchangé).
+
 ## RC9 — NO-GO, lot 1 : publication sécurisée et diagnostic du démarrage (24/10/2026, wx uniquement)
 
 - **Contexte** : audit différentiel RC8.1 → wx du 24/10, verdict NO-GO accepté. Aucun build candidat RC9 réussi (`5424d52` ×2, `8010d48`, `04eb507`) ; sur les deux derniers, le ZIP portable extrait reste vivant 120 s sans créer `Portable/Temp`, `Config.json` ni `journal.log` : `main()` n'est pas atteint (RC8.1 : profil créé en 22 s). **Cause non déterminée** ; l'hypothèse PyInstaller (`pyinstaller-hooks-contrib` 2026.8 → 2026.9, seul écart d'outillage relevé) n'est pas démontrée.

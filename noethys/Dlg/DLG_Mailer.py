@@ -108,6 +108,9 @@ class Dialog(wx.Dialog):
         self.listePiecesJointes = []
         self.listeAnomalies = []
         self.listeSucces = []
+        # Vrai seulement si le dernier envoi réel (hors message de test) a été
+        # accepté pour TOUS ses destinataires, quel que soit le moteur.
+        self.envoi_complet = False
         self._envoi_en_cours = False
 
         # Bandeau
@@ -668,6 +671,7 @@ class Dialog(wx.Dialog):
     def Envoyer(self, listeDestinataires=[], adresseTest=None):
         if getattr(self, '_envoi_en_cours', False):
             return False
+        self.envoi_complet = False
         # Expéditeur
         dictExp = self.ctrl_exp.GetDonnees()
         if dictExp == None :
@@ -822,14 +826,20 @@ class Dialog(wx.Dialog):
             if self.listeSucces:
                 message = liste_messages[0]
                 self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet, message=message)
+            self.envoi_complet = adresseTest is None and bool(self.listeSucces)
             return bool(self.listeSucces)
 
-        # Les confirmations Connecthys cachent le Mailer. L'ancien chemin
-        # Mailjet synchrone bloquait alors wx, surtout pour deux adresses.
-        if dictExp["moteur"] == "mailjet":
+        # Les confirmations Connecthys (EnvoiEmailFamille sans éditeur) cachent
+        # le Mailer : l'ancien chemin Mailjet synchrone y bloquait wx, surtout
+        # pour deux adresses. Les envois par lot depuis l'éditeur affiché
+        # conservent le moteur historique (progression, arrêt, « ne plus
+        # signaler les erreurs »).
+        if dictExp["moteur"] == "mailjet" and not self.IsShownOnScreen():
             self._envoi_en_cours = True
             try:
-                return self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)
+                complet = self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)
+                self.envoi_complet = adresseTest is None and complet
+                return complet
             finally:
                 self._envoi_en_cours = False
                 handler.DeleteTemporaryImages()
@@ -866,6 +876,8 @@ class Dialog(wx.Dialog):
             self.listeSucces = messagerie.Envoyer_lot(messages=liste_messages, dlg_progress=dlg_progress, afficher_confirmation_envoi=self.afficher_confirmation_envoi)
             for message in (self.listeSucces or []) :
                 MemoriserSucces(message)
+
+        self.envoi_complet = (adresseTest is None and len(self.listeSucces or []) == len(liste_messages))
 
         # Fermeture messagerie
         try :

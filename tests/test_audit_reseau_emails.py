@@ -680,7 +680,7 @@ class EtatLocalTests(unittest.TestCase):
         transmis qu'au syncup suivant, avec les mêmes valeurs possibles."""
         source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_portail_demande.py").read_text(encoding="utf-8")
         bloc = ('resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, '
-                'nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track)\n')
+                'nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track,\n')
         i = source.index(bloc)
         suite = source[i:i + 900]
         self.assertIn("if resultat == False :", suite)

@@ -23,8 +23,22 @@ class MailjetLotSourceContract(unittest.TestCase):
 
     def test_un_clic_deux_adresses_emprunte_chemin_hors_ui(self):
         env = ast.get_source_segment(self.source, self.methode["Envoyer"])
-        self.assertIn('if dictExp["moteur"] == "mailjet":', env)
+        # Mailer caché (confirmations Connecthys) : envoi hors UI, message par message.
+        self.assertIn('if dictExp["moteur"] == "mailjet" and not self.IsShownOnScreen():', env)
         self.assertIn("self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)", env)
+
+    def test_editeur_affiche_conserve_le_moteur_historique_par_lot(self):
+        env = ast.get_source_segment(self.source, self.methode["Envoyer"])
+        self.assertLess(env.index("_EnvoyerLotMailjetHorsUI"), env.index("messagerie.Envoyer_lot("))
+        self.assertIn("callback_succes=MemoriserSucces", env)
+
+    def test_envoi_complet_pour_tous_les_moteurs_hors_message_de_test(self):
+        init = ast.get_source_segment(self.source, self.methode["__init__"])
+        env = ast.get_source_segment(self.source, self.methode["Envoyer"])
+        self.assertIn("self.envoi_complet = False", init)
+        self.assertLess(env.index("self.envoi_complet = False"), env.index("dictExp = self.ctrl_exp.GetDonnees()"))
+        self.assertEqual(env.count("adresseTest is None"), 3)
+        self.assertIn("len(self.listeSucces or []) == len(liste_messages)", env)
 
     def test_worker_deporte_connexion_et_envoi(self):
         meth = ast.get_source_segment(self.source, self.methode["_ExecuterEnvoiUniqueHorsUI"])
