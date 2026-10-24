@@ -81,6 +81,14 @@ class ModeAssociationTests(unittest.TestCase):
             with self.assertRaises(A.ConfigurationAdhesionInvalide):
                 A.LireModeAssociation(1)
 
+    def test_reparation_d_une_valeur_inconnue(self):
+        with Env() as e:
+            e.base.inserer("parametres", ["categorie", "nom", "parametre"], [
+                (A.CATEGORIE_MODE_ASSOCIATION, "type_1", "inconnu")])
+            self.assertTrue(A.EnregistrerModeAssociation(1, A.MODE_ASSOCIATION_INSCRIPTIONS))
+            self.assertEqual(A.LireModeAssociation(1), A.MODE_ASSOCIATION_INSCRIPTIONS)
+            self.assertEqual(e.compte("parametres"), 1)
+
 
 class InscriptionsAutoTests(unittest.TestCase):
     def test_inscriptions_sans_participation_ne_creent_rien(self):

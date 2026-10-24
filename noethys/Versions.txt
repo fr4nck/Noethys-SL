@@ -2,6 +2,8 @@ Version Noethys SL 0.1.0 RC9 (22/10/2026) :
 
 - Rétablissement de la sélection par cases à cocher des états existants dans l'état global des consommations : réservation, présent, absence justifiée et absence injustifiée
 - Association des inscriptions éligibles par type de cotisation pour la préparation contrôlée des adhésions
+- Types de cotisation individuelle existants : sans réglage, le mode « Toutes les inscriptions valides » s'applique ; chaque inscription enregistrée complète alors la liste des activités des adhésions automatiques en cours, sans créer de prestation. Choisir « Participations constatées uniquement » dans le type de cotisation pour conserver l'ancien comportement
+- Type de cotisation : une nouvelle validation après une erreur n'enregistre plus les unités en double ; un mode d'association en double ou invalide est signalé à l'ouverture et corrigé par la validation
 - Maintien des protections RC8.1 : aucune cotisation automatique à la simple saisie d'une réservation, aucune régularisation automatique des anciens dossiers
 - Attestations de quotient familial : enregistrement simultané de la pièce et du quotient avec validité illimitée autorisée (la saisie du quotient n'oppose plus « date trop élevée » à la fin illimitée)
 - Confirmations Connecthys envoyées à plusieurs adresses : validées seulement si toutes les adresses sont acceptées (SMTP comme Mailjet) ; un nouvel essai n'envoie qu'aux adresses restantes, sans doublon. Envois par lot depuis l'éditeur d'emails : moteur Mailjet historique conservé

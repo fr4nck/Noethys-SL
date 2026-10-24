@@ -38,6 +38,7 @@ class Dialog(wx.Dialog):
         self.parent = parent
         self.IDtype_cotisation = IDtype_cotisation
         self.dictUnites = {}
+        self.mode_association_invalide = None
         if premiereCotisation == True :
             self.defaut = 1
         else:
@@ -210,9 +211,16 @@ class Dialog(wx.Dialog):
         self.defaut = defaut
         if type == "individu":
             from Utils import UTILS_Adhesions
-            mode = UTILS_Adhesions.LireModeAssociation(self.IDtype_cotisation)
-            self.ctrl_mode_adhesion.SetSelection(
-                0 if mode == UTILS_Adhesions.MODE_ASSOCIATION_INSCRIPTIONS else 1)
+            try:
+                mode = UTILS_Adhesions.LireModeAssociation(self.IDtype_cotisation)
+            except UTILS_Adhesions.ConfigurationAdhesionInvalide as err:
+                # Paramètre en double ou inconnu : le type reste consultable ;
+                # la validation de la fenêtre enregistre le mode choisi.
+                self.mode_association_invalide = u"%s" % err
+                wx.CallAfter(self.SignalerModeAssociationInvalide)
+            else:
+                self.ctrl_mode_adhesion.SetSelection(
+                    0 if mode == UTILS_Adhesions.MODE_ASSOCIATION_INSCRIPTIONS else 1)
 
         # Importation des unités de pièces
         req = """SELECT IDunite_cotisation, date_debut, date_fin, 
@@ -240,6 +248,34 @@ class Dialog(wx.Dialog):
             self.listeUnites.append(dictTemp)
         self.ctrl_unites.SetListeDonnees(self.listeUnites)
         self.ctrl_unites.MAJ() 
+
+    def SignalerModeAssociationInvalide(self):
+        dlg = wx.MessageDialog(
+            self, _(u"Le mode d'association des activités de ce type est invalide ou enregistré "
+                    u"plusieurs fois :\n%s\n\nLa création automatique des adhésions de ce type "
+                    u"reste bloquée. Vérifiez le mode choisi puis validez pour le corriger.")
+            % self.mode_association_invalide,
+            _(u"Paramétrage à corriger"), wx.OK | wx.ICON_EXCLAMATION,
+        )
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def SupprimerDoublonsModeAssociation(self):
+        """ Validation d'un mode signalé invalide : ne garde qu'une ligne de
+        paramétrage pour ce type (table parametres uniquement) ; le mode
+        choisi y est ensuite enregistré par EnregistrerModeAssociation. """
+        from Utils import UTILS_Adhesions
+        DB = GestionDB.DB()
+        try:
+            req = """SELECT IDparametre FROM parametres
+            WHERE categorie='%s' AND nom='type_%d' ORDER BY IDparametre;""" % (
+                UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, int(self.IDtype_cotisation))
+            if DB.ExecuterReq(req) != 1:
+                raise RuntimeError(_(u"Lecture du paramétrage impossible."))
+            for (IDparametre,) in DB.ResultatReq()[1:]:
+                DB.ReqDEL("parametres", "IDparametre", IDparametre)
+        finally:
+            DB.Close()
 
     def OnAjouterUnite(self, event): 
         self.ctrl_unites.Ajouter(None)
@@ -335,9 +371,14 @@ class Dialog(wx.Dialog):
             # Modification
             if etat == "MODIF" and IDunite_cotisation != None :
                 DB.ReqMAJ("unites_cotisations", listeDonnees, "IDunite_cotisation", IDunite_cotisation)
+                # Unité enregistrée : une nouvelle validation (fenêtre restée
+                # ouverte après une erreur) ne doit pas l'insérer une seconde fois.
+                dictUnite["IDunite_cotisation"] = IDunite_cotisation
+                dictUnite["etat"] = None
             # Suppression
             if etat == "SUPPR" and IDunite_cotisation != None :
                 DB.ReqDEL("unites_cotisations", "IDunite_cotisation", IDunite_cotisation)
+                dictUnite["IDunite_cotisation"] = None
         
         DB.Close()
 
@@ -349,6 +390,8 @@ class Dialog(wx.Dialog):
                     if self.ctrl_mode_adhesion.GetSelection() == 0
                     else UTILS_Adhesions.MODE_ASSOCIATION_PARTICIPATIONS)
             try:
+                if self.mode_association_invalide is not None:
+                    self.SupprimerDoublonsModeAssociation()
                 UTILS_Adhesions.EnregistrerModeAssociation(self.IDtype_cotisation, mode)
             except Exception as err:
                 dlg = wx.MessageDialog(

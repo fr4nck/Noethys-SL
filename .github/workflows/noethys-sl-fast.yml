@@ -173,6 +173,7 @@ jobs:
           tests.test_connecthys_mailjet_lot_asynchrone
           tests.test_connecthys_confirmation_partielle
           tests.test_piece_quotient_dialog
+          tests.test_noethys_sl_type_cotisation_saisie
           tests.test_branch_contracts_batch_16
           tests.test_tarification_track_filter_delete
           tests.test_branch_contracts_batch_17
