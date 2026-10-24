@@ -256,7 +256,7 @@ class RenduEtDonneesTests(_Base):
             self.assertEqual(pages[page]["entetes"][0], COLONNES_METIER)
         dessinees = [l[4] for page in pages.values() for l in page["lignes"]]
         self.assertEqual(dessinees, [t.nomTitulaires for t in tracks])
-        total = sum(decimal.Decimal(str(t.montant)) for t in tracks)
+        total = sum(decimal.Decimal(str(t.montant)) for t in tracks).quantize(decimal.Decimal("0.01"))
         self.assertIn(u"120 règlements (%s €)" % total, conclusion)
         self.assertIn(u"Dépôt non verrouillé", intro)
 
