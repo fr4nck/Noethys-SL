@@ -47,6 +47,34 @@ def DateEngEnDateDD(dateEng):
         
     
 
+def _Decimal(montant):
+    return decimal.Decimal(str(montant or 0)).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
+
+
+def _MontantImpression(montant):
+    """ Même rendu que la grille ; montant absent : cellule vide. """
+    if montant is None:
+        return u""
+    return u"%s %s" % (_Decimal(montant), SYMBOLE)
+
+
+def _DateImpression(date):
+    if date in (None, u"", ""):
+        return u""
+    return DateEngFr(str(date))
+
+
+def _AvisImpression(track):
+    """ Colonne Avis : date d'envoi ; l'icône « avis non envoyé à une famille
+    abonnée » de la grille devient un texte. """
+    avis = getattr(track, "avis_depot", None)
+    if avis is not None:
+        return _DateImpression(avis)
+    if getattr(track, "email_depots", None) is not None:
+        return _(u"Non envoyé")
+    return u""
+
+
 class _CelluleImpressionDepot(object):
     """Valeur d'impression figee : aucune dependance a la grille wx active."""
     def __init__(self, texte):
@@ -83,23 +111,40 @@ class _VueImpressionDepot(object):
         self.liste = liste
         gauche = wx.LIST_FORMAT_LEFT
         droit = wx.LIST_FORMAT_RIGHT
+        # Toutes les colonnes métier de la grille (l'ID technique, de largeur
+        # nulle, et les icônes ne sont pas imprimés). Largeurs proportionnées
+        # pour tenir en paysage ; les textes longs passent à la ligne.
         self.colonnes = [
-            _ColonneImpressionDepot(_(u"Date"), 85, gauche),
-            _ColonneImpressionDepot(_(u"Mode"), 105, gauche),
-            _ColonneImpressionDepot(_(u"Émetteur"), 125, gauche),
-            _ColonneImpressionDepot(_(u"N° pièce"), 85, gauche),
-            _ColonneImpressionDepot(_(u"Famille"), 155, gauche),
-            _ColonneImpressionDepot(_(u"Payeur"), 135, gauche),
-            _ColonneImpressionDepot(_(u"Montant"), 90, droit),
-            _ColonneImpressionDepot(_(u"Observations"), 135, gauche),
+            _ColonneImpressionDepot(_(u"Date"), 62, gauche),
+            _ColonneImpressionDepot(_(u"Mode"), 78, gauche),
+            _ColonneImpressionDepot(_(u"Émetteur"), 84, gauche),
+            _ColonneImpressionDepot(_(u"N° pièce"), 62, gauche),
+            _ColonneImpressionDepot(_(u"Famille"), 120, gauche),
+            _ColonneImpressionDepot(_(u"Payeur"), 100, gauche),
+            _ColonneImpressionDepot(_(u"Montant"), 72, droit),
+            _ColonneImpressionDepot(_(u"Avis"), 66, gauche),
+            _ColonneImpressionDepot(_(u"Compte"), 80, gauche),
+            _ColonneImpressionDepot(_(u"Différé"), 62, gauche),
+            _ColonneImpressionDepot(_(u"Attente"), 54, gauche),
+            _ColonneImpressionDepot(_(u"Quittancier"), 66, gauche),
+            _ColonneImpressionDepot(_(u"Observations"), 124, gauche),
         ]
         self.lignes = []
         for track in tracks:
-            montant = u"%.2f %s" % (track.montant or 0.0, SYMBOLE)
-            date = DateEngFr(str(track.date)) if track.date is not None else u""
             self.lignes.append(tuple(map(_CelluleImpressionDepot, (
-                date, track.nom_mode, track.nom_emetteur, track.numero_piece,
-                track.nomTitulaires, track.nom_payeur, montant, track.observations,
+                _DateImpression(getattr(track, "date", None)),
+                getattr(track, "nom_mode", None),
+                getattr(track, "nom_emetteur", None),
+                getattr(track, "numero_piece", None),
+                getattr(track, "nomTitulaires", None),
+                getattr(track, "nom_payeur", None),
+                _MontantImpression(getattr(track, "montant", None)),
+                _AvisImpression(track),
+                getattr(track, "nom_compte", None),
+                _DateImpression(getattr(track, "date_differe", None)),
+                _(u"Attente !") if getattr(track, "encaissement_attente", None) == True else u"",
+                getattr(track, "numero_quittancier", None),
+                getattr(track, "observations", None),
             ))))
 
     def GetTopLevelParent(self):
@@ -208,6 +253,9 @@ class ListView(FastObjectListView):
     def InitModel(self, tracks=None, IDcompte=None, IDmode=None):
         if tracks != None :
             self.tracks = tracks
+        # Filtres compte / mode mémorisés pour annoncer le périmètre imprimé.
+        self.filtreCompte = IDcompte
+        self.filtreMode = IDmode
         listeTracks = []
         for track in self.tracks :
             valide = True
@@ -471,22 +519,43 @@ class ListView(FastObjectListView):
         self.PopupMenu(menuPop)
         menuPop.Destroy()
 
+    def GetReglementsImprimes(self):
+        """ Règlements affichés, dans l'ordre et avec le filtre de la grille. """
+        return list(self.GetFilteredObjects())
+
+    def GetReferencePerimetre(self):
+        """ Règlements de la liste avant les filtres compte, mode ou recherche. """
+        if self.tracks:
+            return [track for track in self.tracks if track.inclus == self.inclus]
+        return list(self.donnees)
+
+    def GetPerimetreImpression(self):
+        imprimes = self.GetReglementsImprimes()
+        reference = self.GetReferencePerimetre()
+        idsImprimes = set(id(track) for track in imprimes)
+        filtre = (len(imprimes) != len(reference)
+                  or any(id(track) not in idsImprimes for track in reference))
+        return {"imprimes": imprimes, "nbreReference": len(reference), "filtre": filtre}
+
     def _ImprimerReleveDepot(self, apercu):
         """Imprime les reglements inclus, pas l'etat graphique de la grille."""
-        if not self.donnees:
-            dlg = wx.MessageDialog(
-                self, _(u"Aucun règlement n'est associé à ce dépôt dans la liste actuelle. "
-                          u"L'aperçu ne peut pas contenir de lignes."),
-                _(u"Dépôt sans règlements"), wx.OK | wx.ICON_INFORMATION,
-            )
+        perimetre = self.GetPerimetreImpression()
+        if not perimetre["imprimes"]:
+            if perimetre["filtre"] and perimetre["nbreReference"] > 0:
+                message = _(u"Aucun règlement ne correspond au filtre actuel : rien à imprimer.\n\n"
+                            u"Retirez le filtre pour imprimer la liste complète.")
+            else:
+                message = _(u"Aucun règlement n'est associé à ce dépôt dans la liste actuelle. "
+                            u"L'aperçu ne peut pas contenir de lignes.")
+            dlg = wx.MessageDialog(self, message, _(u"Dépôt sans règlements"), wx.OK | wx.ICON_INFORMATION)
             dlg.ShowModal()
             dlg.Destroy()
             return False
 
         try:
             from Utils import UTILS_Printer
-            vue = _VueImpressionDepot(self, list(self.donnees))
-            parametres = self.GetParametresImpression()
+            vue = _VueImpressionDepot(self, perimetre["imprimes"])
+            parametres = self.GetParametresImpression(perimetre)
             prt = UTILS_Printer.ObjectListViewPrinter(
                 vue, titre=parametres["titre"], intro=parametres["intro"],
                 total=parametres["total"], format="A",
@@ -515,46 +584,64 @@ class ListView(FastObjectListView):
     def Imprimer(self, event=None):
         return self._ImprimerReleveDepot(apercu=False)
 
-    def GetParametresImpression(self):
+    def GetParametresImpression(self, perimetre=None):
+        if perimetre is None:
+            perimetre = self.GetPerimetreImpression()
         if self.GetGrandParent().GetName() == "DLG_Saisie_depot" :
             intro = self.GetGrandParent().GetLabelParametres()
         else :
             intro = u""
-        # Récupère le total
-        total = 0.0
-        for track in self.donnees :
-            total += track.montant
-        total = self.GetDetailReglements()
+        imprimes = perimetre["imprimes"]
+        detail = self.GetDetailReglements(imprimes)
+        if self.inclus == True :
+            nature = _(u"Règlements du dépôt")
+            complet = _(u"Dépôt complet")
+        else :
+            nature = _(u"Règlements disponibles")
+            complet = _(u"Liste complète")
+        if perimetre["filtre"] :
+            titre = u"%s - %s" % (nature, _(u"Vue filtrée"))
+            filtres = []
+            if getattr(self, "filtreCompte", None) not in (None, 0) and imprimes :
+                filtres.append(_(u"compte %s") % (imprimes[0].nom_compte or u""))
+            if getattr(self, "filtreMode", None) not in (None, 0) and imprimes :
+                filtres.append(_(u"mode %s") % (imprimes[0].nom_mode or u""))
+            total = _(u"Vue filtrée%s : %d règlement(s) imprimé(s) sur %d. Total des seuls règlements imprimés : %s") % (
+                u" (%s)" % u", ".join(filtres) if filtres else u"",
+                len(imprimes), perimetre["nbreReference"], detail)
+        else :
+            titre = u"%s - %s" % (nature, complet)
+            total = u"%s : %s" % (complet, detail)
 
         dictParametres = {
-            "titre" : _(u"Liste des règlements"),
+            "titre" : titre,
             "intro" : intro,
             "total" : total,
             "orientation" : wx.LANDSCAPE,
             }
         return dictParametres
 
-    def GetDetailReglements(self):
-        # Récupération des chiffres
+    def GetDetailReglements(self, tracks=None):
+        """ Nombre et total (au centime) des règlements donnés, détaillés par
+        mode ; par défaut, ceux de la liste. """
+        if tracks is None:
+            tracks = self.donnees
         nbreTotal = 0
-        montantTotal = 0.0
+        montantTotal = _Decimal(0)
         dictDetails = {}
-        for track in self.donnees :
+        for track in tracks :
             if track.inclus == True or self.inclus == False :
-                # Montant total
                 nbreTotal += 1
-                # Nbre total
-                montantTotal += track.montant
-                # Détail
+                montantTotal += _Decimal(track.montant)
                 if (track.IDmode in dictDetails) == False :
-                    dictDetails[track.IDmode] = { "label" : track.nom_mode, "nbre" : 0, "montant" : 0.0}
+                    dictDetails[track.IDmode] = { "label" : track.nom_mode, "nbre" : 0, "montant" : _Decimal(0)}
                 dictDetails[track.IDmode]["nbre"] += 1
-                dictDetails[track.IDmode]["montant"] += track.montant
+                dictDetails[track.IDmode]["montant"] += _Decimal(track.montant)
         # création du texte
         listeDetails = []
-        texte = _(u"%d règlements (%.2f €)") % (nbreTotal, montantTotal)
+        texte = _(u"%d règlements (%s %s)") % (nbreTotal, montantTotal, SYMBOLE)
         for IDmode, dictDetail in dictDetails.items() :
-            texteDetail = u"%d %s (%.2f €)" % (dictDetail["nbre"], dictDetail["label"], dictDetail["montant"])
+            texteDetail = u"%d %s (%s %s)" % (dictDetail["nbre"], dictDetail["label"], dictDetail["montant"], SYMBOLE)
             listeDetails.append(texteDetail)
         if len(listeDetails) > 0 :
             texte += " : "

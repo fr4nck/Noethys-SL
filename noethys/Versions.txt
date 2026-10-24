@@ -8,6 +8,8 @@ Version Noethys SL 0.1.0 RC9 (22/10/2026) :
 - Attestations de quotient familial : enregistrement simultané de la pièce et du quotient avec validité illimitée autorisée (la saisie du quotient n'oppose plus « date trop élevée » à la fin illimitée)
 - Confirmations Connecthys envoyées à plusieurs adresses : validées seulement si toutes les adresses sont acceptées (SMTP comme Mailjet) ; un nouvel essai n'envoie qu'aux adresses restantes, sans doublon. Envois par lot depuis l'éditeur d'emails : moteur Mailjet historique conservé
 - Masquage provisoire du bouton « CAF / AFAS » de l'état global, dont les résultats ne sont pas qualifiés pour une déclaration CAF ; les autres fonctions de l'état global sont inchangées
+- Impression des règlements d'un dépôt : toutes les colonnes de la liste (dont Avis, Compte, Différé, Attente et Quittancier), dans l'ordre de tri affiché, avec l'aperçu toujours bloqué pour une liste vide
+- Impression des règlements d'un dépôt : titre « Dépôt complet » ou « Vue filtrée », nombre de règlements imprimés et total calculé au centime sur les seules lignes imprimées
 
 Version Noethys SL 0.1.0 RC8.1 (19/10/2026) :
 

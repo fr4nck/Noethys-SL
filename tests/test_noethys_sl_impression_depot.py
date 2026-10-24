@@ -83,7 +83,7 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
                 vue = appel.args[0]
                 self.assertIsInstance(vue, Depot._VueImpressionDepot)
                 self.assertEqual(vue.GetItemCount(), 49)
-                self.assertEqual(vue.GetColumnCount(), 8)
+                self.assertEqual(vue.GetColumnCount(), 13)
                 self.assertIn('Famille fictive 0', vue.GetItem(0, 4).GetText())
                 self.assertEqual(vue.GetColumn(6).GetText(), 'Montant')
                 self.assertFalse(vue.useExpansionColumn)
@@ -157,7 +157,7 @@ assert UTILS_Printer.ListCtrlPrinter.WordWrapRenderer.__module__ == 'Outils.Word
 
     def test_snapshot_ne_depend_pas_des_colonnes_graphiques_ni_du_retri(self):
         vue = Depot._VueImpressionDepot(self.liste, self.liste.donnees)
-        self.assertEqual(vue.GetColumnCount(), 8)
+        self.assertEqual(vue.GetColumnCount(), 13)
         self.assertEqual(vue.GetItemCount(), 49)
         self.assertEqual(vue.GetColumn(4).GetText(), 'Famille')
         self.assertEqual(vue.GetItem(0, 4).GetText(), 'Famille fictive 0')
