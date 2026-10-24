@@ -147,7 +147,8 @@ class TypeCotisationMySQLTests(unittest.TestCase):
         h = self.ouvrir()
         self.modifier_tout(h)
         self.assertTrue(self.ok(h))
-        self.assertEqual(self.lignes("SELECT nom FROM types_cotisations"), [(u"Nom modifié",)])
+        self.assertEqual(self.lignes("SELECT IDtype_cotisation, nom FROM types_cotisations ORDER BY IDtype_cotisation"),
+                         [(1, u"Nom modifié"), (2, u"Autre type")])
         self.assertEqual(self.lignes("SELECT COUNT(*) FROM unites_cotisations")[0][0], 2)
         self.assertEqual(self.modes("type_1"), ["participations"])
         self.assertEqual(self.modes("type_2"), ["participations"])
