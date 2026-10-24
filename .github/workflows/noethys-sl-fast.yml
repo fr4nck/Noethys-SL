@@ -167,6 +167,8 @@ jobs:
           tests.test_accueil_logo_organisateur
           tests.test_individu_rattachement_hardening
           tests.test_noethys_sl_recherche_individus_entree
+          tests.test_noethys_sl_workflow_publication_rc9
+          tests.test_noethys_sl_diagnostic_demarrage
           tests.test_branch_contracts_batch_16
           tests.test_tarification_track_filter_delete
           tests.test_branch_contracts_batch_17

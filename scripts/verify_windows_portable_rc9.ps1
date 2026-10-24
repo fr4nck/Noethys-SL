@@ -1,5 +1,11 @@
 # RC9 Windows: smoke the extracted executable and the real configuration API.
 # Runner-only scratch paths; never point this script at a production profile.
+#
+# Diagnostic : chaque lancement écrit un journal NOETHYS_DIAGNOSTIC_DEMARRAGE
+# (imports, étapes, exceptions invisibles, piles périodiques) dans
+# $env:RUNNER_TEMP/diagnostics-demarrage, publié comme artefact par le
+# workflow. En cas d'échec, les fenêtres du processus (titres et textes,
+# y compris une boîte d'erreur masquée) sont inventoriées.
 $ErrorActionPreference = 'Stop'
 $zip = Get-ChildItem 'windows-output' -Filter '*-Windows-portable.zip' | Select-Object -First 1
 if ($null -eq $zip) { throw 'ZIP portable absent' }
@@ -9,6 +15,8 @@ $portable = Join-Path $extrait 'Portable'
 $config = Join-Path $portable 'Config.json'
 $customize = Join-Path $portable 'Customize.ini'
 $journal = Join-Path $portable 'journal.log'
+$diagnostics = Join-Path $env:RUNNER_TEMP 'diagnostics-demarrage'
+New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
 if (-not (Test-Path (Join-Path $portable 'README.txt') -PathType Leaf)) {
     throw 'Marqueur Portable/README.txt absent du ZIP extrait'
 }
@@ -17,19 +25,79 @@ $env:APPDATA = Join-Path $profileRoot 'Roaming'
 $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
 New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
 
-function Assert-NoExternalProfile {
-    foreach ($root in @($env:APPDATA, $env:LOCALAPPDATA)) {
-        if (Test-Path (Join-Path $root 'noethys')) {
-            throw "Profil Noethys cree hors Portable/ dans $root"
+# appdirs résout le profil Windows par l'API système (SHGetFolderPath) et
+# ignore %APPDATA% : surveiller aussi les dossiers réels du compte du runner.
+$dossiersReels = @(@(
+    [Environment]::GetFolderPath('ApplicationData'),
+    [Environment]::GetFolderPath('LocalApplicationData'),
+    [Environment]::GetFolderPath('CommonApplicationData')
+) | Where-Object { $_ } | ForEach-Object { Join-Path $_ 'noethys' })
+
+function Get-ProfilsExternes {
+    $etat = @{}
+    foreach ($racine in @((Join-Path $env:APPDATA 'noethys'), (Join-Path $env:LOCALAPPDATA 'noethys')) + $dossiersReels) {
+        if (Test-Path $racine) {
+            $etat[$racine] = @(Get-ChildItem -LiteralPath $racine -Recurse -Force -File -ErrorAction SilentlyContinue |
+                ForEach-Object { "$($_.FullName)|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)" }) -join "`n"
         }
+    }
+    return $etat
+}
+$profilsAvant = Get-ProfilsExternes
+
+function Assert-NoExternalProfile {
+    $apres = Get-ProfilsExternes
+    foreach ($racine in $apres.Keys) {
+        if (-not $profilsAvant.ContainsKey($racine)) { throw "Profil Noethys cree hors Portable/ : $racine" }
+        if ($profilsAvant[$racine] -ne $apres[$racine]) { throw "Profil Noethys modifie hors Portable/ : $racine" }
     }
 }
 
+Add-Type @"
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class FenetresProcessus {
+    delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr p);
+    [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr h, EnumProc f, IntPtr p);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    static string Texte(IntPtr h) { var s = new StringBuilder(4096); GetWindowText(h, s, s.Capacity); return s.ToString(); }
+    static string Classe(IntPtr h) { var s = new StringBuilder(256); GetClassName(h, s, s.Capacity); return s.ToString(); }
+    public static List<string> Lister(uint cible) {
+        var lignes = new List<string>();
+        EnumWindows((h, p) => {
+            uint pid; GetWindowThreadProcessId(h, out pid);
+            if (pid == cible) {
+                lignes.Add(string.Format("FENETRE [{0}] visible={1} titre={2}", Classe(h), IsWindowVisible(h), Texte(h)));
+                EnumChildWindows(h, (c, q) => {
+                    string t = Texte(c);
+                    if (t.Length > 0) lignes.Add(string.Format("  [{0}] {1}", Classe(c), t));
+                    return true;
+                }, IntPtr.Zero);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return lignes;
+    }
+}
+"@
+
 function Show-PortableDiagnostics {
-    param([string] $phase, $process)
+    param([string] $phase, $process, [string] $diagnostic)
     Write-Host "Diagnostic $phase / Noethys.exe : pid=$($process.Id), exited=$($process.HasExited)"
     if ($process.HasExited) { Write-Host "Code de sortie : $($process.ExitCode)" }
-    foreach ($root in @($portable, $env:APPDATA, $env:LOCALAPPDATA)) {
+    else {
+        $fenetres = [FenetresProcessus]::Lister([uint32]$process.Id)
+        $fenetres | Set-Content -LiteralPath (Join-Path $diagnostics "fenetres-$phase.txt") -Encoding UTF8
+        Write-Host "Fenetres du processus ($($fenetres.Count) lignes) :"
+        $fenetres | Select-Object -First 60 | ForEach-Object { Write-Host $_ }
+    }
+    foreach ($root in @($portable, $env:APPDATA, $env:LOCALAPPDATA) + $dossiersReels) {
         Write-Host "Inventaire de $root :"
         if (Test-Path $root) {
             Get-ChildItem -LiteralPath $root -Recurse -Force -ErrorAction Continue |
@@ -40,10 +108,21 @@ function Show-PortableDiagnostics {
         Write-Host 'Fin du journal portable :'
         Get-Content -LiteralPath $journal -Tail 35 -ErrorAction Continue
     }
+    if (Test-Path $diagnostic -PathType Leaf) {
+        Write-Host 'Etapes et exceptions du diagnostic de demarrage :'
+        Select-String -LiteralPath $diagnostic -Pattern ' (DEBUT|ETAPE|EXCEPTION|FIN_PROCESSUS|PROFIL)' |
+            ForEach-Object { Write-Host $_.Line }
+        Write-Host 'Fin du diagnostic de demarrage :'
+        Get-Content -LiteralPath $diagnostic -Tail 80 -ErrorAction Continue
+    }
+    else { Write-Host "Aucun diagnostic de demarrage ecrit ($diagnostic) : blocage avant le premier module Python." }
 }
 
 function Start-PortableAndCheck {
     param([string] $phase)
+    $diagnostic = Join-Path $diagnostics "demarrage-$phase.log"
+    $env:NOETHYS_DIAGNOSTIC_DEMARRAGE = $diagnostic
+    $env:NOETHYS_DIAGNOSTIC_DELAI_PILES = '20'
     $process = Start-Process -FilePath (Join-Path $extrait 'Noethys.exe') -WorkingDirectory $extrait -WindowStyle Hidden -PassThru
     $debut = [DateTime]::UtcNow
     $limite = $debut.AddSeconds(120)
@@ -64,13 +143,14 @@ function Start-PortableAndCheck {
             Start-Sleep -Seconds 2
         }
         if (-not $pret) {
-            Show-PortableDiagnostics -phase $phase -process $process
+            Show-PortableDiagnostics -phase $phase -process $process -diagnostic $diagnostic
             throw "Noethys.exe n'a pas initialise son profil portable ($phase) avant sortie ou timeout"
         }
         Write-Host "Profil portable initialise ($phase) apres $([math]::Round(([DateTime]::UtcNow - $debut).TotalSeconds, 1)) secondes"
     }
     finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+        Remove-Item Env:NOETHYS_DIAGNOSTIC_DEMARRAGE -ErrorAction SilentlyContinue
         Assert-NoExternalProfile
     }
 }

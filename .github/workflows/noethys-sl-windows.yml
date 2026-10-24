@@ -1,9 +1,18 @@
-name: Noethys SL wx - publier 0.1.0 RC9 Windows
+name: Noethys SL wx - candidat 0.1.0 RC9 Windows
 
-# Déclenchement exceptionnel sur UN commit explicitement marqué.
-# Le build et tous ses contrôles sont des barrières AVANT gh release create.
+# Par défaut, un lancement manuel ou un commit marqué [candidate rc9] ne
+# produit QUE des artefacts de recette (candidat + diagnostics de démarrage).
+# La publication est un job séparé, seul à disposer de l'écriture sur le
+# dépôt, exécuté uniquement sur lancement manuel depuis wx avec publier=true
+# ET après la réussite de toutes les barrières du job build.
 on:
   workflow_dispatch:
+    inputs:
+      publier:
+        description: 'Publier la préversion RC9 (tag + release) après toutes les barrières'
+        type: boolean
+        required: false
+        default: false
   push:
     branches:
       - wx
@@ -11,18 +20,19 @@ on:
       - '.github/workflows/noethys-sl-windows.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.ref == 'refs/heads/wx' &&
-       (contains(github.event.head_commit.message, '[candidate rc9]') ||
-        contains(github.event.head_commit.message, '[publish rc9]')))
+       contains(github.event.head_commit.message, '[candidate rc9]'))
     name: Construire Noethys SL wx 0.1.0 RC9 (candidat)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
@@ -107,6 +117,8 @@ jobs:
           tests.test_noethys_sl_grille_synthetic
           tests.test_noethys_sl_profilage_conso
           tests.test_noe_041_portable_paths
+          tests.test_noethys_sl_workflow_publication_rc9
+          tests.test_noethys_sl_diagnostic_demarrage
           -v
 
       - name: Construire le binaire wxPython
@@ -206,19 +218,35 @@ jobs:
       - name: Vérifier le démarrage sur runner Windows isolé
         shell: pwsh
         run: |
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'noethys-sl-rc9-profile'
-          $env:APPDATA = Join-Path $profileRoot 'Roaming'
-          $env:LOCALAPPDATA = Join-Path $profileRoot 'Local'
-          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
+          # Un processus encore vivant ne prouve rien : exiger que le
+          # diagnostic de démarrage atteigne la fin de l'initialisation wx.
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'diagnostics-demarrage'
+          New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
+          $diagnostic = Join-Path $diagnostics 'demarrage-installable.log'
+          $env:NOETHYS_DIAGNOSTIC_DEMARRAGE = $diagnostic
+          $env:NOETHYS_DIAGNOSTIC_DELAI_PILES = '20'
           $process = Start-Process -WindowStyle Hidden -FilePath 'dist/Noethys/Noethys.exe' -PassThru
-          Start-Sleep -Seconds 12
-          if ($process.HasExited) {
-            if ($process.ExitCode -ne 0) { throw "Noethys.exe a quitté avec le code $($process.ExitCode)" }
+          $limite = [DateTime]::UtcNow.AddSeconds(120)
+          $atteint = $false
+          while ([DateTime]::UtcNow -lt $limite -and -not $process.HasExited) {
+            if ((Test-Path $diagnostic) -and (Select-String -LiteralPath $diagnostic -Pattern ' ETAPE oninit_fin' -Quiet)) {
+              $atteint = $true
+              break
+            }
+            Start-Sleep -Seconds 2
           }
-          else {
-            Stop-Process -Id $process.Id -Force
-            Write-Host 'Noethys.exe actif pendant le smoke de démarrage.'
+          $vivant = -not $process.HasExited
+          if ($vivant) { Stop-Process -Id $process.Id -Force }
+          if (Test-Path $diagnostic) {
+            Select-String -LiteralPath $diagnostic -Pattern ' (DEBUT|ETAPE|EXCEPTION|FIN_PROCESSUS)' | ForEach-Object { Write-Host $_.Line }
           }
+          if (-not $atteint) {
+            if (Test-Path $diagnostic) { Get-Content -LiteralPath $diagnostic -Tail 80 }
+            else { Write-Host 'Aucun diagnostic écrit : blocage avant le premier module Python.' }
+            if (-not $vivant) { Write-Host "Code de sortie : $($process.ExitCode)" }
+            throw 'Noethys.exe n''a pas terminé son initialisation (ETAPE oninit_fin absente)'
+          }
+          Write-Host 'Noethys.exe a terminé son initialisation wx.'
 
       - name: Préparer et fabriquer le Setup (sans profil Portable)
         shell: pwsh
@@ -269,6 +297,15 @@ jobs:
         shell: pwsh
         run: ./scripts/verify_windows_portable_rc9.ps1
 
+      - name: Conserver les diagnostics de démarrage (même en échec)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.9-diagnostics-demarrage
+          path: ${{ runner.temp }}/diagnostics-demarrage/*
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Calculer les empreintes SHA-256
         shell: pwsh
         run: |
@@ -306,10 +343,51 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Identite RC9 incoherente' }
           if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC9 doit provenir de wx' }
 
+  publish:
+    # Seul job autorisé à écrire sur le dépôt (tag et release). Jamais exécuté
+    # sur un push, ni sur un lancement manuel sans publier=true, ni hors wx,
+    # ni si une barrière du job build a échoué (needs).
+    needs: build
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/wx' &&
+      inputs.publier == true
+    name: Publier la préversion RC9 (autorisation explicite)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Récupérer les artefacts exacts du candidat construit
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.9-Windows-candidat
+          path: windows-output
+
+      - name: Revérifier fichiers, empreintes et identité
+        shell: pwsh
+        run: |
+          $expected = @(
+            'windows-output/Noethys-SL-0.1.0-rc.9-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.9-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+            'docs/releases/noethys-sl-0.1.0-rc.9.md'
+          )
+          foreach ($path in $expected) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Fichier RC9 absent : $path" }
+          }
+          foreach ($ligne in Get-Content 'windows-output/SHA256SUMS.txt') {
+            $attendu, $nom = $ligne -split '\s+', 2
+            $obtenu = (Get-FileHash -LiteralPath (Join-Path 'windows-output' $nom) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($obtenu -ne $attendu) { throw "Empreinte différente pour $nom" }
+          }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert Identite.PRODUCT_VERSION == '0.1.0-rc.9'; assert Identite.PRODUCT_VERSION_DISPLAY == '0.1.0 RC9'"
+          if ($LASTEXITCODE -ne 0) { throw 'Identite RC9 incoherente' }
+          if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC9 doit provenir de wx' }
+
       - name: Publier la préversion RC9 (après tous les contrôles)
-        if: >-
-          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/wx') ||
-          (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish rc9]'))
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

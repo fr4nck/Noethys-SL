@@ -9,6 +9,11 @@
 #------------------------------------------------------------------------
 
 import os, sys
+# Diagnostic de démarrage : inactif sauf si NOETHYS_DIAGNOSTIC_DEMARRAGE est
+# défini (recette/CI). Chargé avant tout autre module pour journaliser les
+# imports, exceptions invisibles et blocages du démarrage.
+from Utils import UTILS_Diagnostic_demarrage
+UTILS_Diagnostic_demarrage.ActiverDepuisEnvironnement()
 # chemin = os.path.dirname(os.path.abspath(__file__))
 # if chemin not in sys.path:
 #     sys.path.insert(1, chemin)
@@ -93,6 +98,7 @@ CUSTOMIZE = None
 
 # Constantes générales
 VERSION_APPLICATION = FonctionsPerso.GetVersionLogiciel()
+UTILS_Diagnostic_demarrage.Etape("imports_termines", version=VERSION_APPLICATION)
 NOM_APPLICATION = u"Noethys"
 
 # ID pour la barre des menus
@@ -4464,6 +4470,7 @@ class MyApp(wx.App):
     #     self.ResetLocale()
 
     def OnInit(self):
+        UTILS_Diagnostic_demarrage.Etape("oninit_debut")
         # Noethys SL 0.1.0 reste volontairement en apparence claire.
         # Désactiver le dark mode natif wxMSW avant de construire le moindre
         # contrôle évite que StaticBox, boutons et autres widgets natifs
@@ -4528,9 +4535,11 @@ class MyApp(wx.App):
                 wx.Yield()
 
         # Création de la frame principale
+        UTILS_Diagnostic_demarrage.Etape("mainframe_creation")
         frame = MainFrame(None)
         self.SetTopWindow(frame)
         frame.Initialisation()
+        UTILS_Diagnostic_demarrage.Etape("mainframe_initialisee")
         # Update() AUI utilise CallAfter : placer les panneaux avant de montrer la fenêtre.
         frame._mgr.DoUpdate()
         if getattr(frame, "maximiser_au_demarrage", False):
@@ -4541,6 +4550,7 @@ class MyApp(wx.App):
         def ouvrir_demarrage():
             if not frame:
                 return
+            UTILS_Diagnostic_demarrage.Etape("ouverture_demarrage")
             # Affiche une annonce si c'est un premier démarrage ou après une mise à jour
             etat_annonce = frame.Annonce()
                 
@@ -4593,6 +4603,7 @@ class MyApp(wx.App):
         FermerSplashProgressivement(splash, on_finished=apres_fondu)
 
         print("Temps de chargement ouverture de Noethys = ", time.time() - heure_debut)
+        UTILS_Diagnostic_demarrage.Etape("oninit_fin")
         return True
 
 
@@ -4611,11 +4622,14 @@ class Redirect(object):
 
 
 def main():
+    UTILS_Diagnostic_demarrage.Etape("main_debut")
+    UTILS_Diagnostic_demarrage.Profil(Chemins, UTILS_Fichiers)
     # Vérifie l'existence des répertoires dans le répertoire Utilisateur
     for rep in ("Temp", "Updates", "Sync", "Lang", "Extensions") :
         rep = UTILS_Fichiers.GetRepUtilisateur(rep)
         if os.path.isdir(rep) == False :
             os.makedirs(rep)
+    UTILS_Diagnostic_demarrage.Etape("repertoires_utilisateur")
 
     # Vérifie si des fichiers du répertoire Data sont à déplacer vers le répertoire Utilisateur
     UTILS_Fichiers.DeplaceFichiers()
@@ -4642,8 +4656,11 @@ def main():
         sys.stdout = Redirect(nomJournal)
 
     # Lancement de l'application
+    UTILS_Diagnostic_demarrage.Etape("app_creation")
     app = MyApp(redirect=False)
+    UTILS_Diagnostic_demarrage.Etape("mainloop")
     app.MainLoop()
+    UTILS_Diagnostic_demarrage.Etape("mainloop_fin")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — NO-GO, lot 1 : publication sécurisée et diagnostic du démarrage (24/10/2026, wx uniquement)
+
+- **Contexte** : audit différentiel RC8.1 → wx du 24/10, verdict NO-GO accepté. Aucun build candidat RC9 réussi (`5424d52` ×2, `8010d48`, `04eb507`) ; sur les deux derniers, le ZIP portable extrait reste vivant 120 s sans créer `Portable/Temp`, `Config.json` ni `journal.log` : `main()` n'est pas atteint (RC8.1 : profil créé en 22 s). **Cause non déterminée** ; l'hypothèse PyInstaller (`pyinstaller-hooks-contrib` 2026.8 → 2026.9, seul écart d'outillage relevé) n'est pas démontrée.
+- **Workflow `noethys-sl-windows.yml`** : un lancement manuel ou un commit `[candidate rc9]` ne produit que des artefacts de recette. Publication dans un job `publish` séparé, seul à avoir `contents: write`, exécuté uniquement sur `workflow_dispatch` depuis `wx` avec `publier=true` (défaut `false`), après réussite du job `build` (`needs`), avec revérification des empreintes. Le marqueur `[publish rc9]` ne publie plus. Permissions globales et du build : `contents: read`.
+- **Diagnostic de démarrage** (`Utils/UTILS_Diagnostic_demarrage.py`, inactif sauf `NOETHYS_DIAGNOSTIC_DEMARRAGE=<fichier>`) : imports horodatés, étapes (`imports_termines`, `main_debut`, `profil`, `repertoires_utilisateur`, `app_creation`, `oninit_*`, `mainframe_*`, `mainloop`), exceptions non interceptées (y compris threads), piles de tous les threads toutes les 20 s. Le smoke « runner isolé » exige `ETAPE oninit_fin` au lieu d'un processus simplement vivant ; le script portable inventorie les fenêtres du processus (boîte d'erreur masquée) et surveille le vrai profil Windows (`appdirs` ignore `%APPDATA%`) ; diagnostics publiés en artefact même en échec.
+- **Tests** : `test_noethys_sl_workflow_publication_rc9` (aucun scénario de diagnostic ne publie, permissions, ordre des barrières ; échoue sur l'ancien workflow), `test_noethys_sl_diagnostic_demarrage` (sous-processus réels). Ajoutés à la CI rapide et au build candidat.
+- **Reste** : un build candidat de diagnostic (sans publication) pour identifier l'étape exacte du blocage — **à lancer seulement sur autorisation**. Aucune correction du blocage tant que la cause n'est pas établie. RC9 non publiée.
+
 ## RC9 — Bouton « CAF / AFAS » masqué provisoirement (23/10/2026, wx uniquement)
 
 - **Décision utilisateur** du 23/10 : masquer le bouton « CAF / AFAS » de l'état global sur `wx` (base `f1fe871`) après l'audit contradictoire AFAS (P0 reproduits : couples activité/groupe, doubles comptages, séparation péri/extra, statuts). Mesure temporaire, ne remplace pas les corrections de fond.
