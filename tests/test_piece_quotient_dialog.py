@@ -13,10 +13,22 @@ from Data import DATA_Tables as Tables
 from Dlg import DLG_Saisie_piece
 
 
+def _modale_inattendue(*args, **kwargs):
+    # Une fenêtre modale non prévue bloquerait la CI : échec explicite avec son texte.
+    raise AssertionError("Fenêtre modale inattendue : %r" % (args[:3],))
+
+
 class ReceptionTests(unittest.TestCase):
     def setUp(self):
         self.base = BaseTest()
         self.addCleanup(self.base.fermer)
+        for nom in ('MessageBox', 'MessageDialog'):
+            garde = patch.object(wx, nom, side_effect=_modale_inattendue)
+            garde.start()
+            self.addCleanup(garde.stop)
+        garde = patch.object(wx.Dialog, 'ShowModal', side_effect=_modale_inattendue)
+        garde.start()
+        self.addCleanup(garde.stop)
         # historique : la sauvegarde réelle de la pièce y trace la saisie.
         for table in ['quotients', 'types_quotients', 'types_pieces', 'pieces',
                       'pieces_activites', 'inscriptions', 'historique']:
