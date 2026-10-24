@@ -1072,7 +1072,7 @@ class Dialog(wx.Dialog):
             nomDoc = False
 
         resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=self.categorie_email, listeAdresses=[], visible=visible, log=self.track, CreationPDF=self.CreationPDF, IDmodele=IDmodele,
-                                                       cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "reponse"))
+                                                       cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "reponse"))
 
         # Mémorise la date de l'envoi de l'email -- uniquement en cas de succès réel
         if resultat == True :
@@ -1274,7 +1274,7 @@ class Traitement():
             # Envoi par Email
             if self.dict_parametres["methode_envoi"] == "email" :
                 resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track,
-                                                               cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "recu"))
+                                                               cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "recu"))
                 # Même contrat que Traitement_factures : si l'email n'a pas
                 # été accepté, la demande reste "attente" (aucun nouvel état,
                 # aucun changement de protocole Connecthys) au lieu d'annoncer
@@ -1419,7 +1419,7 @@ class Traitement():
         # Récupération des paramètres
         IDfacture = int(self.dict_parametres["IDfacture"])
         edition = Edition_facture(parent=self.parent, IDfacture=IDfacture, IDfamille=self.track.IDfamille,
-                                  cle_suivi=UTILS_Envoi_email.CleSuiviDemande(self.track.IDaction, "facture"))
+                                  cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "facture"))
 
         # Traitement manuel
         if self.mode == "manuel" :

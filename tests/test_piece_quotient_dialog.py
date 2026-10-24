@@ -17,8 +17,9 @@ class ReceptionTests(unittest.TestCase):
     def setUp(self):
         self.base = BaseTest()
         self.addCleanup(self.base.fermer)
+        # historique : la sauvegarde réelle de la pièce y trace la saisie.
         for table in ['quotients', 'types_quotients', 'types_pieces', 'pieces',
-                      'pieces_activites', 'inscriptions']:
+                      'pieces_activites', 'inscriptions', 'historique']:
             self.base.db.CreationTable(table, dicoDB=Tables.DB_DATA)
         self.base.inserer('types_quotients', ['IDtype_quotient', 'nom'], [(1, 'CAF fictive')])
         self.base.inserer('types_pieces', ['IDtype_piece', 'nom', 'public', 'duree_validite'],

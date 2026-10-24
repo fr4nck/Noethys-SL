@@ -177,6 +177,18 @@ class ConfirmationPartielleTests(_Base):
         self.assertFalse(self.envoyer({"a@example.test"}, cle=None))
         self.assertEqual(self.lignes(Acceptes.CATEGORIE), [])
 
+    def test_dialogue_sans_indicateur_meme_critere_complet(self):
+        class SansIndicateur(_FauxMailer):
+            def OnBoutonEnvoyer(self, event):
+                self.listeSucces = [_FauxMessage(a) for a in self.adresses if a in _FauxMailer.acceptees]
+                del self.envoi_complet
+        faux_module = mock.Mock(Dialog=SansIndicateur)
+        with mock.patch.dict(sys.modules, {"Dlg.DLG_Mailer": faux_module}), \
+                mock.patch.object(Dlg, "DLG_Mailer", faux_module, create=True):
+            self.assertFalse(self.envoyer({"a@example.test"}, cle=None))
+            self.assertTrue(self.envoyer(set(self.ADRESSES), cle=None))
+            self.assertFalse(self.envoyer(set(), cle=None))
+
     def test_cle_absente_pour_une_demande_sans_identifiant(self):
         self.assertIsNone(UTILS_Envoi_email.CleSuiviDemande(None, "reponse"))
         self.assertEqual(UTILS_Envoi_email.CleSuiviDemande(12, "facture"), "portail_action_12_facture")
@@ -191,7 +203,7 @@ class CompatibiliteConnecthysTests(unittest.TestCase):
 
     def test_appels_suivis_par_demande_et_document(self):
         for document in ("reponse", "recu", "facture"):
-            self.assertIn('CleSuiviDemande(self.track.IDaction, "%s")' % document, self.source)
+            self.assertIn('CleSuiviDemande(getattr(self.track, "IDaction", None), "%s")' % document, self.source)
 
     def test_etats_et_reponses_inchanges(self):
         self.assertIn('self.SetEtat(etat="valide", traitement_date=datetime.date.today())', self.source)

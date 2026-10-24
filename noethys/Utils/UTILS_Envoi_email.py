@@ -126,7 +126,14 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
     # Un lot partiellement accepté ne valide pas toute la confirmation
     # Connecthys (quel que soit le moteur : SMTP ou Mailjet) ; les adresses
     # effectivement acceptées sont mémorisées pour ne pas les renvoyer.
-    resultat = bool(dlg.envoi_complet)
+    resultat = getattr(dlg, "envoi_complet", None)
+    if resultat is None:
+        # Dialogue d'envoi sans cet indicateur : même critère, recalculé.
+        acceptees = {(d or u"").strip().lower() for message in (dlg.listeSucces or [])
+                     for d in getattr(message, "destinataires", [])}
+        visees = {(a or u"").strip().lower() for a in listeAdresses}
+        resultat = bool(visees) and visees <= acceptees
+    resultat = bool(resultat)
     if cle_suivi is not None and not visible:
         from Utils import UTILS_Emails_acceptes
         visees = {UTILS_Emails_acceptes.Normaliser(a) for a in listeAdresses}
