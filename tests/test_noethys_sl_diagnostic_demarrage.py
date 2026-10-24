@@ -77,6 +77,21 @@ import module_absent_du_paquet
         self.assertIn("ModuleNotFoundError: No module named 'module_absent_du_paquet'", texte)
         self.assertIn(" IMPORT module_absent_du_paquet", texte)
 
+    def test_origine_du_module_masque_consignee(self):
+        resultat = lancer(PREAMBULE + """
+import os, sys, tempfile
+racine = tempfile.mkdtemp()
+os.mkdir(os.path.join(racine, "zoneinfo"))
+open(os.path.join(racine, "zoneinfo", "__init__.py"), "w").close()
+sys.path.insert(0, racine)
+import zoneinfo
+zoneinfo.reset_tzpath
+""", journal=self.journal)
+        self.assertNotEqual(resultat.returncode, 0)
+        texte = self.lire()
+        self.assertIn("AttributeError: module 'zoneinfo' has no attribute 'reset_tzpath'", texte)
+        self.assertRegex(texte, r"MODULE zoneinfo origine='[^']*zoneinfo[\\/]+__init__\.py'")
+
     def test_blocage_situe_par_la_pile_periodique(self):
         resultat = lancer(PREAMBULE + """
 import time
@@ -135,6 +150,7 @@ class RaccordementNoethysTests(unittest.TestCase):
         self.assertEqual(textes, ["import os, sys", "from Utils import UTILS_Diagnostic_demarrage",
                                   "UTILS_Diagnostic_demarrage.ActiverDepuisEnvironnement()", "import Chemins"])
         self.assertNotIn("UTILS_Diagnostic_demarrage.Activer(", self.source)
+        self.assertEqual(ast.unparse(corps[4]), "UTILS_Diagnostic_demarrage.Etape('chemins', sys_path=sys.path[:20])")
 
     def test_etapes_dans_l_ordre_du_demarrage(self):
         def ordre(fonction, etapes):

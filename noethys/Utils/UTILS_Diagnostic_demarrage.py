@@ -60,9 +60,30 @@ class _JournalImports(object):
         return None
 
 
+def _origines_modules(message):
+    """Origine des modules cités par une erreur (module masqué par un homonyme)."""
+    import re
+    lignes = []
+    for nom in sorted(set(re.findall(r"(?:module|from) '([\w.]+)'", message))):
+        module = sys.modules.get(nom)
+        if module is None:
+            lignes.append("MODULE %s non chargé" % nom)
+            continue
+        spec = getattr(module, "__spec__", None)
+        lignes.append("MODULE %s origine=%r fichier=%r chemins=%r" % (
+            nom, getattr(spec, "origin", None), getattr(module, "__file__", None),
+            list(getattr(module, "__path__", []) or [])))
+    return lignes
+
+
 def _excepthook(precedent):
     def hook(type_erreur, valeur, trace):
-        _ecrire("EXCEPTION NON INTERCEPTEE\n" + "".join(traceback.format_exception(type_erreur, valeur, trace)))
+        texte = "EXCEPTION NON INTERCEPTEE\n" + "".join(traceback.format_exception(type_erreur, valeur, trace))
+        try:
+            texte += "\n".join(_origines_modules(str(valeur)))
+        except Exception:
+            pass
+        _ecrire(texte)
         if precedent is not None:
             precedent(type_erreur, valeur, trace)
     return hook

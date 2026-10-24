@@ -10,7 +10,7 @@ pytz
 reportlab
 Twisted
 xlrd
-python-dateutil
+python-dateutil==2.9.0.post0
 psutil
 paramiko
 requests

@@ -19,6 +19,7 @@ UTILS_Diagnostic_demarrage.ActiverDepuisEnvironnement()
 #     sys.path.insert(1, chemin)
 
 import Chemins
+UTILS_Diagnostic_demarrage.Etape("chemins", sys_path=sys.path[:20])
 from Utils.UTILS_Traduction import _
 from Utils import UTILS_Traduction
 import six
