@@ -17,7 +17,9 @@ class ContratsUxAssociation(unittest.TestCase):
         self.assertIn("self.ctrl_mode_adhesion = wx.Choice(", source)
         self.assertIn("self.ctrl_mode_adhesion.SetSelection(0)", source)
         self.assertIn("UTILS_Adhesions.LireModeAssociation(self.IDtype_cotisation)", source)
-        self.assertIn("UTILS_Adhesions.EnregistrerModeAssociation(self.IDtype_cotisation, mode)", source)
+        # Mode écrit dans la transaction du type et des unités (même connexion).
+        self.assertIn("self._EcrireMode(DB, IDtype_cotisation, mode, reparerMode)", source)
+        self.assertNotIn("EnregistrerModeAssociation(", source)
         self.assertIn("self.ctrl_mode_adhesion.Enable(self.ctrl_type.GetSelection() == 1)", source)
 
     def test_decocher_un_type_ne_supprime_pas_les_autres_activites(self):

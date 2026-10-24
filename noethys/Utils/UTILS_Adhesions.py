@@ -644,6 +644,55 @@ def _Verrouiller(DB, IDindividu, IDtype_cotisation):
     return lambda: None
 
 
+TABLES_PARAMETRAGE = ("types_cotisations", "unites_cotisations", "parametres")
+
+
+def VerrouillerParametrageType(DB, IDtype_cotisation=None):
+    """ Ouvre, avant toute écriture, la transaction qui enregistre ensemble un
+    type de cotisation, ses unités et son mode d'association (même principe
+    que _Verrouiller). Retourne la fonction de libération.
+
+    - SQLite : BEGIN IMMEDIATE (verrou d'écriture du fichier).
+    - MySQL : les trois tables doivent être InnoDB, sinon
+      TransactionsNonSupportees est levée sans rien écrire ni convertir ;
+      verrou nommé par type existant ; transaction explicite. """
+    if DB.isNetwork:
+        DB.cursor.execute("""SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('types_cotisations', 'unites_cotisations', 'parametres');""")
+        moteurs = dict((str(nom).lower(), str(moteur or "").lower()) for nom, moteur in DB.cursor.fetchall())
+        if sorted(moteurs) != sorted(TABLES_PARAMETRAGE) or any(moteur != "innodb" for moteur in moteurs.values()):
+            raise TransactionsNonSupportees(moteurs)
+        liberer = lambda: None
+        if IDtype_cotisation is not None:
+            nom = "CONCAT('noethys_type_cotisation_', LEFT(MD5(DATABASE()), 12), '_%d')" % int(IDtype_cotisation)
+            DB.cursor.execute("SELECT GET_LOCK(%s, %d);" % (nom, DELAI_VERROU))
+            obtenu = DB.cursor.fetchall()
+            if not obtenu or obtenu[0][0] != 1:
+                raise VerrouIndisponible()
+
+            def liberer():
+                try:
+                    DB.cursor.execute("SELECT RELEASE_LOCK(%s);" % nom)
+                    DB.cursor.fetchall()
+                except Exception:
+                    pass  # libéré de toute façon à la fermeture de la connexion
+        # Transaction explicite, indépendante du réglage autocommit de la session.
+        DB.connexion.commit()
+        DB.cursor.execute("START TRANSACTION")
+        return liberer
+
+    import sqlite3
+    if DB.connexion.in_transaction:
+        DB.connexion.commit()
+    try:
+        DB.connexion.execute("BEGIN IMMEDIATE")
+    except sqlite3.OperationalError as err:
+        if "locked" in str(err).lower() or "busy" in str(err).lower():
+            raise VerrouIndisponible()
+        raise
+    return lambda: None
+
+
 def CreerAdhesion(IDindividu, participation, config, date_reference=None, IDutilisateur=None, date_prestation=None):
     """ Crée UNE adhésion (cotisation + prestation `cotisation` + historique)
     dans une seule transaction, avec exactement les champs écrits par

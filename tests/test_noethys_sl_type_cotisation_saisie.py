@@ -63,12 +63,15 @@ class SaisieTypeCotisationTests(unittest.TestCase):
         dlg.ctrl_type.Select(1)
         dlg.ctrl_unites.SetListeDonnees([_unite(u"Annuelle")])
         erreur = RuntimeError("base verrouillée (fictif)")
-        with patch.object(A, "EnregistrerModeAssociation", side_effect=erreur), \
+        # Échec de l'écriture du mode, dans la transaction du type et des unités.
+        with patch.object(dlg, "_EcrireMode", side_effect=erreur), \
                 patch.object(wx, "MessageDialog") as message, patch.object(dlg, "EndModal") as fermeture:
             self.assertFalse(dlg.OnBoutonOk(None))
         message.return_value.ShowModal.assert_called_once_with()
         fermeture.assert_not_called()
-        self.assertEqual(self.lignes("SELECT COUNT(*) FROM unites_cotisations")[0][0], 1)
+        self.assertEqual(self.lignes("SELECT COUNT(*) FROM types_cotisations")[0][0], 0)
+        self.assertEqual(self.lignes("SELECT COUNT(*) FROM unites_cotisations")[0][0], 0)
+        self.assertIsNone(dlg.IDtype_cotisation)
 
         with patch.object(dlg, "EndModal") as fermeture:
             dlg.OnBoutonOk(None)
@@ -85,10 +88,12 @@ class SaisieTypeCotisationTests(unittest.TestCase):
         dlg = self.dialogue(1)
         unites = dlg.ctrl_unites.GetListeDonnees()
         next(u for u in unites if u["IDunite_cotisation"] == 1)["etat"] = "SUPPR"
-        with patch.object(A, "EnregistrerModeAssociation", side_effect=RuntimeError("fictif")), \
+        with patch.object(dlg, "_EcrireMode", side_effect=RuntimeError("fictif")), \
                 patch.object(wx, "MessageDialog"):
             self.assertFalse(dlg.OnBoutonOk(None))
-        self.assertTrue(all(u["etat"] != "SUPPR" or u["IDunite_cotisation"] is None for u in unites))
+        # Transaction annulée : l'unité existe toujours et reste à supprimer.
+        self.assertEqual(self.lignes("SELECT COUNT(*) FROM unites_cotisations")[0][0], 2)
+        self.assertEqual(next(u for u in unites if u["IDunite_cotisation"] == 1)["etat"], "SUPPR")
         with patch.object(dlg, "EndModal") as fermeture:
             dlg.OnBoutonOk(None)
         fermeture.assert_called_once_with(wx.ID_OK)

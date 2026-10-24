@@ -32,6 +32,10 @@ def DateEngEnDateDD(dateEng):
     return datetime.date(int(dateEng[:4]), int(dateEng[5:7]), int(dateEng[8:10]))
 
 
+class _ModifieAilleurs(Exception):
+    """ Le type a changé en base depuis l'ouverture de la fenêtre. """
+
+
 class Dialog(wx.Dialog):
     def __init__(self, parent, IDtype_cotisation=None, premiereCotisation=False):
         wx.Dialog.__init__(self, parent, -1, name="DLG_Saisie_type_cotisation", style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
@@ -39,6 +43,8 @@ class Dialog(wx.Dialog):
         self.IDtype_cotisation = IDtype_cotisation
         self.dictUnites = {}
         self.mode_association_invalide = None
+        self.signature = None
+        self.issue_incertaine = False
         if premiereCotisation == True :
             self.defaut = 1
         else:
@@ -187,6 +193,9 @@ class Dialog(wx.Dialog):
     def Importation(self):
         """ Importation des donnees de la base """
         DB = GestionDB.DB()
+        # État enregistré lu avant l'affichage : une modification faite
+        # ailleurs avant la validation sera détectée, jamais écrasée.
+        self.signature = self._Signature(DB, self.IDtype_cotisation)
         req = """SELECT nom, type, carte, defaut, code_comptable, code_produit_local
         FROM types_cotisations 
         WHERE IDtype_cotisation=%d;""" % self.IDtype_cotisation
@@ -260,6 +269,92 @@ class Dialog(wx.Dialog):
         dlg.ShowModal()
         dlg.Destroy()
 
+    def _Annuler(self, DB):
+        """ Vrai seulement si l'annulation de la transaction est confirmée. """
+        if getattr(DB, "connexion", None) is None :
+            return getattr(DB, "echec", 0) == 1
+        try:
+            DB.connexion.rollback()
+            return True
+        except Exception:
+            return False
+
+    def SignalerEchec(self, err):
+        from Utils import UTILS_Adhesions
+        if isinstance(err, UTILS_Adhesions.TransactionsNonSupportees):
+            moteurs = err.args[0] if err.args else {}
+            tables = u", ".join(u"%s (%s)" % (table, moteurs.get(table) or _(u"absente"))
+                                for table in UTILS_Adhesions.TABLES_PARAMETRAGE)
+            texte = _(u"Enregistrement refusé avant toute écriture : les tables suivantes doivent permettre "
+                      u"l'annulation des écritures (moteur InnoDB) :\n%s\n\nAucune table n'a été convertie. "
+                      u"Rien n'a été modifié.") % tables
+        elif isinstance(err, UTILS_Adhesions.VerrouIndisponible):
+            texte = _(u"Ce type de cotisation est en cours d'enregistrement sur un autre poste. "
+                      u"Rien n'a été modifié : réessayez dans un instant.")
+        elif isinstance(err, _ModifieAilleurs):
+            texte = _(u"Ce type de cotisation a été modifié ailleurs depuis l'ouverture de cette fenêtre. "
+                      u"Rien n'a été modifié : fermez la fenêtre puis rouvrez le type pour repartir "
+                      u"des données enregistrées.")
+        else:
+            texte = _(u"Le type de cotisation n'a pas pu être enregistré. Rien n'a été modifié :\n%s") % err
+        dlg = wx.MessageDialog(self, texte, _(u"Enregistrement impossible"), wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def SignalerIssueIncertaine(self, err=None):
+        texte = _(u"L'issue de l'enregistrement de ce type de cotisation est indéterminée : la base n'a pas "
+                  u"confirmé la validation ou l'annulation des écritures.")
+        if err is not None :
+            texte += u"\n%s" % err
+        texte += _(u"\n\nFermez cette fenêtre puis rouvrez le type pour vérifier ce qui a été enregistré "
+                   u"avant toute nouvelle saisie. Une nouvelle validation depuis cette fenêtre est bloquée.")
+        dlg = wx.MessageDialog(self, texte, _(u"Enregistrement à vérifier"), wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def _Lire(self, DB, req, valeurs=()):
+        if DB.isNetwork == True :
+            req = req.replace("?", "%s")
+        DB.cursor.execute(req, tuple(valeurs))
+        return list(DB.cursor.fetchall())
+
+    def _Signature(self, DB, IDtype_cotisation):
+        """ Type, unités et paramétrage du mode tels qu'enregistrés. """
+        from Utils import UTILS_Adhesions
+        return repr((
+            self._Lire(DB, "SELECT nom, type, carte, defaut, code_comptable, code_produit_local "
+                           "FROM types_cotisations WHERE IDtype_cotisation=?", [IDtype_cotisation]),
+            self._Lire(DB, "SELECT IDunite_cotisation, date_debut, date_fin, defaut, nom, montant, "
+                           "label_prestation, duree FROM unites_cotisations WHERE IDtype_cotisation=? "
+                           "ORDER BY IDunite_cotisation", [IDtype_cotisation]),
+            self._Lire(DB, "SELECT IDparametre, parametre FROM parametres WHERE categorie=? AND nom=? "
+                           "ORDER BY IDparametre",
+                       [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, "type_%d" % int(IDtype_cotisation)]),
+        ))
+
+    def _EcrireMode(self, DB, IDtype_cotisation, mode, reparer):
+        """ Mode d'association écrit dans la transaction en cours, pour ce
+        seul type. Ligne valide identique : aucune écriture. Réparation
+        (valeur inconnue, doublons, reste d'un type supprimé) : la première
+        ligne est conservée et mise à jour, les autres supprimées. """
+        from Utils import UTILS_Adhesions
+        nom = "type_%d" % int(IDtype_cotisation)
+        lignes = self._Lire(DB, "SELECT IDparametre, parametre FROM parametres WHERE categorie=? AND nom=? "
+                                "ORDER BY IDparametre", [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nom])
+        if not reparer and (len(lignes) > 1 or (lignes and lignes[0][1] not in UTILS_Adhesions.MODES_ASSOCIATION)):
+            raise UTILS_Adhesions.ConfigurationAdhesionInvalide(
+                _(u"Le mode d'association de ce type est devenu invalide depuis l'ouverture de la fenêtre."))
+        if not lignes:
+            self._Ecrire(DB, "INSERT INTO parametres (categorie, nom, parametre) VALUES (?, ?, ?)",
+                         [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nom, mode])
+            return
+        for IDparametre, valeur in lignes[1:]:
+            self._Ecrire(DB, "DELETE FROM parametres WHERE IDparametre=?", [IDparametre])
+        if lignes[0][1] != mode:
+            self._Ecrire(DB, "UPDATE parametres SET parametre=? WHERE IDparametre=?", [mode, lignes[0][0]])
+            if DB.cursor.rowcount != 1:
+                raise RuntimeError(_(u"Mise à jour du mode d'association non confirmée."))
+
     def _Ecrire(self, DB, req, valeurs=()):
         """ Écriture contrôlée dans la transaction en cours : ReqInsert,
         ReqMAJ et ReqDEL masquent les erreurs SQL, ici elles interrompent
@@ -326,115 +421,112 @@ class Dialog(wx.Dialog):
                     if self.ctrl_mode_adhesion.GetSelection() == 0
                     else UTILS_Adhesions.MODE_ASSOCIATION_PARTICIPATIONS)
 
-        # Sauvegarde du type et des unités dans une seule transaction. La
-        # liste des unités n'est mise à jour qu'après validation : une
-        # nouvelle tentative ne rejoue ni insertion ni suppression déjà
-        # enregistrée, et une écriture refusée reste à enregistrer.
+        if self.issue_incertaine :
+            self.SignalerIssueIncertaine()
+            return False
+
+        # Type, unités et mode d'association : une seule connexion, une seule
+        # transaction, ouverte avant toute écriture. La liste des unités n'est
+        # mise à jour qu'après validation.
+        from Utils import UTILS_Adhesions
         IDtype_cotisation = self.IDtype_cotisation
+        reparerMode = self.mode_association_invalide != None or IDtype_cotisation == None
         unitesEnregistrees = []
+        signature = None
+        liberer = None
         DB = GestionDB.DB()
         try:
-            if getattr(DB, "echec", 0) == 1 :
-                raise RuntimeError(_(u"Base inaccessible : %s") % getattr(DB, "erreur", u""))
-            listeDonnees = [
-                    ("nom", nom),
-                    ("type", type),
-                    ("carte", carte),
-                    ("defaut", self.defaut),
-                    ("code_comptable", code_comptable),
-                    ("code_produit_local", code_produit_local),
-                ]
-            champs = [champ for champ, valeur in listeDonnees]
-            valeurs = [valeur for champ, valeur in listeDonnees]
-            if IDtype_cotisation == None :
-                IDtype_cotisation = self._Ecrire(DB, "INSERT INTO types_cotisations (%s) VALUES (%s)" % (
-                    ", ".join(champs), ", ".join(["?"] * len(champs))), valeurs)
-                if not IDtype_cotisation :
-                    raise RuntimeError(_(u"Type de cotisation créé sans identifiant."))
-            else:
-                self._Ecrire(DB, "UPDATE types_cotisations SET %s WHERE IDtype_cotisation=?" % (
-                    ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDtype_cotisation])
+            try:
+                if getattr(DB, "echec", 0) == 1 :
+                    raise RuntimeError(_(u"Base inaccessible : %s") % getattr(DB, "erreur", u""))
+                liberer = UTILS_Adhesions.VerrouillerParametrageType(DB, IDtype_cotisation)
+                if IDtype_cotisation != None and self.signature != None :
+                    if self._Signature(DB, IDtype_cotisation) != self.signature :
+                        raise _ModifieAilleurs()
 
-            # Sauvegarde des unités de cotisation
-            for dictUnite in listeUnites :
-                IDunite_cotisation = dictUnite["IDunite_cotisation"]
-                etat = dictUnite["etat"]
                 listeDonnees = [
-                    ("IDtype_cotisation", IDtype_cotisation),
-                    ("date_debut", dictUnite["date_debut"]),
-                    ("date_fin", dictUnite["date_fin"]),
-                    ("defaut", dictUnite["defaut"]),
-                    ("nom", dictUnite["nom"]),
-                    ("montant", dictUnite["montant"]),
-                    ("label_prestation", dictUnite["label_prestation"]),
-                    ("duree", dictUnite["duree"]),
-                ]
+                        ("nom", nom),
+                        ("type", type),
+                        ("carte", carte),
+                        ("defaut", self.defaut),
+                        ("code_comptable", code_comptable),
+                        ("code_produit_local", code_produit_local),
+                    ]
                 champs = [champ for champ, valeur in listeDonnees]
                 valeurs = [valeur for champ, valeur in listeDonnees]
-                # Ajout
-                if etat == "MODIF" and IDunite_cotisation == None :
-                    IDunite_cotisation = self._Ecrire(DB, "INSERT INTO unites_cotisations (%s) VALUES (%s)" % (
+                if IDtype_cotisation == None :
+                    IDtype_cotisation = self._Ecrire(DB, "INSERT INTO types_cotisations (%s) VALUES (%s)" % (
                         ", ".join(champs), ", ".join(["?"] * len(champs))), valeurs)
-                    if not IDunite_cotisation :
-                        raise RuntimeError(_(u"Unité de cotisation créée sans identifiant."))
-                    unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
-                # Modification
-                elif etat == "MODIF" :
-                    self._Ecrire(DB, "UPDATE unites_cotisations SET %s WHERE IDunite_cotisation=?" % (
-                        ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDunite_cotisation])
-                    unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
-                # Suppression
-                elif etat == "SUPPR" and IDunite_cotisation != None :
-                    self._Ecrire(DB, "DELETE FROM unites_cotisations WHERE IDunite_cotisation=?", [IDunite_cotisation])
-                    unitesEnregistrees.append((dictUnite, None, "SUPPR"))
+                    if not IDtype_cotisation :
+                        raise RuntimeError(_(u"Type de cotisation créé sans identifiant."))
+                else:
+                    self._Ecrire(DB, "UPDATE types_cotisations SET %s WHERE IDtype_cotisation=?" % (
+                        ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDtype_cotisation])
 
-            # Mode signalé invalide (doublon, valeur inconnue) : remplacé par
-            # le mode choisi dans la même transaction, pour ce seul type.
-            # Une erreur laisse le paramétrage invalide, donc toujours bloquant.
-            if mode != None and self.mode_association_invalide != None :
-                nomParametre = "type_%d" % int(IDtype_cotisation)
-                self._Ecrire(DB, "DELETE FROM parametres WHERE categorie=? AND nom=?",
-                             [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nomParametre])
-                self._Ecrire(DB, "INSERT INTO parametres (categorie, nom, parametre) VALUES (?, ?, ?)",
-                             [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nomParametre, mode])
-            DB.Commit()
-        except Exception as err:
-            if getattr(DB, "connexion", None) is not None:
-                try:
-                    DB.connexion.rollback()
-                except Exception:
-                    pass
-            dlg = wx.MessageDialog(
-                self, _(u"Le type de cotisation n'a pas pu être enregistré. Rien n'a été modifié :\n%s") % err,
-                _(u"Enregistrement impossible"), wx.OK | wx.ICON_ERROR,
-            )
-            dlg.ShowModal()
-            dlg.Destroy()
-            return False
+                # Sauvegarde des unités de cotisation
+                for dictUnite in listeUnites :
+                    IDunite_cotisation = dictUnite["IDunite_cotisation"]
+                    etat = dictUnite["etat"]
+                    listeDonnees = [
+                        ("IDtype_cotisation", IDtype_cotisation),
+                        ("date_debut", dictUnite["date_debut"]),
+                        ("date_fin", dictUnite["date_fin"]),
+                        ("defaut", dictUnite["defaut"]),
+                        ("nom", dictUnite["nom"]),
+                        ("montant", dictUnite["montant"]),
+                        ("label_prestation", dictUnite["label_prestation"]),
+                        ("duree", dictUnite["duree"]),
+                    ]
+                    champs = [champ for champ, valeur in listeDonnees]
+                    valeurs = [valeur for champ, valeur in listeDonnees]
+                    # Ajout
+                    if etat == "MODIF" and IDunite_cotisation == None :
+                        IDunite_cotisation = self._Ecrire(DB, "INSERT INTO unites_cotisations (%s) VALUES (%s)" % (
+                            ", ".join(champs), ", ".join(["?"] * len(champs))), valeurs)
+                        if not IDunite_cotisation :
+                            raise RuntimeError(_(u"Unité de cotisation créée sans identifiant."))
+                        unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
+                    # Modification
+                    elif etat == "MODIF" :
+                        self._Ecrire(DB, "UPDATE unites_cotisations SET %s WHERE IDunite_cotisation=?" % (
+                            ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDunite_cotisation])
+                        unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
+                    # Suppression
+                    elif etat == "SUPPR" and IDunite_cotisation != None :
+                        self._Ecrire(DB, "DELETE FROM unites_cotisations WHERE IDunite_cotisation=?", [IDunite_cotisation])
+                        unitesEnregistrees.append((dictUnite, None, "SUPPR"))
+
+                # Mode d'association (types individuels), dans la même transaction.
+                if mode != None :
+                    self._EcrireMode(DB, IDtype_cotisation, mode, reparerMode)
+                signature = self._Signature(DB, IDtype_cotisation)
+            except Exception as err:
+                if self._Annuler(DB) :
+                    self.SignalerEchec(err)
+                else :
+                    self.issue_incertaine = True
+                    self.SignalerIssueIncertaine(err)
+                return False
+
+            # Validation : une erreur ici laisse l'issue indéterminée.
+            try:
+                DB.Commit()
+            except Exception as err:
+                self.issue_incertaine = True
+                self._Annuler(DB)
+                self.SignalerIssueIncertaine(err)
+                return False
         finally:
+            if liberer != None :
+                liberer()
             DB.Close()
 
         self.IDtype_cotisation = IDtype_cotisation
         for dictUnite, IDunite_cotisation, etat in unitesEnregistrees :
             dictUnite["IDunite_cotisation"] = IDunite_cotisation
             dictUnite["etat"] = etat
-        if mode != None and self.mode_association_invalide != None :
-            self.mode_association_invalide = None
-
-        # Option de mode par type d'adhésion : en dehors de la saisie
-        # financière, sans migration de schéma de la base historique.
-        if mode != None:
-            try:
-                UTILS_Adhesions.EnregistrerModeAssociation(self.IDtype_cotisation, mode)
-            except Exception as err:
-                dlg = wx.MessageDialog(
-                    self, _(u"Le type de cotisation a été enregistré mais pas son "
-                            u"mode d'association des activités :\n%s") % err,
-                    _(u"Paramétrage incomplet"), wx.OK | wx.ICON_ERROR,
-                )
-                dlg.ShowModal()
-                dlg.Destroy()
-                return False
+        self.mode_association_invalide = None
+        self.signature = signature
 
         # Fermeture
         self.EndModal(wx.ID_OK)
