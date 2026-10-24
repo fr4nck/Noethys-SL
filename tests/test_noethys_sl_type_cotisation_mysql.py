@@ -27,6 +27,29 @@ from Utils import UTILS_Adhesions as A
 CAT = A.CATEGORIE_MODE_ASSOCIATION
 
 
+class _ConnexionEnPanneApresEcriture(erreurs._ConnexionEnPanne):
+    """Commit / rollback en panne seulement une fois des écritures émises sur
+    la connexion : le commit qui suit les écritures (et non la validation
+    préalable de lecture faite avant toute écriture sous MySQL)."""
+
+    def __init__(self, connexion, pannes, requetes):
+        erreurs._ConnexionEnPanne.__init__(self, connexion, pannes)
+        self._requetes = requetes
+
+    def _ecritures(self):
+        return any(re.match(r"\s*(INSERT|UPDATE|DELETE)\b", r, re.I) for r in self._requetes)
+
+    def commit(self):
+        if "commit" in self._pannes and self._ecritures():
+            raise erreurs.sqlite3.OperationalError("panne injectée au commit")
+        return self._connexion.commit()
+
+    def rollback(self):
+        if "rollback" in self._pannes and self._ecritures():
+            raise erreurs.sqlite3.OperationalError("panne injectée au rollback")
+        return self._connexion.rollback()
+
+
 @unittest.skipUnless(os.environ.get("NOETHYS_TEST_MYSQL_HOST"), "MySQL local jetable non configure")
 class TypeCotisationMySQLTests(unittest.TestCase):
     _nom = concurrence.ConcurrenceMySQLTests._nom
@@ -35,6 +58,9 @@ class TypeCotisationMySQLTests(unittest.TestCase):
         concurrence.ConcurrenceMySQLTests.setUp(self)
         self.addCleanup(concurrence.ConcurrenceMySQLTests.tearDown, self)
         self.executer(
+            # Un autre type réel (ID 2) et son paramétrage : jamais modifiés.
+            "INSERT INTO types_cotisations (IDtype_cotisation, nom, type, carte, defaut) "
+            "VALUES (2, 'Autre type', 'individu', 0, 0);",
             "INSERT INTO parametres (categorie, nom, parametre) VALUES ('%s', 'type_1', 'inscriptions');" % CAT,
             "INSERT INTO parametres (categorie, nom, parametre) VALUES ('%s', 'type_2', 'participations');" % CAT,
             "INSERT INTO parametres (categorie, nom, parametre) VALUES ('autre_categorie', 'type_1', 'x');",
@@ -50,8 +76,9 @@ class TypeCotisationMySQLTests(unittest.TestCase):
 
         def instrumentee(*args, **kwargs):
             db = classe(*args, **kwargs)
-            db.cursor = erreurs._CurseurEnPanne(db.cursor, test.panne, [])
-            db.connexion = erreurs._ConnexionEnPanne(db.connexion, test.pannes_connexion)
+            requetes = []
+            db.cursor = erreurs._CurseurEnPanne(db.cursor, test.panne, requetes)
+            db.connexion = _ConnexionEnPanneApresEcriture(db.connexion, test.pannes_connexion, requetes)
             return db
         for cible, nom, valeur in ((GestionDB, "DB", mock.Mock(side_effect=instrumentee)),
                                    (wx, "MessageDialog", mock.Mock(side_effect=self._message)),
@@ -165,10 +192,13 @@ class TypeCotisationMySQLTests(unittest.TestCase):
     def test_echec_du_commit_issue_incertaine(self):
         h = self.ouvrir()
         self.modifier_tout(h)
+        avant = self.etat()
         self.pannes_connexion.add("commit")
         self.assertFalse(self.ok(h))
         self.pannes_connexion.clear()
         self.assertIn(u"indéterminée", self.messages[-1])
+        self.assertNotIn(u"Rien n'a été modifié", self.messages[-1])
+        self.assertEqual(self.etat(), avant)  # commit non effectué : transaction abandonnée à la fermeture
         self.assertTrue(h.issue_incertaine)
         self.assertFalse(self.ok(h))
 
