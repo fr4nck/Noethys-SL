@@ -1,0 +1,57 @@
+name: Noethys SL - inspection du paquet RC9 déjà construit
+
+# Lecture seule : récupère les artefacts d'un build candidat existant (aucune
+# reconstruction), vérifie tailles et SHA-256, inspecte l'archive PYZ de
+# Noethys.exe et les journaux de démarrage du build. N'exécute aucun programme
+# du paquet. Lancement manuel uniquement ; aucune écriture sur le dépôt.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run du build candidat à inspecter'
+        required: true
+        default: '40101261780'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspecter:
+    name: Inspecter le paquet RC9 (lecture seule)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Lecteur d'archive PyInstaller (version du build)
+        run: python -m pip install pyinstaller==6.22.3
+
+      - name: Récupérer l'artefact candidat existant
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.9-Windows-candidat
+          path: artefact
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Récupérer les diagnostics de démarrage du même build
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.9-diagnostics-demarrage
+          path: diagnostics
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Inspecter tailles, empreintes, présence et chargement des modules
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse artefact, diagnostics | Select-Object FullName, Length | Format-Table -AutoSize
+          $dossier = (Get-ChildItem -Recurse -Filter 'Noethys-SL-0.1.0-rc.9-Setup.exe' artefact | Select-Object -First 1).DirectoryName
+          if (-not $dossier) { throw 'Setup absent de l''artefact' }
+          python scripts/inspecter_paquet_rc9.py $dossier diagnostics
+          if ($LASTEXITCODE -ne 0) { throw 'Inspection du paquet en échec' }

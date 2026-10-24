@@ -1,87 +1,118 @@
 # Noethys SL 0.1.0 RC9 — fiche de recette du candidat
 
-**Candidat de recette, non valide pour production.** À exécuter sur un poste
-Windows de test, avec une base **fictive** (jamais la base PMSL) et, pour
-les emails, des **adresses de test** uniquement.
+**Candidat de recette, non valide pour production.**
 
-Avant de commencer : vérifier l'empreinte SHA-256 du fichier téléchargé
-(voir `docs/dev/REPRISE_CODEX.md`, lot 6) et noter le SHA source indiqué
-dans `BUILD-INFO.txt`.
+- SHA construit : `ed30b3c90d1472328a5ad760fc7a43395fa64fd9` (run de construction
+  [40101261780](https://github.com/fr4nck/Noethys-SL/actions/runs/40101261780)).
+  Les commits de documentation postérieurs ne font pas partie du paquet.
+- Empreintes SHA-256 à vérifier avant usage :
+  - `Noethys-SL-0.1.0-rc.9-Setup.exe` : `4868cb4c8bc6be9da02e71941c5b36915a6a1cef56634996a954587a4883fddf`
+  - `Noethys-SL-0.1.0-rc.9-Windows-portable.zip` : `93fd107ccfbd45371ab242eef9dd75b1ccfe68bda2ee0bbd3ceb9044d9a0d9c8`
 
-## 1. Démarrage du ZIP portable (deux lancements)
+## Règles de recette
 
-1. Extraire le ZIP dans un dossier vide (par exemple `C:\Recette\RC9`).
+- Le candidat **écrit** dans la base ouverte (types de cotisation, quotients,
+  pièces, états des demandes Connecthys, suivi des emails). Une sauvegarde
+  préalable n'autorise pas à tester ces écritures sur la base de travail.
+- Toutes les saisies se font sur une **base fictive** ou sur une **copie de
+  recette isolée** (fichier SQLite copié, ou base MySQL de recette), jamais
+  sur la base PMSL.
+- Emails : famille fictive et **adresses de test** uniquement ; aucun envoi à
+  une famille réelle.
+- Aucune coupure, erreur provoquée ni manipulation de serveur sur la base PMSL.
+- Pour chaque contrôle : OK / KO, capture en cas d'écart, poste, version de
+  Windows, type de base (SQLite local, SQLite partagé, MySQL), moteur d'envoi
+  (Mailjet ou SMTP).
+
+## A. Parcours ordinaires
+
+### 1. Démarrage et conservation d'un réglage après redémarrage
+
+1. Extraire le ZIP portable dans un dossier vide (par exemple `C:\Recette\RC9`),
+   sur une session Windows de recette.
 2. Lancer `Noethys.exe`. **Attendu** : la fenêtre principale s'ouvre ; le
-   dossier `Portable\` contient `Config.json`, `Temp`, `Lang` ; rien n'est
-   créé dans `%APPDATA%` ni `%LOCALAPPDATA%` pour Noethys.
-3. Modifier un réglage simple (par exemple une option d'affichage), fermer.
-4. Relancer. **Attendu** : le réglage est conservé ; aucun nouveau profil
-   hors de `Portable\`.
+   dossier `Portable\` contient `Config.json`.
+3. Depuis l'interface, modifier un réglage bénin et visible (par exemple une
+   préférence d'affichage), puis fermer **normalement** l'application.
+4. Relancer le même `Noethys.exe`. **Attendu** : le réglage est appliqué ;
+   aucun dossier Noethys créé dans `%APPDATA%` ni `%LOCALAPPDATA%`.
 
-## 2. Type de cotisation
+### 2. Type de cotisation : création, modification et réouverture
 
-1. Créer un type individuel avec une unité et « Participations constatées
-   uniquement ». **Attendu** : enregistrement, réouverture identique.
-2. Modifier le nom, une unité et le mode, valider. **Attendu** : les trois
-   changements sont présents à la réouverture.
-3. Modification concurrente (deux postes, ou deux fenêtres sur un même
-   type) : enregistrer dans la première, puis dans la seconde. **Attendu**
-   pour la seconde : message « modifié ailleurs depuis l'ouverture », rien
-   n'est écrit ; après réouverture, l'enregistrement fonctionne.
-4. Erreur (si possible, base en lecture seule ou serveur MySQL coupé
-   pendant la saisie). **Attendu** : message « Rien n'a été modifié » ou,
-   si la base ne confirme pas la validation, message d'issue
-   **indéterminée** demandant de rouvrir le type ; aucune unité en double.
-5. Base MySQL de test seulement : si une table `types_cotisations`,
-   `unites_cotisations` ou `parametres` n'est pas InnoDB, **attendu** :
-   refus avant toute écriture, tables citées, aucune conversion.
+1. Créer un type individuel avec une unité, mode « Participations constatées
+   uniquement ». **Attendu** : la fenêtre se ferme ; à la réouverture, nom,
+   unité et mode sont identiques.
+2. Modifier le nom, le montant d'une unité et le mode, valider, rouvrir.
+   **Attendu** : les trois modifications sont présentes, aucune unité en
+   double.
 
-## 3. Confirmation Connecthys partielle (destinataires de test)
+### 3. Pièce et quotient familial à validité illimitée
 
-Famille fictive avec deux adresses de test, dont une refusée par le
-serveur d'envoi de test (ou une adresse invalide pour Mailjet).
+1. Saisir une attestation de quotient avec « validité illimitée » et la saisie
+   du quotient cochée. **Attendu** : pièce et quotient enregistrés, fin au
+   01/01/2999, aucun message « date trop élevée ».
+2. Saisir directement un quotient avec fin au 01/01/2999. **Attendu** : accepté.
 
-1. Traiter une demande avec envoi automatique de la réponse. **Attendu** :
-   la demande reste « en attente » ; le journal indique l'envoi partiel.
-2. Corriger l'adresse refusée, retraiter. **Attendu** : seul le
-   destinataire restant reçoit le message ; la demande passe validée.
-3. Retraiter encore la même demande sans modification. **Attendu** :
-   aucun renvoi.
-4. Mailjet sans éditeur, si une réponse est perdue (délai dépassé) :
-   **attendu** : aucune relance automatique, journal « acceptation
-   incertaine » ; le renvoi volontaire reste possible depuis l'éditeur.
-5. Les états et réponses visibles côté portail Connecthys sont ceux
-   d'avant (aucun nouvel état).
+### 4. Dépôt : aperçu, colonnes, tri, filtre, total et pagination
 
-## 4. Pièce et quotient familial à validité illimitée
+Dépôt fictif d'au moins 60 règlements (montants positifs, négatifs et nuls,
+libellés longs et accentués).
 
-1. Saisir une attestation de quotient avec « validité illimitée » et la
-   saisie du quotient cochée. **Attendu** : la pièce et le quotient sont
-   enregistrés, fin au 01/01/2999 ; aucun message « date trop élevée ».
-2. Saisir directement un quotient avec fin au 01/01/2999. **Attendu** :
-   accepté.
-
-## 5. Impression d'un dépôt
-
-Dépôt fictif d'au moins 60 règlements (montants positifs, négatifs, nuls,
-libellés longs et accentués), une fois verrouillé, une fois non verrouillé.
-
-1. Aperçu. **Attendu** : 13 colonnes lisibles en paysage (Date, Mode,
-   Émetteur, N° pièce, Famille, Payeur, Montant, Avis, Compte, Différé,
-   Attente, Quittancier, Observations), en-têtes répétés sur chaque page,
-   toutes les lignes présentes, titre « Règlements du dépôt - Dépôt
-   complet », total au centime égal à celui de l'écran.
-2. Trier par montant (croissant puis décroissant). **Attendu** : même ordre
-   à l'impression.
-3. Fenêtre d'ajout au dépôt, filtre par compte ou mode : imprimer.
+1. Aperçu. **Attendu** : 13 colonnes lisibles en paysage (Date, Mode, Émetteur,
+   N° pièce, Famille, Payeur, Montant, Avis, Compte, Différé, Attente,
+   Quittancier, Observations) ; en-têtes répétés sur chaque page ; toutes les
+   lignes présentes ; titre « Règlements du dépôt - Dépôt complet » ; total au
+   centime égal à celui de l'écran.
+2. Trier par montant, croissant puis décroissant. **Attendu** : même ordre à
+   l'impression.
+3. Fenêtre d'ajout au dépôt, filtre par compte ou par mode, puis aperçu.
    **Attendu** : titre « Vue filtrée », filtre cité, « N règlement(s)
    imprimé(s) sur M », total des seules lignes imprimées.
-4. Filtre sans résultat, puis dépôt vide. **Attendu** : message, aucun
-   aperçu vide.
-5. Ne rien modifier : vérifier ensuite que les règlements et le dépôt sont
-   inchangés.
+4. Filtre sans résultat, puis dépôt vide. **Attendu** : message, aucun aperçu vide.
+5. Refaire l'aperçu sur un dépôt verrouillé. **Attendu** : même contenu ;
+   règlements et dépôt inchangés.
 
-## À consigner
+### 5. Confirmations Connecthys (famille et adresses de test)
 
-Pour chaque point : OK / KO, capture d'écran en cas d'écart, poste,
-version de Windows, type de base (SQLite local, SQLite partagé, MySQL).
+Famille fictive avec deux adresses de test.
+
+1. Traiter une demande avec envoi automatique de la réponse, les deux adresses
+   acceptées. **Attendu** : demande validée ; états et réponses visibles côté
+   portail identiques à RC8.1 (aucun nouvel état).
+2. Retraiter la même demande sans modification. **Attendu** : aucun renvoi.
+3. Une adresse de test refusée par le serveur d'envoi (adresse invalide).
+   **Attendu** : la demande reste « en attente », journal « envoi partiel » ;
+   après correction de l'adresse, seul le destinataire restant reçoit le
+   message, puis la demande est validée.
+
+## B. Essais de panne et de concurrence (copie de recette isolée uniquement)
+
+1. **Type de cotisation, modification concurrente** : ouvrir le même type sur
+   deux postes (ou deux fenêtres), enregistrer dans la première, puis dans la
+   seconde. **Attendu** : « modifié ailleurs depuis l'ouverture », rien n'est
+   écrit ; après réouverture, l'enregistrement fonctionne.
+2. **Type de cotisation, erreur d'écriture** (copie SQLite en lecture seule,
+   ou serveur MySQL **de recette** arrêté pendant la saisie). **Attendu** :
+   « Rien n'a été modifié », ou, si la base ne confirme pas la validation,
+   issue **indéterminée** avec demande de rouvrir le type ; aucune unité en
+   double ; aucune nouvelle validation possible avant réouverture.
+3. **MySQL de recette seulement** : une table `types_cotisations`,
+   `unites_cotisations` ou `parametres` en MyISAM. **Attendu** : refus avant
+   toute écriture, tables citées, aucune conversion.
+4. **Connecthys, Mailjet sans éditeur, réponse perdue** (délai dépassé sur un
+   compte de test). **Attendu** : aucune relance automatique, journal
+   « acceptation incertaine » ; renvoi volontaire possible depuis l'éditeur.
+5. **Connecthys, deux traitements simultanés** de la même demande sur deux
+   postes en **MySQL de recette**. **Attendu** : un seul envoi. En SQLite
+   partagé, ce cas n'est pas protégé entre postes (réserve).
+
+## C. Réserves à décider avant l'usage opérationnel concerné
+
+Non acceptées à ce jour ; non couvertes par cette recette :
+- arrêt brutal du poste entre l'acceptation par le serveur d'envoi et
+  l'écriture du suivi local : renvoi possible au traitement suivant ;
+- SMTP : un échec est traité comme « non accepté » (aucune détection
+  d'incertitude) : renvoi possible ;
+- SQLite partagé entre plusieurs postes : la réservation d'une confirmation ne
+  protège que le poste courant ;
+- aucune garantie d'envoi « exactement une fois ».

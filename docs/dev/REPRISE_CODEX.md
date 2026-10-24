@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — lot 7 : vérification du paquet existant et recette (24/10/2026, wx uniquement)
+
+- **Candidat conservé** : `ed30b3c90d1472328a5ad760fc7a43395fa64fd9`, run [40101261780](https://github.com/fr4nck/Noethys-SL/actions/runs/40101261780) ; aucune reconstruction, aucun tag ni release.
+- **Inspection du binaire préparée, NON EXÉCUTÉE** (récupération de l'artefact hors de l'autorisation reçue) : `scripts/inspecter_paquet_rc9.py` (tailles et SHA-256 contre les empreintes consignées ; présence dans l'archive PYZ de `Noethys.exe` des modules des correctifs, avec marqueurs propres à la version construite ; chargement au démarrage d'après les journaux de diagnostic du build) et workflow `.github/workflows/noethys-sl-rc9-inspection.yml` (lancement manuel, `contents: read`, `actions: read`, lecture des artefacts du run indiqué, PyInstaller 6.22.3 pour la lecture, aucun programme du paquet exécuté). Marqueurs validés sur les sources : 0/27 manquant pour `ed30b3c`, 24/27 manquants pour RC8.1 `00f53db` (les marqueurs distinguent la version). Procédure locale équivalente : récupérer l'artefact `Noethys-SL-0.1.0-rc.9-Windows-candidat` et les diagnostics, `pip install pyinstaller==6.22.3`, puis `python scripts/inspecter_paquet_rc9.py <dossier_artefact> <dossier_diagnostics>`.
+- **Persistance depuis l'application** (réglage modifié dans l'interface, fermeture normale, relance) : aucune automatisation graphique disponible ; contrôle laissé à la recette manuelle (fiche, A.1).
+- **Fiche de recette** réordonnée : `docs/recette/RC9_FICHE_RECETTE.md` (parcours ordinaires A.1 à A.5, essais de panne et de concurrence sur copie isolée B, réserves Connecthys C).
+
 ## RC9 — lot 6 : qualification MySQL et candidat Windows de recette (24/10/2026, wx uniquement)
 
 - **Autorisation** du 24/10 : qualification MySQL sur machines GitHub (MySQL 5.7.44 officiel, empreinte vérifiée, base fictive jetable) puis build candidat `publier=false`. Aucun téléchargement sur poste utilisateur, aucune base PMSL, aucun email réel.
