@@ -50,6 +50,12 @@ class MemoireAdressesTests(_Base):
         Acceptes.Enregistrer(cle, ["A@Example.test ", "b@example.test"])
         Acceptes.Enregistrer(cle, ["a@example.test", "b@example.test"])  # une seule ligne par clé
         self.assertEqual(Acceptes.Lire(cle), {"a@example.test", "b@example.test"})
+        Acceptes.Enregistrer(cle, Acceptes.Suivi(["a@example.test"], ["c@example.test"], "e1", False))
+        suivi = Acceptes.LireSuivi(cle)
+        self.assertEqual((suivi.acceptees, suivi.incertaines, suivi.empreinte, suivi.complet),
+                         ({"a@example.test"}, {"c@example.test"}, "e1", False))
+        Acceptes.Enregistrer(cle, ["a@example.test", "b@example.test"])
+        self.assertEqual(Acceptes.Lire(cle), {"a@example.test", "b@example.test"})
         self.assertEqual(len(self.lignes(Acceptes.CATEGORIE)), 1)
         Acceptes.Effacer(cle)
         self.assertEqual(Acceptes.Lire(cle), set())
@@ -61,10 +67,11 @@ class MemoireAdressesTests(_Base):
         with self.assertRaises(ValueError):
             Acceptes.CleDemande(42, "re'cu")
 
-    def test_valeur_corrompue_ignoree(self):
+    def test_valeur_corrompue_jamais_lue_comme_vide(self):
         self.base.inserer("parametres", ["categorie", "nom", "parametre"],
                           [(Acceptes.CATEGORIE, "portail_action_1_recu", "{pas du json")])
-        self.assertEqual(Acceptes.Lire("portail_action_1_recu"), set())
+        with self.assertRaises(Acceptes.SuiviIllisible):
+            Acceptes.Lire("portail_action_1_recu")
 
     def test_categorie_jamais_synchronisee_avec_connecthys(self):
         self.assertNotEqual(Acceptes.CATEGORIE, "portail")
@@ -145,10 +152,11 @@ class ConfirmationPartielleTests(_Base):
     def test_envoi_partiel_non_valide_puis_renvoi_aux_seules_adresses_restantes(self):
         self.assertFalse(self.envoyer({"a@example.test"}))
         self.assertEqual(Acceptes.Lire("portail_action_7_reponse"), {"a@example.test"})
-        # Nouvel essai : seule b reçoit le message ; la confirmation devient complète.
+        # Nouvel essai : seule b reçoit le message ; la confirmation devient
+        # complète, son suivi est conservé jusqu'à l'enregistrement de la demande.
         self.assertTrue(self.envoyer({"b@example.test"}))
         self.assertEqual(_FauxMailer.instances[-1].adresses, ["b@example.test"])
-        self.assertEqual(Acceptes.Lire("portail_action_7_reponse"), set())
+        self.assertTrue(Acceptes.LireSuivi("portail_action_7_reponse").complet)
         self.assertTrue(any("non encore acceptées (1 sur 2)" in l for l in self.journal.lignes))
 
     def test_toutes_deja_acceptees_aucun_renvoi(self):
@@ -157,15 +165,16 @@ class ConfirmationPartielleTests(_Base):
         self.assertTrue(self.envoyer(set(), pdf=pdf))
         self.assertEqual(_FauxMailer.instances, [])  # aucun message préparé ni envoyé
         pdf.assert_not_called()
-        self.assertEqual(Acceptes.Lire("portail_action_7_reponse"), set())
+        self.assertTrue(Acceptes.LireSuivi("portail_action_7_reponse").complet)
 
     def test_aucun_succes_rien_memorise(self):
         self.assertFalse(self.envoyer(set()))
         self.assertEqual(self.lignes(Acceptes.CATEGORIE), [])
 
-    def test_envoi_complet_du_premier_coup_rien_memorise(self):
+    def test_envoi_complet_du_premier_coup_memorise_comme_complet(self):
         self.assertTrue(self.envoyer(set(self.ADRESSES)))
-        self.assertEqual(self.lignes(Acceptes.CATEGORIE), [])
+        suivi = Acceptes.LireSuivi("portail_action_7_reponse")
+        self.assertEqual((suivi.complet, suivi.acceptees), (True, set(self.ADRESSES)))
 
     def test_editeur_affiche_sans_filtrage_ni_memoire(self):
         Acceptes.Enregistrer("portail_action_7_reponse", ["a@example.test"])
@@ -219,7 +228,7 @@ class CompatibiliteConnecthysTests(unittest.TestCase):
         noms = [a.arg for a in fonction.args.args]
         self.assertEqual(noms[:9], ["parent", "IDfamille", "nomDoc", "categorie", "listeAdresses", "visible", "log",
                                     "CreationPDF", "IDmodele"])
-        self.assertEqual(noms[9:], ["cle_suivi"])
+        self.assertEqual(noms[9:], ["cle_suivi", "empreinte"])
 
 
 if __name__ == "__main__":

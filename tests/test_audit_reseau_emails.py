@@ -682,7 +682,7 @@ class EtatLocalTests(unittest.TestCase):
         bloc = ('resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, '
                 'nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track,\n')
         i = source.index(bloc)
-        suite = source[i:i + 900]
+        suite = source[i:i + 1200]  # appel suivi de la clé et de l'empreinte du reçu
         self.assertIn("if resultat == False :", suite)
         self.assertLess(suite.index("return False"), suite.index(u'reponse = _(u"Reçu de règlement envoyé par Email.")'))
 

@@ -53,31 +53,127 @@ def _TexteUtf8(valeur):
 
 
 
-def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", listeAdresses=[], visible=True, log=None, CreationPDF=None, IDmodele=None, cle_suivi=None):
+def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", listeAdresses=[], visible=True, log=None, CreationPDF=None, IDmodele=None, cle_suivi=None, empreinte=None):
     """Envoie un document à la famille. Renvoie True seulement si TOUTES les
     adresses visées ont été acceptées par le serveur d'envoi.
 
-    cle_suivi (confirmations Connecthys envoyées sans éditeur) : les adresses
-    déjà acceptées lors d'un essai précédent ne reçoivent pas de nouveau le
-    message ; si toutes l'ont déjà été, rien n'est renvoyé et le résultat
-    est True. Voir UTILS_Emails_acceptes."""
-    deja_acceptees = set()
+    cle_suivi (confirmations Connecthys envoyées sans éditeur) : voir
+    UTILS_Emails_acceptes. Les adresses déjà acceptées pour ce document
+    (même empreinte) ne reçoivent pas de nouveau le message ; une
+    acceptation incertaine ou un suivi illisible bloque tout envoi
+    automatique ; la même confirmation n'est jamais traitée deux fois en
+    même temps. Le suivi est conservé jusqu'à l'enregistrement de la
+    demande validée."""
     if cle_suivi is not None and not visible:
-        from Utils import UTILS_Emails_acceptes
-        deja_acceptees = UTILS_Emails_acceptes.Lire(cle_suivi)
-        if deja_acceptees:
-            if len(listeAdresses) == 0:
-                listeAdresses = GetAdresseFamille(IDfamille)
-                if listeAdresses == False or len(listeAdresses) == 0:
-                    return False
-            restantes = [a for a in listeAdresses if UTILS_Emails_acceptes.Normaliser(a) not in deja_acceptees]
-            if not restantes:
-                UTILS_Emails_acceptes.Effacer(cle_suivi)
-                if log : log.EcritLog(_(u"L'Email avait déjà été accepté pour toutes les adresses lors d'un envoi précédent : aucun renvoi."))
-                return True
-            if log : log.EcritLog(_(u"Envoi limité aux adresses non encore acceptées (%d sur %d).") % (len(restantes), len(listeAdresses)))
-            listeAdresses = restantes
+        from Utils import UTILS_Emails_acceptes as Suivis
+        try:
+            with Suivis.Reserver(cle_suivi):
+                return _EnvoiEmailFamilleSuivi(parent, IDfamille, nomDoc, categorie, listeAdresses, log,
+                                               CreationPDF, IDmodele, cle_suivi, empreinte)
+        except Suivis.EnvoiEnCours:
+            if log : log.EcritLog(_(u"Cette confirmation est déjà en cours d'envoi : aucun second envoi simultané."))
+            return False
+    resultat, dlg = _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, listeAdresses, visible, CreationPDF, IDmodele)
+    if dlg is not None:
+        interruption = getattr(dlg, "interruption_envoi", None)
+        if interruption is None:
+            _JournaliserResultat(log, resultat, dlg)
+        dlg.Destroy()
+        _SupprimerPDF(nomDoc)
+        if interruption is not None:
+            raise interruption
+    return resultat
 
+
+def _EnvoiEmailFamilleSuivi(parent, IDfamille, nomDoc, categorie, listeAdresses, log, CreationPDF, IDmodele, cle_suivi, empreinte):
+    from Utils import UTILS_Emails_acceptes as Suivis
+    try:
+        suivi = Suivis.LireSuivi(cle_suivi)
+    except Exception as err:
+        # Jamais « rien d'accepté » par défaut : le suivi reste en place.
+        if log : log.EcritLog(_(u"[ERREUR] Suivi des adresses acceptées illisible pour %s (%s) : aucun envoi automatique. "
+                                u"Vérifiez l'historique des emails puis utilisez l'éditeur d'emails.") % (cle_suivi, err))
+        return False
+    if suivi.empreinte is not None and empreinte is not None and suivi.empreinte != empreinte:
+        if log : log.EcritLog(_(u"Document modifié depuis l'envoi précédent : nouvel envoi à toutes les adresses."))
+        suivi = Suivis.Suivi()
+    if empreinte is not None:
+        suivi.empreinte = empreinte
+
+    if len(listeAdresses) == 0:
+        listeAdresses = GetAdresseFamille(IDfamille)
+        if listeAdresses == False or len(listeAdresses) == 0:
+            return False
+    visees = [a for a in listeAdresses if Suivis.Normaliser(a)]
+    incertaines = [a for a in visees if Suivis.Normaliser(a) in suivi.incertaines]
+    if incertaines:
+        if log : log.EcritLog(_(u"Acceptation incertaine lors d'un envoi précédent pour : %s. Aucune relance automatique : "
+                                u"vérifiez le suivi du serveur d'envoi, puis utilisez l'éditeur d'emails si nécessaire.")
+                              % u", ".join(incertaines))
+        return False
+    restantes = [a for a in visees if Suivis.Normaliser(a) not in suivi.acceptees]
+    if not restantes:
+        if log : log.EcritLog(_(u"L'Email avait déjà été accepté pour toutes les adresses lors d'un envoi précédent : aucun renvoi."))
+        if not suivi.complet:
+            suivi.complet = True
+            _EnregistrerSuivi(cle_suivi, suivi, log)
+        return True
+    if suivi.acceptees and log:
+        log.EcritLog(_(u"Envoi limité aux adresses non encore acceptées (%d sur %d).") % (len(restantes), len(visees)))
+
+    resultat, dlg = _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, restantes, False, CreationPDF, IDmodele)
+    if dlg is None:
+        return False
+    acceptees = _Destinataires(dlg.listeSucces or []) & set(Suivis.Normaliser(a) for a in restantes)
+    nouvelles_incertaines = (_Destinataires(getattr(dlg, "listeIncertains", None) or [])
+                             & set(Suivis.Normaliser(a) for a in restantes)) - acceptees
+    interruption = getattr(dlg, "interruption_envoi", None)
+    if interruption is not None:
+        # Envoi interrompu : les adresses non confirmées ont peut-être reçu
+        # le message ; aucune relance automatique.
+        nouvelles_incertaines |= set(Suivis.Normaliser(a) for a in restantes) - acceptees
+        resultat = False
+        if log : log.EcritLog(_(u"[ERREUR] Envoi interrompu (%s). Adresses acceptées avant l'interruption : %s.")
+                              % (interruption, u", ".join(sorted(acceptees)) or u"-"))
+    suivi.acceptees |= acceptees
+    suivi.incertaines |= nouvelles_incertaines
+    suivi.complet = set(Suivis.Normaliser(a) for a in visees) <= suivi.acceptees
+    resultat = bool(resultat) and suivi.complet
+    if acceptees or nouvelles_incertaines or suivi.complet:
+        _EnregistrerSuivi(cle_suivi, suivi, log)
+    if nouvelles_incertaines and log:
+        log.EcritLog(_(u"Acceptation incertaine pour : %s. Aucune relance automatique.") % u", ".join(sorted(nouvelles_incertaines)))
+    _JournaliserResultat(log, resultat, dlg)
+    dlg.Destroy()
+    _SupprimerPDF(nomDoc)
+    return resultat
+
+
+def _Destinataires(messages):
+    return set((d or u"").strip().lower() for message in messages for d in getattr(message, "destinataires", []))
+
+
+def _EnregistrerSuivi(cle_suivi, suivi, log):
+    from Utils import UTILS_Emails_acceptes as Suivis
+    try:
+        Suivis.Enregistrer(cle_suivi, suivi)
+    except Exception as err:
+        if log : log.EcritLog(_(u"[ERREUR] Suivi des adresses acceptées non enregistré (%s). Adresses déjà acceptées : %s. "
+                                u"Ne relancez pas l'envoi sans vérifier l'historique des emails.")
+                              % (err, u", ".join(sorted(suivi.acceptees)) or u"-"))
+
+
+def _JournaliserResultat(log, resultat, dlg):
+    if resultat:
+        if log : log.EcritLog(_(u"L'Email a été accepté par le serveur d'envoi."))
+    elif len(dlg.listeSucces or []) > 0:
+        if log : log.EcritLog(_(u"Envoi partiel : certains Emails ont été acceptés par le serveur d'envoi."))
+    else:
+        if log : log.EcritLog(_(u"L'email n'a pas été envoyé."))
+
+
+def _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, listeAdresses, visible, CreationPDF, IDmodele):
+    """ Prépare et envoie le document ; retourne (tout accepté, dialogue). """
     # Création du PDF
     if CreationPDF != None :
         temp = CreationPDF
@@ -85,7 +181,7 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
         temp = parent.CreationPDF
     dictChamps = temp(nomDoc=nomDoc, afficherDoc=False)
     if dictChamps in (False, None) :
-        return False
+        return False, None
 
     if nomDoc != False :
         liste_pieces = [nomDoc,]
@@ -96,13 +192,13 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
     if len(listeAdresses) == 0 :
         listeAdresses = GetAdresseFamille(IDfamille)
         if listeAdresses == False or len(listeAdresses) == 0 :
-            return False
-    
+            return False, None
+
     # DLG Mailer
     listeDonnees = []
     for adresse in listeAdresses :
         listeDonnees.append({
-            "adresse" : adresse, 
+            "adresse" : adresse,
             # "pieces" : liste_pieces,
             "champs" : dictChamps,
             })
@@ -118,49 +214,33 @@ def EnvoiEmailFamille(parent=None, IDfamille=None, nomDoc="", categorie="", list
     if visible == True :
         # Fenêtre visible
         dlg.ShowModal()
-
     else :
-        # Fenêtre cachée
-        dlg.OnBoutonEnvoyer(None)
+        # Fenêtre cachée. Une interruption pendant l'envoi ne doit pas faire
+        # oublier les messages déjà acceptés : l'erreur est rendue à l'appelant.
+        try :
+            dlg.OnBoutonEnvoyer(None)
+        except Exception as err :
+            dlg.interruption_envoi = err
+            return False, dlg
 
-    # Un lot partiellement accepté ne valide pas toute la confirmation
-    # Connecthys (quel que soit le moteur : SMTP ou Mailjet) ; les adresses
-    # effectivement acceptées sont mémorisées pour ne pas les renvoyer.
+    # Un lot partiellement accepté ne valide pas le document, quel que soit
+    # le moteur (SMTP ou Mailjet).
     resultat = getattr(dlg, "envoi_complet", None)
     if resultat is None:
         # Dialogue d'envoi sans cet indicateur : même critère, recalculé.
-        acceptees = {(d or u"").strip().lower() for message in (dlg.listeSucces or [])
-                     for d in getattr(message, "destinataires", [])}
         visees = {(a or u"").strip().lower() for a in listeAdresses}
-        resultat = bool(visees) and visees <= acceptees
-    resultat = bool(resultat)
-    if cle_suivi is not None and not visible:
-        from Utils import UTILS_Emails_acceptes
-        visees = {UTILS_Emails_acceptes.Normaliser(a) for a in listeAdresses}
-        acceptees = {UTILS_Emails_acceptes.Normaliser(d) for message in dlg.listeSucces
-                     for d in getattr(message, "destinataires", [])} & visees
-        if resultat:
-            UTILS_Emails_acceptes.Effacer(cle_suivi)
-        elif acceptees:
-            UTILS_Emails_acceptes.Enregistrer(cle_suivi, deja_acceptees | acceptees)
-    if resultat:
-        if log : log.EcritLog(_(u"L'Email a été accepté par le serveur d'envoi."))
-    elif len(dlg.listeSucces) > 0:
-        if log : log.EcritLog(_(u"Envoi partiel : certains Emails ont été acceptés par le serveur d'envoi."))
-    else:
-        if log : log.EcritLog(_(u"L'email n'a pas été envoyé."))
+        resultat = bool(visees) and visees <= _Destinataires(dlg.listeSucces or [])
 
-    dlg.Destroy()
+    return bool(resultat), dlg
 
-    # Suppression du PDF temporaire
+
+def _SupprimerPDF(nomDoc):
+    """ Suppression du PDF temporaire, après fermeture du dialogue d'envoi. """
     if nomDoc != False :
         try :
             os.remove(nomDoc)
         except :
             pass
-
-    return resultat
-
 
 
 def CleSuiviDemande(IDaction, document):

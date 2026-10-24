@@ -122,6 +122,7 @@ jobs:
           tests.test_noethys_sl_dependances_demarrage
           tests.test_connecthys_mailjet_lot_asynchrone
           tests.test_connecthys_confirmation_partielle
+          tests.test_connecthys_reprises
           tests.test_piece_quotient_dialog
           tests.test_noethys_sl_type_cotisation_saisie
           tests.test_noethys_sl_type_cotisation_erreurs

@@ -19,6 +19,7 @@ import GestionDB
 import FonctionsPerso
 from Ctrl import CTRL_Bouton_image
 from Utils import UTILS_Envoi_email
+from Utils import UTILS_Emails_acceptes
 from Utils import UTILS_Facturation
 from Utils import UTILS_Dates
 from Utils import UTILS_Texte
@@ -646,10 +647,41 @@ class Dialog(wx.Dialog):
         self.panel_bandeau.Refresh()
         self.track.Refresh()
 
-        # Sauvegarde dans la base
+        # Sauvegarde dans la base. Demande validée : le suivi local des
+        # confirmations complètes est effacé dans la même transaction (jamais
+        # avant que l'état de la demande soit durablement enregistré).
+        return self.EnregistrerDemande(etat, reponse, traitement_date)
+
+    def EnregistrerDemande(self, etat, reponse, traitement_date):
+        from Utils import UTILS_Emails_acceptes
         DB = GestionDB.DB()
-        DB.ReqMAJ("portail_actions", [("etat", etat), ("reponse", reponse), ("traitement_date", traitement_date), ("email_date", self.track.email_date)], "IDaction", self.track.IDaction)
-        DB.Close()
+        try:
+            try:
+                if getattr(DB, "echec", 0) == 1 :
+                    raise RuntimeError(_(u"Base inaccessible : %s") % getattr(DB, "erreur", u""))
+                req = "UPDATE portail_actions SET etat=?, reponse=?, traitement_date=?, email_date=? WHERE IDaction=?"
+                if DB.isNetwork == True :
+                    req = req.replace("?", "%s")
+                DB.cursor.execute(req, (etat, reponse, traitement_date, self.track.email_date, self.track.IDaction))
+                if etat == "validation" and self.track.IDaction not in (None, "") :
+                    UTILS_Emails_acceptes.EffacerConfirmationsCompletes(DB, self.track.IDaction)
+                DB.connexion.commit()
+            except Exception as err:
+                try:
+                    DB.connexion.rollback()
+                except Exception:
+                    pass
+                print(u"Enregistrement de la demande %s impossible : %s" % (self.track.IDaction, err))
+                dlg = wx.MessageDialog(self, _(u"L'état de cette demande n'a pas pu être enregistré :\n%s\n\n"
+                                               u"Le suivi des emails déjà acceptés est conservé : un nouveau "
+                                               u"traitement ne les renverra pas.") % err,
+                                       _(u"Enregistrement de la demande"), wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
+                dlg.Destroy()
+                return False
+        finally:
+            DB.Close()
+        return True
 
     def GetEtat(self):
         if self.radio_attente.GetValue() == True:
@@ -1072,7 +1104,8 @@ class Dialog(wx.Dialog):
             nomDoc = False
 
         resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=self.categorie_email, listeAdresses=[], visible=visible, log=self.track, CreationPDF=self.CreationPDF, IDmodele=IDmodele,
-                                                       cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "reponse"))
+                                                       cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "reponse"),
+                                                       empreinte=UTILS_Emails_acceptes.EmpreinteDocument("reponse", IDmodele, self.ctrl_reponse.GetValue(), nomDoc != False))
 
         # Mémorise la date de l'envoi de l'email -- uniquement en cas de succès réel
         if resultat == True :
@@ -1274,7 +1307,8 @@ class Traitement():
             # Envoi par Email
             if self.dict_parametres["methode_envoi"] == "email" :
                 resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=dlg_impression, IDfamille=self.track.IDfamille, nomDoc=nomDoc, categorie=categorie, visible=False, log=self.track,
-                                                               cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "recu"))
+                                                               cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "recu"),
+                                                               empreinte=UTILS_Emails_acceptes.EmpreinteLigne("reglements", "IDreglement", IDreglement, ["date", "IDmode", "numero_piece", "montant", "IDpayeur"]))
                 # Même contrat que Traitement_factures : si l'email n'a pas
                 # été accepté, la demande reste "attente" (aucun nouvel état,
                 # aucun changement de protocole Connecthys) au lieu d'annoncer
@@ -1419,7 +1453,8 @@ class Traitement():
         # Récupération des paramètres
         IDfacture = int(self.dict_parametres["IDfacture"])
         edition = Edition_facture(parent=self.parent, IDfacture=IDfacture, IDfamille=self.track.IDfamille,
-                                  cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "facture"))
+                                  cle_suivi=UTILS_Envoi_email.CleSuiviDemande(getattr(self.track, "IDaction", None), "facture"),
+                                  empreinte=UTILS_Emails_acceptes.EmpreinteLigne("factures", "IDfacture", IDfacture, ["numero", "date_edition", "date_debut", "date_fin", "total"]))
 
         # Traitement manuel
         if self.mode == "manuel" :
@@ -2050,11 +2085,12 @@ class Traitement():
 
 class Edition_facture():
     """ Classe spéciale pour l'édition des factures """
-    def __init__(self, parent=None, IDfacture=None, IDfamille=None, cle_suivi=None):
+    def __init__(self, parent=None, IDfacture=None, IDfamille=None, cle_suivi=None, empreinte=None):
         self.parent = parent
         self.IDfacture = IDfacture
         self.IDfamille = IDfamille
         self.cle_suivi = cle_suivi
+        self.empreinte = empreinte
 
     def Reedition(self, afficherOptions=True):
         self.afficherOptions = afficherOptions
@@ -2064,7 +2100,7 @@ class Edition_facture():
     def EnvoyerEmail(self, visible=True):
         self.afficherOptions = visible
         resultat = UTILS_Envoi_email.EnvoiEmailFamille(parent=self.parent, IDfamille=self.IDfamille, nomDoc=FonctionsPerso.GenerationNomDoc("FACTURE", "pdf"), categorie="facture", visible=visible, CreationPDF=self.CreationPDF,
-                                                       cle_suivi=self.cle_suivi)
+                                                       cle_suivi=self.cle_suivi, empreinte=self.empreinte)
         return resultat
 
     def CreationPDF(self, nomDoc="", afficherDoc=True):

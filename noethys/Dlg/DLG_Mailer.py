@@ -108,6 +108,7 @@ class Dialog(wx.Dialog):
         self.listePiecesJointes = []
         self.listeAnomalies = []
         self.listeSucces = []
+        self.listeIncertains = []
         # Vrai seulement si le dernier envoi réel (hors message de test) a été
         # accepté pour TOUS ses destinataires, quel que soit le moteur.
         self.envoi_complet = False
@@ -569,6 +570,9 @@ class Dialog(wx.Dialog):
         self.listeSucces = []
         self.envoi_complet = False
         self.listeAnomalies = []
+        # Messages peut-être acceptés (réponse perdue après émission) : le
+        # suivi des confirmations Connecthys ne les relance pas automatiquement.
+        self.listeIncertains = []
         try:
             messagerie = UTILS_Envoi_email.Messagerie(
                 backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
@@ -622,6 +626,7 @@ class Dialog(wx.Dialog):
                 )
                 retry_sur = etat["phase"] == "connexion" or refus_explicite
                 if not retry_sur:
+                    self.listeIncertains.append(message)
                     detail = _(u"État incertain : Mailjet a peut-être accepté ce message. "
                                u"Vérifiez le suivi Mailjet avant tout nouvel envoi.\n") + detail
                 UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
