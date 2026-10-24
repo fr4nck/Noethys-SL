@@ -84,7 +84,8 @@ class Dialog(wx.Dialog):
         self.label_date_debut = wx.StaticText(self, -1, u"Du")
         self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
         self.label_date_fin = wx.StaticText(self, -1, _(u"au"))
-        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
+        # Borne alignée sur la validité illimitée (2999-01-01) reçue d'une pièce.
+        self.ctrl_date_fin = CTRL_Saisie_date.Date2(self, date_max="01/01/2999")
         self.bouton_echeance = wx.Button(self, -1, _(u"Fin à la prochaine échéance"))
         self.label_echeances = wx.StaticText(self, -1, _(u"Renouvellement : 10 janvier et 10 septembre.\nCette saisie ne recalcule pas les factures établies."))
         

@@ -86,6 +86,18 @@ class ReceptionTests(unittest.TestCase):
         self.base.db.ExecuterReq('SELECT date_debut, date_fin, quotient FROM quotients')
         self.assertEqual(self.base.db.ResultatReq(), [('2026-10-02', '2999-01-01', 790.0)])
 
+    def test_saisie_directe_du_quotient_illimite_acceptee(self):
+        from Dlg import DLG_Saisie_quotient
+        dlg = DLG_Saisie_quotient.Dialog(self.dialog, IDfamille=42)
+        self.addCleanup(dlg.Destroy)
+        dlg.SetDateDebut(datetime.date(2026, 10, 2))
+        dlg.SetDateFin(datetime.date(2999, 1, 1))
+        dlg.SetTypeQuotient(1)
+        dlg.SetQuotient(790)
+        self.assertTrue(dlg.ValiderEtEnregistrer())
+        self.base.db.ExecuterReq('SELECT date_fin FROM quotients')
+        self.assertEqual(self.base.db.ResultatReq(), [('2999-01-01',)])
+
     def test_echec_piece_ne_cree_pas_quotient(self):
         self.completer()
         with patch.object(self.dialog, 'Sauvegarde', return_value=False), patch.object(self.dialog, 'SaisirQuotient') as save:
