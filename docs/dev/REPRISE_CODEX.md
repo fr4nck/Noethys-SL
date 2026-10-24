@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9 — NO-GO, lot 3 bis : contre-épreuve et pannes SQL du type de cotisation (24/10/2026, wx uniquement)
+
+- **Méthode** : `tests/test_noethys_sl_type_cotisation_erreurs.py` exécute les vraies méthodes `Importation` / `OnBoutonOk` sur un hôte sans fenêtre et une base SQLite fictive ; pannes SQL injectées au curseur de GestionDB (ReqInsert renvoie `None`, ReqMAJ/ReqDEL n'émettent rien). Rejoué sans modifier les références Git sur deux copies `git archive` : `a0d8f6e` (avant correctif) et `00c97ed` (premier correctif).
+- **Défauts reproduits sur `a0d8f6e`** (6 FAIL, 3 ERROR, tous métier) : unité insérée deux fois au second OK ; suppression rejouée (2 DELETE) ; ouverture impossible (`ConfigurationAdhesionInvalide` dans `Importation`) ; faux succès quand la base refuse la création du type (unités écrites avec `IDtype_cotisation` nul), l'insertion, la modification ou la suppression d'une unité.
+- **Défauts encore reproduits sur `00c97ed`** (5 FAIL) : les quatre faux succès ci-dessus, aggravés pour l'insertion (unité marquée enregistrée alors qu'elle ne l'était pas) ; réparation du mode interrompue après la suppression des doublons : une ligne arbitraire restait et devenait un mode valide en silence.
+- **Correctif** : type, unités et remplacement d'un mode signalé invalide écrits dans **une seule transaction** par écritures contrôlées (`_Ecrire`, curseur direct, erreurs non masquées) ; en cas d'erreur, rollback, message « Rien n'a été modifié », fenêtre ouverte, liste des unités inchangée. Identifiants et états des unités réécrits seulement après validation. Le remplacement du mode cible `categorie='noethys_sl_adhesions_activites' AND nom='type_<ID>'` uniquement ; `UTILS_Adhesions` reste sans DELETE. Aucune écriture sur `cotisations` ni `prestations` (vérifié à chaque test).
+- **Résultats** : 9/9 PASS sur le code corrigé (banc wx simulé) ; `test_noethys_sl_adhesions` 36, `_inscriptions` 14, `_inscriptions_wx` 4 PASS. Concurrence et rollback MySQL : **NON QUALIFIÉS** (workflow MySQL non lancé ; sur tables MyISAM, pas de rollback possible).
+
 ## RC9 — NO-GO, lot 3 : saisie des types de cotisation (24/10/2026, wx uniquement)
 
 - **Anomalies traitées (audit différentiel)** : n°4 (unités insérées une seconde fois quand `EnregistrerModeAssociation` échoue puis qu'on revalide : les identifiants insérés n'étaient pas réécrits dans la liste) ; n°11 (mode d'association en double ou invalide : `LireModeAssociation` levait dans `Importation`, type impossible à ouvrir et seule réparation possible par SQL) ; n°10 (effet du mode par défaut « inscriptions » sur les types existants non documenté).

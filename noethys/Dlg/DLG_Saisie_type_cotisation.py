@@ -260,22 +260,14 @@ class Dialog(wx.Dialog):
         dlg.ShowModal()
         dlg.Destroy()
 
-    def SupprimerDoublonsModeAssociation(self):
-        """ Validation d'un mode signalé invalide : ne garde qu'une ligne de
-        paramétrage pour ce type (table parametres uniquement) ; le mode
-        choisi y est ensuite enregistré par EnregistrerModeAssociation. """
-        from Utils import UTILS_Adhesions
-        DB = GestionDB.DB()
-        try:
-            req = """SELECT IDparametre FROM parametres
-            WHERE categorie='%s' AND nom='type_%d' ORDER BY IDparametre;""" % (
-                UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, int(self.IDtype_cotisation))
-            if DB.ExecuterReq(req) != 1:
-                raise RuntimeError(_(u"Lecture du paramétrage impossible."))
-            for (IDparametre,) in DB.ResultatReq()[1:]:
-                DB.ReqDEL("parametres", "IDparametre", IDparametre)
-        finally:
-            DB.Close()
+    def _Ecrire(self, DB, req, valeurs=()):
+        """ Écriture contrôlée dans la transaction en cours : ReqInsert,
+        ReqMAJ et ReqDEL masquent les erreurs SQL, ici elles interrompent
+        l'enregistrement. Retourne l'ID créé par un INSERT. """
+        if DB.isNetwork == True :
+            req = req.replace("?", "%s")
+        DB.cursor.execute(req, tuple(valeurs))
+        return DB.cursor.lastrowid
 
     def OnAjouterUnite(self, event): 
         self.ctrl_unites.Ajouter(None)
@@ -327,71 +319,112 @@ class Dialog(wx.Dialog):
         code_comptable = self.ctrl_code_comptable.GetValue() 
         code_produit_local = self.ctrl_code_produit_local.GetValue()
 
-        # Sauvegarde du type de cotisation
-        DB = GestionDB.DB()
-        listeDonnees = [    
-                ("nom", nom),
-                ("type", type),
-                ("carte", carte),
-                ("defaut", self.defaut),
-                ("code_comptable", code_comptable),
-                ("code_produit_local", code_produit_local),
-            ]
-        if self.IDtype_cotisation == None :
-            self.IDtype_cotisation = DB.ReqInsert("types_cotisations", listeDonnees)
-        else:
-            DB.ReqMAJ("types_cotisations", listeDonnees, "IDtype_cotisation", self.IDtype_cotisation)
-            
-        # Sauvegarde des unités de cotisation
-        for dictUnite in listeUnites :
-            IDunite_cotisation = dictUnite["IDunite_cotisation"]
-            date_debut = dictUnite["date_debut"]
-            date_fin = dictUnite["date_fin"]
-            defaut = dictUnite["defaut"]
-            nom = dictUnite["nom"]
-            montant = dictUnite["montant"]
-            label_prestation = dictUnite["label_prestation"]
-            etat = dictUnite["etat"]
-            duree = dictUnite["duree"]
-            
-            listeDonnees = [    
-                ("IDtype_cotisation", self.IDtype_cotisation),
-                ("date_debut", date_debut),
-                ("date_fin", date_fin),
-                ("defaut", defaut),
-                ("nom", nom),
-                ("montant", montant),
-                ("label_prestation", label_prestation),
-                ("duree", duree),
-            ]
-            
-            # Ajout
-            if etat == "MODIF" and IDunite_cotisation == None :
-                IDunite_cotisation = DB.ReqInsert("unites_cotisations", listeDonnees)
-            # Modification
-            if etat == "MODIF" and IDunite_cotisation != None :
-                DB.ReqMAJ("unites_cotisations", listeDonnees, "IDunite_cotisation", IDunite_cotisation)
-                # Unité enregistrée : une nouvelle validation (fenêtre restée
-                # ouverte après une erreur) ne doit pas l'insérer une seconde fois.
-                dictUnite["IDunite_cotisation"] = IDunite_cotisation
-                dictUnite["etat"] = None
-            # Suppression
-            if etat == "SUPPR" and IDunite_cotisation != None :
-                DB.ReqDEL("unites_cotisations", "IDunite_cotisation", IDunite_cotisation)
-                dictUnite["IDunite_cotisation"] = None
-        
-        DB.Close()
-
-        # Option de mode par type d'adhésion : en dehors de la saisie
-        # financière, sans migration de schéma de la base historique.
+        mode = None
         if type == "individu":
             from Utils import UTILS_Adhesions
             mode = (UTILS_Adhesions.MODE_ASSOCIATION_INSCRIPTIONS
                     if self.ctrl_mode_adhesion.GetSelection() == 0
                     else UTILS_Adhesions.MODE_ASSOCIATION_PARTICIPATIONS)
+
+        # Sauvegarde du type et des unités dans une seule transaction. La
+        # liste des unités n'est mise à jour qu'après validation : une
+        # nouvelle tentative ne rejoue ni insertion ni suppression déjà
+        # enregistrée, et une écriture refusée reste à enregistrer.
+        IDtype_cotisation = self.IDtype_cotisation
+        unitesEnregistrees = []
+        DB = GestionDB.DB()
+        try:
+            if getattr(DB, "echec", 0) == 1 :
+                raise RuntimeError(_(u"Base inaccessible : %s") % getattr(DB, "erreur", u""))
+            listeDonnees = [
+                    ("nom", nom),
+                    ("type", type),
+                    ("carte", carte),
+                    ("defaut", self.defaut),
+                    ("code_comptable", code_comptable),
+                    ("code_produit_local", code_produit_local),
+                ]
+            champs = [champ for champ, valeur in listeDonnees]
+            valeurs = [valeur for champ, valeur in listeDonnees]
+            if IDtype_cotisation == None :
+                IDtype_cotisation = self._Ecrire(DB, "INSERT INTO types_cotisations (%s) VALUES (%s)" % (
+                    ", ".join(champs), ", ".join(["?"] * len(champs))), valeurs)
+                if not IDtype_cotisation :
+                    raise RuntimeError(_(u"Type de cotisation créé sans identifiant."))
+            else:
+                self._Ecrire(DB, "UPDATE types_cotisations SET %s WHERE IDtype_cotisation=?" % (
+                    ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDtype_cotisation])
+
+            # Sauvegarde des unités de cotisation
+            for dictUnite in listeUnites :
+                IDunite_cotisation = dictUnite["IDunite_cotisation"]
+                etat = dictUnite["etat"]
+                listeDonnees = [
+                    ("IDtype_cotisation", IDtype_cotisation),
+                    ("date_debut", dictUnite["date_debut"]),
+                    ("date_fin", dictUnite["date_fin"]),
+                    ("defaut", dictUnite["defaut"]),
+                    ("nom", dictUnite["nom"]),
+                    ("montant", dictUnite["montant"]),
+                    ("label_prestation", dictUnite["label_prestation"]),
+                    ("duree", dictUnite["duree"]),
+                ]
+                champs = [champ for champ, valeur in listeDonnees]
+                valeurs = [valeur for champ, valeur in listeDonnees]
+                # Ajout
+                if etat == "MODIF" and IDunite_cotisation == None :
+                    IDunite_cotisation = self._Ecrire(DB, "INSERT INTO unites_cotisations (%s) VALUES (%s)" % (
+                        ", ".join(champs), ", ".join(["?"] * len(champs))), valeurs)
+                    if not IDunite_cotisation :
+                        raise RuntimeError(_(u"Unité de cotisation créée sans identifiant."))
+                    unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
+                # Modification
+                elif etat == "MODIF" :
+                    self._Ecrire(DB, "UPDATE unites_cotisations SET %s WHERE IDunite_cotisation=?" % (
+                        ", ".join("%s=?" % champ for champ in champs)), valeurs + [IDunite_cotisation])
+                    unitesEnregistrees.append((dictUnite, IDunite_cotisation, None))
+                # Suppression
+                elif etat == "SUPPR" and IDunite_cotisation != None :
+                    self._Ecrire(DB, "DELETE FROM unites_cotisations WHERE IDunite_cotisation=?", [IDunite_cotisation])
+                    unitesEnregistrees.append((dictUnite, None, "SUPPR"))
+
+            # Mode signalé invalide (doublon, valeur inconnue) : remplacé par
+            # le mode choisi dans la même transaction, pour ce seul type.
+            # Une erreur laisse le paramétrage invalide, donc toujours bloquant.
+            if mode != None and self.mode_association_invalide != None :
+                nomParametre = "type_%d" % int(IDtype_cotisation)
+                self._Ecrire(DB, "DELETE FROM parametres WHERE categorie=? AND nom=?",
+                             [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nomParametre])
+                self._Ecrire(DB, "INSERT INTO parametres (categorie, nom, parametre) VALUES (?, ?, ?)",
+                             [UTILS_Adhesions.CATEGORIE_MODE_ASSOCIATION, nomParametre, mode])
+            DB.Commit()
+        except Exception as err:
+            if getattr(DB, "connexion", None) is not None:
+                try:
+                    DB.connexion.rollback()
+                except Exception:
+                    pass
+            dlg = wx.MessageDialog(
+                self, _(u"Le type de cotisation n'a pas pu être enregistré. Rien n'a été modifié :\n%s") % err,
+                _(u"Enregistrement impossible"), wx.OK | wx.ICON_ERROR,
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+        finally:
+            DB.Close()
+
+        self.IDtype_cotisation = IDtype_cotisation
+        for dictUnite, IDunite_cotisation, etat in unitesEnregistrees :
+            dictUnite["IDunite_cotisation"] = IDunite_cotisation
+            dictUnite["etat"] = etat
+        if mode != None and self.mode_association_invalide != None :
+            self.mode_association_invalide = None
+
+        # Option de mode par type d'adhésion : en dehors de la saisie
+        # financière, sans migration de schéma de la base historique.
+        if mode != None:
             try:
-                if self.mode_association_invalide is not None:
-                    self.SupprimerDoublonsModeAssociation()
                 UTILS_Adhesions.EnregistrerModeAssociation(self.IDtype_cotisation, mode)
             except Exception as err:
                 dlg = wx.MessageDialog(
