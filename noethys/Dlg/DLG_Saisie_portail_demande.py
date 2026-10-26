@@ -19,6 +19,7 @@ import GestionDB
 import FonctionsPerso
 from Ctrl import CTRL_Bouton_image
 from Utils import UTILS_Envoi_email
+from Utils import UTILS_Diagnostic_ui
 from Utils import UTILS_Emails_acceptes
 from Utils import UTILS_Facturation
 from Utils import UTILS_Dates
@@ -386,6 +387,9 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonManuel, self.bouton_manuel)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
+
+        # Diagnostic technique facultatif (aucun identifiant ni contenu metier).
+        self._diag_ui = UTILS_Diagnostic_ui.Diagnostic(self)
 
         # Init
         self.Importation()
@@ -1039,8 +1043,9 @@ class Dialog(wx.Dialog):
         self.Update()
 
     def Traitement(self, mode="automatique"):
-        traitement = Traitement(parent=self, track=self.track, mode=mode)
-        resultat = traitement.Traiter()
+        with UTILS_Diagnostic_ui.mesurer(self, "demande.traitement"):
+            traitement = Traitement(parent=self, track=self.track, mode=mode)
+            resultat = traitement.Traiter()
 
         # Sauvegarde de l'état
         if resultat != False :
@@ -1056,11 +1061,13 @@ class Dialog(wx.Dialog):
                     self.AfficherProgressionReservations(resultat["reponse"])
 
                 # Enregistrement de la demande
-                self.Sauvegarde()
+                with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
+                    self.Sauvegarde()
 
         # Réactualise le solde
-        self.ctrl_solde.MAJ(IDfamille=self.track.IDfamille)
-        self.MAJ_informations()
+        with UTILS_Diagnostic_ui.mesurer(self, "demande.actualisation"):
+            self.ctrl_solde.MAJ(IDfamille=self.track.IDfamille)
+            self.MAJ_informations()
 
         # Automatique : Tout traiter
         # index = self.tracks.index(self.track)
@@ -1593,8 +1600,10 @@ class Traitement():
 
         if self.mode == "automatique" :
             ctrl_grille = self.parent.ctrl_grille
-            self.Init_grille(ctrl_grille=ctrl_grille)
-            reponse = self.Appliquer_reservations(ctrl_grille=ctrl_grille)
+            with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.initialisation_grille"):
+                self.Init_grille(ctrl_grille=ctrl_grille)
+            with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.calcul"):
+                reponse = self.Appliquer_reservations(ctrl_grille=ctrl_grille)
 
             # Le calcul des réservations est terminé à ce stade, mais Sauvegarde()
             # peut encore prendre quelques secondes. Afficher donc immédiatement
@@ -1605,7 +1614,8 @@ class Traitement():
                 self.parent.AfficherProgressionReservations(
                     reponse, _(u"Enregistrement des modifications en cours…"))
             self.EcritLog(_(u"Enregistrement des consommations en cours..."))
-            self.Save_grille(ctrl_grille)
+            with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.sauvegarde"):
+                self.Save_grille(ctrl_grille)
             self.EcritLog(_(u"Enregistrement des consommations terminé."))
             if reponse == "":
                 return {"etat" : False, "reponse" : reponse}

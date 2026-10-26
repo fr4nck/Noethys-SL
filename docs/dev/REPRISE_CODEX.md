@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-3A — mesures optionnelles de la reactivite Connecthys (26/10/2026)
+
+- Nouveau `UTILS_Diagnostic_ui.py` dans la seule branche `wx` ; inactif par defaut. Pour des mesures locales volontaires uniquement : `NOETHYS_SL_UI_DIAG=1` au demarrage de l'application. Aucun fichier n'est ouvert par le diagnostic ; lignes techniques dans la console seulement lorsque l'option est active.
+- Mesure les etapes strictement techniques `demande.traitement`, `demande.enregistrement`, `demande.actualisation`, `reservations.initialisation_grille`, `reservations.calcul`, `reservations.sauvegarde`. Estime la duree de non-traitement des evenements wx a partir du battement de 250 ms ; trace activation, maximisation, taille de fenetre et iconisation sans identifiant.
+- Journalisation a schema ferme : operation technique, duree, gap UI, type d'exception et booleens d'etat. Aucun identifiant, contenu de reservation, nom, adresse, montant, email, secret ou SQL n'est collecte.
+- Aucun changement du moteur des consommations, aucune creation de thread SQL, ni `wx.Yield`. Mesures de recette sur Windows reel : **non qualifiees** a ce stade.
+- Tests synthetiques permanents : `tests/test_connecthys_ui3_diagnostic.py`, inclus dans la CI rapide. Le lot suivant sera oriente par les mesures, pas par une hypothese.
+
+
 ## UI-1B — owner Win32 des alertes communes (26/10/2026, wx)
 
 - `DLG_Messagebox.Dialog` retrouve la premiere fenetre visible en remontant ses parents. Un dialogue associe ne prend plus les styles `wx.STAY_ON_TOP` et `wx.DIALOG_NO_PARENT` : son owner Win32 est la fenetre visible. Les alertes reellement sans owner conservent leur style ancien.
