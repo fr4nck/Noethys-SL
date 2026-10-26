@@ -282,11 +282,31 @@ class CTRL_Solde(wx.TextCtrl):
 
 # -------------------------------------------------------------------------------------------------------------------------------------------
 
+def _RefuserTraitementReentrant(fonction):
+    """Interdit une seconde execution pendant une boucle modale imbriquee.
+
+    Le verrou est strictement local au dialogue Connecthys. Il est libere
+    meme si un traitement leve une exception ; ni la base ni les widgets
+    ne sont touches par cette protection.
+    """
+    def executer(self, *args, **kwargs):
+        if getattr(self, "_traitement_en_cours", False):
+            return False
+        self._traitement_en_cours = True
+        try:
+            return fonction(self, *args, **kwargs)
+        finally:
+            self._traitement_en_cours = False
+    return executer
+
+
 class Dialog(wx.Dialog):
     def __init__(self, parent, track=None, tracks=[]):
         wx.Dialog.__init__(self, parent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
         self.track = track
         self.tracks = tracks
+        # Garde local contre un second clic durant une boucle modale.
+        self._traitement_en_cours = False
 
         # Bandeau spécial
         self.panel_bandeau = wx.Panel(self, -1)
@@ -1042,6 +1062,7 @@ class Dialog(wx.Dialog):
         self.panel_bandeau.Update()
         self.Update()
 
+    @_RefuserTraitementReentrant
     def Traitement(self, mode="automatique"):
         with UTILS_Diagnostic_ui.mesurer(self, "demande.traitement"):
             traitement = Traitement(parent=self, track=self.track, mode=mode)

@@ -1,11 +1,22 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-3B — protection contre la reentree Connecthys (26/10/2026, wx)
+
+- Qualification de la base UI-2B : run [40297166024](https://github.com/fr4nck/Noethys-SL/actions/runs/40297166024), 1025 tests, 997 PASS, 1 FAIL (ancienne assertion statique sur le nombre de routes d'envoi), 0 ERROR, 27 SKIP. Le commit concurrent `57b9105` remplace le comptage fragile par des assertions sur les branches. La contre-qualification du correctif `57b9105` est [SUCCESS sur le run 40298190887](https://github.com/fr4nck/Noethys-SL/actions/runs/40298190887) : 1025 tests, 998 PASS, 0 FAIL, 0 ERROR, 27 SKIP. UI-3B peut etre publie puis qualifie separement.
+
+- Baseline : `wx` `57b910565fdb37cf3a5850a59c28cd16fb89c229` ; `main` `77c7efe2b96bc2272f1130745a7a4aa5b832c0ed` ; `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06`. Changement exclusivement wx ; aucune fusion et aucune synchronisation implicite.
+- Un appel a `Dialog.Traitement` pendant un autre traitement sur le meme dialogue renvoie `False` immediatement ; la garde est liberee dans `finally` meme en cas d'erreur. Cela empeche la relance dans une boucle modale wx sans toucher aux operations metier.
+- Test contradictoire `tests/test_connecthys_ui3_reentrance.py` : avec le meme corps de methode, 2 executions sans garde contre 1 seule avec la garde ; tests egalement de restitution du resultat, exception et reprise. Pas de bases, d'emails ou de données de familles.
+- Limites : cette protection n'empeche pas un clic traite **apres** la fin du premier traitement. Elle ne deplace aucune sauvegarde synchronique, ne garantit pas la reactivite Windows et n'augmente pas artificiellement le focus. Qualifier avec la CI Windows du SHA pousse avant verdict.
+- Publication uniquement par commit sur `wx` apres la qualification du lot UI-2B concurrent ; aucun tag, release ou deploiement.
+
+
 ## UI-2B — lots SMTP depuis l'editeur visible (26/10/2026, wx seulement)
 
 - Baseline UI-3A `d7c9d031da9931afbfa94fc544237ddeb3ad8f41`. Correction ciblee : `DLG_Mailer.Dialog.Envoyer` passe aussi par `_EnvoyerLotSmtpHorsUI` pour les lots SMTP de plus d'un destinataire lorsque l'editeur est ouvert. Le moteur Mailjet visible reste sur `Envoyer_lot` historique (encore synchrone, UI-2C non qualifie).
 - Connexion, transmission et temporisations SMTP en worker. Progression modale visible appartenant au Mailer. Historisation de chaque adresse acceptee sur le thread UI, pas de nouvel essai automatique apres resultat incertain, confirmations partielles et resume d'envoi conserves.
 - Protections : `_envoi_en_cours` interdit le second clic pendant le lot; retour de l'etat a la fin meme en cas d'exception. Aucune transaction metier, aucune base de production et aucun mail reel dans les tests.
-- Tests permanents avec moteur SMTP factice : deux destinataires, proprietaire de la progression, preuve de threads distincts du thread wx, anti double clic et maintien de l'affichage de l'editeur; AST du chemin conserve. Tests a qualifier sur la CI du commit effectif.
+- Tests permanents avec moteur SMTP factice : deux destinataires, proprietaire de la progression, preuve de threads distincts du thread wx, anti double clic et maintien de l'affichage de l'editeur; AST du chemin conserve. La contre-qualification finale du routage SMTP visible et des tests de non-doublons est obtenue au commit `57b910565fdb37cf3a5850a59c28cd16fb89c229` (run [40298190887](https://github.com/fr4nck/Noethys-SL/actions/runs/40298190887), 1025 tests, 998 PASS, 0 FAIL, 0 ERROR, 27 SKIP).
 - Limites : Mailjet visible multi et d'autres appelants directs de `SmtpV2.Envoyer_lot` restent synchrones; il faut une contre-qualification propre avant d'y changer les regles de reprise.
 
 
@@ -15,13 +26,13 @@
 - Mesure les etapes strictement techniques `demande.traitement`, `demande.enregistrement`, `demande.actualisation`, `reservations.initialisation_grille`, `reservations.calcul`, `reservations.sauvegarde`. Estime la duree de non-traitement des evenements wx a partir du battement de 250 ms ; trace activation, maximisation, taille de fenetre et iconisation sans identifiant.
 - Journalisation a schema ferme : operation technique, duree, gap UI, type d'exception et booleens d'etat. Aucun identifiant, contenu de reservation, nom, adresse, montant, email, secret ou SQL n'est collecte.
 - Aucun changement du moteur des consommations, aucune creation de thread SQL, ni `wx.Yield`. Mesures de recette sur Windows reel : **non qualifiees** a ce stade.
-- Tests synthetiques permanents : `tests/test_connecthys_ui3_diagnostic.py`, inclus dans la CI rapide. Le lot suivant sera oriente par les mesures, pas par une hypothese.
+- Tests synthetiques permanents : `tests/test_connecthys_ui3_diagnostic.py`, inclus dans la CI rapide. Le commit `d7c9d031da9931afbfa94fc544237ddeb3ad8f41` a obtenu run [40295946780](https://github.com/fr4nck/Noethys-SL/actions/runs/40295946780) SUCCESS : 1022 tests, 995 PASS, 0 FAIL, 0 ERROR, 27 SKIP. Recette Windows sur poste reel encore non qualifiee.
 
 
 ## UI-1B — owner Win32 des alertes communes (26/10/2026, wx)
 
 - `DLG_Messagebox.Dialog` retrouve la premiere fenetre visible en remontant ses parents. Un dialogue associe ne prend plus les styles `wx.STAY_ON_TOP` et `wx.DIALOG_NO_PARENT` : son owner Win32 est la fenetre visible. Les alertes reellement sans owner conservent leur style ancien.
-- Contre-qualifications prevues sous Windows reel : `GW_OWNER`, dialog avec parent masque et ancetre visible, maintien du flag maximise. Tests dans `tests/test_vanilla_dlg_mailer_progress_parent.py`. **A qualifier sur la CI du commit UI-1B**.
+- Contre-qualifications prevues sous Windows reel : `GW_OWNER`, dialog avec parent masque et ancetre visible, maintien du flag maximise. Tests dans `tests/test_vanilla_dlg_mailer_progress_parent.py`. **Run [40294795518](https://github.com/fr4nck/Noethys-SL/actions/runs/40294795518) SUCCESS** : 1015 tests, 988 PASS, 0 FAIL, 0 ERROR, 27 SKIP ; le focus en usage reel demeure non qualifie.
 - Ce changement ne touche ni Mailjet, ni les tables SQL, ni les dossiers locaux, ni les regles de confirmation RC9.
 
 
@@ -30,7 +41,7 @@
 - Baseline: UI-1 `c28f319af8b33da7596b928214388c648e0ad056`.
 - Les confirmations Connecthys sans editeur utilisent desormais `_EnvoyerLotSmtpHorsUI` lorsque le moteur n'est pas Mailjet : Connexion/SMTP/fermeture sur un worker avec progression modale rattachee a la fenetre Connecthys visible ; preparation des messages, historique et boites d'erreur sur le thread UI.
 - Une connexion SMTP est reconstruite pour chaque message ou essai, sans reutiliser la socket fermee. La temporisation entre messages et par quota SMTP demeure hors thread UI. Pas de deuxieme tentative automatique en cas de reponse incertaine pendant l'envoi (notamment SMTPServerDisconnected) ; conservation de `listeSucces` et `listeIncertains` pour le suivi Connecthys RC9. Un simple echec avant l'envoi peut etre retente explicitement par l'utilisateur.
-- Les envois interactifs de plusieurs destinataires gardent provisoirement `Envoyer_lot` historique synchrone : **UI-2B NON QUALIFIE**. Les tests UI-2A utilisent uniquement des messages fictifs ; aucune connexion ni email reel.
+- Au moment du lot UI-2A, les envois interactifs de plusieurs destinataires utilisaient encore `Envoyer_lot` synchrone. Depuis le commit UI-2B `e553cc3`, le lot SMTP visible emprunte un worker ; cette extension garde une qualification distincte. Mailjet visible multi reste synchrone. Les tests UI-2A utilisent uniquement des messages fictifs ; aucune connexion ni email reel.
 - Tests cibles : `tests/test_connecthys_smtp_lot_asynchrone.py`, `tests/test_vanilla_dlg_mailer_progress_parent.py`, `tests/test_connecthys_ui1_dialog_owner.py`; CI et recette Windows doivent etre verifiees sur le SHA final. Pas de release.
 
 
