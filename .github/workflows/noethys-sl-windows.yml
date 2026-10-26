@@ -33,6 +33,10 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    # CE-4/CE-5 utilise un sous-processus Python isole : chemins du projet
+    # et des fixtures de garde reseau obligatoires comme en CI rapide.
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
     steps:
       - uses: actions/checkout@v7
 

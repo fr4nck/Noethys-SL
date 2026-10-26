@@ -323,6 +323,18 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(Evaluer(condition, Contexte("push", message="[publish rc9.1]")))
         self.assertFalse(Evaluer(condition, Contexte("push", message="docs")))
 
+    def test_pythonpath_sous_processus_aligne_sur_ci_rapide(self):
+        """Les sous-processus CE-4/CE-5 doivent retrouver la garde reseau."""
+        rapide = LireWorkflow(
+            (RACINE / ".github" / "workflows" / "noethys-sl-fast.yml")
+            .read_text(encoding="utf-8")
+        )
+        attendu = rapide["jobs"]["tests-windows"]["env"]["PYTHONPATH"]
+        obtenu = self.jobs["build"].get("env", {}).get("PYTHONPATH")
+        self.assertEqual(obtenu, attendu)
+        self.assertIn(r"\noethys", obtenu)
+        self.assertIn(r"\tests", obtenu)
+
     def test_declencheurs_limites(self):
         self.assertEqual(set(self.workflow["on"]), {"workflow_dispatch", "push"})
         self.assertEqual(self.workflow["on"]["push"]["branches"], ["wx"])

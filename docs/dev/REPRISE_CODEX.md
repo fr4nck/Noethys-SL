@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9.1 — Correction ciblée du packaging Windows (26/10/2026)
+
+- Diagnostic vérifié : le run de construction [40358267921](https://github.com/fr4nck/Noethys-SL/actions/runs/40358267921), SHA `9a91e9f9`, s'arrête au test `test_marqueur_visible_depuis_un_processus_neuf` de CE-4/CE-5 : `ModuleNotFoundError: No module named '_garde_reseau'` dans le subprocess ; 734 tests, 1 FAIL, 11 SKIP.
+- La CI rapide [40358267781](https://github.com/fr4nck/Noethys-SL/actions/runs/40358267781) du même SHA est PASS (1139 tests, 0 FAIL, 30 SKIP). Sa différence causale est le `PYTHONPATH` Windows (`noethys`, `tests`, racine) absent dans le job `build` du packaging.
+- Correctif : paramétrer le job Windows de construction avec la même variable que la CI rapide. Ajouter un test de garde comparant les deux workflows ; aucune modification à la logique Connecthys, aux tests métier, aux données ou à l'historique des notes de versions.
+- Relancer uniquement le candidat `[candidate rc9.1]` sur `wx`, sans publication automatique. Vérifier le packaging intégral, le MySQL fictif, les démarrages, les artefacts et leurs empreintes avant déclaration PASS. Le bilan de recette Windows sur copie fictive reste indépendant et nécessaire avant usage comptable.
+- Matrice : `main` et `qt` non modifiées ; `wx` seul concerné par la correction de CI ; la release RC9 demeure intacte.
+
+
 ## RC9.1 wx — Préparation de candidat du 26/10/2026
 
 - Base ciblée : `wx` 21c4fc2a0b440d91d18d7fa582d91a9989fd982b (candidate RC9 Windows PASS, test rapide Windows 1139 PASS, 0 FAIL, 30 SKIP) ; `main` f6f5ccdf6a491025db052b7759aa6facc01b2eca ; `qt` f2316046f9f22ed59aeba33f9f8c090d3667ca06.
