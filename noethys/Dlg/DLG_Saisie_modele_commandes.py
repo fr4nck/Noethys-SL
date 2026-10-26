@@ -15,6 +15,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import six
+from Utils import UTILS_Repas_validation
 import GestionDB
 from Data import DATA_Civilites as Civilites
 from Ol import OL_Commandes_colonnes
@@ -121,7 +122,7 @@ class Page_Colonnes(wx.Panel):
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str):
-            dictParametres = eval(dictParametres)
+            dictParametres = UTILS_Repas_validation.LireParametres(dictParametres)
         self.ctrl_colonnes.SetParametres(dictParametres)
 
     def Validation(self):
@@ -282,7 +283,7 @@ class Dialog(wx.Dialog):
         if len(listeDonnees) > 0:
             for IDcolonne, ordre, nom, largeur, categorie, parametres, nbre_valeurs in listeDonnees :
                 if type(parametres) in (str, six.text_type):
-                    parametres = eval(parametres)
+                    parametres = UTILS_Repas_validation.LireParametres(parametres)
                 if nbre_valeurs == None :
                     nbre_valeurs = 0
                 listeColonnes.append({"IDcolonne" : IDcolonne, "ordre" : ordre, "nom" : nom, "largeur" : largeur, "categorie" : categorie, "parametres" : parametres, "nbre_valeurs" : nbre_valeurs})

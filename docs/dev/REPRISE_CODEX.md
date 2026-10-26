@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Restauration #430 — report des Lots 1, 2A et 2B sur `wx` (26/10/2026)
+
+- **Base** : `wx` `769159452f3542416612c0c98ce96a9f09b59968` ; source `main` `887aec2469503713ad43bd6e7f75689a5ce414c8` (Lots `9be6dd91`, `0ef1f626`, `887aec24`) ; `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiée. Report ciblé par patch (diff `77c7efe2..887aec24` hors CI rapide et reprise), sans fusion globale.
+- **Comparaison** : les 8 fichiers modifiés étaient identiques sur `wx` et sur `main` avant le Lot 1 (aucune adaptation `wx` écrasée) ; 6 fichiers nouveaux ; après application, 14 fichiers identiques à `main` ; seule la liste de la CI rapide `wx` reçoit les 4 nouveaux modules de test. Parcours email propre à `wx` (`DLG_Mailer`, `UTILS_Envoi_email`) non modifié et testé (brouillon simulé sans SMTP).
+- **Tests locaux** : 321 tests OK (4 SKIP : MySQL sans serveur local, SMTP Python 3.12) — restauration, contrôle, PDF, brouillon, Mailjet/SMTP, contrats.
+- **Matrice #430 (régimes)** : `main` VALIDÉ (`887aec24`, CI rapide 40335141950, MySQL 40335159437) ; `wx` voir CI du présent report ; `qt` EN ATTENTE (aucun écran Qt de commande de repas ; non déclaré fonctionnel).
+- **Limites** : préférences non historisées (Lot 3) ; adultes à classer manuellement ; recette visuelle Windows EN ATTENTE ; aucune release.
+
 ## UI-3C.1 — barriere durable apres reservations incertaines (26/10/2026)
 
 - Base reelle `wx` : `9c601b3f4e6be74bc4d05ee1862b85988d221a02`. Lire la [preuve CE-4/CE-5 et la procedure de reconciliation](../recette/UI_3C1_RECONCILIATION.md).
