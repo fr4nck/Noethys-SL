@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -176,31 +177,23 @@ class DlgMailerProgressParentTests(unittest.TestCase):
 
         return parent_frame, dlg, [track]
 
-    def _envoyer_legacy(self, dlg, listeDestinataires):
-        with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
-             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie):
-            resultat = dlg.Envoyer(listeDestinataires=listeDestinataires)
-        self.assertNotEqual(resultat, False)
-        self.assertEqual(len(FausseProgressDialog.instances), 1)
-        return FausseProgressDialog.instances[0]
-
-    def test_chemin_cache_progressdialog_parentee_sur_le_parent_visible(self):
-        """visible=False : DLG_Mailer caché, son parent est visible.
-
-        La ProgressDialog doit être parentée directement sur ce parent
-        visible -- jamais sur le DLG_Mailer caché, jamais sur None.
-        """
+    def test_chemin_cache_smtp_est_asynchrone_et_parent_visible(self):
+        """Le dialogue cache envoie en worker; aucune ProgressDialog sans parent."""
         parent_frame, dlg, destinataires = self._construire_dlg(montrer_dlg=False)
-
+        thread_ui = threading.get_ident()
+        with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu") as bilan:
+            resultat = dlg.Envoyer(listeDestinataires=destinataires)
+        self.assertTrue(resultat)
         self.assertFalse(dlg.IsShownOnScreen())
         self.assertTrue(parent_frame.IsShownOnScreen())
-
-        progress = self._envoyer_legacy(dlg, destinataires)
-
-        self.assertIsNotNone(progress.parent)
-        self.assertIs(progress.parent, parent_frame)
-        self.assertIsNot(progress.parent, dlg)
-        self.assertTrue(progress.detruite)
+        self.assertEqual(FausseProgressDialog.instances, [])
+        self.assertIsNotNone(FausseMessagerie.thread_connecter)
+        self.assertIsNotNone(FausseMessagerie.thread_envoyer)
+        self.assertNotEqual(FausseMessagerie.thread_connecter, thread_ui)
+        self.assertNotEqual(FausseMessagerie.thread_envoyer, thread_ui)
+        self.assertIs(bilan.call_args.kwargs["parent"], parent_frame)
 
     def test_chemin_visible_unitaire_execute_le_reseau_hors_thread_wx(self):
         """visible=True + un destinataire : SMTP/API ne bloque plus le thread wx."""
@@ -221,13 +214,57 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         self.assertNotEqual(FausseMessagerie.thread_envoyer, thread_ui)
 
 
+    def test_latences_smtp_fictives_3_8_15_secondes_wx_reste_reactif(self):
+        """Un timer wx est servi PENDANT l'attente d'un transport factice."""
+        frame, dlg, destinataires = self._construire_dlg(montrer_dlg=False)
+        self.assertTrue(frame.IsShownOnScreen())
+        ui = threading.get_ident()
+
+        class SmtpFactice:
+            def __init__(self, delai):
+                self.delai = delai
+                self.worker_threads = []
+
+            def Connecter(self):
+                self.worker_threads.append(threading.get_ident())
+
+            def Envoyer(self, message):
+                self.worker_threads.append(threading.get_ident())
+                time.sleep(self.delai)
+                return True
+
+            def Fermer(self):
+                pass
+
+        class MessageFictif:
+            def GetLabelDestinataires(self):
+                return "contact@example.test"
+
+        for delai in (3, 8, 15):
+            with self.subTest(delai=delai):
+                transport = SmtpFactice(delai)
+                t0 = time.monotonic()
+                signaux_wx = []
+                timer = wx.CallLater(120, lambda: signaux_wx.append(
+                    (time.monotonic(), threading.get_ident())))
+                resultat = dlg._ExecuterEnvoiUniqueHorsUI(
+                    transport, MessageFictif(), frame, relancer_deconnexion=False,
+                )
+                timer.Stop()
+                self.assertTrue(resultat["succes"])
+                self.assertEqual(len(signaux_wx), 1)
+                self.assertEqual(signaux_wx[0][1], ui)
+                self.assertLess(signaux_wx[0][0] - t0, 2)
+                self.assertTrue(all(t != ui for t in transport.worker_threads))
+
     def test_chemin_unitaire_mailjet_compte_rendu_accepte_sans_renvoi(self):
         """Mailjet : bilan « accepte pour envoi » de main, jamais de renvoi apres acceptation."""
         parent_frame, dlg, destinataires = self._construire_dlg(montrer_dlg=True)
         FausseMessagerieMailjet.nb_envois = 0
         bilans = []
 
-        def compte_rendu(messagerie, messages, succes, anomalies, non_tentes, confirmation):
+        def compte_rendu(messagerie, messages, succes, anomalies, non_tentes, confirmation, parent=None):
+            self.assertIs(parent, dlg)
             bilans.append((len(messages), len(succes), len(anomalies), len(non_tentes)))
 
         with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog),              mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerieMailjet),              mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu", compte_rendu):

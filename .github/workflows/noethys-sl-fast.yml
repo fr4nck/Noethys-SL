@@ -141,6 +141,8 @@ jobs:
           tests.test_noethys_sl_accueil_compact
           tests.test_noethys_sl_periodes_saison
           tests.test_vanilla_dlg_mailer_progress_parent
+          tests.test_connecthys_ui1_dialog_owner
+          tests.test_connecthys_smtp_lot_asynchrone
           tests.test_connecthys_reservations_progress
           tests.test_noethys_sl_portail_repas
           tests.test_noethys_sl_assiduite

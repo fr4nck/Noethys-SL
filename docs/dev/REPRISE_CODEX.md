@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-2A — SMTP masque hors boucle wx (26/10/2026, branche wx)
+
+- Baseline: UI-1 `c28f319af8b33da7596b928214388c648e0ad056`.
+- Les confirmations Connecthys sans editeur utilisent desormais `_EnvoyerLotSmtpHorsUI` lorsque le moteur n'est pas Mailjet : Connexion/SMTP/fermeture sur un worker avec progression modale rattachee a la fenetre Connecthys visible ; preparation des messages, historique et boites d'erreur sur le thread UI.
+- Une connexion SMTP est reconstruite pour chaque message ou essai, sans reutiliser la socket fermee. La temporisation entre messages et par quota SMTP demeure hors thread UI. Pas de deuxieme tentative automatique en cas de reponse incertaine pendant l'envoi (notamment SMTPServerDisconnected) ; conservation de `listeSucces` et `listeIncertains` pour le suivi Connecthys RC9. Un simple echec avant l'envoi peut etre retente explicitement par l'utilisateur.
+- Les envois interactifs de plusieurs destinataires gardent provisoirement `Envoyer_lot` historique synchrone : **UI-2B NON QUALIFIE**. Les tests UI-2A utilisent uniquement des messages fictifs ; aucune connexion ni email reel.
+- Tests cibles : `tests/test_connecthys_smtp_lot_asynchrone.py`, `tests/test_vanilla_dlg_mailer_progress_parent.py`, `tests/test_connecthys_ui1_dialog_owner.py`; CI et recette Windows doivent etre verifiees sur le SHA final. Pas de release.
+
+
 ## UI-1 : proprietaires des dialogues (26/10/2026, wx)
 
 Base: wx 54482ba6c64faecf1603b6ab3fc73ad391719220. Corrige l'ouverture involontaire du Mailer cache lors des erreurs de validation; utilise une fenetre affichee comme proprietaire des alertes et de la progression. Le traitement des reservations rattache son avertissement a Connecthys. Le bilan Mailjet accepte un parent facultatif, compatible avec les appels existants. Aucun code SQL, aucune regle d'acceptation, aucune migration, aucune donnee reelle modifies.

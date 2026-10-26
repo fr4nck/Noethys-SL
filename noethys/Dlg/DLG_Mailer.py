@@ -455,7 +455,7 @@ class Dialog(wx.Dialog):
     def OnBoutonEnvoyer(self, event):
         self.Envoyer(listeDestinataires=self.ctrl_destinataires.GetDonnees())
 
-    def _ExecuterEnvoiUniqueHorsUI(self, messagerie, message, parent_progress, index=1, total=1, pause_avant=0):
+    def _ExecuterEnvoiUniqueHorsUI(self, messagerie, message, parent_progress, index=1, total=1, pause_avant=0, relancer_deconnexion=True):
         """Connexion + envoi d'un message sans bloquer le thread wx.
 
         Le worker ne touche jamais à wx. Les seuls changements visuels sont
@@ -486,6 +486,10 @@ class Dialog(wx.Dialog):
                 try:
                     resultat = messagerie.Envoyer(message)
                 except smtplib.SMTPServerDisconnected:
+                    if not relancer_deconnexion:
+                        # Apres une emission SMTP sans acquittement, renvoyer
+                        # automatiquement exposerait a un doublon.
+                        raise
                     _etape("reconnexion", _(u"Connexion interrompue — reconnexion…"))
                     messagerie.Connecter()
                     _etape("envoi", _(u"%s — nouvel essai d'envoi…") % libelle)
@@ -560,6 +564,148 @@ class Dialog(wx.Dialog):
                 self.listeSucces = []
                 return False
 
+
+    def _EnvoyerLotSmtpHorsUI(self, dictExp, messages, parent_progress):
+        """Connecthys: SMTP hors wx, historique et dialogues exclusivement sur wx.
+
+        Chaque tentative utilise une connexion distincte. Un echec APRES le
+        debut de l'envoi reste incertain: aucun nouvel envoi automatique,
+        meme en cas de deconnexion SMTP apres la commande DATA.
+        """
+        self.listeSucces = []
+        self.listeAnomalies = []
+        self.listeIncertains = []
+        self.envoi_complet = False
+
+        options = dict(
+            backend=dictExp["moteur"], hote=dictExp["smtp"], port=dictExp["port"],
+            utilisateur=dictExp["utilisateur"], motdepasse=dictExp["motdepasse"],
+            email_exp=dictExp["adresse"], nom_exp=dictExp["nom_adresse"],
+            timeout=20, use_tls=dictExp["startTLS"], parametres=dictExp["parametres"],
+        )
+        try:
+            transport_initial = UTILS_Envoi_email.Messagerie(**options)
+        except Exception as err:
+            dlg = DLG_Messagebox.Dialog(
+                parent_progress, titre=_(u"Erreur"),
+                introduction=_(u"La messagerie ne peut pas etre initialisee :"),
+                detail=_FormateErreurMessagerie(err), icone=wx.ICON_ERROR,
+                boutons=[_(u"Ok")],
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+            return False
+
+        def _entier_positif(valeur):
+            try:
+                return max(0, int(valeur or 0))
+            except (ValueError, TypeError):
+                return 0
+
+        parametrage = getattr(transport_initial, "dict_parametres", {})
+        quota = _entier_positif(parametrage.get("nbre_mails"))
+        pause_lot = _entier_positif(parametrage.get("duree_pause"))
+        anomalies, non_tentes, historique_incomplet = [], [], []
+        ne_pas_signaler_erreurs = False
+        total = len(messages)
+
+        for index, message in enumerate(messages, 1):
+            premiere_tentative = True
+            while True:
+                try:
+                    # Un SMTP Fermer() ferme la socket: ne jamais la reutiliser.
+                    transport = (transport_initial if index == 1 and premiere_tentative
+                                 else UTILS_Envoi_email.Messagerie(**options))
+                except Exception as err:
+                    # La creation du transport ne lance aucune operation reseau.
+                    etat = {"succes": False, "erreur": err, "phase": "connexion"}
+                else:
+                    delai = 0
+                    if premiere_tentative and index > 1 and total > 1:
+                        delai = 1
+                        if quota and (index - 1) % quota == 0:
+                            delai += pause_lot
+                    try:
+                        etat = self._ExecuterEnvoiUniqueHorsUI(
+                            transport, message, parent_progress, index=index, total=total,
+                            pause_avant=delai, relancer_deconnexion=False,
+                        )
+                    except Exception as err:
+                        # L'etat de la connexion est inconnu si la boite ou
+                        # le worker leve pendant/apres l'envoi. Ne pas retenter.
+                        etat = {"succes": False, "erreur": err, "phase": "envoi"}
+                premiere_tentative = False
+
+                if etat["succes"]:
+                    self.listeSucces.append(message)
+                    UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
+                    try:
+                        self.MemorisationHistorique(
+                            message.GetLabelDestinataires(), message.sujet, message=message,
+                        )
+                    except Exception:
+                        # Ne jamais reenclencher l'envoi apres acceptation.
+                        historique_incomplet.append(message)
+                    break
+
+                erreur = etat["erreur"] or RuntimeError(_(u"Envoi SMTP non confirme."))
+                detail = _FormateErreurMessagerie(erreur)
+                retry_sur = etat["phase"] == "connexion"
+                if not retry_sur:
+                    self.listeIncertains.append(message)
+                    detail = (_(u"Etat incertain : le serveur SMTP a peut-etre accepte le message. "
+                                u"Verifiez l'historique avant tout renvoi.\n") + detail)
+                UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
+                anomalies.append((message, detail))
+
+                if ne_pas_signaler_erreurs:
+                    break
+
+                suivants = index < total
+                if retry_sur:
+                    boutons = ([_(u"Reessayer"), _(u"Continuer"),
+                                _(u"Continuer et ne plus signaler les erreurs"), _(u"Arreter")]
+                               if suivants else [_(u"Reessayer"), _(u"Arreter")])
+                else:
+                    boutons = ([_(u"Continuer"), _(u"Continuer et ne plus signaler les erreurs"),
+                                _(u"Arreter")] if suivants else [_(u"Terminer")])
+                dlg = DLG_Messagebox.Dialog(
+                    parent_progress, titre=_(u"Envoi de l'Email"),
+                    introduction=_(u"Le message %d/%d n'est pas confirme :") % (index, total),
+                    detail=detail,
+                    conclusion=_(u"Les emails deja acceptes ne seront pas renvoyes."),
+                    icone=wx.ICON_EXCLAMATION, boutons=boutons,
+                )
+                choix = dlg.ShowModal()
+                dlg.Destroy()
+
+                if retry_sur and choix == 0:
+                    continue
+                if suivants and choix == (2 if retry_sur else 1):
+                    ne_pas_signaler_erreurs = True
+                if choix < 0 or (suivants and choix == (3 if retry_sur else 2)) or (
+                        not suivants and retry_sur and choix == 1):
+                    non_tentes = messages[index:]
+                break
+            if non_tentes:
+                break
+
+        self.listeAnomalies = anomalies
+        self.envoi_complet = len(self.listeSucces) == total
+        UTILS_Envoi_email._AfficherCompteRendu(
+            transport_initial, messages, self.listeSucces, anomalies,
+            non_tentes, self.afficher_confirmation_envoi, parent=parent_progress,
+        )
+        if historique_incomplet:
+            dlg = wx.MessageDialog(
+                parent_progress,
+                _(u"%d email(s) acceptes n'ont pas pu etre ajoutes a l'historique. "
+                  u"Ne les renvoyez pas pour cette raison.") % len(historique_incomplet),
+                _(u"Historique des emails"), wx.OK | wx.ICON_EXCLAMATION,
+            )
+            dlg.ShowModal()
+            dlg.Destroy()
+        return self.envoi_complet
 
     def _EnvoyerLotMailjetHorsUI(self, dictExp, messages, parent_progress):
         """Traite un à un les destinataires Mailjet sans appel réseau sur wx.
@@ -843,15 +989,16 @@ class Dialog(wx.Dialog):
             self.envoi_complet = adresseTest is None and bool(self.listeSucces)
             return bool(self.listeSucces)
 
-        # Les confirmations Connecthys (EnvoiEmailFamille sans éditeur) cachent
-        # le Mailer : l'ancien chemin Mailjet synchrone y bloquait wx, surtout
-        # pour deux adresses. Les envois par lot depuis l'éditeur affiché
-        # conservent le moteur historique (progression, arrêt, « ne plus
-        # signaler les erreurs »).
-        if dictExp["moteur"] == "mailjet" and not self.IsShownOnScreen():
+        # Les confirmations Connecthys utilisent toujours un dialogue Mailer
+        # cache. Mailjet ET SMTP executent desormais tout reseau hors wx ; les
+        # lots interactifs visibles conservent les commandes et pauses RC9.
+        if not self.IsShownOnScreen():
             self._envoi_en_cours = True
             try:
-                complet = self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)
+                if dictExp["moteur"] == "mailjet":
+                    complet = self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)
+                else:
+                    complet = self._EnvoyerLotSmtpHorsUI(dictExp, liste_messages, parent_progress)
                 self.envoi_complet = adresseTest is None and complet
                 return complet
             finally:
