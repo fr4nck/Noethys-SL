@@ -39,7 +39,10 @@ class MailjetLotSourceContract(unittest.TestCase):
         env = ast.get_source_segment(self.source, self.methode["Envoyer"])
         self.assertIn("self.envoi_complet = False", init)
         self.assertLess(env.index("self.envoi_complet = False"), env.index("dictExp = self.ctrl_exp.GetDonnees()"))
-        self.assertEqual(env.count("adresseTest is None"), 3)
+        # Deux routes asynchrones (masque, SMTP visible), en plus du
+        # chemin interactif unitaire et du moteur historique Mailjet visible.
+        self.assertEqual(env.count("self.envoi_complet = adresseTest is None and complet"), 2)
+        self.assertIn("self.envoi_complet = adresseTest is None and bool(self.listeSucces)", env)
         self.assertIn("len(self.listeSucces or []) == len(liste_messages)", env)
 
     def test_worker_deporte_connexion_et_envoi(self):
