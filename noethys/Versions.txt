@@ -1,3 +1,13 @@
+Version Noethys SL 0.1.0 RC9.1 (26/10/2026) :
+
+- Commandes de repas : quatre colonnes de repartition Standard, Sans porc, Vegetarien et Non renseigne, calculees a partir de la question individuelle configuree pour chaque date, site et service
+- Commandes de repas : controle des quantites, corrections explicites, verification des ecarts et confirmation des preferences inconnues avant PDF et brouillon d'email
+- Commandes de repas : preservations des anciens modeles et des totaux enfants/adultes ; suppression des evaluations dangereuses de parametres par eval()
+- Connecthys : fenetres d'envoi plus reactives, traitement asynchrone SMTP et Mailjet et maintien d'un proprietaire de fenetre pour les avertissements
+- Connecthys : prevention de doubles envois ou relectures en cas d'acceptation incertaine, de traitement concurrent et de sauvegarde partielle ; reprise ciblee des operations restantes
+- Diagnostic facultatif de la reactivite des fenetres pour la recette Windows, sans activation par defaut
+- Version de recette uniquement : CAF/AFAS V1 reste masque ; l'option panier familial (Sans repas PMSL) et sa facturation a zero euro ne sont pas encore raccordees
+
 Version Noethys SL 0.1.0 RC9 (22/10/2026) :
 
 - Rétablissement de la sélection par cases à cocher des états existants dans l'état global des consommations : réservation, présent, absence justifiée et absence injustifiée

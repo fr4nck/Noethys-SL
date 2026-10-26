@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC9.1 wx — Préparation de candidat du 26/10/2026
+
+- Base ciblée : `wx` 21c4fc2a0b440d91d18d7fa582d91a9989fd982b (candidate RC9 Windows PASS, test rapide Windows 1139 PASS, 0 FAIL, 30 SKIP) ; `main` f6f5ccdf6a491025db052b7759aa6facc01b2eca ; `qt` f2316046f9f22ed59aeba33f9f8c090d3667ca06.
+- RC9 officielle tag `noethys-sl-0.1.0-rc.9` conservee sans changement. Difference wx vs release RC9 : 17 commits (Connecthys UI, SMTP/Mailjet, protections relecture, regimes alimentaires Lots 1/2A/2B).
+- RC9.1 : mise a jour de l'identite publique `noethys/Identite.py`, changelog d'application et notes de release, tests et workflow candidat, recette utilisateur. Version interne numerique du logiciel et historiques Noethys inchanges.
+- Construction automatique sur push de workflow marque `[candidate rc9.1]`, sans tag ni release ; publication exige `workflow_dispatch` sur wx avec `publier=true` et apres succes integral. L'issue #433 du panier familial n'est **PAS LIVREE** : le lot pur 2C-1 n'est pas integre a wx, pas de tarif exonere, AFAS V1 toujours masque.
+- Matrice : main (2C-1 contrat pur seulement), wx (regimes alimentaires Lots 1/2A/2B + Connecthys wx, version RC9.1 candidate), qt (pas d'UI repas Qt). Aucune fusion globale, aucune migration, aucune copie locale utilisateur modifiee.
+- Verifier le SHA de publication, les jobs GitHub et les artefacts de recette avant le verdict candidat ; les operations manuelles sur base fictive et les garanties financieres restent a qualifier.
+- Fiche `docs/recette/RC9_1_FICHE_RECETTE.md`, notes `docs/releases/noethys-sl-0.1.0-rc.9.1.md`.
+
+
 ## Restauration #430 — report des Lots 1, 2A et 2B sur `wx` (26/10/2026)
 
 - **Base** : `wx` `769159452f3542416612c0c98ce96a9f09b59968` ; source `main` `887aec2469503713ad43bd6e7f75689a5ce414c8` (Lots `9be6dd91`, `0ef1f626`, `887aec24`) ; `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiée. Report ciblé par patch (diff `77c7efe2..887aec24` hors CI rapide et reprise), sans fusion globale.

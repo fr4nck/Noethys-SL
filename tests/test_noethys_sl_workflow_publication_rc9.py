@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Garde permanente : un lancement de diagnostic du workflow Windows RC9 ne
+"""Garde permanente : un lancement de diagnostic du workflow Windows RC9.1 ne
 peut créer ni tag ni release.
 
 Le workflow est analysé avec un lecteur YAML minimal (sous-ensemble utilisé
@@ -16,7 +16,7 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parents[1]
 WORKFLOW = RACINE / ".github" / "workflows" / "noethys-sl-windows.yml"
 SCRIPT_PORTABLE = RACINE / "scripts" / "verify_windows_portable_rc9.ps1"
-TAG = "noethys-sl-0.1.0-rc.9"
+TAG = "noethys-sl-0.1.0-rc.9.1"
 
 
 # --------------------------------------------------------------------------
@@ -240,7 +240,7 @@ SCENARIOS_SANS_PUBLICATION = {
     "lancement manuel sans valeur publier": Contexte("workflow_dispatch"),
     "publier=true hors wx": Contexte("workflow_dispatch", ref="refs/heads/main", publier=True),
     "publier=true sur une étiquette": Contexte("workflow_dispatch", ref="refs/tags/x", publier=True),
-    "push candidat": Contexte("push", message="build [candidate rc9]"),
+    "push candidat": Contexte("push", message="build [candidate rc9.1]"),
     "push avec ancien marqueur de publication": Contexte("push", message="release [publish rc9]"),
     "push avec ancien marqueur RC8.1": Contexte("push", message="[publish rc81]"),
     "push sans marqueur": Contexte("push", message="docs"),
@@ -319,8 +319,8 @@ class PublicationTests(unittest.TestCase):
     def test_build_de_diagnostic_disponible_sans_publication(self):
         condition = self.jobs["build"]["if"]
         self.assertTrue(Evaluer(condition, Contexte("workflow_dispatch", publier=False)))
-        self.assertTrue(Evaluer(condition, Contexte("push", message="x [candidate rc9]")))
-        self.assertFalse(Evaluer(condition, Contexte("push", message="[publish rc9]")))
+        self.assertTrue(Evaluer(condition, Contexte("push", message="x [candidate rc9.1]")))
+        self.assertFalse(Evaluer(condition, Contexte("push", message="[publish rc9.1]")))
         self.assertFalse(Evaluer(condition, Contexte("push", message="docs")))
 
     def test_declencheurs_limites(self):
