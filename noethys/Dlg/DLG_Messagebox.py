@@ -20,8 +20,16 @@ import GestionDB
 
 class Dialog(wx.Dialog):
     def __init__(self, parent, titre=None, introduction=None, detail=None, conclusion=None, icone=None, boutons=[], defaut=None):
-        wx.Dialog.__init__(self, parent, -1, style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP | wx.DIALOG_NO_PARENT)
-        self.parent = parent   
+        # Un parent masque ne doit pas devenir l'owner Win32 de l'alerte.
+        # Remonter aux fenetres encore visibles, sans forcer le premier plan.
+        owner = parent
+        while owner is not None and not owner.IsShownOnScreen():
+            owner = owner.GetParent()
+        style = wx.DEFAULT_DIALOG_STYLE
+        if owner is None:
+            style |= wx.STAY_ON_TOP | wx.DIALOG_NO_PARENT
+        wx.Dialog.__init__(self, owner, -1, style=style)
+        self.parent = owner   
 
         self.largeur_max = 550
         self.hauteur_max= 350
@@ -94,7 +102,7 @@ class Dialog(wx.Dialog):
         sizer.Add(messageSizer, 0, wx.ALL, 12)
         self.SetSizer(sizer)
         self.Fit()
-        if parent:
+        if self.parent:
             self.CenterOnParent()
         else:
             self.CenterOnScreen()

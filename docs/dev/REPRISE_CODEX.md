@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-1B — owner Win32 des alertes communes (26/10/2026, wx)
+
+- `DLG_Messagebox.Dialog` retrouve la premiere fenetre visible en remontant ses parents. Un dialogue associe ne prend plus les styles `wx.STAY_ON_TOP` et `wx.DIALOG_NO_PARENT` : son owner Win32 est la fenetre visible. Les alertes reellement sans owner conservent leur style ancien.
+- Contre-qualifications prevues sous Windows reel : `GW_OWNER`, dialog avec parent masque et ancetre visible, maintien du flag maximise. Tests dans `tests/test_vanilla_dlg_mailer_progress_parent.py`. **A qualifier sur la CI du commit UI-1B**.
+- Ce changement ne touche ni Mailjet, ni les tables SQL, ni les dossiers locaux, ni les regles de confirmation RC9.
+
+
 ## UI-2A — SMTP masque hors boucle wx (26/10/2026, branche wx)
 
 - Baseline: UI-1 `c28f319af8b33da7596b928214388c648e0ad056`.

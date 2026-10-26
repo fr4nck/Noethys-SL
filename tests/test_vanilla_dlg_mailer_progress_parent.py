@@ -51,7 +51,7 @@ _APP = wx.GetApp() or wx.App(False)
 from _fixtures_noethys_db import BaseTest, RedirectionGestionDB  # noqa: E402
 from Data import DATA_Tables as Tables  # noqa: E402
 
-from Dlg import DLG_Mailer  # noqa: E402
+from Dlg import DLG_Mailer, DLG_Messagebox  # noqa: E402
 from Ol import OL_Destinataires_emails  # noqa: E402
 
 
@@ -213,6 +213,52 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         self.assertNotEqual(FausseMessagerie.thread_connecter, thread_ui)
         self.assertNotEqual(FausseMessagerie.thread_envoyer, thread_ui)
 
+
+    def test_messagebox_win32_herite_de_son_owner_sans_remaximiser(self):
+        """L'alerte doit appartenir a sa frame et ne pas etre topmost globale."""
+        import sys
+        if sys.platform != "win32":
+            self.skipTest("GW_OWNER seulement sur Windows")
+        import ctypes
+        from Dlg import DLG_Messagebox
+
+        frame = wx.Frame(None)
+        frame.Show()
+        frame.Maximize(True)
+        self.addCleanup(frame.Destroy)
+        est_maximise = frame.IsMaximized()
+        dialogue = DLG_Messagebox.Dialog(
+            frame, titre="Controle technique", introduction="Message de test",
+            icone=wx.ICON_INFORMATION, boutons=["OK"],
+        )
+        try:
+            self.assertFalse(dialogue.GetWindowStyleFlag() & wx.DIALOG_NO_PARENT)
+            self.assertFalse(dialogue.GetWindowStyleFlag() & wx.STAY_ON_TOP)
+            u32 = ctypes.windll.user32
+            u32.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+            u32.GetWindow.restype = ctypes.c_void_p
+            owner = u32.GetWindow(ctypes.c_void_p(dialogue.GetHandle()), 4)
+            self.assertEqual(owner, frame.GetHandle())
+        finally:
+            dialogue.Destroy()
+        self.assertEqual(frame.IsMaximized(), est_maximise)
+
+    def test_messagebox_remonte_d_un_parent_masque_vers_la_frame_visible(self):
+        frame = wx.Frame(None)
+        frame.Show()
+        self.addCleanup(frame.Destroy)
+        enfant_cache = wx.Dialog(frame)
+        self.addCleanup(enfant_cache.Destroy)
+        self.assertFalse(enfant_cache.IsShownOnScreen())
+        dialogue = DLG_Messagebox.Dialog(
+            enfant_cache, titre="Test", introduction="Alerte fictive",
+            boutons=["OK"],
+        )
+        try:
+            self.assertIs(dialogue.GetParent(), frame)
+            self.assertIs(dialogue.parent, frame)
+        finally:
+            dialogue.Destroy()
 
     def test_latences_smtp_fictives_3_8_15_secondes_wx_reste_reactif(self):
         """Un timer wx est servi PENDANT l'attente d'un transport factice."""
