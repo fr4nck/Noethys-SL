@@ -3,6 +3,7 @@
 
 from datetime import date
 from Utils.UTILS_Repas_totaux import TotauxRepas
+from Utils import UTILS_Repas_regimes
 
 ROLES = ("moins_6", "six_plus", "animateurs", "direction", "autres_adultes", "sans_porc")
 CHAMPS = ("enfants_moins_6", "enfants_6_et_plus", "animateurs_repas",
@@ -22,12 +23,15 @@ def ConstruireControle(donnees):
     if donnees.get("erreurs_sans_porc"):
         raise ValueError("Parametrage sans porc incomplet : %s" %
                          "; ".join(str(x) for x in donnees["erreurs_sans_porc"].values()))
+    if donnees.get("erreurs_regimes"):
+        raise ValueError("Repartition alimentaire indisponible : %s" %
+                         "; ".join(sorted(set(str(x) for x in donnees["erreurs_regimes"].values()))))
     config = []
     non_classes = []
     for index, col in enumerate(colonnes):
         params = col.get("parametres") or {}
         role = params.get("role_repas", "aucun")
-        if role not in ROLES:
+        if role not in ROLES and not UTILS_Repas_regimes.EstRoleRegime(role):
             if "numerique" in col.get("categorie", "") and "total" not in col.get("categorie", ""):
                 non_classes.append(col.get("nom_colonne", "Colonne non classee"))
             continue
@@ -44,7 +48,7 @@ def ConstruireControle(donnees):
             cle = (jour, site, service)
             entree = resultat.setdefault(cle, {"date": jour, "site": site, "service": service,
                                                  "valeurs": {champ: 0 for champ in CHAMPS},
-                                                 "cases": {}})
+                                                 "regimes": {}, "cases": {}})
             if role in entree["cases"]:
                 raise ValueError("Deux colonnes %s sur le meme site et service" % role)
             case = cases.get((row, col))
@@ -53,8 +57,12 @@ def ConstruireControle(donnees):
             valeur = case.GetValeur()
             if valeur is None:
                 valeur = 0
-            entree["valeurs"][CLE_CHAMP[role]] = valeur
             entree["cases"][role] = case
+            if UTILS_Repas_regimes.EstRoleRegime(role):
+                # Decomposition du total : jamais une entree de TotauxRepas.
+                entree["regimes"][UTILS_Repas_regimes.ROLES_COLONNES[role]] = valeur
+                continue
+            entree["valeurs"][CLE_CHAMP[role]] = valeur
             if role == "sans_porc":
                 id_colonne = colonnes[col].get("IDcolonne")
                 sous_totaux = donnees.get("sans_porc", {}).get(id_colonne, {})
@@ -73,7 +81,8 @@ def AppliquerControle(lignes):
         TotauxRepas(**item["valeurs"])
     for item in lignes:
         for role, case in item["cases"].items():
-            case.SetValeur(item["valeurs"][CLE_CHAMP[role]])
+            if role in CLE_CHAMP:
+                case.SetValeur(item["valeurs"][CLE_CHAMP[role]])
 
 
 def ResumerControle(lignes):
@@ -91,8 +100,33 @@ def ResumerControle(lignes):
             "service": ligne["service"],
             "totaux": dict(totaux),
             "non_renseignes": int(ligne.get("non_renseignes", 0)),
+            "regimes": dict(ligne.get("regimes", {})),
         })
     return tuple(resultat)
+
+
+def ErreursRegimes(lignes):
+    """Repartitions saisies qui ne couvrent pas exactement le total du service.
+
+    Une ligne sans colonne de regime n'est pas concernee. Les colonnes de
+    regime d'un service doivent toutes etre presentes (standard, sans porc,
+    vegetarien, non renseigne) et leur somme egaler le total des repas.
+    """
+    erreurs = []
+    for ligne in lignes:
+        regimes = ligne.get("regimes") or {}
+        if not regimes:
+            continue
+        libelle = "%s %s %s" % (ligne["date"].strftime("%d/%m/%Y"), ligne["site"], ligne["service"])
+        manquants = [c for c in UTILS_Repas_regimes.CHAMPS if c not in regimes]
+        if manquants:
+            erreurs.append("%s : colonnes de regime manquantes (%s)" % (libelle, ", ".join(manquants)))
+            continue
+        total = TotauxRepas(**ligne["valeurs"])["total_repas"]
+        classes = sum(int(regimes[c]) for c in UTILS_Repas_regimes.CHAMPS)
+        if classes != total:
+            erreurs.append("%s : %d repas repartis pour %d repas commandes" % (libelle, classes, total))
+    return erreurs
 
 
 def ResumeDepuisDonnees(donnees):

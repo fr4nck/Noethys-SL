@@ -99,22 +99,7 @@ def ChargerRepartitionRegimes(question, correspondance, services, date_debut, da
     id_unites = ",".join(str(v) for v in sorted({u for _, u in services}))
     base = GestionDB.DB()
     try:
-        req = """SELECT q.controle, c.type FROM questionnaire_questions AS q
-                 JOIN questionnaire_categories AS c ON q.IDcategorie=c.IDcategorie
-                 WHERE q.IDquestion=%d""" % id_question
-        if not base.ExecuterReq(req):
-            raise ValueError("Impossible de lire la question de regime")
-        lignes = base.ResultatReq()
-        if len(lignes) != 1 or str(lignes[0][1]).lower() != "individu":
-            raise ValueError("La question de regime doit etre individuelle")
-        UTILS_Repas_regimes.ConfigurationRegimes(id_question, choix, lignes[0][0])
-        req = """SELECT IDchoix FROM questionnaire_choix
-                 WHERE IDquestion=%d AND IDchoix IN (%s)""" % (
-                     id_question, ",".join(str(v) for v in sorted(choix.values())))
-        if not base.ExecuterReq(req):
-            raise ValueError("Impossible de verifier les choix de regime")
-        if len(set(r[0] for r in base.ResultatReq())) != len(choix):
-            raise ValueError("Les choix de regime ne correspondent pas a la question")
+        _VerifierQuestionRegime(base, id_question, choix)
         req = """SELECT consommations.date, consommations.IDgroupe, consommations.IDunite,
                         consommations.IDindividu, consommations.etat, individus.date_naiss
                  FROM consommations
@@ -148,3 +133,68 @@ def ChargerRepartitionRegimes(question, correspondance, services, date_debut, da
     finally:
         base.Close()
     return UTILS_Repas_regimes.RepartitionRegimes(consos, reponses, choix, services, naissances)
+
+
+def _VerifierQuestionRegime(base, id_question, choix):
+    """Question individuelle a liste deroulante et choix qui lui appartiennent."""
+    from Utils import UTILS_Repas_regimes
+    req = """SELECT q.controle, c.type FROM questionnaire_questions AS q
+             JOIN questionnaire_categories AS c ON q.IDcategorie=c.IDcategorie
+             WHERE q.IDquestion=%d""" % id_question
+    if not base.ExecuterReq(req):
+        raise ValueError("Impossible de lire la question de regime")
+    lignes = base.ResultatReq()
+    if len(lignes) != 1:
+        raise ValueError("Question de regime introuvable")
+    if str(lignes[0][1]).lower() != "individu":
+        raise ValueError("La question de regime doit etre individuelle")
+    UTILS_Repas_regimes.ConfigurationRegimes(id_question, choix, lignes[0][0])
+    req = """SELECT IDchoix FROM questionnaire_choix
+             WHERE IDquestion=%d AND IDchoix IN (%s)""" % (
+                 id_question, ",".join(str(v) for v in sorted(choix.values())))
+    if not base.ExecuterReq(req):
+        raise ValueError("Impossible de verifier les choix de regime")
+    if len(set(r[0] for r in base.ResultatReq())) != len(choix):
+        raise ValueError("Les choix de regime ne correspondent pas a la question")
+
+
+def VerifierParametrageRegimes(question, correspondance):
+    """Controle d'un parametrage saisi ; renvoie (IDquestion, {regime: IDchoix})."""
+    from Utils import UTILS_Repas_regimes
+    id_question, choix = UTILS_Repas_regimes.ConfigurationRegimes(
+        question, correspondance, UTILS_Repas_regimes.CONTROLE_REGIME)
+    base = GestionDB.DB()
+    try:
+        _VerifierQuestionRegime(base, id_question, choix)
+    finally:
+        base.Close()
+    return id_question, choix
+
+
+def ListerQuestionsRegime():
+    """[(IDquestion, libelle)] des questions individuelles a liste deroulante."""
+    base = GestionDB.DB()
+    try:
+        req = """SELECT q.IDquestion, q.label, c.type FROM questionnaire_questions AS q
+                 JOIN questionnaire_categories AS c ON q.IDcategorie=c.IDcategorie
+                 WHERE q.controle='liste_deroulante'
+                 ORDER BY c.ordre, q.ordre, q.IDquestion"""
+        if not base.ExecuterReq(req):
+            raise ValueError("Impossible de lire les questions")
+        return [(int(i), label or u"") for i, label, typ in base.ResultatReq()
+                if str(typ).lower() == "individu"]
+    finally:
+        base.Close()
+
+
+def ListerChoixQuestion(question):
+    """[(IDchoix, libelle)] d'une question, dans l'ordre du questionnaire."""
+    base = GestionDB.DB()
+    try:
+        req = """SELECT IDchoix, label FROM questionnaire_choix
+                 WHERE IDquestion=%d ORDER BY ordre, IDchoix""" % int(question)
+        if not base.ExecuterReq(req):
+            raise ValueError("Impossible de lire les choix")
+        return [(int(i), label or u"") for i, label in base.ResultatReq()]
+    finally:
+        base.Close()

@@ -25,6 +25,7 @@ from Utils import UTILS_Divers
 from Utils import UTILS_Commandes_directeur
 from Utils import UTILS_Encadrement
 from Utils import UTILS_Repas_source
+from Utils import UTILS_Repas_regimes
 import wx.lib.wordwrap as wordwrap
 
 if 'phoenix' in wx.PlatformInfo:
@@ -164,6 +165,8 @@ class Case():
         # Ajoute la suggestion au texte
         if self.suggestion != None :
             texte += u"\n\nValeur suggérée : %s" % self.suggestion
+        for alerte in getattr(self, "alertes", []):
+            texte += u"\n- %s" % alerte
         if self.ouvert == True :
             texte += u"\n\n------- COMMANDES -------"
             texte += u"\n- Double-cliquez pour modifier une case"
@@ -637,6 +640,22 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                         param.get("unites", []), self.date_debut, self.date_fin)
                 except (ValueError, TypeError) as exc:
                     dictDonnees["erreurs_sans_porc"][colonne["IDcolonne"]] = str(exc)
+
+        # Regimes : une seule lecture par parametrage commun, partagee par
+        # toutes les colonnes standard / sans porc / vegetarien / non renseigne.
+        groupes, erreurs = UTILS_Repas_regimes.GroupesColonnesRegimes(dictDonnees["liste_colonnes"])
+        dictDonnees["regimes"] = {}
+        dictDonnees["erreurs_regimes"] = dict(erreurs)
+        for groupe in groupes:
+            try:
+                repartition = UTILS_Repas_source.ChargerRepartitionRegimes(
+                    groupe["question"], groupe["choix"], groupe["services"], self.date_debut, self.date_fin)
+            except (ValueError, TypeError) as exc:
+                for IDcolonne in groupe["colonnes"]:
+                    dictDonnees["erreurs_regimes"][IDcolonne] = str(exc)
+                continue
+            for IDcolonne in groupe["colonnes"]:
+                dictDonnees["regimes"][IDcolonne] = repartition
         return dictDonnees
 
     def MAJ(self, date_debut=None, date_fin=None):
@@ -707,6 +726,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                 if type(date) == datetime.date : #and dictColonne["categorie"] in ("numerique_avec_suggestion", "numerique_sans_suggestion", "texte_libre") :
                     ouvert = True
                     suggestion = None
+                    alertes = []
                     valeur = None
                     IDvaleur = None
 
@@ -732,7 +752,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                                 ouvert = False
                             if role in ("moins_6", "six_plus"):
                                 personnes.update(self.dictDonnees["dict_conso_individus"].get((date, IDgroupe, IDunite), set()))
-                            elif role not in ("sans_porc", "animateurs", "direction", "autres_adultes"):
+                            elif role not in ("sans_porc", "animateurs", "direction", "autres_adultes") and not UTILS_Repas_regimes.EstRoleRegime(role):
                                 suggestion += self.dictDonnees["dict_conso"].get(date, {}).get(IDgroupe, {}).get(IDunite, 0)
                         if role in ("moins_6", "six_plus"):
                             ages = [UTILS_Encadrement.AgeAuJour(
@@ -743,6 +763,12 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                                 suggestion = sum(age < 6 for age in ages)
                             else:
                                 suggestion = sum(6 <= age < 18 for age in ages)
+                        elif UTILS_Repas_regimes.EstRoleRegime(role):
+                            cle = (date, str(param.get("site_directeur") or "").strip(),
+                                   str(param.get("service_directeur") or "").strip())
+                            suggestion, alertes = UTILS_Repas_regimes.SuggestionColonne(
+                                role, self.dictDonnees["regimes"].get(dictColonne["IDcolonne"]), cle,
+                                self.dictDonnees["erreurs_regimes"].get(dictColonne["IDcolonne"]))
                         elif role == "sans_porc":
                             if dictColonne["IDcolonne"] in self.dictDonnees["erreurs_sans_porc"]:
                                 suggestion = None
@@ -793,6 +819,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
                     # création de la case
                     case = Case(self, numLigne=numLigne, numColonne=numColonne, IDcolonne=dictColonne["IDcolonne"], date=date, categorieColonne=dictColonne["categorie"], ouvert=ouvert, suggestion=suggestion, valeur=valeur, IDvaleur=IDvaleur)
+                    case.alertes = alertes
                     self.dictCases[(numLigne, numColonne)] = case
 
                 # Ligne de total
@@ -920,7 +947,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                     for numColonne in range(0, len(self.dictDonnees["liste_colonnes"])):
                         if (numLigne, numColonne) in self.dictCases:
                             case = self.dictCases[(numLigne, numColonne)]
-                            if (listeIDcolonne == None or case.IDcolonne in listeIDcolonne) and "numerique" in case.categorieColonne and "total" not in case.categorieColonne and self.dictDonnees["dict_colonnes"][numColonne]["parametres"].get("role_repas") != "sans_porc":
+                            if (listeIDcolonne == None or case.IDcolonne in listeIDcolonne) and "numerique" in case.categorieColonne and "total" not in case.categorieColonne and not UTILS_Repas_regimes.EstVarianteAlimentaire(self.dictDonnees["dict_colonnes"][numColonne]["parametres"].get("role_repas")):
                                 valeur += case.GetValeur()
 
                     # On envoie le total à la case de la colonne TOTAL

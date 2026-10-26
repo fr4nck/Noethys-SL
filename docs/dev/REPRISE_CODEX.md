@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Restauration #430 — Lot 2A raccordement wx des régimes sur `main` (26/10/2026)
+
+- **Base** : `main` `9be6dd91c7ed2566132bb15ca48380ddec8bf71b` (Lot 1) ; `wx` `769159452f3542416612c0c98ce96a9f09b59968` et `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiées. Worktree détaché, aucune branche créée.
+- **Paramétrage** (`DLG_Saisie_commandes_colonne.py`) : quatre rôles de colonne `regime_standard`, `regime_sans_porc`, `regime_vegetarien`, `regime_non_renseigne` ; question individuelle à liste déroulante et trois réponses choisies par libellé (lecture `UTILS_Repas_source.ListerQuestionsRegime` / `ListerChoixQuestion`), identifiants stockés (`question_regime`, `choix_regimes`). Validation par `VerifierParametrageRegimes` (question inexistante, familiale, non conforme, choix étranger ou incomplet refusés). Un ID ancien introuvable reste affiché et conservé. Les clés de régime ne sont écrites que pour une colonne de régime : un ancien modèle réenregistré est identique.
+- **Grille** (`CTRL_Commande_repas.py`) : une lecture `ChargerRepartitionRegimes` par paramétrage commun (`GroupesColonnesRegimes`), suggestions par `(date, site, service)` (`SuggestionColonne`) ; aucune suggestion si paramétrage en erreur, réponse inconnue/contradictoire ou âge manquant ; alertes non nominatives en infobulle (âge manquant, 18 ans et plus avec consommation, multisite, non renseigné). Colonnes de régime et « dont sans porc » exclues des totaux additifs (`EstVarianteAlimentaire`). Les valeurs enregistrées ne sont jamais remplacées : suggestions importées seulement sur action explicite.
+- **Contrôle avant émission** (`UTILS_Repas_validation`, `DLG_Controle_repas`) : rôles de régime reconnus (non « colonnes non classées »), jamais injectés dans `TotauxRepas` ni réécrits ; `ErreursRegimes` bloque la validation si les quatre colonnes ne sont pas présentes ou si leur somme diffère du total commandé (adultes à classer explicitement ou en non renseigné) ; erreurs de répartition = émission refusée ; instantané PDF/email inclut les régimes.
+- **Inchangé** : `ROLES`, ancien flux « dont sans porc », âges, encadrement, repas de direction, consommations, PDF/email (aucun nouveau champ imprimé), Qt.
+- **Tests** : `tests/test_noethys_sl_repas_regimes_ui.py` (19 tests : purs, SQLite fictive, grille et page de paramétrage wx créées sans affichage), ajouté à la CI rapide ; 4 mutations témoins détectées. Assertion textuelle de `test_noethys_sl_commandes_directeur` adaptée à la nouvelle exclusion et complétée d'un contrôle comportemental.
+- **Limites (Lot 2B)** : PDF/email sans colonnes de régime, interface Qt, recette visuelle Windows sur poste isolé (EN ATTENTE), lecture MySQL non qualifiée. Matrice : `wx` ABSENT, `qt` ABSENT.
+
 ## Restauration #430 — Lot 1 moteur des régimes alimentaires sur `main` (26/10/2026)
 
 - **Base** : `main` `77c7efe2b96bc2272f1130745a7a4aa5b832c0ed` ; `wx` `769159452f3542416612c0c98ce96a9f09b59968` et `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` **non modifiées** (lot `main` seul, worktree détaché, aucune branche créée).

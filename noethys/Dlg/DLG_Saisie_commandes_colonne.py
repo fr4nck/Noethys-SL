@@ -16,6 +16,8 @@ import wx
 from Utils import UTILS_Dates
 from Ctrl import CTRL_Bouton_image
 import GestionDB
+from Utils import UTILS_Repas_regimes
+from Utils import UTILS_Repas_source
 import wx.lib.agw.hypertreelist as HTL
 from wx.lib.agw.customtreectrl import EVT_TREE_ITEM_CHECKED
 import six
@@ -331,6 +333,10 @@ class PAGE_Unites(wx.Panel):
             ("direction", _(u"Repas direction")),
             ("autres_adultes", _(u"Autres repas adultes")),
             ("sans_porc", _(u"Dont repas sans porc")),
+            ("regime_standard", _(u"Régime : repas standard")),
+            ("regime_sans_porc", _(u"Régime : repas sans porc")),
+            ("regime_vegetarien", _(u"Régime : repas végétarien")),
+            ("regime_non_renseigne", _(u"Régime : préférence non renseignée")),
         ]
         self.label_role_repas = wx.StaticText(self, -1, _(u"Catégorie de repas :"))
         self.ctrl_role_repas = wx.Choice(self, -1, choices=[label for code, label in self.roles_repas])
@@ -339,6 +345,19 @@ class PAGE_Unites(wx.Panel):
         self.ctrl_question_sans_porc = wx.SpinCtrl(self, -1, min=0, max=999999, initial=0)
         self.label_choix_sans_porc = wx.StaticText(self, -1, _(u"Choix sans porc (ID, ou 1 pour case cochée) :"))
         self.ctrl_choix_sans_porc = wx.SpinCtrl(self, -1, min=0, max=999999, initial=0)
+        # Regimes : question individuelle a liste deroulante, choisie par libelle.
+        # Les identifiants restent stockes tels quels (compatibilite).
+        self.label_question_regime = wx.StaticText(self, -1, _(u"Question du régime alimentaire :"))
+        self.ctrl_question_regime = wx.Choice(self, -1)
+        self.ctrls_choix_regime = {}
+        self.labels_choix_regime = {}
+        for regime, label in (("standard", _(u"Réponse « repas standard » :")),
+                              ("sans_porc", _(u"Réponse « repas sans porc » :")),
+                              ("vegetarien", _(u"Réponse « repas végétarien » :"))):
+            self.labels_choix_regime[regime] = wx.StaticText(self, -1, label)
+            self.ctrls_choix_regime[regime] = wx.Choice(self, -1)
+        self.questions_regime, self.choix_regime = [], []
+        self.erreur_questions_regime = None
 
         # Layout
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=5, hgap=5)
@@ -348,7 +367,7 @@ class PAGE_Unites(wx.Panel):
         options_directeur = wx.BoxSizer(wx.VERTICAL)
         options_directeur.Add(self.check_directeur, 0, wx.ALL, 2)
         options_directeur.Add(self.check_direction_multisite, 0, wx.ALL, 2)
-        champs_directeur = wx.FlexGridSizer(rows=7, cols=2, vgap=3, hgap=5)
+        champs_directeur = wx.FlexGridSizer(rows=0, cols=2, vgap=3, hgap=5)
         champs_directeur.Add(self.label_site_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_site_directeur, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_service_directeur, 0, wx.ALIGN_CENTER_VERTICAL, 0)
@@ -363,6 +382,11 @@ class PAGE_Unites(wx.Panel):
         champs_directeur.Add(self.ctrl_question_sans_porc, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_choix_sans_porc, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_choix_sans_porc, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_question_regime, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_question_regime, 1, wx.EXPAND, 0)
+        for regime in ("standard", "sans_porc", "vegetarien"):
+            champs_directeur.Add(self.labels_choix_regime[regime], 0, wx.ALIGN_CENTER_VERTICAL, 0)
+            champs_directeur.Add(self.ctrls_choix_regime[regime], 1, wx.EXPAND, 0)
         champs_directeur.AddGrowableCol(1)
         options_directeur.Add(champs_directeur, 0, wx.EXPAND | wx.ALL, 2)
         options_directeur.Add(self.check_repas_renfort, 0, wx.ALL, 2)
@@ -375,9 +399,64 @@ class PAGE_Unites(wx.Panel):
 
         # Bind
         self.Bind(wx.EVT_CHECKBOX, self.OnCheckRepas, self.check_repas)
+        self.Bind(wx.EVT_CHOICE, self.OnChoixRole, self.ctrl_role_repas)
+        self.Bind(wx.EVT_CHOICE, self.OnChoixQuestionRegime, self.ctrl_question_regime)
 
         # Init
         self.ctrl_unites.MAJ()
+        self.ChargerQuestionsRegime()
+        self.OnChoixRole()
+
+    def ChargerQuestionsRegime(self, IDquestion=None):
+        """Liste les questions conformes ; conserve un ID ancien introuvable."""
+        try:
+            self.questions_regime = UTILS_Repas_source.ListerQuestionsRegime()
+            self.erreur_questions_regime = None
+        except Exception as exc:
+            self.questions_regime = []
+            self.erreur_questions_regime = str(exc)
+        if IDquestion and IDquestion not in [ID for ID, _label in self.questions_regime]:
+            self.questions_regime.append((IDquestion, _(u"Question n°%d (introuvable ou non conforme)") % IDquestion))
+        self.ctrl_question_regime.Set([_(u"-- Sélectionnez une question --")] + [label for _ID, label in self.questions_regime])
+        identifiants = [ID for ID, _label in self.questions_regime]
+        self.ctrl_question_regime.SetSelection(identifiants.index(IDquestion) + 1 if IDquestion in identifiants else 0)
+        self.ChargerChoixRegime()
+
+    def GetQuestionRegime(self):
+        index = self.ctrl_question_regime.GetSelection()
+        return self.questions_regime[index - 1][0] if index > 0 else None
+
+    def ChargerChoixRegime(self, choix_selectionnes=None):
+        IDquestion = self.GetQuestionRegime()
+        try:
+            self.choix_regime = UTILS_Repas_source.ListerChoixQuestion(IDquestion) if IDquestion else []
+        except Exception:
+            self.choix_regime = []
+        for IDchoix in (choix_selectionnes or {}).values():
+            if IDchoix and IDchoix not in [ID for ID, _label in self.choix_regime]:
+                self.choix_regime.append((IDchoix, _(u"Choix n°%d (introuvable)") % IDchoix))
+        libelles = [_(u"-- Sélectionnez une réponse --")] + [label for _ID, label in self.choix_regime]
+        identifiants = [ID for ID, _label in self.choix_regime]
+        for regime, ctrl in self.ctrls_choix_regime.items():
+            ctrl.Set(libelles)
+            IDchoix = (choix_selectionnes or {}).get(regime)
+            ctrl.SetSelection(identifiants.index(IDchoix) + 1 if IDchoix in identifiants else 0)
+
+    def GetChoixRegimes(self):
+        resultat = {}
+        for regime, ctrl in self.ctrls_choix_regime.items():
+            index = ctrl.GetSelection()
+            resultat[regime] = self.choix_regime[index - 1][0] if index > 0 else None
+        return resultat
+
+    def OnChoixQuestionRegime(self, event=None):
+        self.ChargerChoixRegime()
+
+    def OnChoixRole(self, event=None):
+        actif = UTILS_Repas_regimes.EstRoleRegime(self.roles_repas[self.ctrl_role_repas.GetSelection()][0])
+        for ctrl in ([self.ctrl_question_regime, self.label_question_regime]
+                     + list(self.ctrls_choix_regime.values()) + list(self.labels_choix_regime.values())):
+            ctrl.Enable(actif)
 
     def OnCheckRepas(self, event):
         self.ctrl_unites.MAJ()
@@ -404,6 +483,13 @@ class PAGE_Unites(wx.Panel):
             wx.MessageBox(_(u"Renseignez les identifiants de la question et du choix sans porc."),
                           _(u"Paramétrage incomplet"), wx.OK | wx.ICON_WARNING, self)
             return False
+        if UTILS_Repas_regimes.EstRoleRegime(role):
+            try:
+                UTILS_Repas_source.VerifierParametrageRegimes(self.GetQuestionRegime(), self.GetChoixRegimes())
+            except ValueError as exc:
+                wx.MessageBox(_(u"Paramétrage du régime alimentaire invalide : %s") % exc,
+                              _(u"Paramétrage incomplet"), wx.OK | wx.ICON_WARNING, self)
+                return False
         if role != "aucun" and supplement_repas and role != "direction":
             wx.MessageBox(_(u"Pour distinguer les repas de direction, utilisez une colonne de catégorie « Repas direction »."),
                           _(u"Paramétrage incohérent"), wx.OK | wx.ICON_WARNING, self)
@@ -417,7 +503,7 @@ class PAGE_Unites(wx.Panel):
 
     def GetParametres(self):
         listeUnites = self.ctrl_unites.GetCoches()
-        return {
+        parametres = {
             "unites": listeUnites,
             "repas_directeur_detache": self.check_directeur.GetValue(),
             "site_directeur": self.ctrl_site_directeur.GetValue().strip(),
@@ -430,6 +516,12 @@ class PAGE_Unites(wx.Panel):
             "question_sans_porc": self.ctrl_question_sans_porc.GetValue(),
             "choix_sans_porc": self.ctrl_choix_sans_porc.GetValue(),
         }
+        # Cles de regime seulement pour une colonne de regime : un ancien
+        # modele reenregistre ne recoit aucun nouveau parametre.
+        if UTILS_Repas_regimes.EstRoleRegime(parametres["role_repas"]):
+            parametres["question_regime"] = self.GetQuestionRegime()
+            parametres["choix_regimes"] = self.GetChoixRegimes()
+        return parametres
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str) :
@@ -447,6 +539,10 @@ class PAGE_Unites(wx.Panel):
         self.ctrl_role_repas.SetSelection(next((i for i, (code, _label) in enumerate(self.roles_repas) if code == selection_role), 0))
         self.ctrl_question_sans_porc.SetValue(int(dictParametres.get("question_sans_porc") or 0))
         self.ctrl_choix_sans_porc.SetValue(int(dictParametres.get("choix_sans_porc") or 0))
+        IDquestion = dictParametres.get("question_regime")
+        self.ChargerQuestionsRegime(int(IDquestion) if IDquestion else None)
+        self.ChargerChoixRegime(dict((k, int(v)) for k, v in (dictParametres.get("choix_regimes") or {}).items() if v))
+        self.OnChoixRole()
 
 
 

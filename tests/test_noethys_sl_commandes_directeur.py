@@ -85,7 +85,12 @@ class RepasDirecteurTests(unittest.TestCase):
         self.assertIn('if ouvert and suggestion is not None:\n                            suggestion += UTILS_Commandes_directeur.SupplementRepasDirection', ctrl)
         self.assertIn('if role in ("moins_6", "six_plus"):', ctrl)
         self.assertIn('elif role == "sans_porc":', ctrl)
-        self.assertIn('role_repas") != "sans_porc"', ctrl)
+        # Lot 2A : sans porc et colonnes de regime decomposent le total.
+        self.assertIn('and not UTILS_Repas_regimes.EstVarianteAlimentaire(self.dictDonnees["dict_colonnes"][numColonne]["parametres"].get("role_repas"))', ctrl)
+        from Utils import UTILS_Repas_regimes
+        self.assertTrue(UTILS_Repas_regimes.EstVarianteAlimentaire("sans_porc"))
+        for role in ("moins_6", "six_plus", "animateurs", "direction", "autres_adultes", "aucun", None):
+            self.assertFalse(UTILS_Repas_regimes.EstVarianteAlimentaire(role))
         self.assertIn('self.check_directeur.GetValue()', page)
         self.assertIn('self.ctrl_site_directeur.GetValue().strip()', page)
         self.assertIn('self.check_direction_multisite.GetValue()', page)

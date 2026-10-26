@@ -113,6 +113,13 @@ class Dialog(wx.Dialog):
             wx.MessageBox(str(exc), _(u"Quantites invalides"),
                           wx.OK | wx.ICON_WARNING, self)
             return
+        erreurs_regimes = UTILS_Repas_validation.ErreursRegimes(self.lignes)
+        if erreurs_regimes:
+            # Une repartition alimentaire incomplete n'est jamais validee.
+            wx.MessageBox(_(u"Repartition alimentaire incoherente :\n%s\n\n"
+                            u"Corrigez les colonnes de regime de la commande.") % u"\n".join(erreurs_regimes),
+                          _(u"Repartition alimentaire"), wx.OK | wx.ICON_WARNING, self)
+            return
         if self.sans_reponse:
             total = sum(ligne[3] for ligne in self.sans_reponse)
             texte = _(u"%d repas correspondent a des enfants sans reponse alimentaire. "

@@ -216,3 +216,101 @@ def EcartsAvecCommande(validees, actuelles):
             if avant.get(champ, 0) != apres.get(champ, 0):
                 ecarts.append((cle, champ, avant.get(champ, 0), apres.get(champ, 0)))
     return ecarts
+
+
+# --- Raccordement aux colonnes de commande (lot 2A) -------------------------
+
+# Roles de colonnes de repartition ; distincts des ROLES RC8 additifs.
+ROLES_COLONNES = {
+    "regime_standard": "standard",
+    "regime_sans_porc": "sans_porc",
+    "regime_vegetarien": "vegetarien",
+    "regime_non_renseigne": "non_renseignes",
+}
+
+
+def EstRoleRegime(role):
+    return role in ROLES_COLONNES
+
+
+def EstVarianteAlimentaire(role):
+    """Colonnes qui decomposent le total : jamais additionnees au total."""
+    return role == "sans_porc" or EstRoleRegime(role)
+
+
+def ParametresColonne(parametres):
+    """(IDquestion, {regime: IDchoix}, site, service) d'une colonne de regime.
+
+    Controle de forme uniquement : la conformite a la base est verifiee
+    par UTILS_Repas_source lors de la lecture.
+    """
+    parametres = parametres or {}
+    question, choix = ConfigurationRegimes(parametres.get("question_regime"),
+                                           parametres.get("choix_regimes"), CONTROLE_REGIME)
+    site = str(parametres.get("site_directeur") or "").strip()
+    service = str(parametres.get("service_directeur") or "").strip()
+    if not site or not service:
+        raise ValueError("Site et service obligatoires pour une colonne de regime")
+    return question, choix, site, service
+
+
+def GroupesColonnesRegimes(colonnes):
+    """Regroupe les colonnes de regime pour une seule lecture par parametrage.
+
+    Renvoie (groupes, erreurs) : groupes = [{"question", "choix", "services",
+    "colonnes"}] ; erreurs = {IDcolonne: message}. Une unite ne peut pas
+    appartenir a deux couples site/service dans un meme groupe.
+    """
+    groupes, erreurs = {}, {}
+    for colonne in colonnes:
+        parametres = colonne.get("parametres") or {}
+        if not EstRoleRegime(parametres.get("role_repas")):
+            continue
+        try:
+            question, choix, site, service = ParametresColonne(parametres)
+        except ValueError as exc:
+            erreurs[colonne["IDcolonne"]] = str(exc)
+            continue
+        cle = (question, tuple(sorted(choix.items())))
+        groupe = groupes.setdefault(cle, {"question": question, "choix": choix,
+                                          "services": {}, "colonnes": [], "conflit": None})
+        groupe["colonnes"].append(colonne["IDcolonne"])
+        for groupe_unite in parametres.get("unites", []):
+            groupe_unite = tuple(int(x) for x in groupe_unite)
+            if groupe["services"].setdefault(groupe_unite, (site, service)) != (site, service):
+                groupe["conflit"] = "Une unite est rattachee a deux sites/services differents"
+    resultat = []
+    for groupe in groupes.values():
+        if groupe.pop("conflit") is not None:
+            for ID in groupe["colonnes"]:
+                erreurs[ID] = "Une unite est rattachee a deux sites/services differents"
+            continue
+        resultat.append(groupe)
+    return resultat, erreurs
+
+
+def SuggestionColonne(role, repartition, cle, erreur=None):
+    """(suggestion ou None, alertes) pour une case de colonne de regime.
+
+    Aucune suggestion si le parametrage est en erreur ou la repartition
+    incomplete : une valeur partielle ne doit pas paraitre fiable.
+    """
+    if erreur:
+        return None, [u"Répartition alimentaire indisponible : %s" % erreur]
+    entree = (repartition or {}).get(cle)
+    if entree is None:
+        return 0, []
+    alertes = []
+    if not entree["complet"]:
+        alertes.append(u"Répartition incomplète : %d âge(s) manquant(s)" % entree["ages_inconnus"])
+    if entree["adultes_avec_conso"]:
+        alertes.append(u"%d personne(s) de 18 ans et plus avec consommation, hors répartition"
+                       % entree["adultes_avec_conso"])
+    if entree["multisites"]:
+        alertes.append(u"%d personne(s) inscrite(s) sur plusieurs sites pour ce service"
+                       % entree["multisites"])
+    if entree["non_renseignes"]:
+        alertes.append(u"%d préférence(s) non renseignée(s)" % entree["non_renseignes"])
+    if not entree["complet"]:
+        return None, alertes
+    return entree[ROLES_COLONNES[role]], alertes
