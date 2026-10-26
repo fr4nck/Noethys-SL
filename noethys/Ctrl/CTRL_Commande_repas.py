@@ -647,14 +647,29 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         groupes, erreurs = UTILS_Repas_regimes.GroupesColonnesRegimes(dictDonnees["liste_colonnes"])
         dictDonnees["regimes"] = {}
         dictDonnees["erreurs_regimes"] = dict(erreurs)
+        dictDonnees["paniers_2c_pour_age"] = {}  # par date/site/service, sans identifiants personnels
         for groupe in groupes:
             try:
                 repartition = UTILS_Repas_source.ChargerRepartitionRegimes(
-                    groupe["question"], groupe["choix"], groupe["services"], self.date_debut, self.date_fin)
+                    groupe["question"], groupe["choix"], groupe["services"], self.date_debut, self.date_fin,
+                    plage_midi=groupe.get("plage_midi"), repas_pmsl_prevu=groupe.get("repas_pmsl_prevu"))
             except (ValueError, TypeError) as exc:
                 for IDcolonne in groupe["colonnes"]:
                     dictDonnees["erreurs_regimes"][IDcolonne] = str(exc)
                 continue
+            if UTILS_Repas_regimes.PANIER in groupe["choix"]:
+                for cle, entree in repartition.items():
+                    source_unites = frozenset(k for k, cible in groupe["services"].items()
+                                              if cible == cle[1:])
+                    precedent = dictDonnees["paniers_2c_pour_age"].get(cle)
+                    information = {"unites": source_unites,
+                                   "moins_6": entree["repas_apportes_moins_6"],
+                                   "six_plus": entree["repas_apportes_six_plus"]}
+                    if precedent is not None and precedent != information:
+                        for ID in groupe["colonnes"]:
+                            dictDonnees["erreurs_regimes"][ID] = "Plusieurs perimetres repas familiaux incompatibles"
+                    else:
+                        dictDonnees["paniers_2c_pour_age"][cle] = information
             for IDcolonne in groupe["colonnes"]:
                 dictDonnees["regimes"][IDcolonne] = repartition
         return dictDonnees
@@ -764,6 +779,20 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
                                 suggestion = sum(age < 6 for age in ages)
                             else:
                                 suggestion = sum(6 <= age < 18 for age in ages)
+                            # Le panier familial reste une presence midi mais ne
+                            # rentre pas dans le nombre de repas a commander.
+                            cle_midi = (date, str(param.get("site_directeur") or "").strip(),
+                                        str(param.get("service_directeur") or "").strip())
+                            ajustement = self.dictDonnees.get("paniers_2c_pour_age", {}).get(cle_midi)
+                            if ajustement and suggestion is not None:
+                                if frozenset(tuple(u) for u in param.get("unites", [])) != ajustement["unites"]:
+                                    suggestion = None
+                                    alertes.append(u"Les unites de presence et de repas familiaux divergent : corrigez le modele")
+                                else:
+                                    suggestion -= ajustement[role]
+                                    if suggestion < 0:
+                                        suggestion = None
+                                        alertes.append(u"Nombre de paniers familiaux incoherent avec les presences")
                         elif UTILS_Repas_regimes.EstRoleRegime(role):
                             cle = (date, str(param.get("site_directeur") or "").strip(),
                                    str(param.get("service_directeur") or "").strip())

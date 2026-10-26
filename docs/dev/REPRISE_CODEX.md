@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+
+## Lot 2C-2 / 2C-3 — intégration panier familial sur wx (26/10/2026)
+
+- Base `wx` `0eccac4a`, source 2C-1 `main` `f6f5ccdf`, `qt` non modifié. Moteur pur copié à l'identique, pas de fusion globale.
+- Colonnes repas : quatrième choix facultatif (opt-in), « Repas apporté par la famille » hors commande ; présence méridienne déduite des horaires de journée/demi-journée, sans réservation repas des parents ; heures invalides ou partielles bloquantes ; standard par défaut uniquement si repas PMSL normalement prévu ; modèles trois choix conservés.
+- Test de recette fictif : 30 présents, 24 standards, 3 sans porc, 2 végétariens, 1 panier, 29 repas fournisseur ; contrôles des combinaisons et totaux sans compter les paniers comme repas à commander.
+- Module financier **pur seulement** : 0 € sur la composante repas séparée, tarif alternatif approuvé obligatoire pour journée incluant le repas, factures déjà émises non modifiées. **Ne fonctionne pas dans la facturation réelle : STOP avant usage métier, profils tarifaires ALSH non qualifiés**. Exceptions ponctuelles en mémoire seulement ; stockage par date encore à construire.
+- Aucun changement à `CTRL_Grille`, aux prestations SQL, aux factures, à la déclaration CAF/AFAS, aux postes et profils PMSL ou à la release RC9.1. Après publication du lot, noter SHA, tests et matrice ; avertir que ce code est encore un candidat, pas une version à envoyer au comptable.
+- Détails : `docs/metier/REPAS_LOT_2C_WX.md`, issue #433.
+
+
 ## RC9.1 — Correction ciblée du packaging Windows (26/10/2026)
 
 - Diagnostic vérifié : le run de construction [40358267921](https://github.com/fr4nck/Noethys-SL/actions/runs/40358267921), SHA `9a91e9f9`, s'arrête au test `test_marqueur_visible_depuis_un_processus_neuf` de CE-4/CE-5 : `ModuleNotFoundError: No module named '_garde_reseau'` dans le subprocess ; 734 tests, 1 FAIL, 11 SKIP.

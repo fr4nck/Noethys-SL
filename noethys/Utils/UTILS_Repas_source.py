@@ -82,7 +82,46 @@ def ChargerRepartition(question, choix, unites, date_debut, date_fin):
     return UTILS_Repas_alimentaires.CompterSansPorc(consos, reponses, unites, id_choix, controle)
 
 
-def ChargerRepartitionRegimes(question, correspondance, services, date_debut, date_fin):
+
+
+def _HeureRepas2C(valeur):
+    """Horaire local qualifie (pas de seconde, de fuseau ou de repli)."""
+    from datetime import datetime, time
+    from Utils.UTILS_Repas_2c import _minute
+    if isinstance(valeur, datetime):
+        valeur = valeur.time()
+    if isinstance(valeur, time):
+        if valeur.second or valeur.microsecond or valeur.tzinfo is not None:
+            raise ValueError("Horaire d accueil ambigu")
+        return "%02d:%02d" % (valeur.hour, valeur.minute)
+    if isinstance(valeur, str):
+        valeur = valeur.strip()
+        if len(valeur) == 8 and valeur.endswith(":00"):
+            valeur = valeur[:5]
+        _minute(valeur)
+        return valeur
+    raise ValueError("Horaires de la journee/demi-journee manquants")
+
+
+def _FiltrerAccueilsMidi2C(consos, intervalles, services, plage_midi):
+    """Garde les accueils couvrant midi sans reservation de repas distincte.
+
+    Chaque intervalle provient des horaires de consommation ou, a defaut,
+    de l'unite programmee. Une couverture partielle est bloquante.
+    """
+    from Utils.UTILS_Repas_2c import CouvreMidi, Repas2CInvalide
+    eligibles = {}
+    for cle, plages in intervalles.items():
+        try:
+            eligibles[cle] = CouvreMidi(plages, *plage_midi)
+        except Repas2CInvalide as exc:
+            raise ValueError("Plage meridienne a qualifier : %s" % exc)
+    return [c for c in consos if eligibles.get(
+        (c["date"], c["IDindividu"]) +
+        services[(c["IDgroupe"], c["IDunite"])], False)]
+
+def ChargerRepartitionRegimes(question, correspondance, services, date_debut, date_fin,
+                              plage_midi=None, repas_pmsl_prevu=None):
     """Repartition standard / sans porc / vegetarien / non renseigne (#430).
 
     services : {(IDgroupe, IDunite): (site, service)}. Quatre lectures
@@ -96,28 +135,62 @@ def ChargerRepartitionRegimes(question, correspondance, services, date_debut, da
         raise ValueError("Dates de commande invalides")
     id_question, choix = UTILS_Repas_regimes.ConfigurationRegimes(
         question, correspondance, UTILS_Repas_regimes.CONTROLE_REGIME)
+    optin = UTILS_Repas_regimes.PANIER in choix
+    if optin:
+        from Utils.UTILS_Repas_2c import CouvreMidi
+        if not isinstance(plage_midi, (tuple, list)) or len(plage_midi) != 2:
+            raise ValueError("Horaires du service meridien obligatoires pour les paniers")
+        CouvreMidi([tuple(plage_midi)], *plage_midi)
+        if type(repas_pmsl_prevu) is not bool:
+            raise ValueError("Offre repas de la formule a confirmer")
     id_unites = ",".join(str(v) for v in sorted({u for _, u in services}))
     base = GestionDB.DB()
     try:
         _VerifierQuestionRegime(base, id_question, choix)
-        req = """SELECT consommations.date, consommations.IDgroupe, consommations.IDunite,
-                        consommations.IDindividu, consommations.etat, individus.date_naiss
-                 FROM consommations
-                 LEFT JOIN individus ON individus.IDindividu = consommations.IDindividu
-                 WHERE consommations.date>='%s' AND consommations.date<='%s'
-                   AND consommations.IDunite IN (%s)
-                   AND consommations.etat IN ('reservation','present')""" % (
-                       date_debut.isoformat(), date_fin.isoformat(), id_unites)
+        if optin:
+            req = """SELECT consommations.date, consommations.IDgroupe, consommations.IDunite,
+                            consommations.IDindividu, consommations.etat, individus.date_naiss,
+                            consommations.heure_debut, consommations.heure_fin,
+                            unites.heure_debut, unites.heure_fin
+                     FROM consommations
+                     LEFT JOIN individus ON individus.IDindividu = consommations.IDindividu
+                     JOIN unites ON unites.IDunite = consommations.IDunite
+                     WHERE consommations.date>='%s' AND consommations.date<='%s'
+                       AND consommations.IDunite IN (%s)
+                       AND consommations.etat IN ('reservation','present')""" % (
+                           date_debut.isoformat(), date_fin.isoformat(), id_unites)
+        else:
+            req = """SELECT consommations.date, consommations.IDgroupe, consommations.IDunite,
+                            consommations.IDindividu, consommations.etat, individus.date_naiss
+                     FROM consommations
+                     LEFT JOIN individus ON individus.IDindividu = consommations.IDindividu
+                     WHERE consommations.date>='%s' AND consommations.date<='%s'
+                       AND consommations.IDunite IN (%s)
+                       AND consommations.etat IN ('reservation','present')""" % (
+                           date_debut.isoformat(), date_fin.isoformat(), id_unites)
         if not base.ExecuterReq(req):
-            raise ValueError("Impossible de lire les repas")
-        consos, naissances = [], {}
-        for jour, groupe, unite, individu, etat, naissance in base.ResultatReq():
+            raise ValueError("Impossible de lire les accueils de midi")
+        consos, naissances, intervalles = [], {}, {}
+        for ligne in base.ResultatReq():
+            jour, groupe, unite, individu, etat, naissance = ligne[:6]
             if (groupe, unite) not in services:
                 continue
             jour = UTILS_Dates.DateEngEnDateDD(jour) if isinstance(jour, str) else jour
-            consos.append({"date": jour, "IDgroupe": groupe, "IDunite": unite,
-                           "IDindividu": individu, "etat": etat})
+            entree = {"date": jour, "IDgroupe": groupe, "IDunite": unite,
+                      "IDindividu": individu, "etat": etat}
+            consos.append(entree)
             naissances[individu] = naissance
+            if optin:
+                debut = ligne[6] if ligne[6] not in (None, "") else ligne[8]
+                fin = ligne[7] if ligne[7] not in (None, "") else ligne[9]
+                cle = (jour, individu) + services[(groupe, unite)]
+                intervalles.setdefault(cle, []).append((_HeureRepas2C(debut), _HeureRepas2C(fin)))
+        if optin:
+            consos = _FiltrerAccueilsMidi2C(consos, intervalles, services, plage_midi)
+            # Ne pas lire les reponses d'enfants hors du temps meridien.
+            ids_midi = set(c["IDindividu"] for c in consos)
+            naissances = {ident: naissance for ident, naissance in naissances.items()
+                          if ident in ids_midi}
         reponses = {}
         if naissances:
             req = """SELECT IDindividu, reponse FROM questionnaire_reponses
@@ -132,7 +205,8 @@ def ChargerRepartitionRegimes(question, correspondance, services, date_debut, da
                 reponses[individu] = reponse
     finally:
         base.Close()
-    return UTILS_Repas_regimes.RepartitionRegimes(consos, reponses, choix, services, naissances)
+    return UTILS_Repas_regimes.RepartitionRegimes(consos, reponses, choix, services, naissances,
+                                                repas_pmsl_prevu=repas_pmsl_prevu if optin else None)
 
 
 def _VerifierQuestionRegime(base, id_question, choix):

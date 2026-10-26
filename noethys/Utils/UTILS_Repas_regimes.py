@@ -24,6 +24,7 @@ from Utils.UTILS_Repas_totaux import EntierNaturel
 
 
 CATEGORIES = ("standard", "sans_porc", "vegetarien")
+PANIER = "sans_repas_pmsl"  # opt-in des nouveaux modeles uniquement
 CHAMPS = CATEGORIES + ("non_renseignes",)
 CONTROLE_REGIME = "liste_deroulante"
 ETATS_REPAS = ("reservation", "present")
@@ -44,10 +45,10 @@ def ConfigurationRegimes(question, correspondance, controle):
         raise ValueError("Identifiant de question de regime invalide")
     if controle != CONTROLE_REGIME:
         raise ValueError("Le regime alimentaire exige une question a liste deroulante (choix unique)")
-    if not isinstance(correspondance, dict) or set(correspondance) != set(CATEGORIES):
+    if not isinstance(correspondance, dict) or set(correspondance) not in (set(CATEGORIES), set(CATEGORIES + (PANIER,))):
         raise ValueError("Associez exactement les choix standard, sans porc et vegetarien")
     choix = {}
-    for regime in CATEGORIES:
+    for regime in CATEGORIES + ((PANIER,) if PANIER in correspondance else ()):
         valeur = correspondance[regime]
         try:
             id_choix = int(valeur)
@@ -56,21 +57,21 @@ def ConfigurationRegimes(question, correspondance, controle):
         if isinstance(valeur, bool) or id_choix <= 0:
             raise ValueError("Identifiant de choix %s invalide" % regime)
         choix[regime] = id_choix
-    if len(set(choix.values())) != len(CATEGORIES):
+    if len(set(choix.values())) != len(choix):
         raise ValueError("Un meme choix ne peut pas representer deux regimes")
     return id_question, choix
 
 
-def ClasserReponse(reponse, correspondance):
+def ClasserReponse(reponse, correspondance, repas_pmsl_prevu=None):
     """Regime d'une reponse brute ; « non_renseignes » si absente ou vide.
 
     Leve RegimeInvalide pour un choix inconnu ou plusieurs choix distincts.
     """
     if reponse is None:
-        return "non_renseignes"
+        return "standard" if PANIER in correspondance and repas_pmsl_prevu is True else "non_renseignes"
     elements = [e.strip() for e in str(reponse).split(";") if e.strip()]
     if not elements:
-        return "non_renseignes"
+        return "standard" if PANIER in correspondance and repas_pmsl_prevu is True else "non_renseignes"
     if len(set(elements)) > 1:
         raise RegimeInvalide("contradictoire")
     inverse = dict((str(v), k) for k, v in correspondance.items())
@@ -106,7 +107,7 @@ def _jour(valeur):
     raise ValueError("Consommation sans date valide")
 
 
-def RepartitionRegimes(consommations, reponses, correspondance, services, naissances):
+def RepartitionRegimes(consommations, reponses, correspondance, services, naissances, repas_pmsl_prevu=None):
     """Repartit les enfants ayant un repas par (date, site, service).
 
     consommations : dicts date, IDindividu, IDgroupe, IDunite, etat.
@@ -144,7 +145,9 @@ def RepartitionRegimes(consommations, reponses, correspondance, services, naissa
         jour, site, service = cle
         entree = dict((champ, 0) for champ in CHAMPS)
         entree.update({"date": jour, "site": site, "service": service,
-                       "adultes_avec_conso": 0, "ages_inconnus": 0, "multisites": 0})
+                       "adultes_avec_conso": 0, "ages_inconnus": 0, "multisites": 0,
+                       "repas_apportes": 0, "repas_apportes_moins_6": 0,
+                       "repas_apportes_six_plus": 0})
         for individu in ids:
             if len(sites[(jour, service, individu)]) > 1:
                 entree["multisites"] += 1
@@ -156,10 +159,18 @@ def RepartitionRegimes(consommations, reponses, correspondance, services, naissa
                 entree["adultes_avec_conso"] += 1
                 continue
             try:
-                entree[ClasserReponse(reponses.get(individu), correspondance)] += 1
+                type_repas = ClasserReponse(reponses.get(individu), correspondance, repas_pmsl_prevu)
+                if PANIER in correspondance and repas_pmsl_prevu is False and type_repas != PANIER:
+                    raise RegimeInvalide("inconnue")  # pas de fournisseur prevu
+                if type_repas == PANIER:
+                    entree["repas_apportes"] += 1
+                    entree["repas_apportes_moins_6" if age < 6 else "repas_apportes_six_plus"] += 1
+                else:
+                    entree[type_repas] += 1
             except RegimeInvalide as exc:
                 anomalies[str(exc)] += 1
         entree["total_repas"] = sum(entree[champ] for champ in CHAMPS)
+        entree["enfants_presents_midi_classes"] = entree["total_repas"] + entree["repas_apportes"]
         # Meme regle que la suggestion par age : pas de suggestion partielle.
         entree["complet"] = entree["ages_inconnus"] == 0
         VerifierInvariant(entree)
@@ -226,6 +237,7 @@ ROLES_COLONNES = {
     "regime_sans_porc": "sans_porc",
     "regime_vegetarien": "vegetarien",
     "regime_non_renseigne": "non_renseignes",
+    "regime_repas_apporte": "repas_apportes",
 }
 
 
@@ -251,6 +263,12 @@ def ParametresColonne(parametres):
     service = str(parametres.get("service_directeur") or "").strip()
     if not site or not service:
         raise ValueError("Site et service obligatoires pour une colonne de regime")
+    if PANIER in choix:
+        from Utils.UTILS_Repas_2c import CouvreMidi
+        debut, fin = parametres.get("midi_debut"), parametres.get("midi_fin")
+        CouvreMidi([(debut, fin)], debut, fin)  # refuse tout horaire inconnu
+        if type(parametres.get("repas_pmsl_prevu")) is not bool:
+            raise ValueError("Confirmez si la formule inclut normalement le repas PMSL")
     return question, choix, site, service
 
 
@@ -271,9 +289,15 @@ def GroupesColonnesRegimes(colonnes):
         except ValueError as exc:
             erreurs[colonne["IDcolonne"]] = str(exc)
             continue
-        cle = (question, tuple(sorted(choix.items())))
+        nouveau = PANIER in choix
+        midi = (parametres.get("midi_debut"), parametres.get("midi_fin")) if nouveau else None
+        offre = parametres.get("repas_pmsl_prevu") if nouveau else None
+        cle = (question, tuple(sorted(choix.items())), midi, offre)
         groupe = groupes.setdefault(cle, {"question": question, "choix": choix,
-                                          "services": {}, "colonnes": [], "conflit": None})
+                                          "services": {}, "colonnes": [], "conflit": None,
+                                          "plage_midi": midi, "repas_pmsl_prevu": offre,
+                                          "roles": set()})
+        groupe["roles"].add(parametres.get("role_repas"))
         groupe["colonnes"].append(colonne["IDcolonne"])
         for groupe_unite in parametres.get("unites", []):
             groupe_unite = tuple(int(x) for x in groupe_unite)
@@ -281,6 +305,11 @@ def GroupesColonnesRegimes(colonnes):
                 groupe["conflit"] = "Une unite est rattachee a deux sites/services differents"
     resultat = []
     for groupe in groupes.values():
+        if PANIER in groupe["choix"] and "regime_repas_apporte" not in groupe["roles"]:
+            for ID in groupe["colonnes"]:
+                erreurs[ID] = "Ajoutez une colonne « Repas apporte par la famille » hors fournisseur"
+            continue
+        groupe.pop("roles", None)
         if groupe.pop("conflit") is not None:
             for ID in groupe["colonnes"]:
                 erreurs[ID] = "Une unite est rattachee a deux sites/services differents"
@@ -313,4 +342,6 @@ def SuggestionColonne(role, repartition, cle, erreur=None):
         alertes.append(u"%d préférence(s) non renseignée(s)" % entree["non_renseignes"])
     if not entree["complet"]:
         return None, alertes
+    if entree.get("repas_apportes"):
+        alertes.append(u"%d panier(s) familial(aux), hors commande fournisseur" % entree["repas_apportes"])
     return entree[ROLES_COLONNES[role]], alertes

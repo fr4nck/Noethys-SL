@@ -87,6 +87,9 @@ def ConstruireControle(donnees):
             if UTILS_Repas_regimes.EstRoleRegime(role):
                 # Decomposition du total : jamais une entree de TotauxRepas.
                 entree["regimes"][UTILS_Repas_regimes.ROLES_COLONNES[role]] = valeur
+                if role == "regime_repas_apporte":
+                    repartition_source = donnees.get("regimes", {}).get(colonnes[col].get("IDcolonne"), {})
+                    entree["paniers_attendus"] = repartition_source.get(cle, {}).get("repas_apportes", 0)
                 if "alertes_regimes" not in entree:
                     repartition = donnees.get("regimes", {}).get(colonnes[col].get("IDcolonne"))
                     entree["alertes_regimes"] = UTILS_Repas_regimes.SuggestionColonne(role, repartition, cle)[1]
@@ -158,6 +161,8 @@ def ErreursRegimes(lignes):
         classes = sum(int(regimes[c]) for c in UTILS_Repas_regimes.CHAMPS)
         if classes != total:
             erreurs.append("%s : %d repas repartis pour %d repas commandes" % (libelle, classes, total))
+        if "repas_apportes" in regimes and int(regimes["repas_apportes"]) != int(ligne.get("paniers_attendus", 0)):
+            erreurs.append("%s : paniers apportes differents de la presence qualifiee" % libelle)
     return erreurs
 
 
@@ -175,6 +180,9 @@ def AcquittementsRegimes(lignes):
         non_renseignes = int(ligne["regimes"].get("non_renseignes", 0))
         if non_renseignes:
             messages.append(u"%s : %d repas a preference non renseignee" % (libelle, non_renseignes))
+        paniers = int(ligne["regimes"].get("repas_apportes", 0))
+        if paniers:
+            messages.append(u"%s : %d panier(s) apporte(s) par la famille, hors commande fournisseur" % (libelle, paniers))
         for alerte in ligne.get("alertes_regimes", []):
             if u"non renseign" not in alerte:
                 messages.append(u"%s : %s" % (libelle, alerte))

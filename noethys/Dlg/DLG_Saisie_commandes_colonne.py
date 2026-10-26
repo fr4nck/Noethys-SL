@@ -338,6 +338,7 @@ class PAGE_Unites(wx.Panel):
             ("regime_sans_porc", _(u"Régime : repas sans porc")),
             ("regime_vegetarien", _(u"Régime : repas végétarien")),
             ("regime_non_renseigne", _(u"Régime : préférence non renseignée")),
+            ("regime_repas_apporte", _(u"Panier apporté par la famille (hors commande)")),
         ]
         self.label_role_repas = wx.StaticText(self, -1, _(u"Catégorie de repas :"))
         self.ctrl_role_repas = wx.Choice(self, -1, choices=[label for code, label in self.roles_repas])
@@ -354,11 +355,18 @@ class PAGE_Unites(wx.Panel):
         self.labels_choix_regime = {}
         for regime, label in (("standard", _(u"Réponse « repas standard » :")),
                               ("sans_porc", _(u"Réponse « repas sans porc » :")),
-                              ("vegetarien", _(u"Réponse « repas végétarien » :"))):
+                              ("vegetarien", _(u"Réponse « repas végétarien » :")),
+                              ("sans_repas_pmsl", _(u"Réponse « repas apporté par la famille » :"))):
             self.labels_choix_regime[regime] = wx.StaticText(self, -1, label)
             self.ctrls_choix_regime[regime] = wx.Choice(self, -1)
         self.questions_regime, self.choix_regime = [], []
         self.erreur_questions_regime = None
+        # La presence au midi vient de la formule journee/demi-journee.
+        self.label_midi_debut = wx.StaticText(self, -1, _(u"Début du temps méridien (HH:MM) :"))
+        self.ctrl_midi_debut = wx.TextCtrl(self, -1, "")
+        self.label_midi_fin = wx.StaticText(self, -1, _(u"Fin du temps méridien (HH:MM) :"))
+        self.ctrl_midi_fin = wx.TextCtrl(self, -1, "")
+        self.check_offre_pmsl = wx.CheckBox(self, -1, _(u"La formule inclut normalement un repas PMSL"))
 
         # Layout
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=5, hgap=5)
@@ -385,9 +393,14 @@ class PAGE_Unites(wx.Panel):
         champs_directeur.Add(self.ctrl_choix_sans_porc, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_question_regime, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_question_regime, 1, wx.EXPAND, 0)
-        for regime in ("standard", "sans_porc", "vegetarien"):
+        for regime in ("standard", "sans_porc", "vegetarien", "sans_repas_pmsl"):
             champs_directeur.Add(self.labels_choix_regime[regime], 0, wx.ALIGN_CENTER_VERTICAL, 0)
             champs_directeur.Add(self.ctrls_choix_regime[regime], 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_midi_debut, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_midi_debut, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_midi_fin, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        champs_directeur.Add(self.ctrl_midi_fin, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.check_offre_pmsl, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.AddGrowableCol(1)
         options_directeur.Add(champs_directeur, 0, wx.EXPAND | wx.ALL, 2)
         options_directeur.Add(self.check_repas_renfort, 0, wx.ALL, 2)
@@ -447,6 +460,8 @@ class PAGE_Unites(wx.Panel):
         resultat = {}
         for regime, ctrl in self.ctrls_choix_regime.items():
             index = ctrl.GetSelection()
+            if regime == "sans_repas_pmsl" and index <= 0:
+                continue  # ancien modele a trois choix, jamais migre implicitement
             resultat[regime] = self.choix_regime[index - 1][0] if index > 0 else None
         return resultat
 
@@ -455,7 +470,9 @@ class PAGE_Unites(wx.Panel):
 
     def OnChoixRole(self, event=None):
         actif = UTILS_Repas_regimes.EstRoleRegime(self.roles_repas[self.ctrl_role_repas.GetSelection()][0])
-        for ctrl in ([self.ctrl_question_regime, self.label_question_regime]
+        for ctrl in ([self.ctrl_question_regime, self.label_question_regime,
+                      self.label_midi_debut, self.ctrl_midi_debut,
+                      self.label_midi_fin, self.ctrl_midi_fin, self.check_offre_pmsl]
                      + list(self.ctrls_choix_regime.values()) + list(self.labels_choix_regime.values())):
             ctrl.Enable(actif)
 
@@ -487,6 +504,10 @@ class PAGE_Unites(wx.Panel):
         if UTILS_Repas_regimes.EstRoleRegime(role):
             try:
                 UTILS_Repas_source.VerifierParametrageRegimes(self.GetQuestionRegime(), self.GetChoixRegimes())
+                if "sans_repas_pmsl" in self.GetChoixRegimes():
+                    from Utils.UTILS_Repas_2c import CouvreMidi
+                    debut, fin = self.ctrl_midi_debut.GetValue().strip(), self.ctrl_midi_fin.GetValue().strip()
+                    CouvreMidi([(debut, fin)], debut, fin)
             except ValueError as exc:
                 wx.MessageBox(_(u"Paramétrage du régime alimentaire invalide : %s") % exc,
                               _(u"Paramétrage incomplet"), wx.OK | wx.ICON_WARNING, self)
@@ -522,6 +543,10 @@ class PAGE_Unites(wx.Panel):
         if UTILS_Repas_regimes.EstRoleRegime(parametres["role_repas"]):
             parametres["question_regime"] = self.GetQuestionRegime()
             parametres["choix_regimes"] = self.GetChoixRegimes()
+            if "sans_repas_pmsl" in parametres["choix_regimes"]:
+                parametres["midi_debut"] = self.ctrl_midi_debut.GetValue().strip()
+                parametres["midi_fin"] = self.ctrl_midi_fin.GetValue().strip()
+                parametres["repas_pmsl_prevu"] = self.check_offre_pmsl.GetValue()
         return parametres
 
     def SetParametres(self, dictParametres={}):
@@ -543,6 +568,9 @@ class PAGE_Unites(wx.Panel):
         IDquestion = dictParametres.get("question_regime")
         self.ChargerQuestionsRegime(int(IDquestion) if IDquestion else None)
         self.ChargerChoixRegime(dict((k, int(v)) for k, v in (dictParametres.get("choix_regimes") or {}).items() if v))
+        self.ctrl_midi_debut.SetValue(dictParametres.get("midi_debut") or "")
+        self.ctrl_midi_fin.SetValue(dictParametres.get("midi_fin") or "")
+        self.check_offre_pmsl.SetValue(bool(dictParametres.get("repas_pmsl_prevu", False)))
         self.OnChoixRole()
 
 
