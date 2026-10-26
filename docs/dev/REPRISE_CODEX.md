@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Restauration #433 — Lot 2C-1 : noyau pur panier familial (26/10/2026)
+
+- Base de publication ciblée : main 887aec2469503713ad43bd6e7f75689a5ce414c8 ; wx 21c4fc2a0b440d91d18d7fa582d91a9989fd982b ; qt f2316046f9f22ed59aeba33f9f8c090d3667ca06.
+- Nouveau module noethys/Utils/UTILS_Repas_2c.py : classification opt-in de 4 types, plages de midi issues de la journée/demi-journée, zéro commande fournisseur pour panier, sans réservation parentale spécifique, défaut standard conditionnel, exceptions par date/site/service avec provenance.
+- Tests synthétiques tests/test_noethys_sl_repas_2c.py : 22 PASS locaux isolés / 0 FAIL / 0 SKIP ; inclusion à la CI rapide Windows main/wx ; résultat GitHub à vérifier séparément.
+- Fichiers métier historiques non modifiés : UTILS_Repas_regimes.py, commandes RC8/RC9, grille/facturation et AFAS ; aucune migration, aucun envoi, aucun usage de base réelle. Nouveau noyau NON connecté à l'UI.
+- Matrice : main = noyau proposé au commit de ce lot ; wx = en attente de report ciblé ; qt = contrat commun en attente, UI Qt non applicable pour les commandes. Aucun statut stable/release.
+- Risques : présence issue des plages qualifiées par site ; les tarifs avec repas intégré restent hors lot ; exceptions datées non persistées ; recettes SQLite/MySQL et terrain à venir.
+- Voir docs/metier/REPAS_LOT_2C.md et issue #433. Prochaine étape : adapter l'offre de la formule et la présence midi aux unités Noethys, sans toucher aux prestations ni au bouton AFAS V1.
+
+
 ## Restauration #430 — Lot 2B contrôle, PDF et brouillon d'email des régimes sur `main` (26/10/2026)
 
 - **Base** : `main` `0ef1f6263f105a4a5452cd7d3513cda464cc5833` (Lot 2A) ; `wx` `769159452f3542416612c0c98ce96a9f09b59968` et `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiées par ce commit.
