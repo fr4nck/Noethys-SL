@@ -707,7 +707,7 @@ class Dialog(wx.Dialog):
             dlg.Destroy()
         return self.envoi_complet
 
-    def _EnvoyerLotMailjetHorsUI(self, dictExp, messages, parent_progress):
+    def _EnvoyerLotMailjetHorsUI(self, dictExp, messages, parent_progress, options_lot=False):
         """Traite un à un les destinataires Mailjet sans appel réseau sur wx.
 
         Chaque acceptation est historisée sur le thread UI, AVANT le message
@@ -739,14 +739,22 @@ class Dialog(wx.Dialog):
             return False
 
         anomalies, non_tentes, historique_incomplet = [], [], []
+        ne_pas_signaler_erreurs = False
         total = len(messages)
         for index, message in enumerate(messages, 1):
             premiere_tentative = True
             while True:
-                etat = self._ExecuterEnvoiUniqueHorsUI(
-                    messagerie, message, parent_progress, index=index, total=total,
-                    pause_avant=1 if index > 1 and premiere_tentative else 0,
-                )
+                try:
+                    etat = self._ExecuterEnvoiUniqueHorsUI(
+                        messagerie, message, parent_progress, index=index, total=total,
+                        pause_avant=1 if index > 1 and premiere_tentative else 0,
+                        relancer_deconnexion=False,
+                    )
+                except Exception as err:
+                    # Si la boucle modale ou le worker est interrompu, aucun
+                    # acquittement ne permet de prouver que Mailjet a refuse.
+                    # Cette adresse reste incertaine et n'est jamais retentee.
+                    etat = {"succes": False, "erreur": err, "phase": "envoi"}
                 premiere_tentative = False
                 if etat["succes"]:
                     self.listeSucces.append(message)
@@ -778,13 +786,21 @@ class Dialog(wx.Dialog):
                                u"Vérifiez le suivi Mailjet avant tout nouvel envoi.\n") + detail
                 UTILS_Envoi_email._RetirerAnomalies(anomalies, message)
                 anomalies.append((message, detail))
+                if ne_pas_signaler_erreurs:
+                    # Sur un lot visible, l'option explicite "ne plus
+                    # signaler" saute les alertes suivantes, jamais le suivi
+                    # des echecs/incertitudes ni les destinataires suivants.
+                    break
                 suivants = index < total
-                if retry_sur:
-                    boutons = ([_(u"Réessayer"), _(u"Continuer"), _(u"Arrêter")]
-                               if suivants else [_(u"Réessayer"), _(u"Arrêter")])
+                if not suivants:
+                    boutons = ([_(u"Réessayer"), _(u"Arrêter")]
+                               if retry_sur else [_(u"Terminer")])
                 else:
-                    boutons = ([_(u"Continuer"), _(u"Arrêter")]
-                               if suivants else [_(u"Terminer")])
+                    boutons = ([_(u"Réessayer"), _(u"Continuer")]
+                               if retry_sur else [_(u"Continuer")])
+                    if options_lot:
+                        boutons.append(_(u"Continuer et ne plus signaler les erreurs"))
+                    boutons.append(_(u"Arrêter"))
                 dlg = DLG_Messagebox.Dialog(
                     parent_progress, titre=_(u"Envoi de l'Email"),
                     introduction=_(u"Le message %d/%d n'est pas confirmé :") % (index, total),
@@ -796,7 +812,10 @@ class Dialog(wx.Dialog):
                 dlg.Destroy()
                 if retry_sur and choix == 0:
                     continue  # Uniquement CE message, jamais les précédents.
-                if suivants and (choix < 0 or choix == (2 if retry_sur else 1)):
+                if suivants and options_lot and choix == (2 if retry_sur else 1):
+                    ne_pas_signaler_erreurs = True
+                index_arret = (3 if retry_sur else 2) if options_lot else (2 if retry_sur else 1)
+                if suivants and (choix < 0 or choix == index_arret):
                     non_tentes = messages[index:]
                 break
             if non_tentes:
@@ -1013,6 +1032,22 @@ class Dialog(wx.Dialog):
             self._envoi_en_cours = True
             try:
                 complet = self._EnvoyerLotSmtpHorsUI(dictExp, liste_messages, parent_progress)
+                self.envoi_complet = adresseTest is None and complet
+                return complet
+            finally:
+                self._envoi_en_cours = False
+                handler.DeleteTemporaryImages()
+
+        # UI-2C : le lot Mailjet ouvert dans l'editeur ne doit pas
+        # monopoliser la boucle wx pendant la requete HTTP. Les choix d'erreur
+        # historiques sont proposes sur le thread wx, avec anti-double clic.
+        # Les confirmations Connecthys masquees conservent leurs choix propres.
+        if self.IsShownOnScreen() and dictExp["moteur"] == "mailjet" and len(liste_messages) > 1:
+            self._envoi_en_cours = True
+            try:
+                complet = self._EnvoyerLotMailjetHorsUI(
+                    dictExp, liste_messages, parent_progress, options_lot=True,
+                )
                 self.envoi_complet = adresseTest is None and complet
                 return complet
             finally:

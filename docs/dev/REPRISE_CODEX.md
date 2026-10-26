@@ -1,5 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-2C — lots Mailjet visibles sans blocage HTTP (26/10/2026, wx)
+
+- Base `wx` `56b3d19a647de0de9ef1f252585fa10c91ffac22` (UI-3B valide), `main` `77c7efe2b96bc2272f1130745a7a4aa5b832c0ed`, `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06`. Lot wx uniquement ; ne pas annoncer de synchronisation des trois branches.
+- Dans `DLG_Mailer.Dialog.Envoyer`, les lots Mailjet avec editeur visible et plus d'un destinataire utilisent le worker `_EnvoyerLotMailjetHorsUI` : connexions et requetes HTTP hors thread wx ; progression et historique sur wx. Les confirmations Connecthys avec editeur cache gardent leur chemin deja qualifie.
+- Les choix interactifs `Reessayer` (seulement apres refus explicite), `Continuer`, `Continuer et ne plus signaler les erreurs` et `Arreter` restent disponibles pour les lots visibles. Une reponse perdue ou une exception apres une emission rend le resultat **incertain** : pas de reemission automatique de l'adresse concernee, conservation de la liste d'incertitudes et du bilan complet. Le mode silence saute les boites d'erreur suivantes mais continue a enregistrer leurs anomalies.
+- `_envoi_en_cours` protege contre un second clic pendant un lot et sa liberation est dans `finally`. La fermeture de progression et la suppression des images temporaires sont conservees ; aucun changement de SQL, schema, regle de validation de demande ou empreinte de document.
+- Contre-tests : `tests/test_connecthys_mailjet_lot_asynchrone.py` (acceptation, timeout, refus certain, silence, arret, worker interrompu), `tests/test_vanilla_dlg_mailer_progress_parent.py` (editeur visible et proprietaire, vrais controles wx, double clic). Ces scenarios utilisent seulement les donnees fictives `example.test`, jamais l'API reelle. **La qualification reste a etablir pour le commit final**.
+- Hors lot : `Mailjet.Envoyer_lot` appele directement par d'autres modules reste synchrone ; le chemin visible a un seul destinataire garde son propre parcours, a contre-qualifier pour les erreurs incertaines. Le focus et les longues sauvegardes de grille necessitent la recette Windows `docs/recette/UI_FOCUS_WINDOWS.md`.
+
+
+Le verrou anti-reentrance UI-3B est publie dans `56b3d19a647de0de9ef1f252585fa10c91ffac22`, [run 40299997190](https://github.com/fr4nck/Noethys-SL/actions/runs/40299997190) SUCCESS : 1030 tests, 1003 PASS, 0 FAIL, 0 ERROR, 27 SKIP. Cela ne prouve pas la reactivite des sauvegardes synchrones sur poste utilisateur.
+
 ## UI-3B — protection contre la reentree Connecthys (26/10/2026, wx)
 
 - Qualification de la base UI-2B : run [40297166024](https://github.com/fr4nck/Noethys-SL/actions/runs/40297166024), 1025 tests, 997 PASS, 1 FAIL (ancienne assertion statique sur le nombre de routes d'envoi), 0 ERROR, 27 SKIP. Le commit concurrent `57b9105` remplace le comptage fragile par des assertions sur les branches. La contre-qualification du correctif `57b9105` est [SUCCESS sur le run 40298190887](https://github.com/fr4nck/Noethys-SL/actions/runs/40298190887) : 1025 tests, 998 PASS, 0 FAIL, 0 ERROR, 27 SKIP. UI-3B peut etre publie puis qualifie separement.
@@ -17,7 +29,7 @@
 - Connexion, transmission et temporisations SMTP en worker. Progression modale visible appartenant au Mailer. Historisation de chaque adresse acceptee sur le thread UI, pas de nouvel essai automatique apres resultat incertain, confirmations partielles et resume d'envoi conserves.
 - Protections : `_envoi_en_cours` interdit le second clic pendant le lot; retour de l'etat a la fin meme en cas d'exception. Aucune transaction metier, aucune base de production et aucun mail reel dans les tests.
 - Tests permanents avec moteur SMTP factice : deux destinataires, proprietaire de la progression, preuve de threads distincts du thread wx, anti double clic et maintien de l'affichage de l'editeur; AST du chemin conserve. La contre-qualification finale du routage SMTP visible et des tests de non-doublons est obtenue au commit `57b910565fdb37cf3a5850a59c28cd16fb89c229` (run [40298190887](https://github.com/fr4nck/Noethys-SL/actions/runs/40298190887), 1025 tests, 998 PASS, 0 FAIL, 0 ERROR, 27 SKIP).
-- Limites : Mailjet visible multi et d'autres appelants directs de `SmtpV2.Envoyer_lot` restent synchrones; il faut une contre-qualification propre avant d'y changer les regles de reprise.
+- Limites a la date du lot UI-2B : Mailjet visible multi et les appelants directs de `Envoyer_lot` restaient synchrones. Le premier est cible dans UI-2C ; les appels directs demeurent hors perimetre.
 
 
 ## UI-3A — mesures optionnelles de la reactivite Connecthys (26/10/2026)

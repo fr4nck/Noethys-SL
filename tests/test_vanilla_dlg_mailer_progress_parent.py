@@ -120,6 +120,7 @@ class FausseMessagerieMailjet(FausseMessagerie):
 
     def Envoyer(self, message=None):
         FausseMessagerieMailjet.nb_envois += 1
+        FausseMessagerie.thread_envoyer = threading.get_ident()
         return u"success"
 
     def Fermer(self):
@@ -132,6 +133,7 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         FausseMessagerie.dernier_dlg_progress = None
         FausseMessagerie.thread_connecter = None
         FausseMessagerie.thread_envoyer = None
+        FausseMessagerieMailjet.nb_envois = 0
 
         self.base = BaseTest()
         self.base.db.CreationTable("adresses_mail", dicoDB=Tables.DB_DATA)
@@ -258,6 +260,58 @@ class DlgMailerProgressParentTests(unittest.TestCase):
                                side_effect=tentative_concurrente):
             self.assertTrue(dlg.Envoyer(listeDestinataires=tracks))
         self.assertEqual(deuxiemes_clics, [False, False])
+        self.assertEqual(historique.call_count, 2)
+        self.assertFalse(dlg._envoi_en_cours)
+
+    def test_editeur_visible_lot_mailjet_travaille_hors_ui(self):
+        """Mailjet multi interactif : boucle wx reactive, historique par adresse."""
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        tracks.append(OL_Destinataires_emails.Track(
+            dlg.ctrl_destinataires, {"adresse": "deux@example.test"},
+        ))
+        config = dict(dlg.ctrl_exp.GetDonnees())
+        config["moteur"] = "mailjet"
+        ui_thread = threading.get_ident()
+        with mock.patch.object(dlg.ctrl_exp, "GetDonnees", return_value=config), \
+             mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerieMailjet), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu") as bilan, \
+             mock.patch.object(dlg, "MemorisationHistorique") as historique:
+            resultat = dlg.Envoyer(listeDestinataires=tracks)
+        self.assertTrue(resultat)
+        self.assertTrue(dlg.envoi_complet)
+        self.assertEqual(FausseProgressDialog.instances, [])
+        self.assertEqual(FausseMessagerieMailjet.nb_envois, 2)
+        self.assertEqual(historique.call_count, 2)
+        self.assertNotEqual(FausseMessagerie.thread_connecter, ui_thread)
+        self.assertNotEqual(FausseMessagerie.thread_envoyer, ui_thread)
+        self.assertIs(bilan.call_args.kwargs["parent"], dlg)
+        self.assertFalse(dlg._envoi_en_cours)
+        self.assertTrue(dlg.IsShownOnScreen())
+        self.assertTrue(frame.IsShownOnScreen())
+
+    def test_editeur_visible_lot_mailjet_refuse_double_clic(self):
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        tracks.append(OL_Destinataires_emails.Track(
+            dlg.ctrl_destinataires, {"adresse": "deux@example.test"},
+        ))
+        config = dict(dlg.ctrl_exp.GetDonnees())
+        config["moteur"] = "mailjet"
+        original = dlg._ExecuterEnvoiUniqueHorsUI
+        secondes_tentatives = []
+
+        def controle(*args, **kwargs):
+            secondes_tentatives.append(dlg.Envoyer(listeDestinataires=tracks))
+            return original(*args, **kwargs)
+
+        with mock.patch.object(dlg.ctrl_exp, "GetDonnees", return_value=config), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerieMailjet), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu"), \
+             mock.patch.object(dlg, "MemorisationHistorique") as historique, \
+             mock.patch.object(dlg, "_ExecuterEnvoiUniqueHorsUI", side_effect=controle):
+            self.assertTrue(dlg.Envoyer(listeDestinataires=tracks))
+        self.assertEqual(secondes_tentatives, [False, False])
+        self.assertEqual(FausseMessagerieMailjet.nb_envois, 2)
         self.assertEqual(historique.call_count, 2)
         self.assertFalse(dlg._envoi_en_cours)
 
