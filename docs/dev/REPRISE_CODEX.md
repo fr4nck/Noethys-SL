@@ -1,6 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Cloture du lot UI-3C — 26/10/2026
+
+- Derniere qualification du code : `wx` `c4dbc275a43e45a1f86a07070b5c2804a1f63aae`. CI rapide Windows [#40312052510](https://github.com/fr4nck/Noethys-SL/actions/runs/40312052510) SUCCESS, 1030 PASS, 0 FAIL, 0 ERROR, 27 SKIP.
+- Seul le point de reprise est actualise ensuite en documentation avec `[skip ci]`, sans changer l'arbre executable valide. Les 3 branches ne sont pas fusionnees.
+- Reprise technique suivante : stabiliser le cas fermeture forcee/redemarrage en presence d'une grille appliquee mais d'un statut `portail_actions` non valide ; etudier un marqueur persistant de tentative/reconciliation avant d'autoriser des relances, sans compromettre RC9 ni reutiliser les categories d'emails. En attendant, ce cas exige une verification humaine et bloque toute declaration STABLE.
+
+
 ## UI-3C — etat des demandes Connecthys apres echec SQL (26/10/2026)
+
+- **Matrice inter-branches de ce correctif** : `wx` = VALIDÉ par CI rapide Windows sur `c4dbc275a43e45a1f86a07070b5c2804a1f63aae` ([run 40312052510](https://github.com/fr4nck/Noethys-SL/actions/runs/40312052510)) ; `main` = ABSENT (`77c7efe2b96bc2272f1130745a7a4aa5b832c0ed`) ; `qt` = ABSENT (`f2316046f9f22ed59aeba33f9f8c090d3667ca06`). Les fichiers historiques `noethys/Dlg/DLG_Saisie_portail_demande.py` de `main` et `qt` ont le meme blob `6a0d1d7e50b96463018d011f160279568ce7f983` : `track.Refresh()` y precede la requete `DB.ReqMAJ("portail_actions", ...)`. Le risque d'etat affiche non confirme persiste sur ces deux branches. Pas de fusion automatique ; STOP-GATE pour declaration de stabilite inter-branches.
 
 - **BASE** : `wx` `c397fd4fd72246b2f36ce9f23c7c39f94a62c15e`, `main` `77c7efe2b96bc2272f1130745a7a4aa5b832c0ed`, `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06`. Uniquement `wx` ; aucun changement aux autres branches ni a la preversion RC9.
 - **DEFECT CONFIRME SUR LE CODE ANTERIEUR** : `Dialog.Sauvegarde` mettait a jour `track.etat/reponse/traitement_date` et appelait `track.Refresh()` **avant** le commit SQL. En cas de refus de `UPDATE portail_actions`, la base revenait a `attente` mais le track et le bandeau continuaient d'afficher `validation`. `Dialog.Traitement` ne lisait pas le booleen de `Sauvegarde` ; relancer `Traitement_reservations` pouvait rejouer `Save_grille` deja execute.
@@ -8,7 +17,7 @@
 - **PAS DE DOUBLE TRAITEMENT APRES ECHEC DE FINALISATION** : apres un retour metier `etat=True`, une fiche en attente conserve la reponse/date/IDaction figees. Une nouvelle tentative `Automatique`/`Manuel`, une fermeture ou une navigation retentent **uniquement** `EnregistrerDemande`, sans rappeler `Traiter`, `Appliquer_reservations` ou `Save_grille`. Les boutons sont proteges contre le second clic modal et les finalisations imbriquees. Si SQL refuse toujours, fermeture/navigation sont retenues pour conserver la reprise locale. Une simple saisie non persistable, sans traitement metier en attente, peut etre abandonnee apres restauration du track connu.
 - **TESTS PERMANENTS** : `tests/test_connecthys_ui3c_sauvegarde.py`, vrai `EnregistrerDemande` sur SQLite temporaire, refus `UPDATE` injecte, comparaison avec `SELECT`, faux widgets wx, re-tentatives apres echec, absence de nouvelle execution de traitement, fermeture et navigation, rollback des suivis RC9 complets/partiels, reprise apres retour SQL. Aucun fichier `.nod`, email reel, reseau ni acces aux donnees PMSL.
 - **LIMITES DE PREUVE** : l'etat restaure est le dernier etat *connu de la fiche*, suppose identique a SQL en l'absence d'ecriture concurrente d'un autre poste ; aucune relecture SQL supplementaire n'est engagee. La protection anti-double-traitement est **locale au dialogue ouvert** : apres crash/fermeture forcee/reouverture, les reservations deja appliquees peuvent demander une reconciliation manuelle. Les erreurs/effets partiels pendant `Save_grille` avant retour `etat=True` sont hors perimetre. **STOP-GATE pour release** tant que ces cas et la recette Windows sur le focus ne sont pas qualifies.
-- **Statut** : correctif a publier en un commit trace puis CI rapide Windows ; aucun build installateur, aucun tag, aucune release ou deploiement.
+- **Resultat CI** : commit `c4dbc275a43e45a1f86a07070b5c2804a1f63aae` publie uniquement sur `wx` ; run [40312052510](https://github.com/fr4nck/Noethys-SL/actions/runs/40312052510) SUCCESS (1057 tests, **1030 PASS, 0 FAIL, 0 ERROR, 27 SKIP**). Contre-epreuves SQL/track/widget, refus multiples puis reprise, navigation/fermeture et suivi emails RC9 toutes PASS. **PASS AUTOMATISE SOUS RESERVES** : aucune recette de focus sur poste Windows, aucune idempotence durable apres crash/reouverture, aucun controle d'ecriture concurrente externe. Aucun build installateur, tag, release, migration SQL, envoi reel ou deploiement.
 
 
 ## Point de reprise — 26/10/2026
