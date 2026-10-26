@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## Lot 2C-3A — prévol financier / audit des tarifs sans écriture (26/10/2026)
+
+- Base initiale `wx` `96bd9d40df3711ae36ed5b1b65d0bc5ddb7d3be5`, CI #40373448184 SUCCESS (1179 tests, 0 FAIL, 30 SKIP). `main`, `qt` et la release RC9.1 préservées.
+- Audit du moteur `CTRL_Grille` : `tarifs` + `tarifs_lignes` + `combi_tarifs`/`combi_tarifs_unites`, prix pouvant être groupé sur plusieurs unités ; `prestations` liées par `IDtarif` et `IDfacture` ; paiements via `ventilation`. `unites.repas=1` indique repas inclus, sans prouver un prix repas distinct.
+- Contrat additionnel `noethys/Utils/UTILS_Repas_tarifs_audit_2c.py` : `AuditerTarifsALSH` lecture SQL SELECT exclusivement et rapport sans personnes ; `ValiderAccordTarifSepare` refuse crédit/combinaisons/absence d'approbation ou de dates ; `SimulerNouvellePrestationPanier` garde zéro repas et accueil inchangé en exigeant une source datée, sans toucher aux écritures déjà facturées/ventilées. Tests sur base SQLite artificielle.
+- **STOP-FINANCE** : non intégré à `CTRL_Grille` ou au cycle réel `MemorisePrestation`, aucune exonération comptable actuellement active. Manquent tarifs ALSH réels, source d'exception persistée par date, autorisations opérateur et recettage financier. Données fournies à ce jour MAD et pas ALSH.
+- La qualification CI et les notes finales doivent être rattachées à l'issue #433 après publication ; aucune nouvelle RC automatiquement diffusée.
+
+
+
 ## Lot 2C-2 / 2C-3 — intégration panier familial sur wx (26/10/2026)
 
 - Base `wx` `0eccac4a`, source 2C-1 `main` `f6f5ccdf`, `qt` non modifié. Moteur pur copié à l'identique, pas de fusion globale.
