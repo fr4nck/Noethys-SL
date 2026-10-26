@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Point de reprise — 26/10/2026
+
+- Branche `wx` : code UI-2C/UI-2D qualifie sur `e7d8749e772d658d22dce846bc0a0bcb4366cb8f` par les CI [40306564973](https://github.com/fr4nck/Noethys-SL/actions/runs/40306564973) et [40307779012](https://github.com/fr4nck/Noethys-SL/actions/runs/40307779012). La documentation post-qualification ne change aucun code executable ; aucun build correctif, tag, release, envoi reel ou deploiement.
+- Matrice UI-2C/2D : `wx` **VALIDÉ par CI** ; `main` **NON APPLICABLE** aux dialogues wx (SHA `77c7efe2b96bc2272f1130745a7a4aa5b832c0ed`) ; `qt` **NON APPLICABLE** aux dialogues wx (SHA `f2316046f9f22ed59aeba33f9f8c090d3667ca06`). Aucune fusion inter-branches n'a ete executee.
+- Reste a prouver : comportement du premier plan sur une session graphique Windows avec candidat build du SHA final ; reactivite des traitements des reservations synchrones et validation du retour d'erreur lorsque l'enregistrement de `portail_actions` echoue. Les donnees PMSL restent hors recette.
+- Prochain lot envisage : tester de maniere contradictoire `Dialog.Sauvegarde` et `Dialog.Traitement` : l'etat de `track` est actualise avant le commit SQL et `Traitement()` n'utilise pas le booleen renvoye par `Sauvegarde()`. Ne pas modifier cet enchainement sans tests de rollback et de non-double-traitement.
+
+
 ## UI-2D — renvoi unitaire SMTP/Mailjet apres reponse incertaine (26/10/2026, wx)
 
 - Base de developpement UI-2C : `a2390f77e6c5fe65c48378683e184ac2a401bdcb` ; nouveaux changements exclusivement dans le Mailer wx. Les branches `main`/`qt` et la RC9 ne sont pas touchees.
@@ -7,7 +15,7 @@
 - Correction : `relancer_deconnexion=False` sur le worker unitaire ; seul un refus de Mailjet explicite HTTP 4xx ou une exception SMTP indiquant clairement un refus permet `Reessayer` manuellement. Les autres erreurs d'envoi/interruptions sont classees incertaines, avec seul bouton Terminer et sans repetition ; les erreurs de connexion ne sont pas considerees acceptees.
 - `_envoi_en_cours` bloque le second clic pendant le Mailer unitaire ; le `finally` libere la garde et les images temporaires. Une panne d'historisation apres acceptation affiche un avertissement sans changer la reponse reussie ni reemettre l'email.
 - Tests fictifs `tests/test_mailer_unique_uncertain.py` (SMTP et Mailjet, timeout apres DATA, refus certain, interruption UI, echec de connexion) et controles wx du bouton unitaire/historique dans `tests/test_vanilla_dlg_mailer_progress_parent.py`. Aucun email, base PMSL, secret, donnees reelles ou media.
-- Statut : **EN ATTENTE DE QUALIFICATION CI DU COMMIT UI-2D**. Le moteur historique `SmtpV2.Envoyer_lot` appele directement depuis d'autres ecrans reste hors de ce correctif ; ne pas annoncer de resolution complete des gels de fenetre avant recette graphique Windows.
+- **Qualification obtenue** : commit `e7d8749e772d658d22dce846bc0a0bcb4366cb8f`, [CI Windows #40307779012](https://github.com/fr4nck/Noethys-SL/actions/runs/40307779012) SUCCESS : 1046 tests, 1019 PASS, 0 FAIL, 0 ERROR, 27 SKIP. Les simulations timeout apres DATA, Mailjet HTTP 400, historique indisponible, interruptions et double clic sont PASS. Le moteur historique `SmtpV2.Envoyer_lot` appele directement depuis d'autres ecrans reste hors de ce correctif ; ne pas annoncer de resolution complete des gels de fenetre avant recette graphique Windows.
 
 
 ## UI-2C — lots Mailjet visibles sans blocage HTTP (26/10/2026, wx)
