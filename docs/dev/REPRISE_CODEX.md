@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Restauration #430 — Lot 2B contrôle, PDF et brouillon d'email des régimes sur `main` (26/10/2026)
+
+- **Base** : `main` `0ef1f6263f105a4a5452cd7d3513cda464cc5833` (Lot 2A) ; `wx` `769159452f3542416612c0c98ce96a9f09b59968` et `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiées par ce commit.
+- **Contrôle** (`DLG_Controle_repas.py`) : colonnes Standard / Sans porc / Végétarien / Non renseigné modifiables et écart « répartis − total » affiché ; un effectif corrigé n'est jamais reporté sur les régimes ; validation bloquée tant que l'écart n'est pas nul ou qu'une colonne manque ; acquittement explicite (Oui/Non) des non-renseignés et des alertes de source (âge manquant, 18 ans et plus, multisite) ; erreur de source (réponse inconnue/contradictoire) = dialogue refusé. Ancien modèle : colonnes de régime masquées, « dont sans porc » inchangé ; modèle à régimes : « dont sans porc » masqué. Les corrections explicites de régime sont reportées dans la grille (`AppliquerControle`).
+- **Documents** (`DLG_Saisie_commande.py`, `FusionTotauxPDF`) : récapitulatif PDF avec les quatre catégories validées par date/site/service ; champs de fusion `{REPAS_STANDARD}`, `{REPAS_SANS_PORC}` (catégorie exclusive pour un modèle à régimes), `{REPAS_VEGETARIEN}`, `{REPAS_NON_RENSEIGNE}` ; ancien modèle : champs et colonnes inchangés. Mélange « dont sans porc » + régimes refusé au contrôle (affichage ambigu). PDF et brouillon issus du même instantané validé ; toute modification après validation bloque l'émission.
+- **Sécurité** : `eval()` des paramètres de modèles/colonnes de commande remplacés par `UTILS_Repas_validation.LireParametres` (`ast.literal_eval`, dictionnaire attendu, **aucun repli vers eval**) dans `CTRL_Commande_repas`, `DLG_Saisie_commande`, `DLG_Saisie_commandes_colonne`, `DLG_Saisie_modele_commandes`. Écrivains vérifiés (`six.text_type(dict)`), paramètres de la base d'exemple `EXEMPLE_alsh_DATA.dat` lisibles (test).
+- **MySQL** : `tests/test_noethys_sl_repas_regimes_mysql.py` (chaîne réelle GestionDB, SQLite en CI rapide) et workflow manuel `noethys-sl-repas-mysql.yml` (MySQL 5.7.44 jetable, base `zz_test_repas_*` créée puis supprimée, comparaison avec SQLite).
+- **Tests** : `tests/test_noethys_sl_repas_regimes_2b.py` (14 tests : contrat pur, dialogue sans affichage, PDF ReportLab réel, mailer simulé sans SMTP) ; 5 mutations témoins détectées. Suite restauration locale 192 tests OK (3 SKIP MySQL).
+- **Limites** : préférences non historisées (Lot 3) — une commande ancienne n'est pas entièrement reproductible ; adultes non suggérés dans les régimes ; recette visuelle Windows EN ATTENTE ; Qt non qualifié.
+
 ## Restauration #430 — Lot 2A raccordement wx des régimes sur `main` (26/10/2026)
 
 - **Base** : `main` `9be6dd91c7ed2566132bb15ca48380ddec8bf71b` (Lot 1) ; `wx` `769159452f3542416612c0c98ce96a9f09b59968` et `qt` `f2316046f9f22ed59aeba33f9f8c090d3667ca06` non modifiées. Worktree détaché, aucune branche créée.

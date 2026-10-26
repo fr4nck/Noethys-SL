@@ -26,6 +26,7 @@ from Utils import UTILS_Commandes_directeur
 from Utils import UTILS_Encadrement
 from Utils import UTILS_Repas_source
 from Utils import UTILS_Repas_regimes
+from Utils import UTILS_Repas_validation
 import wx.lib.wordwrap as wordwrap
 
 if 'phoenix' in wx.PlatformInfo:
@@ -433,7 +434,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         if len(listeDonnees) > 0:
             nom_modele, IDrestaurateur, parametres, restaurateur_nom, restaurateur_tel, restaurateur_mail = listeDonnees[0]
             if type(parametres) in (str, six.text_type):
-                parametres = eval(parametres)
+                parametres = UTILS_Repas_validation.LireParametres(parametres)
 
             dictDonnees["modele_nom"] = nom_modele
             dictDonnees["modele_parametres"] = parametres
@@ -455,7 +456,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
             index = 0
             for IDcolonne, ordre, nom_colonne, largeur, categorie, parametres in listeDonnees:
                 if type(parametres) in (str, six.text_type):
-                    parametres = eval(parametres)
+                    parametres = UTILS_Repas_validation.LireParametres(parametres)
                 dictColonne = {"IDcolonne": IDcolonne, "ordre": ordre, "nom_colonne": nom_colonne, "largeur": largeur, "categorie": categorie, "parametres": parametres}
                 dictDonnees["liste_colonnes"].append(dictColonne)
 

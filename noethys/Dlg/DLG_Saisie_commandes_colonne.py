@@ -18,6 +18,7 @@ from Ctrl import CTRL_Bouton_image
 import GestionDB
 from Utils import UTILS_Repas_regimes
 from Utils import UTILS_Repas_source
+from Utils import UTILS_Repas_validation
 import wx.lib.agw.hypertreelist as HTL
 from wx.lib.agw.customtreectrl import EVT_TREE_ITEM_CHECKED
 import six
@@ -525,7 +526,7 @@ class PAGE_Unites(wx.Panel):
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str) :
-            dictParametres = eval(dictParametres)
+            dictParametres = UTILS_Repas_validation.LireParametres(dictParametres)
         dictParametres = dictParametres or {}
         self.ctrl_unites.SetCoches(dictParametres.get("unites", []))
         self.check_directeur.SetValue(bool(dictParametres.get("repas_directeur_detache", False)))
@@ -621,7 +622,7 @@ class PAGE_Informations(wx.Panel):
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str) :
-            dictParametres = eval(dictParametres)
+            dictParametres = UTILS_Repas_validation.LireParametres(dictParametres)
         if ("infos_medicales" in dictParametres) == True :
             self.check_infos_medicales.SetValue(True)
         if ("messages_individuels" in dictParametres) == True :
@@ -680,7 +681,7 @@ class PAGE_Total(wx.Panel):
 
     def SetParametres(self, dictParametres={}):
         if type(dictParametres) in (six.text_type, str) :
-            dictParametres = eval(dictParametres)
+            dictParametres = UTILS_Repas_validation.LireParametres(dictParametres)
         if ("colonnes" in dictParametres) == True :
             self.radio_colonnes_choix.SetValue(True)
             self.ctrl_colonnes.SetCoches(dictParametres["colonnes"])
@@ -885,7 +886,7 @@ class Dialog(wx.Dialog):
         self.dictDonnees["categorie"] = self.ctrl_parametres.GetCodePageActive()
         self.dictDonnees["parametres"] = self.ctrl_parametres.GetParametres()
         if type(self.dictDonnees["parametres"]) in (six.text_type, str):
-            self.dictDonnees['parametres'] = eval(self.dictDonnees["parametres"])
+            self.dictDonnees['parametres'] = UTILS_Repas_validation.LireParametres(self.dictDonnees["parametres"])
         return self.dictDonnees
 
     def SetDonnees(self, dictDonnees={}):
@@ -902,7 +903,7 @@ class Dialog(wx.Dialog):
         if "parametres" in self.dictDonnees :
             self.ctrl_parametres.SetPageByCode(self.dictDonnees["categorie"])
             if type(self.dictDonnees["parametres"]) in (str, six.text_type) :
-                self.dictDonnees['parametres'] = eval(self.dictDonnees["parametres"])
+                self.dictDonnees['parametres'] = UTILS_Repas_validation.LireParametres(self.dictDonnees["parametres"])
             self.ctrl_parametres.SetParametres(self.dictDonnees["parametres"])
 
 

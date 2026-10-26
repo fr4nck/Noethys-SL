@@ -421,7 +421,7 @@ class Dialog(wx.Dialog):
         if len(listeDonnees) > 0:
             nom_modele, IDrestaurateur, parametres, restaurateur_nom, restaurateur_tel, restaurateur_mail = listeDonnees[0]
             if type(parametres) in (str, six.text_type) :
-                parametres = eval(parametres)
+                parametres = UTILS_Repas_validation.LireParametres(parametres)
 
             self.dictDonnees["modele_nom"] = nom_modele
             self.dictDonnees["modele_parametres"] = parametres
@@ -441,7 +441,7 @@ class Dialog(wx.Dialog):
         if len(listeDonnees) > 0:
             for IDcolonne, ordre, nom, largeur, categorie, parametres in listeDonnees :
                 if type(parametres) in (str, six.text_type):
-                    parametres = eval(parametres)
+                    parametres = UTILS_Repas_validation.LireParametres(parametres)
                 listeColonnes.append({"IDcolonne" : IDcolonne, "ordre" : ordre, "nom" : nom, "largeur" : largeur, "categorie" : categorie, "parametres" : parametres})
         self.dictDonnees["colonnes"] = listeColonnes
 
@@ -783,22 +783,36 @@ class Dialog(wx.Dialog):
                                    titre_resume))
             style_resume = ParagraphStyle(name="cellule_repas", alignment=1,
                 fontName="Helvetica", fontSize=6, leading=7)
-            entetes = (_(u"Date"), _(u"Site / service"), _(u"Enfants < 6"),
-                       _(u"Enfants 6+"), _(u"Adultes A/D/O"),
-                       _(u"6+ adultes inclus"), _(u"Dont sans porc"), _(u"Total"))
+            # Modele a regimes : quatre categories exclusives validees ; sinon
+            # l'ancien « dont sans porc ». Jamais les deux (refuse au controle).
+            avec_regimes = any(entree.get("regimes") for entree in resume_valide)
+            if avec_regimes:
+                variantes = (_(u"Standard"), _(u"Sans porc"), _(u"Végétarien"), _(u"Non renseigné"))
+                rapports = (0.09, 0.16, 0.06, 0.06, 0.10, 0.09, 0.08, 0.08, 0.09, 0.09, 0.10)
+            else:
+                variantes = (_(u"Dont sans porc"),)
+                rapports = (0.12, 0.20, 0.075, 0.085, 0.155, 0.13, 0.115, 0.12)
+            entetes = ((_(u"Date"), _(u"Site / service"), _(u"Enfants < 6"),
+                        _(u"Enfants 6+"), _(u"Adultes A/D/O"), _(u"6+ adultes inclus"))
+                       + variantes + (_(u"Total"),))
             recap = [[Paragraph(escape(texte), style_resume) for texte in entetes]]
             for entree in resume_valide:
                 t = entree["totaux"]
                 repas_adultes = "%d/%d/%d" % (
                     t["animateurs_repas"], t["direction_repas"], t["autres_adultes_repas"])
-                champs = (entree["date"].strftime("%d/%m/%Y"),
-                          entree["site"] + " / " + entree["service"],
-                          str(t["enfants_moins_6"]), str(t["enfants_6_et_plus"]),
-                          repas_adultes, str(t["repas_6_et_plus"]),
-                          str(t["sans_porc"]), str(t["total_repas"]))
+                if avec_regimes:
+                    regimes = entree.get("regimes") or {}
+                    valeurs_variantes = tuple(str(regimes.get(c, 0)) for c in
+                                              ("standard", "sans_porc", "vegetarien", "non_renseignes"))
+                else:
+                    valeurs_variantes = (str(t["sans_porc"]),)
+                champs = ((entree["date"].strftime("%d/%m/%Y"),
+                           entree["site"] + " / " + entree["service"],
+                           str(t["enfants_moins_6"]), str(t["enfants_6_et_plus"]),
+                           repas_adultes, str(t["repas_6_et_plus"]))
+                          + valeurs_variantes + (str(t["total_repas"]),))
                 recap.append([Paragraph(escape(valeur), style_resume) for valeur in champs])
-            largeurs_recap = [largeurContenu * rapport for rapport in
-                              (0.12, 0.20, 0.075, 0.085, 0.155, 0.13, 0.115, 0.12)]
+            largeurs_recap = [largeurContenu * rapport for rapport in rapports]
             table_recap = Table(recap, largeurs_recap, repeatRows=1)
             table_recap.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
@@ -808,6 +822,9 @@ class Dialog(wx.Dialog):
             story.append(table_recap)
             story.append(Paragraph(_(u"Adultes A/D/O : animateurs / direction / autres adultes."),
                                    style_resume))
+            if avec_regimes:
+                story.append(Paragraph(_(u"Standard + sans porc + végétarien + non renseigné = total des repas."),
+                                       style_resume))
 
         # Observations
         if dictOptions["afficher_observations"] == True and len(observations) > 0:

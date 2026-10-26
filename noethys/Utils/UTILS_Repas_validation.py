@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contrat de prevalidation des commandes avant PDF ou email (#430)."""
 
+import ast
 from datetime import date
 from Utils.UTILS_Repas_totaux import TotauxRepas
 from Utils import UTILS_Repas_regimes
@@ -9,6 +10,27 @@ ROLES = ("moins_6", "six_plus", "animateurs", "direction", "autres_adultes", "sa
 CHAMPS = ("enfants_moins_6", "enfants_6_et_plus", "animateurs_repas",
           "direction_repas", "autres_adultes_repas", "sans_porc")
 CLE_CHAMP = dict(zip(ROLES, CHAMPS))
+
+
+def LireParametres(valeur):
+    """Parametres d'un modele ou d'une colonne de commande, sans eval().
+
+    Les parametres sont enregistres comme texte d'un dictionnaire Python
+    litteral. Toute autre forme est refusee : aucun repli vers eval().
+    """
+    if valeur is None or isinstance(valeur, dict):
+        return valeur
+    if not isinstance(valeur, str):
+        raise ValueError("Parametres de commande illisibles")
+    if not valeur.strip():
+        return None
+    try:
+        resultat = ast.literal_eval(valeur)
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+        raise ValueError("Parametres de commande illisibles : valeur non litterale refusee")
+    if resultat is not None and not isinstance(resultat, dict):
+        raise ValueError("Parametres de commande illisibles : dictionnaire attendu")
+    return resultat
 
 
 def ConstruireControle(donnees):
@@ -42,6 +64,10 @@ def ConstruireControle(donnees):
         config.append((index, role, site, service))
     if not config:
         raise ValueError("Aucune colonne de repas classee : configurez les roles dans le modele")
+    roles = set(role for _index, role, _site, _service in config)
+    if "sans_porc" in roles and any(UTILS_Repas_regimes.EstRoleRegime(r) for r in roles):
+        # Deux sources pour « sans porc » seraient ambigues pour le restaurateur.
+        raise ValueError("Ne combinez pas « dont sans porc » et la repartition des regimes dans un meme modele")
     resultat = {}
     for row, jour in enumerate(dates):
         for col, role, site, service in config:
@@ -61,6 +87,9 @@ def ConstruireControle(donnees):
             if UTILS_Repas_regimes.EstRoleRegime(role):
                 # Decomposition du total : jamais une entree de TotauxRepas.
                 entree["regimes"][UTILS_Repas_regimes.ROLES_COLONNES[role]] = valeur
+                if "alertes_regimes" not in entree:
+                    repartition = donnees.get("regimes", {}).get(colonnes[col].get("IDcolonne"))
+                    entree["alertes_regimes"] = UTILS_Repas_regimes.SuggestionColonne(role, repartition, cle)[1]
                 continue
             entree["valeurs"][CLE_CHAMP[role]] = valeur
             if role == "sans_porc":
@@ -83,6 +112,9 @@ def AppliquerControle(lignes):
         for role, case in item["cases"].items():
             if role in CLE_CHAMP:
                 case.SetValeur(item["valeurs"][CLE_CHAMP[role]])
+            elif UTILS_Repas_regimes.EstRoleRegime(role):
+                # Correction explicite de la repartition dans le dialogue.
+                case.SetValeur(item["regimes"][UTILS_Repas_regimes.ROLES_COLONNES[role]])
 
 
 def ResumerControle(lignes):
@@ -129,6 +161,26 @@ def ErreursRegimes(lignes):
     return erreurs
 
 
+def AcquittementsRegimes(lignes):
+    """Points non bloquants a acquitter explicitement avant validation.
+
+    Preferences non renseignees dans les quantites saisies, et anomalies de
+    la source (age manquant, adulte avec consommation, multisite).
+    """
+    messages = []
+    for ligne in lignes:
+        if not ligne.get("regimes"):
+            continue
+        libelle = "%s %s %s" % (ligne["date"].strftime("%d/%m/%Y"), ligne["site"], ligne["service"])
+        non_renseignes = int(ligne["regimes"].get("non_renseignes", 0))
+        if non_renseignes:
+            messages.append(u"%s : %d repas a preference non renseignee" % (libelle, non_renseignes))
+        for alerte in ligne.get("alertes_regimes", []):
+            if u"non renseign" not in alerte:
+                messages.append(u"%s : %s" % (libelle, alerte))
+    return messages
+
+
 def ResumeDepuisDonnees(donnees):
     return ResumerControle(ConstruireControle(donnees))
 
@@ -142,9 +194,16 @@ def FusionTotauxPDF(resume):
     """Valeurs de fusion identiques pour le PDF et le brouillon de mail."""
     if not resume:
         return {}
-    return {
+    champs = {
         "{REPAS_TOTAL}": str(sum(x["totaux"]["total_repas"] for x in resume)),
         "{REPAS_6_PLUS}": str(sum(x["totaux"]["repas_6_et_plus"] for x in resume)),
         "{REPAS_ADULTES}": str(sum(x["totaux"]["total_adultes"] for x in resume)),
         "{REPAS_SANS_PORC}": str(sum(x["totaux"]["sans_porc"] for x in resume)),
     }
+    if any(x.get("regimes") for x in resume):
+        # Modele a regimes (jamais combine avec « dont sans porc ») : le
+        # sans porc transmis est la categorie exclusive validee.
+        for cle, champ in (("{REPAS_STANDARD}", "standard"), ("{REPAS_SANS_PORC}", "sans_porc"),
+                           ("{REPAS_VEGETARIEN}", "vegetarien"), ("{REPAS_NON_RENSEIGNE}", "non_renseignes")):
+            champs[cle] = str(sum(int(x["regimes"].get(champ, 0)) for x in resume))
+    return champs
