@@ -997,7 +997,7 @@ def _RetirerAnomalies(listeAnomalies, message):
     listeAnomalies[:] = [(m, e) for m, e in listeAnomalies if m is not message]
 
 
-def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, listeNonTentes, afficher_confirmation_envoi):
+def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, listeNonTentes, afficher_confirmation_envoi, parent=None):
     """Bilan d'un lot en trois catégories distinctes : acceptés par le
     service d'envoi, en échec, non tentés (envoi arrêté). Mémorise aussi le
     bilan dans messagerie.dernier_bilan pour les appelants."""
@@ -1023,7 +1023,7 @@ def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, list
                 texte += u"\n\n" + _(u"Noethys ne vérifie pas leur remise effective aux destinataires.")
             if avertissements_suivi:
                 texte += u"\n\n" + _(u"Le suivi de %d message(s) n'a pas pu être enregistré. Les messages ont été acceptés : ne les renvoyez pas pour cette raison.") % len(avertissements_suivi)
-            dlg = wx.MessageDialog(None, texte, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
+            dlg = wx.MessageDialog(parent, texte, _(u"Fin de l'envoi"), wx.OK | wx.ICON_INFORMATION)
             dlg.ShowModal()
             dlg.Destroy()
         return
@@ -1049,7 +1049,7 @@ def _AfficherCompteRendu(messagerie, messages, listeSucces, listeAnomalies, list
         lignes.append(_(u"Acceptés par %s :") % service)
         for message in listeSucces:
             lignes.append(u"- %s" % _TexteUtf8(message.GetLabelDestinataires()))
-    dlg = DLG_Messagebox.Dialog(None, titre=_(u"Compte-rendu de l'envoi"), introduction=intro,
+    dlg = DLG_Messagebox.Dialog(parent, titre=_(u"Compte-rendu de l'envoi"), introduction=intro,
                                 detail=u"\n".join(lignes), icone=wx.ICON_INFORMATION, boutons=[_(u"Ok"), ])
     dlg.ShowModal()
     dlg.Destroy()

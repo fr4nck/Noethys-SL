@@ -1985,7 +1985,7 @@ class Traitement():
             else :
                 introduction = _(u"%s anomalies ont été détectées durant l'application de la demande :") % len(liste_erreurs)
             detail = "\n".join(liste_erreurs)
-            dlg = DLG_Messagebox.Dialog(None, titre=_(u"Avertissement"), introduction=introduction, detail=detail, icone=wx.ICON_EXCLAMATION, boutons=[_(u"Ok"), ])
+            dlg = DLG_Messagebox.Dialog(self.parent, titre=_(u"Avertissement"), introduction=introduction, detail=detail, icone=wx.ICON_EXCLAMATION, boutons=[_(u"Ok"), ])
             dlg.ShowModal()
             dlg.Destroy()
             return ""

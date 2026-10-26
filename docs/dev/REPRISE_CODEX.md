@@ -1,5 +1,11 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-1 : proprietaires des dialogues (26/10/2026, wx)
+
+Base: wx 54482ba6c64faecf1603b6ab3fc73ad391719220. Corrige l'ouverture involontaire du Mailer cache lors des erreurs de validation; utilise une fenetre affichee comme proprietaire des alertes et de la progression. Le traitement des reservations rattache son avertissement a Connecthys. Le bilan Mailjet accepte un parent facultatif, compatible avec les appels existants. Aucun code SQL, aucune regle d'acceptation, aucune migration, aucune donnee reelle modifies.
+
+Tests de contrat: tests/test_connecthys_ui1_dialog_owner.py. Les comportements du gestionnaire de fenetres et les blocages UI prolonges exigent encore une recette Windows; ne pas confondre CI et validation humaine. UI-2/3/4 non termines.
+
 ## RC9 — lot 7 : vérification du paquet existant et recette (24/10/2026, wx uniquement)
 
 - **Candidat conservé** : `ed30b3c90d1472328a5ad760fc7a43395fa64fd9`, run [40101261780](https://github.com/fr4nck/Noethys-SL/actions/runs/40101261780) ; aucune reconstruction, aucun tag ni release.
