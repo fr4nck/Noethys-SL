@@ -145,6 +145,7 @@ jobs:
           tests.test_connecthys_smtp_lot_asynchrone
           tests.test_connecthys_ui3_diagnostic
           tests.test_connecthys_ui3_reentrance
+          tests.test_connecthys_ui3c_sauvegarde
           tests.test_connecthys_reservations_progress
           tests.test_noethys_sl_portail_repas
           tests.test_noethys_sl_assiduite

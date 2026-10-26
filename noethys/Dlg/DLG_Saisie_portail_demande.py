@@ -307,6 +307,10 @@ class Dialog(wx.Dialog):
         self.tracks = tracks
         # Garde local contre un second clic durant une boucle modale.
         self._traitement_en_cours = False
+        # Une operation metier deja executee ne doit pas etre rejouee lorsque
+        # seule la finalisation portail_actions a echoue.
+        self._finalisation_en_attente = None
+        self._finalisation_en_cours = False
 
         # Bandeau spécial
         self.panel_bandeau = wx.Panel(self, -1)
@@ -603,8 +607,20 @@ class Dialog(wx.Dialog):
         DB.Close()
 
     def OnClose(self, event):
+        if getattr(self, "_traitement_en_cours", False):
+            if event.CanVeto():
+                event.Veto()
+            return
+        sauve = self.Sauvegarde()
+        if not sauve and getattr(self, "_finalisation_en_attente", None) is not None:
+            # Un traitement de reservations peut deja etre durable : garder
+            # son contexte de finalisation au lieu de permettre sa reexecution.
+            if event.CanVeto():
+                event.Veto()
+            return
+        # Une simple edition refusee a deja retrouve l'etat SQL connu :
+        # l'utilisateur peut alors fermer sans persister cette saisie.
         UTILS_Dialogs.SaveSizePerso(self, __file__)
-        self.Sauvegarde()
         event.Skip()
 
     def OnBoutonAide(self, event):
@@ -612,8 +628,12 @@ class Dialog(wx.Dialog):
         UTILS_Aide.Aide("Traiterlesdemandesduportail")
 
     def OnBoutonFermer(self, event):
+        if getattr(self, "_traitement_en_cours", False):
+            return
+        sauve = self.Sauvegarde()
+        if not sauve and getattr(self, "_finalisation_en_attente", None) is not None:
+            return
         UTILS_Dialogs.SaveSizePerso(self, __file__)
-        self.Sauvegarde()
         self.EndModal(wx.ID_CANCEL)
 
     def OnRadioEtat(self, event=None):
@@ -646,35 +666,86 @@ class Dialog(wx.Dialog):
         self.ctrl_modele_email.MAJ()
         self.ctrl_modele_email.SetID(ID)
 
+    def _AfficherEtatEnregistre(self, etat, reponse, traitement_date):
+        """Aligne widgets, boutons et bandeau sur un etat SQL deja commite."""
+        self.SetEtat(etat=etat, traitement_date=traitement_date)
+        self.ctrl_date_validation.SetDate(traitement_date or datetime.date.today())
+        self.ctrl_reponse.ChangeValue(reponse if reponse is not None else "")
+        self.panel_bandeau.Refresh()
+
+    def _RestaurerEtatDurable(self):
+        """Le track ne change qu'apres commit : l'ancienne valeur reste fiable.
+
+        Cette garantie suppose qu'aucun autre poste n'a modifie simultanement
+        la meme demande ; aucune relecture SQL supplementaire n'est supposee.
+        """
+        self._AfficherEtatEnregistre(
+            self.track.etat, self.track.reponse, self.track.traitement_date,
+        )
+
+    def _ConfirmerEtatDurable(self, etat, reponse, traitement_date):
+        self.track.etat = etat
+        self.track.reponse = reponse
+        self.track.traitement_date = traitement_date
+        self._AfficherEtatEnregistre(etat, reponse, traitement_date)
+        self.track.Refresh()
+
+    def _FinaliserTraitementEnAttente(self):
+        """Retente UNIQUEMENT portail_actions, jamais Save_grille ou Traiter."""
+        finalisation = getattr(self, "_finalisation_en_attente", None)
+        if finalisation is None or getattr(self, "_finalisation_en_cours", False):
+            return False
+        if finalisation["IDaction"] != self.track.IDaction:
+            return False
+        self._finalisation_en_cours = True
+        try:
+            etat = finalisation["etat"]
+            reponse = finalisation["reponse"]
+            traitement_date = finalisation["traitement_date"]
+            try:
+                succes = self.EnregistrerDemande(etat, reponse, traitement_date)
+            except Exception:
+                self._RestaurerEtatDurable()
+                raise
+            if not succes:
+                self._RestaurerEtatDurable()
+                return False
+            self._ConfirmerEtatDurable(etat, reponse, traitement_date)
+            self._finalisation_en_attente = None
+            return True
+        finally:
+            self._finalisation_en_cours = False
+
     def Sauvegarde(self):
+        if getattr(self, "_traitement_en_cours", False) and getattr(self, "_finalisation_en_attente", None) is None:
+            return False
+        # Apres un traitement metier applique, ne jamais enregistrer la
+        # selection UI a la place de sa finalisation en attente.
+        if getattr(self, "_finalisation_en_attente", None) is not None:
+            return self._FinaliserTraitementEnAttente()
+
         if self.radio_validation.GetValue() == True :
             etat = "validation"
-            if self.ctrl_reponse.GetValue() == "" :
-                reponse = None
-            else :
-                reponse = self.ctrl_reponse.GetValue()
+            reponse = self.ctrl_reponse.GetValue() or None
             traitement_date = self.ctrl_date_validation.GetDate()
-            self.ctrl_date_validation.Enable(True)
-            self.panel_bandeau.SetBackgroundColour(wx.Colour(220, 255, 220))
         else :
             etat = "attente"
             traitement_date = None
             reponse = None
-            self.ctrl_date_validation.SetDate(datetime.date.today())
-            self.ctrl_date_validation.Enable(False)
-            self.panel_bandeau.SetBackgroundColour(wx.Colour(255, 255, 255))
 
-        # MAJ du track
-        self.track.reponse = reponse
-        self.track.etat = etat
-        self.track.traitement_date = traitement_date
-        self.panel_bandeau.Refresh()
-        self.track.Refresh()
-
-        # Sauvegarde dans la base. Demande validée : le suivi local des
-        # confirmations complètes est effacé dans la même transaction (jamais
-        # avant que l'état de la demande soit durablement enregistré).
-        return self.EnregistrerDemande(etat, reponse, traitement_date)
+        # AVANT : track.Refresh() annoncait l'etat avant commit SQL, alors
+        # qu'une panne UPDATE conservait "attente" en base. Le track reste
+        # maintenant inchange jusqu'au commit confirme.
+        try:
+            succes = self.EnregistrerDemande(etat, reponse, traitement_date)
+        except Exception:
+            self._RestaurerEtatDurable()
+            raise
+        if not succes:
+            self._RestaurerEtatDurable()
+            return False
+        self._ConfirmerEtatDurable(etat, reponse, traitement_date)
+        return True
 
     def EnregistrerDemande(self, etat, reponse, traitement_date):
         from Utils import UTILS_Emails_acceptes
@@ -696,9 +767,15 @@ class Dialog(wx.Dialog):
                 except Exception:
                     pass
                 print(u"Enregistrement de la demande %s impossible : %s" % (self.track.IDaction, err))
-                dlg = wx.MessageDialog(self, _(u"L'état de cette demande n'a pas pu être enregistré :\n%s\n\n"
-                                               u"Le suivi des emails déjà acceptés est conservé : un nouveau "
-                                               u"traitement ne les renverra pas.") % err,
+                detail = _(u"L'état de cette demande n'a pas pu être enregistré :\n%s\n\n"
+                           u"Le suivi des emails déjà acceptés est conservé : un nouveau "
+                           u"traitement ne les renverra pas.") % err
+                if getattr(self, "_finalisation_en_attente", None) is not None:
+                    detail += _(u"\n\nLes opérations métier ont pu être enregistrées. "
+                                u"Une nouvelle tentative Automatique/Manuel dans cette "
+                                u"fenêtre ne retentera que l'enregistrement de la demande, "
+                                u"pas les réservations.")
+                dlg = wx.MessageDialog(self, detail,
                                        _(u"Enregistrement de la demande"), wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -1014,7 +1091,11 @@ class Dialog(wx.Dialog):
         self.ctrl_informations.SetTexte(texte)
 
     def OnNavigation(self, event):
-        self.Sauvegarde()
+        if getattr(self, "_traitement_en_cours", False):
+            return False
+        if not self.Sauvegarde():
+            # Le destinataire d'une finalisation en attente ne peut changer.
+            return False
 
         ID = event.GetId()
         index = self.tracks.index(self.track)
@@ -1064,26 +1145,34 @@ class Dialog(wx.Dialog):
 
     @_RefuserTraitementReentrant
     def Traitement(self, mode="automatique"):
+        if getattr(self, "_finalisation_en_attente", None) is not None:
+            # Ne pas reexecuter la sauvegarde des consommations deja tentee.
+            with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
+                return self._FinaliserTraitementEnAttente()
+        if getattr(self.track, "etat", None) in ("validation", "valide"):
+            return False
+
         with UTILS_Diagnostic_ui.mesurer(self, "demande.traitement"):
             traitement = Traitement(parent=self, track=self.track, mode=mode)
             resultat = traitement.Traiter()
 
-        # Sauvegarde de l'état
-        if resultat != False :
-            if resultat["etat"] == True :
-
-                # La demande a été validée
-                self.SetEtat(etat="valide", traitement_date=datetime.date.today())
-
-                # Mémorisation de la réponse. Forcer le repaint avant les
-                # recalculs/écritures suivants : sinon la fenêtre générale Connecthys
-                # paraît avoir terminé avant cette fenêtre de premier plan.
-                if "reponse" in resultat and resultat["reponse"] not in (None, "") :
-                    self.AfficherProgressionReservations(resultat["reponse"])
-
-                # Enregistrement de la demande
-                with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
-                    self.Sauvegarde()
+        # La grille est eventuellement deja sauvegardee ici : sa reprise
+        # ne doit jamais repasser par Traiter apres un echec portail_actions.
+        if resultat != False and resultat["etat"] == True:
+            reponse = (resultat.get("reponse") if resultat.get("reponse") not in (None, "")
+                       else self.ctrl_reponse.GetValue()) or None
+            traitement_date = datetime.date.today()
+            self._finalisation_en_attente = {
+                "IDaction": self.track.IDaction,
+                "etat": "validation",
+                "reponse": reponse,
+                "traitement_date": traitement_date,
+            }
+            # Progres deja affiche par Traitement_reservations avant Save_grille.
+            # Ne pas marquer visuellement "Traite" avant commit confirme.
+            with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
+                if not self._FinaliserTraitementEnAttente():
+                    return False
 
         # Réactualise le solde
         with UTILS_Diagnostic_ui.mesurer(self, "demande.actualisation"):

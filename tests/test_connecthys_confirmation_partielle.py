@@ -215,7 +215,12 @@ class CompatibiliteConnecthysTests(unittest.TestCase):
             self.assertIn('CleSuiviDemande(getattr(self.track, "IDaction", None), "%s")' % document, self.source)
 
     def test_etats_et_reponses_inchanges(self):
-        self.assertIn('self.SetEtat(etat="valide", traitement_date=datetime.date.today())', self.source)
+        # UI-3C : valider seulement APRES commit, jamais annoncer "Traite"
+        # sur le track avant une sauvegarde SQL refusee.
+        self.assertIn('"etat": "validation"', self.source)
+        self.assertIn('self._FinaliserTraitementEnAttente()', self.source)
+        self.assertIn('self.SetEtat(etat=etat, traitement_date=traitement_date)', self.source)
+        self.assertIn('self._ConfirmerEtatDurable(etat, reponse, traitement_date)', self.source)
         for reponse in ("Facture envoyée par Email.", "Reçu de règlement envoyé par Email."):
             self.assertIn(reponse, self.source)
         self.assertIn("if resultat == True :\n            self.track.email_date = datetime.date.today()", self.source)
