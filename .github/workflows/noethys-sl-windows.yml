@@ -208,6 +208,8 @@ jobs:
             'Cotisations automatiques : préparation contrôlée en facturation (RC8.1), aucune régularisation automatique'
             'Aucun email de recette envoyé par ce build ; aucune migration de base'
             'Statut: candidat de recette, non valide pour production'
+            'Build de recette wx avec correctifs de focus posterieurs a la release RC9 officielle'
+            'Archive candidate uniquement : elle ne remplace pas le Setup RC9 publie et ne constitue pas une release'
             "Commit: $env:GITHUB_SHA"
             "Branche: $env:GITHUB_REF_NAME"
             "Workflow run: $env:GITHUB_RUN_ID"
