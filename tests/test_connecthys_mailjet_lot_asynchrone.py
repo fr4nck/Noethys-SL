@@ -24,7 +24,9 @@ class MailjetLotSourceContract(unittest.TestCase):
     def test_un_clic_deux_adresses_emprunte_chemin_hors_ui(self):
         env = ast.get_source_segment(self.source, self.methode["Envoyer"])
         # Mailer caché (confirmations Connecthys) : envoi hors UI, message par message.
-        self.assertIn('if dictExp["moteur"] == "mailjet" and not self.IsShownOnScreen():', env)
+        self.assertIn("if not self.IsShownOnScreen():", env)
+        self.assertIn('if dictExp["moteur"] == "mailjet":', env)
+        self.assertIn("self._EnvoyerLotSmtpHorsUI", env)
         self.assertIn("self._EnvoyerLotMailjetHorsUI(dictExp, liste_messages, parent_progress)", env)
 
     def test_editeur_affiche_conserve_le_moteur_historique_par_lot(self):
