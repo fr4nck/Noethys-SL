@@ -1005,6 +1005,20 @@ class Dialog(wx.Dialog):
                 self._envoi_en_cours = False
                 handler.DeleteTemporaryImages()
 
+        # UI-2B : les lots SMTP depuis l'editeur visible passent aussi par
+        # le worker deja qualifie pour Connecthys. Les interactions et les
+        # confirmations restent sur le thread wx; Mailjet visible garde
+        # provisoirement son moteur d'envoi par lot historique.
+        if self.IsShownOnScreen() and dictExp["moteur"] == "smtp" and len(liste_messages) > 1:
+            self._envoi_en_cours = True
+            try:
+                complet = self._EnvoyerLotSmtpHorsUI(dictExp, liste_messages, parent_progress)
+                self.envoi_complet = adresseTest is None and complet
+                return complet
+            finally:
+                self._envoi_en_cours = False
+                handler.DeleteTemporaryImages()
+
         dlg_progress = wx.ProgressDialog(_(u"Envoi des mails"), _(u"Connexion au serveur de messagerie..."), maximum=len(liste_messages)+1, parent=parent_progress)
         dlg_progress.SetSize((450, 140))
         dlg_progress.CenterOnScreen()

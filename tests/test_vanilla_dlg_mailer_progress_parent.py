@@ -214,6 +214,53 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         self.assertNotEqual(FausseMessagerie.thread_envoyer, thread_ui)
 
 
+    def test_editeur_visible_lot_smtp_emet_hors_ui_sans_progression_orpheline(self):
+        """SMTP multi interactif: l'UI et l'historique restent sur le thread wx."""
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        autre = OL_Destinataires_emails.Track(
+            dlg.ctrl_destinataires, {"adresse": "deux@example.test"},
+        )
+        tracks.append(autre)
+        ui_thread = threading.get_ident()
+        with mock.patch.object(DLG_Mailer.wx, "ProgressDialog", FausseProgressDialog), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu") as bilan, \
+             mock.patch.object(dlg, "MemorisationHistorique") as historique:
+            resultat = dlg.Envoyer(listeDestinataires=tracks)
+        self.assertTrue(resultat)
+        self.assertTrue(dlg.envoi_complet)
+        self.assertEqual(FausseProgressDialog.instances, [])
+        self.assertEqual(historique.call_count, 2)
+        self.assertNotEqual(FausseMessagerie.thread_connecter, ui_thread)
+        self.assertNotEqual(FausseMessagerie.thread_envoyer, ui_thread)
+        self.assertIs(bilan.call_args.kwargs["parent"], dlg)
+        self.assertFalse(dlg._envoi_en_cours)
+        self.assertTrue(dlg.IsShownOnScreen())
+        self.assertTrue(frame.IsShownOnScreen())
+
+    def test_editeur_visible_refuse_second_clic_envoi_smtp_pendant_le_lot(self):
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        autre = OL_Destinataires_emails.Track(
+            dlg.ctrl_destinataires, {"adresse": "deux@example.test"},
+        )
+        tracks.append(autre)
+        envoi_initial = dlg._ExecuterEnvoiUniqueHorsUI
+        deuxiemes_clics = []
+
+        def tentative_concurrente(*args, **kwargs):
+            deuxiemes_clics.append(dlg.Envoyer(listeDestinataires=tracks))
+            return envoi_initial(*args, **kwargs)
+
+        with mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie", FausseMessagerie), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu"), \
+             mock.patch.object(dlg, "MemorisationHistorique") as historique, \
+             mock.patch.object(dlg, "_ExecuterEnvoiUniqueHorsUI",
+                               side_effect=tentative_concurrente):
+            self.assertTrue(dlg.Envoyer(listeDestinataires=tracks))
+        self.assertEqual(deuxiemes_clics, [False, False])
+        self.assertEqual(historique.call_count, 2)
+        self.assertFalse(dlg._envoi_en_cours)
+
     def test_messagebox_win32_herite_de_son_owner_sans_remaximiser(self):
         """L'alerte doit appartenir a sa frame et ne pas etre topmost globale."""
         import sys

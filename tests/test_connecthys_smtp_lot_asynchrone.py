@@ -28,6 +28,17 @@ class SmtpSourceContract(unittest.TestCase):
         self.assertIn("self._EnvoyerLotSmtpHorsUI(dictExp, liste_messages, parent_progress)", env)
         self.assertLess(env.index("_EnvoyerLotSmtpHorsUI"), env.index("messagerie.Connecter()"))
 
+    def test_smtp_multi_visible_emprunte_le_worker_sans_changer_mailjet_visible(self):
+        src = self.methods["Envoyer"]
+        self.assertIn('self.IsShownOnScreen() and dictExp["moteur"] == "smtp"', src)
+        self.assertIn("len(liste_messages) > 1", src)
+        self.assertIn("self._EnvoyerLotSmtpHorsUI(dictExp, liste_messages, parent_progress)", src)
+        self.assertIn("self._envoi_en_cours = True", src)
+        self.assertIn("self._envoi_en_cours = False", src)
+        self.assertLess(src.index("if self.IsShownOnScreen() and dictExp"),
+                        src.index("messagerie.Envoyer_lot("))
+        self.assertIn("callback_succes=MemoriserSucces", src)
+
     def test_worker_smtp_nautorise_pas_renvoi_automatique_ambigu(self):
         src = self.methods["_EnvoyerLotSmtpHorsUI"]
         self.assertIn("relancer_deconnexion=False", src)

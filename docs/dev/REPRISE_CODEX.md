@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-2B — lots SMTP depuis l'editeur visible (26/10/2026, wx seulement)
+
+- Baseline UI-3A `d7c9d031da9931afbfa94fc544237ddeb3ad8f41`. Correction ciblee : `DLG_Mailer.Dialog.Envoyer` passe aussi par `_EnvoyerLotSmtpHorsUI` pour les lots SMTP de plus d'un destinataire lorsque l'editeur est ouvert. Le moteur Mailjet visible reste sur `Envoyer_lot` historique (encore synchrone, UI-2C non qualifie).
+- Connexion, transmission et temporisations SMTP en worker. Progression modale visible appartenant au Mailer. Historisation de chaque adresse acceptee sur le thread UI, pas de nouvel essai automatique apres resultat incertain, confirmations partielles et resume d'envoi conserves.
+- Protections : `_envoi_en_cours` interdit le second clic pendant le lot; retour de l'etat a la fin meme en cas d'exception. Aucune transaction metier, aucune base de production et aucun mail reel dans les tests.
+- Tests permanents avec moteur SMTP factice : deux destinataires, proprietaire de la progression, preuve de threads distincts du thread wx, anti double clic et maintien de l'affichage de l'editeur; AST du chemin conserve. Tests a qualifier sur la CI du commit effectif.
+- Limites : Mailjet visible multi et d'autres appelants directs de `SmtpV2.Envoyer_lot` restent synchrones; il faut une contre-qualification propre avant d'y changer les regles de reprise.
+
+
 ## UI-3A — mesures optionnelles de la reactivite Connecthys (26/10/2026)
 
 - Nouveau `UTILS_Diagnostic_ui.py` dans la seule branche `wx` ; inactif par defaut. Pour des mesures locales volontaires uniquement : `NOETHYS_SL_UI_DIAG=1` au demarrage de l'application. Aucun fichier n'est ouvert par le diagnostic ; lignes techniques dans la console seulement lorsque l'option est active.
