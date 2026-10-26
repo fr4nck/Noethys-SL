@@ -519,17 +519,27 @@ class Dialog(wx.Dialog):
         return etat
 
     def _EnvoyerMessageUnique(self, messagerie, message, parent_progress):
-        """Chemin interactif unitaire : réseau hors UI, erreurs sur le thread wx."""
+        """Chemin unitaire : jamais de renvoi sans refus explicite du serveur."""
+        self.listeIncertains = []
+        self.listeAnomalies = []
         while True:
-            etat = self._ExecuterEnvoiUniqueHorsUI(messagerie, message, parent_progress)
+            try:
+                etat = self._ExecuterEnvoiUniqueHorsUI(
+                    messagerie, message, parent_progress,
+                    relancer_deconnexion=False,
+                )
+            except Exception as err:
+                # Impossible de savoir si une interruption UI survient apres
+                # l'acceptation : ne pas autoriser de nouvelle emission.
+                etat = {"succes": False, "erreur": err, "phase": "envoi"}
             if etat["succes"]:
                 self.listeSucces = [message]
+                self.listeAnomalies = []
                 if hasattr(messagerie, "LIBELLE_SERVICE"):
-                    # Mailjet : meme compte rendu que le moteur par lot de main
-                    # (« accepte pour envoi », remise non verifiee, dernier_bilan).
                     UTILS_Envoi_email._AfficherCompteRendu(
-                        messagerie, [message], [message], [], [], self.afficher_confirmation_envoi,
-                        parent=parent_progress)
+                        messagerie, [message], [message], [], [],
+                        self.afficher_confirmation_envoi, parent=parent_progress,
+                    )
                 elif self.afficher_confirmation_envoi:
                     dlg = wx.MessageDialog(
                         self,
@@ -544,15 +554,32 @@ class Dialog(wx.Dialog):
 
             erreur = etat["erreur"] or RuntimeError(_(u"Envoi interrompu."))
             detail = _FormateErreurMessagerie(erreur)
+            refus_mailjet = (
+                isinstance(erreur, UTILS_Envoi_email.ErreurMailjet)
+                and bool(re.search(r"HTTP 4\d\d\b", detail))
+            )
+            refus_smtp = isinstance(
+                erreur, (smtplib.SMTPRecipientsRefused,
+                         smtplib.SMTPDataError, smtplib.SMTPSenderRefused),
+            )
+            refus_explicit = (etat["phase"] == "envoi"
+                             and (refus_mailjet or refus_smtp))
             if etat["phase"] == "connexion":
                 intro = _(u"La connexion au serveur de messagerie est impossible :")
                 conclusion = _(u"Vérifiez votre connexion internet ou les paramètres de votre adresse d'expédition.")
-                boutons = [_(u"Ok"),]
-            else:
-                intro = _(u"L'erreur suivante a été détectée pendant l'envoi :")
-                conclusion = _(u"Souhaitez-vous réessayer ?")
+                boutons = [_(u"Ok")]
+            elif refus_explicit:
+                intro = _(u"Le serveur de messagerie a refusé ce message :")
+                conclusion = _(u"Souhaitez-vous réessayer ce message refusé ?")
                 boutons = [_(u"Réessayer"), _(u"Arrêter")]
-
+            else:
+                self.listeIncertains = [message]
+                detail = _(u"État incertain : le serveur a peut-être accepté ce message. "
+                           u"Consultez le suivi avant tout renvoi manuel.\n") + detail
+                intro = _(u"L'acceptation de l'Email n'a pas pu être confirmée :")
+                conclusion = _(u"Ne relancez pas automatiquement cet envoi.")
+                boutons = [_(u"Terminer")]
+            self.listeAnomalies = [(message, detail)]
             dlg_erreur = DLG_Messagebox.Dialog(
                 self, titre=_(u"Erreur"), introduction=intro, detail=detail,
                 conclusion=conclusion, icone=wx.ICON_ERROR, boutons=boutons,
@@ -560,7 +587,7 @@ class Dialog(wx.Dialog):
             reponse = dlg_erreur.ShowModal()
             dlg_erreur.Destroy()
 
-            if etat["phase"] == "connexion" or reponse != 0:
+            if not refus_explicit or reponse != 0:
                 self.listeSucces = []
                 return False
 
@@ -977,6 +1004,7 @@ class Dialog(wx.Dialog):
         # erreurs sur le thread wx. Les envois par lot conservent pour l'instant
         # leur moteur historique afin de ne pas modifier leur sémantique RC2.
         if len(liste_messages) == 1 and self.IsShownOnScreen():
+            self._envoi_en_cours = True
             try:
                 try:
                     messagerie = UTILS_Envoi_email.Messagerie(
@@ -992,21 +1020,37 @@ class Dialog(wx.Dialog):
                         introduction=_(u"La messagerie ne peut pas être initialisée :"),
                         detail=_FormateErreurMessagerie(err),
                         conclusion=_(u"Vérifiez les paramètres de votre adresse d'expédition."),
-                        icone=wx.ICON_ERROR, boutons=[_(u"Ok"),],
+                        icone=wx.ICON_ERROR, boutons=[_(u"Ok")],
                     )
                     dlg_erreur.ShowModal()
                     dlg_erreur.Destroy()
                     return False
 
                 self._EnvoyerMessageUnique(messagerie, liste_messages[0], parent_progress)
+                if self.listeSucces:
+                    message = liste_messages[0]
+                    try:
+                        self.MemorisationHistorique(
+                            message.GetLabelDestinataires(), message.sujet,
+                            message=message,
+                        )
+                    except Exception:
+                        # Le serveur a deja accepte le message. L'absence
+                        # d'historique local ne justifie jamais un renvoi.
+                        dlg = wx.MessageDialog(
+                            self,
+                            _(u"Email accepté par le serveur, mais historique local "
+                              u"indisponible. Ne renvoyez pas pour cette raison."),
+                            _(u"Historique des emails"),
+                            wx.OK | wx.ICON_EXCLAMATION,
+                        )
+                        dlg.ShowModal()
+                        dlg.Destroy()
+                self.envoi_complet = adresseTest is None and bool(self.listeSucces)
+                return bool(self.listeSucces)
             finally:
+                self._envoi_en_cours = False
                 handler.DeleteTemporaryImages()
-
-            if self.listeSucces:
-                message = liste_messages[0]
-                self.MemorisationHistorique(message.GetLabelDestinataires(), message.sujet, message=message)
-            self.envoi_complet = adresseTest is None and bool(self.listeSucces)
-            return bool(self.listeSucces)
 
         # Les confirmations Connecthys utilisent toujours un dialogue Mailer
         # cache. Mailjet ET SMTP executent desormais tout reseau hors wx ; les

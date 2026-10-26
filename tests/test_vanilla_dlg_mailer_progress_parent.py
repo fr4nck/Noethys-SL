@@ -315,6 +315,46 @@ class DlgMailerProgressParentTests(unittest.TestCase):
         self.assertEqual(historique.call_count, 2)
         self.assertFalse(dlg._envoi_en_cours)
 
+    def test_editeur_unitaire_refuse_un_second_clic_pendant_le_modal(self):
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        original = dlg._ExecuterEnvoiUniqueHorsUI
+        essais = []
+
+        def deuxieme_clic(*args, **kwargs):
+            essais.append(dlg.Envoyer(listeDestinataires=tracks))
+            return original(*args, **kwargs)
+
+        with mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie",
+                               FausseMessagerieMailjet), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu"), \
+             mock.patch.object(dlg, "MemorisationHistorique") as historique, \
+             mock.patch.object(dlg, "_ExecuterEnvoiUniqueHorsUI",
+                               side_effect=deuxieme_clic) as worker:
+            resultat = dlg.Envoyer(listeDestinataires=tracks)
+        self.assertTrue(resultat)
+        self.assertEqual(essais, [False])
+        self.assertEqual(worker.call_count, 1)
+        self.assertEqual(FausseMessagerieMailjet.nb_envois, 1)
+        self.assertEqual(historique.call_count, 1)
+        self.assertFalse(dlg._envoi_en_cours)
+        self.assertTrue(frame.IsShownOnScreen())
+
+    def test_editeur_unitaire_historique_indisponible_ne_reemet_pas(self):
+        frame, dlg, tracks = self._construire_dlg(montrer_dlg=True)
+        with mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "Messagerie",
+                               FausseMessagerieMailjet), \
+             mock.patch.object(DLG_Mailer.UTILS_Envoi_email, "_AfficherCompteRendu"), \
+             mock.patch.object(dlg, "MemorisationHistorique",
+                               side_effect=OSError("SQLite fictive")), \
+             mock.patch.object(DLG_Mailer.wx, "MessageDialog") as alerte:
+            resultat = dlg.Envoyer(listeDestinataires=tracks)
+        self.assertTrue(resultat)
+        self.assertTrue(dlg.envoi_complet)
+        self.assertEqual(FausseMessagerieMailjet.nb_envois, 1)
+        alerte.assert_called_once()
+        self.assertFalse(dlg._envoi_en_cours)
+        self.assertTrue(frame.IsShownOnScreen())
+
     def test_messagebox_win32_herite_de_son_owner_sans_remaximiser(self):
         """L'alerte doit appartenir a sa frame et ne pas etre topmost globale."""
         import sys
