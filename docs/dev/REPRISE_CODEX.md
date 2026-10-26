@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-3C.1 — barriere durable apres reservations incertaines (26/10/2026)
+
+- Base reelle `wx` : `9c601b3f4e6be74bc4d05ee1862b85988d221a02`. Lire la [preuve CE-4/CE-5 et la procedure de reconciliation](../recette/UI_3C1_RECONCILIATION.md).
+- Quatre contre-epreuves sur copie `git archive` du HEAD initial : **4 FAIL metier** (quantites doublees CE-4/CE-5, rejeu apres exception Save_grille, validation malgre retour False). Meme fichier de tests sur le correctif : **4 PASS** ; suite nouvelle **19 PASS**, UI-3C.1/UI-3C/UI-3B **35 PASS** et non-regressions ciblees **96 PASS** (Windows, donnees fictives).
+- `UTILS_Portail_reconciliation` commite un jeton avant tout appel metier de reservation dans `parametres`, categorie dediee `noethys_sl_reservations_tentatives`, sans migration. Tentative incomplete/exception/lecture impossible : **aucun retraitement, aucune validation UI, aucun email**, reconciliation requise meme apres reouverture/processus neuf. Ni expiration ni reutilisation du suivi emails RC9.
+- Resultat complet connu : reprise locale de la seule finalisation SQL UI-3C, suivis RC9 conserves apres refus ; retrait du jeton seulement apres commit confirme et actualisation, ou annulation manuelle avant Save_grille. Le retour False de sauvegarde est maintenant propage et refuse dans les deux modes.
+- Matrice : `wx` **PASS cible, CI distante en attente** ; `main` **ABSENT** (`77c7efe2b96bc2272f1130745a7a4aa5b832c0ed`) ; `qt` **ABSENT** (`f2316046f9f22ed59aeba33f9f8c090d3667ca06`). Fichiers de dialogue main/qt relus et identiques, aucune modification/synchronisation de ces branches.
+- Limites : erreurs historiques masquees sans exception/False, tentatives anciennes sans marqueur, concurrence d'anciens clients ou SQL externe, moteur MySQL reel et recette graphique non qualifies. **STOP-GATE STABLE/release maintenu**. Aucun build, tag, release, deploiement, migration, donnees PMSL ni service de messagerie reel.
+- Suite rapide locale Windows Python 3.10.11 / wx 4.2.5 : **1076 tests, 1049 PASS, 0 FAIL, 0 ERROR, 27 SKIP** ; compilation PASS. WIP local : copie du HEAD initial et journaux de tests hors depot ; six erreurs de nettoyage SQLite sous Python 3.11 reproduites sur ce HEAD, sans affaiblir de tests. CI Windows distante a confirmer avant cloture ; prochaine etape apres ce lot : recette graphique et qualification MySQL sur environnement fictif explicitement autorise.
+
 ## Cloture du lot UI-3C — 26/10/2026
 
 - Derniere qualification du code : `wx` `c4dbc275a43e45a1f86a07070b5c2804a1f63aae`. CI rapide Windows [#40312052510](https://github.com/fr4nck/Noethys-SL/actions/runs/40312052510) SUCCESS, 1030 PASS, 0 FAIL, 0 ERROR, 27 SKIP.

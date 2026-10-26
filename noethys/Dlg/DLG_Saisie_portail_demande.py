@@ -30,6 +30,7 @@ from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
 from Utils import UTILS_Config
 from Utils import UTILS_Parametres
 from Utils import UTILS_Portail_reservations as regles_reservations
+from Utils import UTILS_Portail_reconciliation
 SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 
 
@@ -690,6 +691,30 @@ class Dialog(wx.Dialog):
         self._AfficherEtatEnregistre(etat, reponse, traitement_date)
         self.track.Refresh()
 
+    def _ReservationsBloquees(self):
+        if getattr(self.track, "categorie", None) != "reservations":
+            return False
+        try:
+            bloque = UTILS_Portail_reconciliation.EnAttente(self.track.IDaction)
+        except Exception:
+            bloque = True  # lecture impossible : ne jamais supposer l'absence
+        if bloque:
+            self._SignalerReconciliation()
+        return bloque
+
+    def _SignalerReconciliation(self):
+        dlg = wx.MessageDialog(
+            self, _(u"L'état durable des réservations est incertain. Une tentative a pu "
+                    u"appliquer tout ou partie des modifications.\n\n"
+                    u"Retraitement, validation et envoi d'emails bloqués. Faites réconcilier "
+                    u"la demande avec les consommations et les confirmations déjà acceptées "
+                    u"avant toute reprise, même après réouverture."),
+            _(u"Réconciliation requise"), wx.OK | wx.ICON_ERROR)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
+
     def _FinaliserTraitementEnAttente(self):
         """Retente UNIQUEMENT portail_actions, jamais Save_grille ou Traiter."""
         finalisation = getattr(self, "_finalisation_en_attente", None)
@@ -710,7 +735,18 @@ class Dialog(wx.Dialog):
             if not succes:
                 self._RestaurerEtatDurable()
                 return False
-            self._ConfirmerEtatDurable(etat, reponse, traitement_date)
+            jeton = finalisation.get("jeton_reservations")
+            try:
+                self._ConfirmerEtatDurable(etat, reponse, traitement_date)
+                if jeton is not None:
+                    # Apres le commit portail_actions, jamais avant : une panne
+                    # de nettoyage laisse une barriere au redemarrage.
+                    UTILS_Portail_reconciliation.Terminer(self.track.IDaction, jeton)
+            except Exception:
+                if jeton is None:
+                    raise
+                self._SignalerReconciliation()
+                return False
             self._finalisation_en_attente = None
             return True
         finally:
@@ -723,6 +759,8 @@ class Dialog(wx.Dialog):
         # selection UI a la place de sa finalisation en attente.
         if getattr(self, "_finalisation_en_attente", None) is not None:
             return self._FinaliserTraitementEnAttente()
+        if self._ReservationsBloquees():
+            return False
 
         if self.radio_validation.GetValue() == True :
             etat = "validation"
@@ -1152,9 +1190,26 @@ class Dialog(wx.Dialog):
         if getattr(self.track, "etat", None) in ("validation", "valide"):
             return False
 
-        with UTILS_Diagnostic_ui.mesurer(self, "demande.traitement"):
-            traitement = Traitement(parent=self, track=self.track, mode=mode)
-            resultat = traitement.Traiter()
+        jeton = None
+        reservations = getattr(self.track, "categorie", None) == "reservations"
+        try:
+            if reservations:
+                jeton = UTILS_Portail_reconciliation.Commencer(self.track.IDaction)
+            with UTILS_Diagnostic_ui.mesurer(self, "demande.traitement"):
+                traitement = Traitement(parent=self, track=self.track, mode=mode)
+                resultat = traitement.Traiter()
+        except Exception:
+            if not reservations:
+                raise
+            self._SignalerReconciliation()
+            return False
+
+        if reservations and not (resultat and resultat.get("etat") is True):
+            if resultat and resultat.get("annule_avant_sauvegarde"):
+                UTILS_Portail_reconciliation.Terminer(self.track.IDaction, jeton)
+            else:
+                self._SignalerReconciliation()
+            return False
 
         # La grille est eventuellement deja sauvegardee ici : sa reprise
         # ne doit jamais repasser par Traiter apres un echec portail_actions.
@@ -1167,6 +1222,7 @@ class Dialog(wx.Dialog):
                 "etat": "validation",
                 "reponse": reponse,
                 "traitement_date": traitement_date,
+                "jeton_reservations": jeton,
             }
             # Progres deja affiche par Traitement_reservations avant Save_grille.
             # Ne pas marquer visuellement "Traite" avant commit confirme.
@@ -1200,6 +1256,8 @@ class Dialog(wx.Dialog):
 
     def Envoyer(self, visible=True):
         """ Envoyer la réponse par email """
+        if getattr(self, "_traitement_en_cours", False) or self._ReservationsBloquees():
+            return False
         if self.ctrl_reponse.GetValue() == "" :
             dlg = wx.MessageDialog(self, _(u"Vous n'avez saisi aucune réponse.\n\nSouhaitez-vous tout de même envoyer l'email ?"), _(u"Avertissement"), wx.YES_NO|wx.NO_DEFAULT|wx.CANCEL|wx.ICON_QUESTION)
             reponse = dlg.ShowModal()
@@ -1695,9 +1753,12 @@ class Traitement():
             dlg = DLG_Portail_reservations.Dialog(self, track=self.track)
             reponse_modal = dlg.ShowModal()
             reponse = dlg.GetReponse()
-            if reponse_modal == wx.ID_OK :
-                self.Save_grille(dlg.ctrl_grille)
-            dlg.Destroy()
+            try:
+                if reponse_modal == wx.ID_OK :
+                    if self.Save_grille(dlg.ctrl_grille) is False:
+                        raise RuntimeError("Save_grille refuse")
+            finally:
+                dlg.Destroy()
             if reponse_modal == wx.ID_OK :
                 self.EcritLog(_(u"Enregistrement des consommations"))
                 if reponse == "" :
@@ -1706,7 +1767,7 @@ class Traitement():
                     return {"etat" : True, "reponse" : reponse}
             else :
                 self.EcritLog(_(u"Traitement annulé par l'utilisateur"))
-                return {"etat" : False}
+                return {"etat" : False, "annule_avant_sauvegarde": True}
 
         if self.mode == "automatique" :
             ctrl_grille = self.parent.ctrl_grille
@@ -1725,7 +1786,8 @@ class Traitement():
                     reponse, _(u"Enregistrement des modifications en cours…"))
             self.EcritLog(_(u"Enregistrement des consommations en cours..."))
             with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.sauvegarde"):
-                self.Save_grille(ctrl_grille)
+                if self.Save_grille(ctrl_grille) is False:
+                    raise RuntimeError("Save_grille refuse")
             self.EcritLog(_(u"Enregistrement des consommations terminé."))
             if reponse == "":
                 return {"etat" : False, "reponse" : reponse}
@@ -1907,7 +1969,7 @@ class Traitement():
 
     def Save_grille(self, ctrl_grille=None):
         """ Sauvegarde de la grille des conso """
-        ctrl_grille.Sauvegarde()
+        return ctrl_grille.Sauvegarde()
 
     def Appliquer_reservations(self, ctrl_grille=None, log_jumeau=None):
         """ Appliquer la saisie ou suppression des réservations """

@@ -123,6 +123,8 @@ class DialogueFictif:
         self._AfficherEtatEnregistre = MethodType(Module.Dialog._AfficherEtatEnregistre, self)
         self._RestaurerEtatDurable = MethodType(Module.Dialog._RestaurerEtatDurable, self)
         self._ConfirmerEtatDurable = MethodType(Module.Dialog._ConfirmerEtatDurable, self)
+        self._ReservationsBloquees = MethodType(Module.Dialog._ReservationsBloquees, self)
+        self._SignalerReconciliation = MethodType(Module.Dialog._SignalerReconciliation, self)
         self._FinaliserTraitementEnAttente = MethodType(Module.Dialog._FinaliserTraitementEnAttente, self)
         self.Traitement = MethodType(Module.Dialog.Traitement, self)
         self.OnClose = MethodType(Module.Dialog.OnClose, self)
