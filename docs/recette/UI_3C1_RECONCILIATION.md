@@ -86,6 +86,11 @@ python -m unittest -v `
   **1076 tests, 1049 PASS, 0 FAIL, 0 ERROR, 27 SKIP**, en 135 s.
   Compilation du code/tests/scripts/outils : PASS. Qualification distante
   liee au SHA effectivement pousse dans `docs/dev/REPRISE_CODEX.md`.
+- **CI distante Windows SUCCESS** sur
+  `ba5b71fda4c44bf76081ad049d1fcd39f75b87ef`,
+  [run 40321502745](https://github.com/fr4nck/Noethys-SL/actions/runs/40321502745) :
+  syntaxe PASS, **1076 tests, 1049 PASS, 0 FAIL, 0 ERROR, 27 SKIP**,
+  316 s. Les 19 nouveaux tests, dont CE-4/CE-5, sont PASS dans les journaux.
 
 ## Reconciliation et limites
 
