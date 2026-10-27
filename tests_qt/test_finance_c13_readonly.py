@@ -48,7 +48,7 @@ class C13CoreTests(unittest.TestCase):
     def test_family_ids_are_exact_and_do_not_leak_other_families(self):
         counts = {
             "invoices": (2, 2), "services": (3, 3),
-            "payments": (2, 2), "allocations": (2, 3),
+            "payments": (2, 2), "allocations": (2, 2),
         }
         for kind, pair in counts.items():
             for family_id, expected in ((100, pair[0]), (101, pair[1])):
@@ -58,6 +58,25 @@ class C13CoreTests(unittest.TestCase):
                     self.assertTrue(all(
                         row.value("family") == family_id for row in records
                     ))
+
+    def test_orphan_allocation_never_inherits_family_from_service(self):
+        # 705 désigne la prestation 304 (famille 101), mais un règlement
+        # #999 inexistant : interdiction d'inférer une famille à partir
+        # du dossier prestation en l'absence de paiement identifiable.
+        orphan = next(
+            row for row in self.repo.search("allocations").rows
+            if row.id == 705
+        )
+        self.assertEqual(orphan.value("payment"), 999)
+        self.assertIsNone(orphan.value("family"))
+        self.assertNotIn(
+            705,
+            {row.id for row in self.repo.search("allocations", family_id=101).rows}
+        )
+        self.assertNotIn(
+            705,
+            {row.id for row in self.repo.search("allocations", family_id=100).rows}
+        )
 
     def test_invoice_to_services_is_the_exact_id_relation(self):
         row = self.repo.search("services", related_id=501).rows
