@@ -270,6 +270,22 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saisies, 0)
         self.assertTrue(Marqueurs.EnAttente(7))
 
+    def test_lire_reprise_retourne_jeton_et_etat_sql(self):
+        self.preparer()
+        jeton = Marqueurs.Commencer(7)
+        self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
+        self.assertEqual(self.etat_sql()[0], "attente")
+
+    def test_lire_reprise_refuse_absence_et_corruption(self):
+        self.preparer()
+        with self.assertRaises(Marqueurs.ReconciliationRequise):
+            Marqueurs.LireReprise(7)
+        self.base.inserer(
+            "parametres", ["categorie", "nom", "parametre"],
+            [(Marqueurs.CATEGORIE, "action_7", "illisible")])
+        with self.assertRaises(Marqueurs.ReconciliationRequise):
+            Marqueurs.LireReprise(7)
+
     def test_marqueur_commite_avant_premiere_saisie_et_separe_des_emails(self):
         self.preparer()
         original = self.ui.ctrl_grille.SaisieConso
