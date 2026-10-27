@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT / "tests_qt"))
 
 from PySide6.QtCore import QDate, QEvent, QObject
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QAbstractItemView, QApplication
 
 from noethys_qt.consumptions_calendar_ui import ConsumptionCalendarPage
 from test_consumptions_calendar import ConsumptionCalendarSqlTests
@@ -86,7 +86,13 @@ def main():
         counter_table = Events()
         counter_calendar = Events()
         page.list_page.table.viewport().installEventFilter(counter_table)
-        page.calendar.installEventFilter(counter_calendar)
+        # La grille Qt du calendrier peint sur son viewport interne. Poser
+        # un filtre sur QCalendarWidget seul donnait à tort zéro Paint.
+        calendar_view = page.calendar.findChild(QAbstractItemView)
+        calendar_surface = (
+            calendar_view.viewport() if calendar_view is not None else page.calendar
+        )
+        calendar_surface.installEventFilter(counter_calendar)
         resets = QSignalSpy(page.list_page.model.modelReset)
         records = []
 
@@ -175,11 +181,15 @@ def main():
             "rapid_filter_switch_count": 24,
             "paint_events_observed": {
                 "table_viewport": counter_table.paint,
-                "calendar": counter_calendar.paint,
+                "calendar_viewport": counter_calendar.paint,
             },
+            "calendar_paint_target": (
+                "calendar_grid_viewport" if calendar_view is not None
+                else "calendar_widget_fallback"
+            ),
             "resize_events_observed": {
                 "table_viewport": counter_table.resize,
-                "calendar": counter_calendar.resize,
+                "calendar_viewport": counter_calendar.resize,
             },
             "frames": records,
             "database_unchanged": True,
