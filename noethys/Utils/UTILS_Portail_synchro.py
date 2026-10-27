@@ -44,6 +44,7 @@ from Utils import UTILS_Cryptage_fichier
 from Utils import UTILS_Config
 from Utils import UTILS_Customize
 from Utils import UTILS_Internet
+from Utils import UTILS_Priorite_ui
 import FonctionsPerso
 import GestionDB
 from sqlalchemy.pool import NullPool
@@ -563,9 +564,11 @@ class Synchro():
         models.Base.metadata.drop_all(engine)
         models.Base.metadata.create_all(engine)
 
-        # Création d'une session
+        # Création d'une session. Chaque session.add() cède d'abord la main
+        # au thread wx s'il est occupé (contention GIL, #432).
         Session = models.sessionmaker(bind=engine)
-        session = Session()
+        priorite = UTILS_Priorite_ui.PrioriteUI()
+        session = UTILS_Priorite_ui.session_cooperative(Session(), priorite)
 
         # Liste des tables modifiées à importer dans Connecthys
         liste_tables_modifiees =[]
@@ -1324,10 +1327,15 @@ class Synchro():
             WHERE %s;""" % texteConditions
             DB.ExecuterReq(req)
             listeOuvertures = DB.ResultatReq()
+            ouvertures = []
             for IDouverture, IDactivite, IDunite, IDgroupe, date in listeOuvertures :
+                priorite.ceder()
                 date = UTILS_Dates.DateEngEnDateDD(date)
-                m = models.Ouverture(date=date, IDunite=IDunite, IDgroupe=IDgroupe)
-                session.add(m)
+                ouvertures.append(models.Ouverture(date=date, IDunite=IDunite, IDgroupe=IDgroupe))
+            # Insertion groupee (#432) : un session.add() par ligne imposait un
+            # INSERT individuel par objet (cle auto), soit des dizaines de
+            # secondes de Python pur qui figeaient l'interface (contention GIL).
+            UTILS_Priorite_ui.enregistrer_par_lots(session, ouvertures, priorite)
 
             liste_tables_modifiees.append("ouvertures")
 
@@ -1365,14 +1373,18 @@ class Synchro():
             WHERE %s;""" % texteConditions
             DB.ExecuterReq(req)
             listeConsommations = DB.ResultatReq()
+            consommations = []
             for IDconso, date, IDunite, IDinscription, etat, IDevenement in listeConsommations :
+                priorite.ceder()
                 date = UTILS_Dates.DateEngEnDateDD(date)
                 try :
                     m = models.Consommation(date=date, IDunite=IDunite, IDinscription=IDinscription, etat=etat, IDevenement=IDevenement)
                 except Exception as err:
                     print((err,))
                     m = models.Consommation(date=date, IDunite=IDunite, IDinscription=IDinscription, etat=etat)
-                session.add(m)
+                consommations.append(m)
+            # Insertion groupee (#432), voir les ouvertures ci-dessus.
+            UTILS_Priorite_ui.enregistrer_par_lots(session, consommations, priorite)
 
             liste_tables_modifiees.append("consommations")
 
@@ -1530,6 +1542,7 @@ class Synchro():
         # Commit
         self.log.EcritLog(_(u"Enregistrement des données à exporter..."))
         self.Pulse_gauge()
+        priorite.ceder()
         try:
             session.commit()
         finally:
