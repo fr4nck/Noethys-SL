@@ -205,11 +205,13 @@ class ReservationsTests(unittest.TestCase):
         self.assertEqual(grid.calls,[])
         self.assertEqual(grid.GetCase(101,DAY).IDfacture,55)
 
-    def test_waited_full_day_wins_over_available_redundant_halves(self):
+    def test_full_day_unavailable_replies_on_available_halves(self):
         for p in (1,3,4,2):self.request(p)
         grid=Grid([104]);self.apply(grid)
-        self.assertEqual([c[0] for c in grid.calls],[104,102])
-        self.assertTrue(all(c[2]=='attente' for c in grid.calls))
+        self.assertEqual([c[0] for c in grid.calls],[101,103,102])
+        self.assertTrue(all(c[2]=='reservation' for c in grid.calls))
+        self.assertIsNone(grid.GetCase(104,DAY).etat)
+        self.assertIn('Journée complète',self.logs[-1])
 
     def test_no_cross_date_or_cross_inscription_link(self):
         self.request(1);self.request(2,inscription=88)
