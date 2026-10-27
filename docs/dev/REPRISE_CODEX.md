@@ -1,5 +1,10 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C4 - transaction SQLite synthétique et rollback (27/10/2026)
+
+Branche qt, base 8ff9bfc ; main f6f5ccd et wx 11b8546 à l'ouverture. Banc de tests seul dans tests_qt/test_consumptions_c4_transactions.py, sans writer Qt et sans accès à une base externe : cinq tables lab_*, transaction unique, pannes injectées, rollback, sauvegarde/restauration, contrôles factures/forfaits/ventilations simulés et démonstration du risque d'un commit intermédiaire. Contrôles et montants métier wx NON PORTÉS ; saisie Qt toujours sous STOP-GATE. CI Windows du commit fonctionnel à consigner. Référence : [QT_CONSOMMATIONS_LOT4.md](QT_CONSOMMATIONS_LOT4.md).
+
+
 ## Qt C3 — précontrôle bloquant des changements d'état (27/10/2026)
 
 Lot préparatoire sur qt (base ef36db0). Simulation à la demande : six états canoniques, relecture SQL avec snapshot, vérification sélection périmée, inscription, verrouillage, forfait, facture, existence de prestation et ventilation, frontière tarifante. L'interface **ne propose aucun enregistrement** : contrôles droits/période/facturation et transaction métier wx non raccordés, STOP-GATE. Source de référence wx a24e1dd ; main f6f5ccd non modifiée. CI Windows **SUCCESS**, commit métier C3 `0300c490b775ae12264e50d040aed3df92f28148`, [run 40511900553](https://github.com/fr4nck/Noethys-SL/actions/runs/40511900553) : compilation PASS, **180 tests / 0 échec**. Simulation toujours non exécutable ; aucun paquet Qt ni test de production, MySQL et interface Windows réelle EN ATTENTE. Wx a avancé de `a24e1dd` à `6c46c55` pendant le lot : comparaison = 5 fichiers de recette/CI/docs modifiés, fichiers métier `CTRL_Grille_cases.py` et `CTRL_Grille.py` inchangés. Matrice détaillée dans [QT_CONSOMMATIONS_LOT3.md](QT_CONSOMMATIONS_LOT3.md). Détails : [QT_CONSOMMATIONS_LOT3.md](QT_CONSOMMATIONS_LOT3.md).
