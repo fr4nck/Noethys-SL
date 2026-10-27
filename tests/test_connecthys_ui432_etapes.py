@@ -187,6 +187,27 @@ def pannes():
             assert str(err) == "Panne fictive"
     assert ferme == [True]
     assert frame.IsEnabled()
+    # Un EndModal externe ne doit jamais permettre d'appliquer une grille incomplete.
+    class Interrompue(Etapes.Attente):
+        compteur = 0
+        def _etape(self, event):
+            if self.compteur:
+                self.timer.Stop()
+                self.EndModal(wx.ID_CANCEL)
+            else:
+                self.compteur += 1
+                super()._etape(event)
+    ferme.clear()
+    grid.Importation_individus = lambda: {}
+    with mock.patch.object(CTRL_Grille.GestionDB, "DB", return_value=NS(Close=lambda: ferme.append(True))), \
+         mock.patch.object(Etapes, "Attente", Interrompue):
+        try:
+            Etapes.Executer(frame, CTRL_Grille.CTRL.InitDonneesEtapes(grid))
+            raise AssertionError("Interruption non propagee")
+        except RuntimeError as err:
+            assert str(err) == "Chargement de la grille interrompu"
+    assert ferme == [True]
+    assert frame.IsEnabled()
     assert not _garde_reseau.TENTATIVES
     frame.Destroy()
     print("UI432_PANNES_PASS", flush=True)

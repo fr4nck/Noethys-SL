@@ -11,6 +11,7 @@ class Attente(wx.Dialog):
                          style=wx.DEFAULT_DIALOG_STYLE & ~wx.CLOSE_BOX)
         self.etapes = iter(etapes)
         self.erreur = None
+        self.termine = False
         self.en_cours = False
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(wx.StaticText(self, label=_(u"Chargement de la grille en cours…")),
@@ -41,6 +42,7 @@ class Attente(wx.Dialog):
             next(self.etapes)
             self.gauge.Pulse()
         except StopIteration:
+            self.termine = True
             termine = True
         except BaseException:
             self.erreur = sys.exc_info()
@@ -68,6 +70,8 @@ def Executer(parent, etapes):
         if dialogue.erreur is not None:
             _, erreur, trace = dialogue.erreur
             raise erreur.with_traceback(trace)
+        if not dialogue.termine:
+            raise RuntimeError("Chargement de la grille interrompu")
     finally:
         dialogue.timer.Stop()
         try:
