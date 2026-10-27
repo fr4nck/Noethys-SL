@@ -26,6 +26,20 @@ La première campagne [40581168121](https://github.com/fr4nck/Noethys-SL/actions
 
 Les cas sont qualifiés par tests unitaires et d'intégration avec simulations. **La réussite ne prouve pas un parcours interactif sur un poste Windows réel connecté au serveur de l'association.**
 
+## Contre-qualification MySQL 5.7 réelle et isolée
+
+- Code et tests : `130324ca6dfe2173515d41d3d0680b9fbd3f001a`
+  (ajout uniquement de quatre tests SQL au code déjà qualifié sur Windows).
+- Campagne : [GitHub Actions 40585542910](https://github.com/fr4nck/Noethys-SL/actions/runs/40585542910) — **SUCCESS**, serveur MySQL **5.7.44** local jetable, archive officielle et SHA-256 vérifiés.
+- Résultat : **29 tests PASS, 0 FAIL, 0 ERROR, 0 SKIP**, dont quatre nouveaux contrôles #435 exécutés sur deux connexions réelles :
+  - marqueur d'une tentative unique et récupération du jeton après connexion ;
+  - `GET_LOCK` détenu par une autre connexion empêche une seconde tentative ;
+  - mauvais jeton refusé sans supprimer le marqueur ;
+  - marqueur nettoyable après validation SQL, sans réappliquer la grille.
+- La campagne rapide Windows sur le code métier précédent était verte ; une nouvelle CI rapide est lancée sur `130324ca` pour vérifier également l'intégration du nouveau fichier de tests.
+
+**Portée** : cette contre-épreuve valide les primitives SQL et leur sérialisation courte. Elle **ne valide pas** une transaction atomique couvrant la durée d'un formulaire ouvert puis `Save_grille` sur deux postes concurrents. Ce dernier scénario reste STOP-GATE de production.
+
 ## Limites et conditions de levée du STOP-GATE
 
 - **Concurrence MySQL multi-postes non qualifiée** : les deux lectures du jeton avant correction détectent des changements déjà visibles, mais ne rendent pas atomique la séquence finale `LireReprise → Save_grille → EnregistrerDemande → Terminer`. Deux opérateurs simultanés restent un scénario à contre-qualifier avec un serveur et deux clients isolés. Aucune promesse d'idempotence transactionnelle universelle.
