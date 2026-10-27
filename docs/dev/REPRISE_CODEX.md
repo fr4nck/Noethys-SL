@@ -1812,3 +1812,31 @@ rejouer les essais de sauvegarde partielle/crash. Développer le formulaire
 « Vérifier et reprendre » avec confirmation visible, comparaison durable
 et absence de rejeu des emails acceptés. Qualifier SQLite + MySQL isolé et
 Windows réel. Installation seulement après cette qualification.
+
+## 27/10/2026 — UI-435 : campagne Windows PASS, stop-gate production conservé
+
+**Code qualifié** : `wx` `4e1d782fd37cba9ba55472aef1db48e66a52b660`.
+GitHub Actions [40583234323](https://github.com/fr4nck/Noethys-SL/actions/runs/40583234323)
+**SUCCESS** : compilation Python PASS ; **1 289 tests, 1 257 PASS, 0 FAIL,
+0 ERROR, 32 SKIP**. Les nouveaux tests #435 sont désormais exécutés par
+`.github/workflows/noethys-sl-fast.yml`. Les cas CE-4/CE-5 et le rejeu
+`Quantite` ont été contrôlés dans les logs Windows.
+
+Première campagne `40581168121` : trois FAIL de contrat des tests et de
+libellé, corrigés en `6c35dde5` et `4e1d782f` ; succès final ci-dessus.
+Le document détaillé est `docs/recette/UI_435_QUALIFICATION.md`.
+Les commits documentaires postérieurs à `4e1d782f` ne modifient pas
+les sources, les tests ni le workflow qualifiés.
+
+**STOP-GATE de production maintenu** : pas de recette graphique sur le
+Windows de l'association, pas de contre-épreuve réelle de concurrence MySQL
+multi-postes, 32 tests ignorés à expliciter. La revue manuelle ne rend pas
+la séquence de sauvegarde inter-postes atomique. Aucun tag, release,
+packaging, profil Portable ni base PMSL modifié.
+`main` et `qt` restent inchangés ; pas de propagation mécanique.
+L'archive ancienne du lot #435 n'est pas installable sur ce nouveau SHA.
+
+Prochaines opérations autorisées : qualification MySQL sur serveur isolé,
+scénarios de deux opérateurs, contrôle des factures/pointages,
+réouverture de la fiche et recette graphique réelle. Puis seulement une
+décision d'installation explicitement confirmée.
