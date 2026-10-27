@@ -92,6 +92,8 @@ class ConsumptionPage(QWidget):
         self.repository = repository
         self.background = background
         self.model = ConsumptionTableModel()
+        # C2 : filtre additionnel facultatif fourni par le calendrier parent.
+        self.filter_context = None
         self._loaded = False
         self._batch = False
         self._token = 0
@@ -210,6 +212,8 @@ class ConsumptionPage(QWidget):
             text=self.search_edit.text().strip(),
             limit=MAX_RESULTS,
         )
+        if self.filter_context is not None:
+            filters.update(self.filter_context())
         self.summary.setText("Chargement des consommations…")
         self.table.setEnabled(False)
         if not self.background:

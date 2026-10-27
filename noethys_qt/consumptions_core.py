@@ -68,6 +68,8 @@ class Consumption:
     amount: Decimal | None
     individual_id: int | None
     activity_id: int | None
+    event_id: int | None = None
+    event_name: str = ""
 
     @property
     def hours_label(self) -> str:
@@ -98,6 +100,7 @@ def build_statement(
     states: Iterable[str],
     text: str = "",
     activity_id: int | None = None,
+    day: dt.date | None = None,
     limit: int = MAX_RESULTS,
     placeholder: str = "?",
 ) -> tuple[str, tuple[object, ...]]:
@@ -115,9 +118,16 @@ def build_statement(
         raise ValueError("Aucun état sélectionné.")
     if activity_id is not None and (not isinstance(activity_id, int) or activity_id <= 0):
         raise ValueError("Identifiant d'activité invalide.")
+    if day is not None and (
+        not isinstance(day, dt.date) or isinstance(day, dt.datetime) or day.year != year
+    ):
+        raise ValueError("Le jour doit appartenir à l'année sélectionnée.")
 
     conditions = [f"c.date >= {placeholder}", f"c.date < {placeholder}"]
     values: list[object] = [f"{year:04d}-01-01", f"{year + 1:04d}-01-01"]
+    if day is not None:
+        conditions.append(f"c.date = {placeholder}")
+        values.append(day.isoformat())
 
     if chosen != ALL_STATES:
         parts: list[str] = []
@@ -147,7 +157,7 @@ def build_statement(
             for column in ("i.nom", "i.prenom", "a.nom", "u.nom", "g.nom")
         ]
         values.extend([pattern] * len(parts))
-        if query.isdecimal():
+        if query.isdecimal() and len(query) <= 18:
             parts.extend((f"c.IDconso = {placeholder}", f"c.IDindividu = {placeholder}"))
             values.extend((int(query), int(query)))
         conditions.append("(" + " OR ".join(parts) + ")")
@@ -155,12 +165,14 @@ def build_statement(
     sql = (
         "SELECT c.IDconso, c.date, c.etat, a.nom, u.nom, g.nom, "
         "i.nom, i.prenom, c.heure_debut, c.heure_fin, "
-        "c.IDprestation, p.montant, c.IDindividu, c.IDactivite "
+        "c.IDprestation, p.montant, c.IDindividu, c.IDactivite, "
+        "c.IDevenement, e.nom "
         "FROM consommations c "
         "LEFT JOIN individus i ON i.IDindividu = c.IDindividu "
         "LEFT JOIN activites a ON a.IDactivite = c.IDactivite "
         "LEFT JOIN unites u ON u.IDunite = c.IDunite "
         "LEFT JOIN groupes g ON g.IDgroupe = c.IDgroupe "
+        "LEFT JOIN evenements e ON e.IDevenement = c.IDevenement "
         "LEFT JOIN prestations p ON p.IDprestation = c.IDprestation "
         "WHERE " + " AND ".join(conditions)
         + " ORDER BY c.date DESC, c.IDconso DESC "
@@ -199,6 +211,7 @@ class ConsumptionRepository:
         states: Iterable[str] = ALL_STATES,
         text: str = "",
         activity_id: int | None = None,
+        day: dt.date | None = None,
         limit: int = MAX_RESULTS,
     ) -> ConsumptionResult:
         chosen = frozenset(states)
@@ -212,7 +225,8 @@ class ConsumptionRepository:
                 connection.execute("PRAGMA query_only = ON")
             sql, params = build_statement(
                 year=year, states=chosen, text=text,
-                activity_id=activity_id, limit=limit, placeholder=placeholder,
+                activity_id=activity_id, day=day,
+                limit=limit, placeholder=placeholder,
             )
             cursor = connection.cursor()
             try:
@@ -238,6 +252,8 @@ class ConsumptionRepository:
                 amount=_amount(raw[11]),
                 individual_id=_optional_int(raw[12]),
                 activity_id=_optional_int(raw[13]),
+                event_id=_optional_int(raw[14]),
+                event_name=str(raw[15] or ""),
             )
             for raw in raw_rows[:limit]
         )

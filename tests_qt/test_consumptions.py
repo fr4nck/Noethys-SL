@@ -29,10 +29,12 @@ class ConsumptionSqlTests(unittest.TestCase):
                 CREATE TABLE unites (IDunite INTEGER PRIMARY KEY, nom TEXT);
                 CREATE TABLE groupes (IDgroupe INTEGER PRIMARY KEY, nom TEXT);
                 CREATE TABLE prestations (IDprestation INTEGER PRIMARY KEY, montant TEXT);
+                CREATE TABLE evenements (IDevenement INTEGER PRIMARY KEY, nom TEXT);
                 CREATE TABLE consommations (
                     IDconso INTEGER PRIMARY KEY, IDindividu INTEGER, IDactivite INTEGER,
                     IDunite INTEGER, IDgroupe INTEGER, IDprestation INTEGER,
-                    date TEXT, etat TEXT, heure_debut TEXT, heure_fin TEXT
+                    date TEXT, etat TEXT, heure_debut TEXT, heure_fin TEXT,
+                    IDevenement INTEGER
                 );
                 INSERT INTO individus VALUES (101, 'Dupont', 'Éloïse');
                 INSERT INTO individus VALUES (102, 'Durand', 'Malo');
@@ -41,6 +43,7 @@ class ConsumptionSqlTests(unittest.TestCase):
                 INSERT INTO unites VALUES (11, 'Séance');
                 INSERT INTO groupes VALUES (21, 'Jeunes');
                 INSERT INTO prestations VALUES (31, '12.345');
+                INSERT INTO evenements VALUES (99, 'Badminton jeunes');
             """)
             data = [
                 (1, 101, 1, "2026-01-01", "reservation"),
@@ -58,9 +61,9 @@ class ConsumptionSqlTests(unittest.TestCase):
             db.executemany(
                 """INSERT INTO consommations
                    (IDconso, IDindividu, IDactivite, IDunite, IDgroupe,
-                    IDprestation, date, etat, heure_debut, heure_fin)
-                   VALUES (?, ?, ?, 11, 21, 31, ?, ?, '09:00', '10:00')""",
-                data,
+                    IDprestation, date, etat, heure_debut, heure_fin, IDevenement)
+                   VALUES (?, ?, ?, 11, 21, 31, ?, ?, '09:00', '10:00', ?)""",
+                [(*row, 99 if row[0] == 1 else None) for row in data],
             )
         self.repository = ConsumptionRepository(NativeActivityEditorRepository(self.path))
 

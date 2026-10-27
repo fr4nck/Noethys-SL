@@ -37,7 +37,7 @@ from .activity_visuals import apply_activity_visuals, apply_semantic_theme
 from .people_search import PeopleSearchPage, PeopleSearchRepository, PersonRow
 from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepository
 from .consumptions_core import ConsumptionRepository
-from .consumptions_ui import ConsumptionPage
+from .consumptions_calendar_ui import ConsumptionCalendarPage
 
 
 class _DetailSignals(QObject):
@@ -199,7 +199,7 @@ class NoethysQtWindow(QMainWindow):
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
         self.stack.addWidget(self.details_page)
-        self.consumptions_page = ConsumptionPage(self.consumptions_repository, self.stack, background=True)
+        self.consumptions_page = ConsumptionCalendarPage(self.consumptions_repository, self.stack, background=True)
         self.stack.addWidget(self.consumptions_page)
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(root)
