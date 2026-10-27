@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST = ROOT / "tests" / "test_connecthys_ui432_etapes.py"
-VARIANTES = ("base", "sans_veille", "veille_jointe", "os_exit")
+VARIANTES = ("base", "sans_veille", "veille_jointe", "os_exit", "trace")
 MARQUEURS = ("UI432_RESULT", "UI432_FIN_SCENARIO", "UI432_GC", "UI432_ATEXIT")
 
 ENFANT = r"""
@@ -36,6 +36,16 @@ elif variante == "veille_jointe":
             veille.join(2.0)
             print("UI432_VEILLE_JOINTE vivante=%s" % veille.is_alive(), flush=True)
     Diag.Diagnostic._on_destruction = _on_destruction
+elif variante == "trace":
+    destruction, arreter = Diag.Diagnostic._on_destruction, Diag.Diagnostic._arreter
+    def _on_destruction(self, event):
+        print("UI432_DESTRUCTION role=%s meme=%s" % (self.role, event.GetEventObject() is self.fenetre), flush=True)
+        destruction(self, event)
+    def _arreter(self):
+        print("UI432_ARRET role=%s timer=%s" % (self.role, self._timer is not None), flush=True)
+        arreter(self)
+    Diag.Diagnostic._on_destruction = _on_destruction
+    Diag.Diagnostic._arreter = _arreter
 atexit.register(lambda: print("UI432_ATEXIT", flush=True))
 sys.argv = [test, "--corrige"]
 runpy.run_path(test, run_name="__main__")
@@ -56,7 +66,7 @@ def executer(variante, timeout):
                            cwd=ROOT / "noethys", env=env, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
-        return dict(code="timeout", phase="timeout", extrait="")
+        return dict(code="timeout", phase="timeout", extrait="", traces=[])
     sortie = p.stdout.splitlines()
     phase = "debut"
     for marqueur in MARQUEURS:
@@ -67,7 +77,8 @@ def executer(variante, timeout):
         lignes = p.stderr.splitlines()
         debut = next((i for i, l in enumerate(lignes) if "fatal exception" in l.lower()), max(0, len(lignes) - 40))
         extrait = "\n".join(lignes[debut:debut + 60])
-    return dict(code=p.returncode, phase=phase, extrait=extrait)
+    traces = [l for l in sortie if l.startswith(("UI432_DESTRUCTION", "UI432_ARRET"))]
+    return dict(code=p.returncode, phase=phase, extrait=extrait, traces=traces)
 
 
 def main():
@@ -80,12 +91,17 @@ def main():
         print("Campagne reservee a Windows")
         return 0
     bilan = {}
-    for variante in args.variantes.split(","):
+    for element in args.variantes.split(","):
+        variante, _, nombre = element.partition(":")
+        repetitions = int(nombre) if nombre else args.repetitions
         codes = collections.Counter()
         phases = collections.Counter()
         extraits = []
-        for i in range(args.repetitions):
+        traces = collections.Counter()
+        for i in range(repetitions):
             r = executer(variante, args.timeout)
+            for ligne in r["traces"]:
+                traces[ligne] += 1
             codes[str(r["code"])] += 1
             if r["code"] != 0:
                 phases[r["phase"]] += 1
@@ -93,6 +109,8 @@ def main():
                     extraits.append(r["extrait"])
             print("UI432_RUN variante=%s n=%d code=%s phase=%s" % (variante, i + 1, r["code"], r["phase"]), flush=True)
         bilan[variante] = dict(codes=dict(codes), phases_echec=dict(phases))
+        if variante == "trace":
+            bilan[variante]["traces"] = dict(traces)
         for n, extrait in enumerate(extraits, 1):
             print("----- UI432_EXTRAIT %s #%d -----\n%s" % (variante, n, extrait), flush=True)
     texte = json.dumps(bilan, indent=1, sort_keys=True)

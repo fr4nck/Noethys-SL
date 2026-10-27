@@ -58,10 +58,13 @@ class WxFictif:
     EVT_WINDOW_DESTROY = "destroy"
 
     class Timer:
-        def __init__(self, owner):
+        def __init__(self, owner=None):
             self.owner = owner
             self.started = []
             self.stopped = False
+            self.bindings = {}
+        def Bind(self, kind, func, *args):
+            self.bindings[kind] = func
         def Start(self, interval):
             self.started.append(interval)
         def Stop(self):
@@ -229,6 +232,20 @@ class DiagnosticTests(TestCase):
         manuel = (racine / "Dlg" / "DLG_Portail_config.py").read_text(encoding="utf-8")
         self.assertIn('Thread.__init__(self, name="%s")' % diag_module.THREADS_SYNCHRO[0], serveur)
         self.assertIn('name="%s"' % diag_module.THREADS_SYNCHRO[1], manuel)
+
+    def test_timer_sans_proprietaire_et_arret_si_fenetre_detruite(self):
+        d = self.nouveau()
+        self.assertIsNone(d._timer.owner)
+        self.assertIn(WxFictif.EVT_TIMER, d._timer.bindings)
+        self.assertNotIn(WxFictif.EVT_TIMER, self.fenetre.bindings)
+        timer = d._timer
+        d._veille_stop = __import__("threading").Event()
+        with mock.patch.object(FenetreFictive, "__bool__", lambda self: False, create=True):
+            d._on_battement(Evenement(source=timer))
+        self.assertTrue(timer.stopped)
+        self.assertIsNone(d._timer)
+        self.assertTrue(d._veille_stop.is_set())
+        self.assertNotIn("retard_boucle", [e["evenement"] for e in self.logs])
 
     def test_timer_arrete_uniquement_a_la_destruction_de_la_fenetre(self):
         d = self.nouveau()

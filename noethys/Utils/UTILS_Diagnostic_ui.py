@@ -102,8 +102,11 @@ class Diagnostic:
             import wx
             self._wx = wx
         self._dernier_battement = self.clock()
-        self._timer = self._wx.Timer(fenetre)
-        fenetre.Bind(self._wx.EVT_TIMER, self._on_battement, self._timer)
+        # Timer sans proprietaire : un wx.Timer(fenetre) non arrete continuait
+        # d'adresser ses evenements a la fenetre detruite (0xC0000005 a la
+        # sortie, campagne #432). Le battement verifie lui-meme la fenetre.
+        self._timer = self._wx.Timer()
+        self._timer.Bind(self._wx.EVT_TIMER, self._on_battement)
         fenetre.Bind(self._wx.EVT_ACTIVATE, self._on_activation)
         fenetre.Bind(self._wx.EVT_MAXIMIZE, self._on_maximisation)
         fenetre.Bind(self._wx.EVT_SIZE, self._on_taille)
@@ -210,7 +213,23 @@ class Diagnostic:
         except Exception:
             return prochaine
 
+    def _fenetre_vivante(self):
+        try:
+            return bool(self.fenetre)
+        except Exception:
+            return False
+
+    def _arreter(self):
+        if self._timer is not None:
+            self._timer.Stop()
+            self._timer = None
+        if self._veille_stop is not None:
+            self._veille_stop.set()
+
     def _on_battement(self, event):
+        if not self._fenetre_vivante():
+            self._arreter()
+            return
         instant = self.clock()
         retard = max(0, int((instant - self._dernier_battement) * 1000) - PERIODE_MS)
         self._dernier_battement = instant
@@ -284,11 +303,7 @@ class Diagnostic:
 
     def _on_destruction(self, event):
         if event.GetEventObject() is self.fenetre:
-            if self._timer is not None:
-                self._timer.Stop()
-                self._timer = None
-            if self._veille_stop is not None:
-                self._veille_stop.set()
+            self._arreter()
         event.Skip()
 
     @contextmanager
