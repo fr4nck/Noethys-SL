@@ -130,6 +130,8 @@ class PeopleDetailsPage(QWidget):
     familyInscriptionsRequested = Signal(int)
     individualInscriptionsRequested = Signal(int)
     individualConsumptionsRequested = Signal(int)
+    familyInvoicesRequested = Signal(int)
+    familyPaymentsRequested = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -164,10 +166,18 @@ class PeopleDetailsPage(QWidget):
         self.individual_consumptions_button = QPushButton(
             "Consommations de cet individu", self
         )
+        self.family_invoices_button = QPushButton(
+            "Factures de cette famille", self
+        )
+        self.family_payments_button = QPushButton(
+            "Règlements de cette famille", self
+        )
         for button in (
             self.family_inscriptions_button,
             self.individual_inscriptions_button,
             self.individual_consumptions_button,
+            self.family_invoices_button,
+            self.family_payments_button,
         ):
             actions.addWidget(button)
         actions.addStretch(1)
@@ -180,6 +190,12 @@ class PeopleDetailsPage(QWidget):
         )
         self.individual_consumptions_button.clicked.connect(
             self._request_individual_consumptions
+        )
+        self.family_invoices_button.clicked.connect(
+            self._request_family_invoices
+        )
+        self.family_payments_button.clicked.connect(
+            self._request_family_payments
         )
 
         self.person_group = QGroupBox("Identité et coordonnées", self)
@@ -232,6 +248,16 @@ class PeopleDetailsPage(QWidget):
         self.family_inscriptions_button.setVisible(family)
         self.individual_inscriptions_button.setVisible(individual)
         self.individual_consumptions_button.setVisible(individual)
+        self.family_invoices_button.setVisible(family)
+        self.family_payments_button.setVisible(family)
+
+    def _request_family_invoices(self) -> None:
+        if self.loaded_kind == "family" and self.current_id is not None:
+            self.familyInvoicesRequested.emit(self.current_id)
+
+    def _request_family_payments(self) -> None:
+        if self.loaded_kind == "family" and self.current_id is not None:
+            self.familyPaymentsRequested.emit(self.current_id)
 
     def _request_family_inscriptions(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:

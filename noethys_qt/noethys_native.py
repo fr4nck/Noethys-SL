@@ -39,6 +39,8 @@ from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepos
 from .consumptions_core import ConsumptionRepository
 from .consumptions_calendar_ui import ConsumptionCalendarPage
 from .inscriptions_readonly import InscriptionPage, InscriptionRepository
+from .finance_readonly_core import FinanceRepository
+from .finance_readonly_ui import FinanceHubPage, MODULES
 
 
 class _DetailSignals(QObject):
@@ -76,9 +78,9 @@ NAVIGATION = (
     ("activities", "Activités", True),
     ("inscriptions", "Inscriptions", True),
     ("consumptions", "Consommations", True),
-    ("billing", "Facturation", False),
-    ("payments", "Règlements", False),
-    ("accounting", "Comptabilité", False),
+    ("billing", "Facturation", True),
+    ("payments", "Règlements", True),
+    ("accounting", "Comptabilité", True),
 )
 
 
@@ -101,6 +103,7 @@ class NoethysQtWindow(QMainWindow):
         self.details_repository = PeopleDetailsRepository(people_repository)
         self.consumptions_repository = ConsumptionRepository(people_repository.editor_repository)
         self.inscriptions_repository = InscriptionRepository(people_repository.editor_repository)
+        self.finance_repository = FinanceRepository(people_repository.editor_repository)
         self.background_queries = background_queries
         # Seulement pour la démonstration C12 : ne jamais ouvrir le
         # panneau d'édition d'activité, même sur une fixture inventée.
@@ -135,6 +138,11 @@ class NoethysQtWindow(QMainWindow):
         self.activities_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogListView), "Activités", self)
         self.inscriptions_action = QAction("Inscriptions", self)
         self.consumptions_action = QAction("Consommations", self)
+        self.finance_actions = {
+            "billing": QAction("Facturation", self),
+            "payments": QAction("Règlements", self),
+            "accounting": QAction("Comptabilité", self),
+        }
         self.back_context_action = QAction("Retour au dossier précédent", self)
         self.refresh_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "Actualiser", self)
         self.quit_action = QAction("Quitter", self)
@@ -145,6 +153,11 @@ class NoethysQtWindow(QMainWindow):
         self.activities_action.setEnabled(not self.read_only_demo)
         self.inscriptions_action.setShortcut(QKeySequence("Alt+4"))
         self.consumptions_action.setShortcut(QKeySequence("Alt+5"))
+        for code, digit in (("billing", 6), ("payments", 7), ("accounting", 8)):
+            self.finance_actions[code].setShortcut(QKeySequence(f"Alt+{digit}"))
+            self.finance_actions[code].triggered.connect(
+                lambda _checked=False, target=code: self.navigate(target)
+            )
         self.back_context_action.setShortcut(QKeySequence("Alt+Left"))
         self.back_context_action.setEnabled(False)
         self.refresh_action.setShortcut(QKeySequence.Refresh)
@@ -253,6 +266,12 @@ class NoethysQtWindow(QMainWindow):
         self.details_page.individualConsumptionsRequested.connect(
             self._individual_consumptions_requested
         )
+        self.details_page.familyInvoicesRequested.connect(
+            lambda ident: self._family_finance_requested("billing", ident)
+        )
+        self.details_page.familyPaymentsRequested.connect(
+            lambda ident: self._family_finance_requested("payments", ident)
+        )
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
         self.stack.addWidget(self.details_page)
@@ -271,6 +290,24 @@ class NoethysQtWindow(QMainWindow):
             background=self.background_queries,
         )
         self.stack.addWidget(self.consumptions_page)
+        self.finance_pages = {}
+        for code in MODULES:
+            panel = FinanceHubPage(
+                self.finance_repository, code, self.stack,
+                background=self.background_queries,
+            )
+            panel.familyRequested.connect(
+                lambda ident, origin=code: self._finance_family_requested(
+                    origin, ident
+                )
+            )
+            panel.relatedRequested.connect(
+                lambda target, ident, origin=code: self._finance_related_requested(
+                    origin, target, ident
+                )
+            )
+            self.finance_pages[code] = panel
+            self.stack.addWidget(panel)
         right_layout.addWidget(self.stack, 1)
         layout.addWidget(right, 1)
         self.setCentralWidget(root)
@@ -313,10 +350,25 @@ class NoethysQtWindow(QMainWindow):
         quick.addWidget(consumptions_button)
         quick.addStretch(1)
         layout.addLayout(quick)
+        finance_quick = QHBoxLayout()
+        for code, title in (
+            ("billing", "Factures et prestations"),
+            ("payments", "Règlements et ventilation"),
+            ("accounting", "Trésorerie et dépôts"),
+        ):
+            button = QPushButton(title, page)
+            button.clicked.connect(
+                lambda _checked=False, destination=code:
+                self.navigate(destination)
+            )
+            finance_quick.addWidget(button)
+        finance_quick.addStretch(1)
+        layout.addLayout(finance_quick)
 
         migration = QLabel(
-            "Disponible en Qt : Individus/Familles, Activités, Inscriptions et consultation des consommations.\n"
-            "À venir : saisie des consommations, facturation et règlements.",
+            "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
+            "Consommations, Facturation, Règlements et Trésorerie en consultation.\n"
+            "À venir : saisie des consommations, validation financière et comptabilité opérationnelle.",
             page,
         )
         migration.setWordWrap(True)
@@ -333,6 +385,8 @@ class NoethysQtWindow(QMainWindow):
         navigation_menu.addAction(self.activities_action)
         navigation_menu.addAction(self.inscriptions_action)
         navigation_menu.addAction(self.consumptions_action)
+        for code in MODULES:
+            navigation_menu.addAction(self.finance_actions[code])
         navigation_menu.addAction(self.back_context_action)
         navigation_menu.addSeparator()
         navigation_menu.addAction(self.search_action)
@@ -377,6 +431,14 @@ class NoethysQtWindow(QMainWindow):
                     self.consumptions_page.clear_record_context()
             self.stack.setCurrentWidget(self.consumptions_page)
             self.consumptions_page.activate()
+        elif code in self.finance_pages:
+            panel = self.finance_pages[code]
+            if not self._context_navigation:
+                self._set_return_context(None)
+                if code != "accounting":
+                    panel.set_family_context()
+            self.stack.setCurrentWidget(panel)
+            panel.activate()
 
     def navigate(self, code: str) -> None:
         """Une entrée de menu = une navigation, sans double lecture SQL."""
@@ -412,12 +474,25 @@ class NoethysQtWindow(QMainWindow):
                         self.consumptions_page.clear_record_context()
                 self.stack.setCurrentWidget(self.consumptions_page)
                 self.consumptions_page.activate()
+            elif code in self.finance_pages:
+                panel = self.finance_pages[code]
+                if not self._context_navigation:
+                    self._set_return_context(None)
+                    if code != "accounting":
+                        panel.set_family_context()
+                self.stack.setCurrentWidget(panel)
+                panel.activate()
             return
 
     def focus_current_search(self) -> None:
         """Ctrl+F reste dans la rubrique active au lieu de changer de page."""
         current = self.stack.currentWidget()
-        if current is self.inscriptions_page:
+        if current in self.finance_pages.values():
+            current.current_page.search_edit.setFocus(
+                Qt.FocusReason.ShortcutFocusReason
+            )
+            current.current_page.search_edit.selectAll()
+        elif current is self.inscriptions_page:
             self.inscriptions_page.search_edit.setFocus(
                 Qt.FocusReason.ShortcutFocusReason
             )
@@ -442,6 +517,8 @@ class NoethysQtWindow(QMainWindow):
             self.consumptions_page.refresh()
         elif self.stack.currentWidget() is self.inscriptions_page:
             self.inscriptions_page.refresh()
+        elif self.stack.currentWidget() in self.finance_pages.values():
+            self.stack.currentWidget().current_page.refresh()
         elif self.stack.currentWidget() is self.details_page and self._current_detail:
             kind, entity_id = self._current_detail
             self._open_detail(kind, entity_id)
@@ -535,6 +612,10 @@ class NoethysQtWindow(QMainWindow):
             )
         elif value[0] == "inscriptions":
             self.context_label.setText("Retour à la liste des inscriptions")
+        elif value[0] == "finance":
+            self.context_label.setText(
+                f"Retour à {MODULES[value[1]][0]}"
+            )
 
     def _navigate_with_context(self, code: str) -> None:
         self._context_navigation = True
@@ -542,6 +623,29 @@ class NoethysQtWindow(QMainWindow):
             self.navigate(code)
         finally:
             self._context_navigation = False
+
+    def _family_finance_requested(self, code: str, family_id: int) -> None:
+        if code not in ("billing", "payments"):
+            raise ValueError("Contexte famille indisponible pour ce domaine")
+        self.finance_pages[code].set_family_context(family_id)
+        self._navigate_with_context(code)
+        self._set_return_context(("details", "family", family_id))
+
+    def _finance_family_requested(self, origin: str, family_id: int) -> None:
+        if origin not in ("billing", "payments"):
+            raise ValueError("Lien vers une famille non autorisé")
+        self._set_return_context(("finance", origin))
+        self._open_detail("family", family_id)
+
+    def _finance_related_requested(self, origin: str, target: str, record_id: int) -> None:
+        if origin != "accounting" or target != "deposit_payments":
+            raise ValueError("Lien financier inter-module inconnu")
+        self.finance_pages["payments"].set_family_context()
+        self.finance_pages["payments"].focus_related(
+            "payments", record_id
+        )
+        self._navigate_with_context("payments")
+        self._set_return_context(("finance", "accounting"))
 
     def _family_inscriptions_requested(self, family_id: int) -> None:
         self._show_inscriptions_from_detail("family", family_id)
@@ -607,6 +711,8 @@ class NoethysQtWindow(QMainWindow):
         elif origin[0] == "details":
             self.navigate("people")
             self._open_detail(origin[1], origin[2])
+        elif origin[0] == "finance":
+            self._navigate_with_context(origin[1])
 
     def _family_requested(self, family_id: int) -> None:
         self._open_detail("family", family_id)
