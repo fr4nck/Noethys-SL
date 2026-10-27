@@ -21,6 +21,7 @@ from .consumptions_calendar_core import (
 )
 from .consumptions_core import format_date, state_label
 from .consumptions_ui import ConsumptionPage
+from .consumptions_preparation_ui import ConsumptionPreparationPanel
 
 
 class _BackgroundSignals(QObject):
@@ -132,6 +133,10 @@ class ConsumptionCalendarPage(QWidget):
         self.details_label.setWordWrap(True)
         details_layout.addWidget(self.details_label)
         right_layout.addWidget(details)
+        self.preparation_panel = ConsumptionPreparationPanel(
+            repository, right, background=background,
+        )
+        right_layout.addWidget(self.preparation_panel)
         root.addWidget(right, 1)
 
         self.activity_combo.currentIndexChanged.connect(self.refresh)
@@ -363,6 +368,7 @@ class ConsumptionCalendarPage(QWidget):
             self._clear_detail()
             return
         row = self.list_page.model.rows[selected[0].row()]
+        self.preparation_panel.set_row(row)
         event_label = (
             f"Événement #{row.event_id} : {row.event_name or 'sans libellé'}"
             if row.event_id is not None else
@@ -380,4 +386,5 @@ class ConsumptionCalendarPage(QWidget):
         )
 
     def _clear_detail(self) -> None:
+        self.preparation_panel.set_row(None)
         self.details_label.setText("Sélectionnez une consommation pour afficher son détail.")

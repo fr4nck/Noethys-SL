@@ -1,5 +1,10 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C3 — précontrôle bloquant des changements d'état (27/10/2026)
+
+Lot préparatoire sur qt (base ef36db0). Simulation à la demande : six états canoniques, relecture SQL avec snapshot, vérification sélection périmée, inscription, verrouillage, forfait, facture, existence de prestation et ventilation, frontière tarifante. L'interface **ne propose aucun enregistrement** : contrôles droits/période/facturation et transaction métier wx non raccordés, STOP-GATE. Source de référence wx a24e1dd ; main f6f5ccd non modifiée. CI Qt Windows et SHA final à compléter après exécution. Détails : [QT_CONSOMMATIONS_LOT3.md](QT_CONSOMMATIONS_LOT3.md).
+
+
 ## C2 — calendrier des consommations Qt (27/10/2026)
 
 C2 sur qt, base e65a590 : synthèse SQL mensuelle complète, activité, sélection d'un jour, consultation des événements liés, maintien du filtre annuel C1 et du plafond de 300 résultats. Aucun code métier commun modifié, aucune migration de schéma ni base réelle. Tests SQLite fictifs et Qt hors écran ajoutés ; **CI Windows SUCCESS** sur 5914c75 (run 40508025972) : compilation PASS, 151 tests / 0 échec. UI Windows en situation réelle, DPI, MySQL et publication restent EN ATTENTE. Consultez docs/dev/QT_CONSOMMATIONS_LOT2.md. Main f6f5ccd, wx a24e1dd : non modifiées, divergence interbranches toujours sous STOP-GATE pour publication. Prochaine étape : recette graphique Windows, contrôles MySQL réels sur environnement jetable, puis C3 transactionnel séparé.
