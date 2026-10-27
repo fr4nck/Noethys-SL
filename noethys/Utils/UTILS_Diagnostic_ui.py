@@ -3,12 +3,15 @@
 
 Active seulement par NOETHYS_SL_UI_DIAG=1. Ne journalise jamais de noms,
 d'identifiants de familles, d'emails, de messages ou de montants.
-Les evenements sont produits uniquement sur le thread wx.
+Les evenements wx sont observes sur le thread UI. Une veille facultative ne
+consulte que les piles Python, jamais un widget ou une donnee metier.
 """
 from __future__ import annotations
 
 import os
+import re
 import sys
+import threading
 import time
 from contextlib import contextmanager
 
@@ -86,6 +89,9 @@ class Diagnostic:
         self._dernier_battement = None
         self._timer = None
         self._wx = wx_module
+        self._veille_stop = None
+        surveiller = (self.role == "principale" and sys.platform == "win32"
+                      and wx_module is None and clock is None)
         if not self.actif:
             return
         if self._wx is None:
@@ -100,6 +106,13 @@ class Diagnostic:
         fenetre.Bind(self._wx.EVT_ICONIZE, self._on_iconisation)
         fenetre.Bind(self._wx.EVT_WINDOW_DESTROY, self._on_destruction)
         self._timer.Start(PERIODE_MS)
+        if surveiller:
+            self._veille_stop = threading.Event()
+            ident = threading.get_ident()
+            self._veille_thread = threading.Thread(
+                target=self._surveiller_blocages, args=(ident,),
+                name="Noethys-UI-diagnostic", daemon=True)
+            self._veille_thread.start()
 
     def _emettre(self, type_evenement, **champs):
         """Le schema est ferme: seuls des champs techniques sont admis."""
@@ -107,6 +120,7 @@ class Diagnostic:
             "operation", "duree_ms", "sans_evenements_ms", "erreur_type",
             "retard_ms", "actif", "maximise", "largeur", "hauteur", "iconise",
             "wx_maximise", "win32_maximise", "win32_iconise", "premier_plan",
+            "point",
         }
         evenement = {"evenement": type_evenement}
         if self.role is not None:
@@ -122,6 +136,49 @@ class Diagnostic:
         except Exception:
             # Un probleme de diagnostic ne doit jamais interrompre l'activite.
             pass
+
+    def _point_thread(self, ident):
+        """Nom fixe du fichier / fonction / ligne ; jamais de valeur de pile."""
+        try:
+            cadre = sys._current_frames().get(ident)
+            racine = os.path.normcase(os.path.abspath(
+                os.path.join(os.path.dirname(__file__), os.pardir)))
+            for _ in range(64):
+                if cadre is None:
+                    break
+                chemin = os.path.normcase(os.path.abspath(cadre.f_code.co_filename))
+                try:
+                    local = os.path.commonpath((racine, chemin)) == racine
+                except ValueError:
+                    local = False
+                if local:
+                    fichier = os.path.basename(chemin)
+                    fonction = cadre.f_code.co_name
+                    if (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,70}\.py", fichier)
+                            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,70}", fonction)):
+                        return "%s:%s:%d" % (fichier, fonction, int(cadre.f_lineno))
+                cadre = cadre.f_back
+        except Exception:
+            pass
+        return "hors_noethys"
+
+    def _surveiller_blocages(self, ident):
+        """Lecture des seules frames Python, hors wx et hors transactions SQL."""
+        prochaine = 0.0
+        while not self._veille_stop.wait(0.5):
+            try:
+                maintenant = self.clock()
+                retard = maintenant - self._dernier_battement
+                if retard < 1.5:
+                    prochaine = 0.0
+                    continue
+                if maintenant < prochaine:
+                    continue
+                prochaine = maintenant + 5.0
+                self._emettre("blocage_thread", duree_ms=int(retard * 1000),
+                              point=self._point_thread(ident))
+            except Exception:
+                pass
 
     def _on_battement(self, event):
         instant = self.clock()
@@ -196,9 +253,12 @@ class Diagnostic:
         event.Skip()
 
     def _on_destruction(self, event):
-        if event.GetEventObject() is self.fenetre and self._timer is not None:
-            self._timer.Stop()
-            self._timer = None
+        if event.GetEventObject() is self.fenetre:
+            if self._timer is not None:
+                self._timer.Stop()
+                self._timer = None
+            if self._veille_stop is not None:
+                self._veille_stop.set()
         event.Skip()
 
     @contextmanager

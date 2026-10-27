@@ -283,6 +283,9 @@ class ReactiviteWindowsTests(unittest.TestCase):
         etape = next((l for l in p.stdout.splitlines() if "etape=grille.activites" in l), None)
         self.assertIsNotNone(etape, p.stdout)
         self.assertGreater(int(re.search(r"duree_ms=(\d+)", etape).group(1)), 3000)
+        blocages = [x for x in p.stdout.splitlines() if "evenement=blocage_thread" in x]
+        self.assertTrue(blocages, p.stdout)
+        self.assertTrue(all("point=" in x and "C:" not in x and "Users" not in x for x in blocages))
         self.assertTrue(m["maximise"])
         self.assertTrue(m["geometrie_identique"])
         self.assertTrue(m["owner_modal_ok"])

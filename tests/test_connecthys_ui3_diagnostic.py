@@ -162,6 +162,33 @@ class DiagnosticTests(TestCase):
         self.assertEqual(self.logs[-1]["fenetre"], "principale")
         self.assertNotIn("titre", self.logs[-1])
 
+    def test_veille_thread_inactive_pour_fenetre_fictive(self):
+        d = diag_module.Diagnostic(
+            self.fenetre, actif=True, role="principale",
+            wx_module=WxFictif, sortie=self.logs.append)
+        self.assertIsNone(d._veille_stop)
+        self.assertNotIn("point", d._etat_precedent or {})
+
+    def test_point_blocage_ne_devoile_ni_les_variables_ni_le_chemin(self):
+        from types import SimpleNamespace as NS
+        d = self.nouveau()
+        point_code = NS(co_filename=diag_module.__file__, co_name="lecture_bloquante")
+        cadre = NS(f_code=point_code, f_lineno=321, f_back=None,
+                   f_locals={"mot_de_passe": "SECRET_JAMAIS_DANS_LE_LOG"})
+        with mock.patch.object(diag_module.sys, "_current_frames",
+                               return_value={987: cadre}):
+            point = d._point_thread(987)
+        self.assertEqual(point, "UTILS_Diagnostic_ui.py:lecture_bloquante:321")
+        self.assertNotIn("SECRET", point)
+        self.assertNotIn(str(diag_module.MODULE) if hasattr(diag_module, "MODULE")
+                         else str(MODULE.parent), point)
+        autre_fichier = os.path.abspath(
+            os.path.join(os.path.dirname(diag_module.__file__), "..", "..", "privé.py"))
+        cadre.f_code = NS(co_filename=autre_fichier, co_name="secret")
+        with mock.patch.object(diag_module.sys, "_current_frames",
+                               return_value={987: cadre}):
+            self.assertEqual(d._point_thread(987), "hors_noethys")
+
     def test_timer_arrete_uniquement_a_la_destruction_de_la_fenetre(self):
         d = self.nouveau()
         d._on_destruction(Evenement(source=object()))
