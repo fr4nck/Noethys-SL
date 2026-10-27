@@ -24,4 +24,4 @@ Nouveaux tests C9 : liste des domaines, non-édition, navigation par double clic
 
 - main : f6f5ccd — NON APPLICABLE ; inchangée.
 - wx : 11b8546 — NON APPLICABLE ; inchangée.
-- qt base : 5ff530d ; commit C9 : 205277f ; verdict CI en cours d'exécution au moment de ce rapport. Run : https://github.com/fr4nck/Noethys-SL/actions/runs/40538527990
+- qt base : 5ff530d ; commit C9 : 205277f ; CI Windows 40538527990 SUCCESS : 234 tests, 0 échec (qualification C9 d'époque). Run : https://github.com/fr4nck/Noethys-SL/actions/runs/40538527990

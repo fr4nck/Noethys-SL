@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C10 — fiches famille et individu contextuelles (27/10/2026)
+
+Le retour utilisateur du démonstrateur C8 sur PC Windows est positif pour la légèreté et l'absence de scintillement perceptible (avis qualitatif, non mesure). C10 ajoute la fiche latérale dans la même fenêtre Qt, Familles → individus rattachés → inscriptions filtrées par ID, navigation de retour avec sélection et recherche locale des lignes. Les valeurs IDcategorie et titulaire de rattachements restent brutes, sans déduction des rôles familiaux. Depuis une inscription, le calendrier ouvert est encore GLOBAL, sans filtre individuel exact : raccordement C11 à prévoir. Aucun writer Qt métier.
+
+Branche qt base 2b19fdf, code f4cf651 et captures/test 8d025096 ; main f6f5ccd et wx 11b8546 inchangées (NON APPLICABLE). CI Windows de référence [run 40541696279](https://github.com/fr4nck/Noethys-SL/actions/runs/40541696279) : 244 tests PASS, 0 échec, aucun traceback ; 10 nouveaux tests. Six PNG et deux JSON, artifact qt-c10-fiches-fictives ID 12751351279, issus de données inventées et base inchangée. Le run initial 40541040767 comportait une exception de callback PySide6 due à un mock de test trop large malgré le verdict SUCCESS : seul le second run propre fait foi. Aucune recette réelle des écritures, des droits et des calculs métier ; release STOP-GATE. Rapport [QT_CONSOMMATIONS_LOT10.md](QT_CONSOMMATIONS_LOT10.md).
+
+
 ## Qt C8 — recette graphique Windows sur source fictive (27/10/2026)
 
 Lanceur Windows interactif tools/qt_c8_windows_demo.py et tools/Noethys-Qt-C8-Demo.cmd, uniquement TemporaryDirectory (112 consommations inventées), sans lecture Config.json ni aucune base de production. Tests Qt thèmes, dates, filtres, DPI simulé, redimensionnements et captures en CI. La validation réelle des scintillements sur poste utilisateur reste EN ATTENTE. Matrice C8 main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE, qt base a55fba2, CI Windows SUCCESS, code 1df0e2d et workflow 2754681, run 40529970199 : compilation PASS, 229 tests / 0 échec ; quatre captures et quatre JSON, artifact qt-c8-recette-fictive ID 12745487136. Base de 112 consommations fictives restée inchangée. Main f6f5ccd et wx 11b8546 inchangées ; qt 2754681 VALIDÉ TECHNIQUEMENT, observation interactive Windows réelle EN ATTENTE, aucun writer activé. Détails : QT_CONSOMMATIONS_LOT8.md. Détails : docs/dev/QT_CONSOMMATIONS_LOT8.md. Aucun writer métier, aucune release.
