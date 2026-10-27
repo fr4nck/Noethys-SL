@@ -94,6 +94,7 @@ class Diagnostic:
         self._timer = None
         self._wx = wx_module
         self._veille_stop = None
+        self._hwnd = None
         surveiller = (self.role == "principale" and sys.platform == "win32"
                       and wx_module is None and clock is None)
         if not self.actif:
@@ -114,6 +115,8 @@ class Diagnostic:
         fenetre.Bind(self._wx.EVT_WINDOW_DESTROY, self._on_destruction)
         self._timer.Start(PERIODE_MS)
         if surveiller:
+            # Lu une fois sur le thread wx : la veille n'interroge que Win32.
+            self._hwnd = fenetre.GetHandle()
             self._veille_stop = threading.Event()
             ident = threading.get_ident()
             self._veille_thread = threading.Thread(
@@ -127,7 +130,7 @@ class Diagnostic:
             "operation", "duree_ms", "sans_evenements_ms", "erreur_type",
             "retard_ms", "actif", "maximise", "largeur", "hauteur", "iconise",
             "wx_maximise", "win32_maximise", "win32_iconise", "premier_plan",
-            "point", "point_synchro", "veille_retard_ms",
+            "point", "point_synchro", "veille_retard_ms", "ne_repond_pas", "fantome",
         }
         evenement = {"evenement": type_evenement}
         if self.role is not None:
@@ -182,6 +185,29 @@ class Diagnostic:
             pass
         return "aucune"
 
+    def _etat_fenetre_bloquee(self):
+        """Windows remplace une fenetre qui ne traite plus ses messages
+        (> 5 s) par une fenetre fantome ; une action sur ce fantome (reduire,
+        bouton de barre des taches) s'applique ensuite a la vraie fenetre.
+        Lecture Win32 seule, booleens uniquement, jamais de titre."""
+        if self._hwnd is None or sys.platform != "win32":
+            return {}
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            user32.IsHungAppWindow.argtypes = [wintypes.HWND]
+            user32.GetForegroundWindow.restype = wintypes.HWND
+            user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+            classe = ctypes.create_unicode_buffer(32)
+            premier_plan = user32.GetForegroundWindow()
+            if premier_plan:
+                user32.GetClassNameW(premier_plan, classe, 32)
+            return dict(ne_repond_pas=bool(user32.IsHungAppWindow(self._hwnd)),
+                        fantome=classe.value == "Ghost")
+        except Exception:
+            return {}
+
     def _surveiller_blocages(self, ident):
         """Lecture des seules frames Python, hors wx et hors transactions SQL."""
         prochaine = 0.0
@@ -208,7 +234,8 @@ class Diagnostic:
             self._emettre("blocage_thread", duree_ms=int(retard * 1000),
                           point=self._point_thread(ident),
                           point_synchro=self._point_synchro(),
-                          veille_retard_ms=int(veille_retard * 1000))
+                          veille_retard_ms=int(veille_retard * 1000),
+                          **self._etat_fenetre_bloquee())
             return maintenant + 5.0
         except Exception:
             return prochaine

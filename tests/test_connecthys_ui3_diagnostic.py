@@ -217,6 +217,18 @@ class DiagnosticTests(TestCase):
         self.assertEqual(blocage["point"], "hors_noethys")
         self.assertNotIn("SECRET", repr(self.logs))
 
+    def test_blocage_ajoute_seulement_les_booleens_fenetre_fantome(self):
+        d = self.nouveau()
+        self.assertEqual(d._etat_fenetre_bloquee(), {})  # aucun HWND surveille
+        d._dernier_battement = 100.0
+        with mock.patch.object(d, "_etat_fenetre_bloquee",
+                               return_value=dict(ne_repond_pas=True, fantome=False)),                 mock.patch.object(diag_module.threading, "enumerate", return_value=[]):
+            d._cycle_veille(987, 107.0, 106.9, 0.0)
+        blocage = self.logs[-1]
+        self.assertEqual(blocage["evenement"], "blocage_thread")
+        self.assertIs(blocage["ne_repond_pas"], True)
+        self.assertIs(blocage["fantome"], False)
+
     def test_veille_ponctuelle_sans_synchro_ne_signale_rien(self):
         d = self.nouveau()
         d._dernier_battement = 100.0
