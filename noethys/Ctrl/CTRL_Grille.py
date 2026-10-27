@@ -710,18 +710,27 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         self.InitDonnees()
         
     def InitDonnees(self):
+        for _etape in self.InitDonneesEtapes():
+            pass
+
+    def InitDonneesEtapes(self):
         self.tarifsForfaitsCreditsPresents = False
         self.afficherListeEtiquettes = False
         
         self.DB = GestionDB.DB()
-        self.dictActivites = self.Importation_activites()
-        self.dictIndividus = self.Importation_individus() 
-        self.dictGroupes = self.GetDictGroupes()
-        self.dictComptesPayeurs = self.GetComptesPayeurs()
-        self.dictQuotientsFamiliaux = self.GetQuotientsFamiliaux()
-        self.dictAides = self.GetAides() 
-        self.dictEtiquettes = self.GetDictEtiquettes()
-        self.DB.Close() 
+        try:
+            for attribut, lecture in (
+                    ("dictActivites", self.Importation_activites),
+                    ("dictIndividus", self.Importation_individus),
+                    ("dictGroupes", self.GetDictGroupes),
+                    ("dictComptesPayeurs", self.GetComptesPayeurs),
+                    ("dictQuotientsFamiliaux", self.GetQuotientsFamiliaux),
+                    ("dictAides", self.GetAides),
+                    ("dictEtiquettes", self.GetDictEtiquettes)):
+                setattr(self, attribut, lecture())
+                yield
+        finally:
+            self.DB.Close()
         
         self.listePeriodes = []
         self.dictPrestations = {}
@@ -769,6 +778,29 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         if modeSilencieux == False :
             del attente
 
+    def SetModeIndividuEtapes(self, listeActivites, listeSelectionIndividus,
+                             listeIndividusFamille, listePeriodes):
+        """Chemin cooperatif de la grille cachee Connecthys, sans ecriture."""
+        self.mode = "individu"
+        self.listeActivites = listeActivites
+        self.listeSelectionIndividus = listeSelectionIndividus
+        self.listeIndividusFamille = listeIndividusFamille
+        self.listePeriodes = listePeriodes
+        self.DB = GestionDB.DB()
+        try:
+            for lecture in (self.Importation_deductions, self.Importation_prestations,
+                            self.Importation_forfaits):
+                lecture(listeComptesPayeurs=[self.dictComptesPayeurs[self.IDfamille]])
+                yield
+            self.Importation_transports()
+            yield
+        finally:
+            self.DB.Close()
+        yield from self.MAJDonneesEtapes()
+        self.MAJ_affichage()
+        # La grille est cachee : ne pas lui donner le focus pendant l'attente.
+        yield
+
     def SetModeDate(self, listeActivites=[], listeSelectionIndividus=[], date=None, modeSilencieux=False):
         if modeSilencieux == False :
             attente = wx.BusyInfo(_(u"Recherche des données..."), self)
@@ -794,22 +826,34 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         self.SetFocus()
 
     def MAJ_donnees(self):
+        for _etape in self.MAJDonneesEtapes():
+            pass
+
+    def MAJDonneesEtapes(self):
         # Récupération des données
         self.DB = GestionDB.DB()
-        self.dictOuvertures, self.listeUnitesOuvertes = self.GetDictOuvertures(self.listeActivites, self.listePeriodes)
-        self.dictListeUnites, self.dictUnites = self.GetListeUnites(self.listeUnitesOuvertes)
-        self.listeTouchesRaccourcis = self.GetListeTouchesRaccourcis()
-        self.listeVacances = self.GetListeVacances() 
-        self.listeFeries = self.GetListeFeries() 
-        self.dictRemplissage, self.dictUnitesRemplissage, self.dictConsoIndividus = self.GetDictRemplissage(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
-        if self.mode == "individu" :
+        try:
+            self.dictOuvertures, self.listeUnitesOuvertes = self.GetDictOuvertures(self.listeActivites, self.listePeriodes)
+            yield
+            self.dictListeUnites, self.dictUnites = self.GetListeUnites(self.listeUnitesOuvertes)
+            yield
+            self.listeTouchesRaccourcis = self.GetListeTouchesRaccourcis()
+            yield
+            self.listeVacances = self.GetListeVacances()
+            yield
+            self.listeFeries = self.GetListeFeries()
+            yield
+            self.dictRemplissage, self.dictUnitesRemplissage, self.dictConsoIndividus = self.GetDictRemplissage(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
+            yield
             listeIndividus = self.listeSelectionIndividus
-        else:
-            listeIndividus = self.listeSelectionIndividus #self.dictConsoIndividus.keys()
-        self.dictInfosInscriptions = self.GetInfosInscriptions(listeIndividus)
-        self.dictInfosIndividus = self.GetInfosIndividus(listeIndividus)
-        self.dictMemos = self.GetDictMemoJournee(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
-        self.DB.Close()
+            self.dictInfosInscriptions = self.GetInfosInscriptions(listeIndividus)
+            yield
+            self.dictInfosIndividus = self.GetInfosIndividus(listeIndividus)
+            yield
+            self.dictMemos = self.GetDictMemoJournee(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
+        finally:
+            self.DB.Close()
+        yield
         
         self.CalcRemplissage() 
         

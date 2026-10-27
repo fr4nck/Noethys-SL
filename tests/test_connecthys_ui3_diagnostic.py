@@ -121,7 +121,7 @@ class DiagnosticTests(TestCase):
 
     def test_focus_et_maximisation_ne_loggent_que_des_booleens(self):
         d = self.nouveau()
-        ev = Evenement(actif=False)
+        ev = Evenement(actif=False, source=self.fenetre)
         d._on_activation(ev)
         self.assertEqual(self.logs[-1], {"evenement": "activation", "actif": False})
         d._on_maximisation(ev)
@@ -132,6 +132,22 @@ class DiagnosticTests(TestCase):
         d._on_iconisation(ev)
         self.assertEqual(self.logs[-1], {"evenement": "iconisation", "iconise": False})
         self.assertTrue(ev.skipped)
+
+    def test_evenements_enfants_ne_sont_pas_attribues_a_la_frame(self):
+        d = self.nouveau()
+        for methode in (d._on_activation, d._on_maximisation, d._on_taille,
+                        d._on_iconisation):
+            ev = Evenement(source=object())
+            methode(ev)
+            self.assertTrue(ev.skipped)
+        self.assertEqual(self.logs, [])
+
+    def test_role_ferme_distingue_frame_et_dialogue_sans_titre(self):
+        d = diag_module.Diagnostic(self.fenetre, actif=True, role="principale",
+                                   sortie=self.logs.append, wx_module=WxFictif)
+        d._on_taille(Evenement(source=self.fenetre))
+        self.assertEqual(self.logs[-1]["fenetre"], "principale")
+        self.assertNotIn("titre", self.logs[-1])
 
     def test_timer_arrete_uniquement_a_la_destruction_de_la_fenetre(self):
         d = self.nouveau()

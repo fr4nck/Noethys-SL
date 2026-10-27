@@ -49,6 +49,12 @@ Aucune base PMSL, aucune adresse réelle, aucun envoi à des destinataires réel
 
 ## Rendu de qualification
 
+Point du 27/10/2026 : voir [les mesures #432 et leurs limites](UI_432_20261027.md).
+Le diagnostic distingue maintenant `fenetre=principale` de `fenetre=demande`
+et compare les flags wx et Win32. Le chargement automatique de la grille
+est fractionne sur le thread wx, sans decouper les ecritures. Une lecture
+individuelle longue reste bloquante : aucune resolution complete revendiquee.
+
 Consigner : SHA du candidat, version de Windows, environnement de recette,
 scénario, PASS/FAIL/SKIP, état du focus avant/après, géométrie avant/après,
 retard maximal des événements wx et type d'erreur technique uniquement.

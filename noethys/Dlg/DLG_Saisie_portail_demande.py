@@ -20,6 +20,7 @@ import FonctionsPerso
 from Ctrl import CTRL_Bouton_image
 from Utils import UTILS_Envoi_email
 from Utils import UTILS_Diagnostic_ui
+from Utils import UTILS_Etapes_ui
 from Utils import UTILS_Emails_acceptes
 from Utils import UTILS_Facturation
 from Utils import UTILS_Dates
@@ -414,7 +415,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         # Diagnostic technique facultatif (aucun identifiant ni contenu metier).
-        self._diag_ui = UTILS_Diagnostic_ui.Diagnostic(self)
+        self._diag_ui = UTILS_Diagnostic_ui.Diagnostic(self, role="demande")
 
         # Init
         self.Importation()
@@ -1965,7 +1966,12 @@ class Traitement():
         date_fin_periode = UTILS_Dates.DateEngEnDateDD(self.dict_parametres["date_fin_periode"])
 
         # Init de la grille des conso
-        ctrl_grille.InitGrille(IDindividu=self.track.IDindividu, IDfamille=self.track.IDfamille, IDactivite=IDactivite, periode=(date_debut_periode, date_fin_periode))
+        arguments = dict(IDindividu=self.track.IDindividu, IDfamille=self.track.IDfamille,
+                         IDactivite=IDactivite, periode=(date_debut_periode, date_fin_periode))
+        if self.mode == "automatique" and isinstance(ctrl_grille, DLG_Badgeage_grille.CTRL):
+            UTILS_Etapes_ui.Executer(self.parent, ctrl_grille.InitGrilleEtapes(**arguments))
+        else:
+            ctrl_grille.InitGrille(**arguments)
 
     def Save_grille(self, ctrl_grille=None):
         """ Sauvegarde de la grille des conso """

@@ -8,6 +8,7 @@ Les evenements sont produits uniquement sur le thread wx.
 from __future__ import annotations
 
 import os
+import sys
 import time
 from contextlib import contextmanager
 
@@ -26,10 +27,13 @@ OPERATIONS = frozenset((
 class Diagnostic:
     """Observer l'ecart entre les battements wx, jamais les donnees metier."""
 
-    def __init__(self, fenetre, *, actif=None, clock=None, sortie=None, wx_module=None):
+    def __init__(self, fenetre, *, actif=None, clock=None, sortie=None, wx_module=None,
+                 role=None):
         self.actif = (os.environ.get(ENVIRONNEMENT) == "1" if actif is None
                       else bool(actif))
         self.fenetre = fenetre
+        self.role = role if role in ("principale", "demande") else None
+        self._etat_precedent = None
         self.clock = clock or time.monotonic
         self.sortie = sortie
         self._dernier_battement = None
@@ -55,8 +59,11 @@ class Diagnostic:
         valides = {
             "operation", "duree_ms", "sans_evenements_ms", "erreur_type",
             "retard_ms", "actif", "maximise", "largeur", "hauteur", "iconise",
+            "wx_maximise", "win32_maximise", "win32_iconise", "premier_plan",
         }
         evenement = {"evenement": type_evenement}
+        if self.role is not None:
+            evenement["fenetre"] = self.role
         evenement.update({cle: valeur for cle, valeur in champs.items() if cle in valides})
         try:
             if self.sortie is None:
@@ -75,17 +82,54 @@ class Diagnostic:
         self._dernier_battement = instant
         if retard >= PERIODE_MS:
             self._emettre("retard_boucle", retard_ms=retard)
+        if self.role == "principale":
+            self.instantane()
         event.Skip()
 
+    def instantane(self):
+        """Etat wx et Win32 du meme HWND; aucun titre ou identifiant journalise."""
+        if not self.actif:
+            return
+        try:
+            largeur, hauteur = self.fenetre.GetSize()
+            etat = dict(wx_maximise=bool(self.fenetre.IsMaximized()),
+                        iconise=bool(self.fenetre.IsIconized()),
+                        largeur=int(largeur), hauteur=int(hauteur))
+            if sys.platform == "win32":
+                import ctypes
+                from ctypes import wintypes
+                user32 = ctypes.windll.user32
+                user32.IsZoomed.argtypes = [wintypes.HWND]
+                user32.IsIconic.argtypes = [wintypes.HWND]
+                user32.GetForegroundWindow.restype = wintypes.HWND
+                hwnd = self.fenetre.GetHandle()
+                etat.update(win32_maximise=bool(user32.IsZoomed(hwnd)),
+                            win32_iconise=bool(user32.IsIconic(hwnd)),
+                            premier_plan=user32.GetForegroundWindow() == hwnd)
+            if etat != self._etat_precedent:
+                self._emettre("etat", **etat)
+                self._etat_precedent = etat
+        except Exception:
+            pass
+
     def _on_activation(self, event):
+        if event.GetEventObject() is not self.fenetre:
+            event.Skip()
+            return
         self._emettre("activation", actif=bool(event.GetActive()))
         event.Skip()
 
     def _on_maximisation(self, event):
+        if event.GetEventObject() is not self.fenetre:
+            event.Skip()
+            return
         self._emettre("maximisation", maximise=bool(self.fenetre.IsMaximized()))
         event.Skip()
 
     def _on_taille(self, event):
+        if event.GetEventObject() is not self.fenetre:
+            event.Skip()
+            return
         try:
             largeur, hauteur = self.fenetre.GetSize()
             self._emettre("taille", largeur=int(largeur), hauteur=int(hauteur),
@@ -95,6 +139,9 @@ class Diagnostic:
         event.Skip()
 
     def _on_iconisation(self, event):
+        if event.GetEventObject() is not self.fenetre:
+            event.Skip()
+            return
         try:
             self._emettre("iconisation", iconise=bool(self.fenetre.IsIconized()))
         except Exception:

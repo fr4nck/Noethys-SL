@@ -160,6 +160,16 @@ class CTRL(wx.Panel):
         """ Sauvegarde de la grille """
         self.grille.Sauvegarde()
         self.grille.SauvegardeTransports()
+
+    def InitGrilleEtapes(self, IDindividu, IDfamille, IDactivite, periode):
+        """Memes lectures et memes cases, sur le thread wx entre deux etapes."""
+        self.grille.IDfamille = IDfamille
+        yield from self.grille.InitDonneesEtapes()
+        yield from self.grille.SetModeIndividuEtapes(
+            [IDactivite], [IDindividu], [IDindividu], [periode])
+        self.dictInfosIndividu = self.grille.dictInfosIndividus[IDindividu]
+        self.dictInfosInscriptions = self.grille.dictInfosInscriptions[IDindividu][IDactivite]
+        self.ctrl_titre.SetNom(u"%s %s" % (self.dictInfosIndividu["nom"], self.dictInfosIndividu["prenom"]))
     
     def GetCase(self, IDunite=None, date=None, memo=False):
         """ Récupère une case d'après un IDunite """

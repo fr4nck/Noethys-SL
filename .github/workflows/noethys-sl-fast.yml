@@ -152,6 +152,7 @@ jobs:
           tests.test_connecthys_ui1_dialog_owner
           tests.test_connecthys_smtp_lot_asynchrone
           tests.test_connecthys_ui3_diagnostic
+          tests.test_connecthys_ui432_etapes
           tests.test_connecthys_ui3_reentrance
           tests.test_connecthys_ui3c_sauvegarde
           tests.test_connecthys_ui3c1_reconciliation

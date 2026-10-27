@@ -147,6 +147,8 @@ def FermerSplashProgressivement(splash, on_finished=None):
 class MainFrame(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, -1, title=_(u"Noethys"), name="general", style=wx.DEFAULT_FRAME_STYLE)
+        from Utils import UTILS_Diagnostic_ui
+        self._diag_ui = UTILS_Diagnostic_ui.Diagnostic(self, role="principale")
 
 ##        # Dates en francais
 ##        wx.Locale(wx.LANGUAGE_FRENCH)
