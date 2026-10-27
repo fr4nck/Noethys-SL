@@ -2252,7 +2252,29 @@ class Traitement():
                             nomUnite = ctrl_grille.grille.dictUnites[IDunite]["nom"]
                             texte = _(u"Saisie de l'unité %s du %s en mode %s") % (nomUnite, UTILS_Dates.DateDDEnFr(date), mode_label)
                             self.EcritLog(texte, log_jumeau)
-                            if repas_lie:
+                            if ctrl_grille.grille.dictUnites[IDunite].get('type') == 'Quantite':
+                                # Ne jamais faire le « +1 » historique sur une
+                                # demande portail deja appliquee. La decision
+                                # protege la quantite existante et l'inscription.
+                                case = ctrl_grille.GetCase(IDunite, date)
+                                try:
+                                    etat_cible = mode
+                                    if getattr(case, 'etat', None) == 'reservation':
+                                        # Une place deja accordee au meme enfant
+                                        # ne devient pas une attente au rejeu.
+                                        etat_cible = 'reservation'
+                                    decision = regles_reservations.decision_quantite(
+                                        case, reservation['IDinscription'], etat_cible)
+                                    if decision == 'existant':
+                                        self.EcritLog(_(u"Déjà enregistré pour cette inscription : aucune nouvelle consommation."), log_jumeau)
+                                        resultat = True
+                                    else:
+                                        resultat = ctrl_grille.SaisieConso(
+                                            IDunite=IDunite, date=date, mode=mode,
+                                            etat=etat_cible, quantite=1)
+                                except regles_reservations.ArbitrageManuelRequis as erreur:
+                                    resultat = str(erreur)
+                            elif repas_lie:
                                 # L'état explicite évite de reconfirmer un repas déjà saisi
                                 # quand SaisieConso modifie une consommation existante.
                                 resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode, etat=mode)
