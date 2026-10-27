@@ -100,8 +100,10 @@ class C12NativeShellTests(unittest.TestCase):
         ))
         self.window.navigate("consumptions")
         self.assertIs(self.window.stack.currentWidget(), self.window.consumptions_page)
+        # La coque principale affiche l'année entière par défaut,
+        # contrairement au démonstrateur C8 limité au 2 octobre.
         self.assertEqual(
-            self.window.consumptions_page.list_page.model.rowCount(), 4
+            self.window.consumptions_page.list_page.model.rowCount(), EXPECTED_ROWS
         )
 
     def test_keyboard_shortcuts_are_explicit_for_new_domains(self):
