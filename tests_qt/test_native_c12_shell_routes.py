@@ -84,6 +84,34 @@ class C12NativeShellTests(unittest.TestCase):
         )
         return self.window.details_page
 
+    def test_ctrl_f_targets_search_in_current_page(self):
+        window = self.window
+        window.navigate("inscriptions")
+        window.focus_current_search()
+        self.assertIs(self.app.focusWidget(), window.inscriptions_page.search_edit)
+        window.navigate("consumptions")
+        window.focus_current_search()
+        self.assertIs(
+            self.app.focusWidget(), window.consumptions_page.list_page.search_edit
+        )
+        window.navigate("people")
+        window.focus_current_search()
+        self.assertIs(self.app.focusWidget(), window.people_page.search_edit)
+
+    def test_unchanged_people_search_keeps_model_without_reset(self):
+        from PySide6.QtTest import QSignalSpy
+        window = self.window
+        window.navigate("people")
+        window.people_page.search_edit.setText("Démonstration")
+        window.people_page.search_now()
+        self.assertGreater(window.people_page.model.rowCount(), 0)
+        before = tuple(window.people_page.model.rows)
+        spy = QSignalSpy(window.people_page.model.modelReset)
+        for _ in range(6):
+            window.people_page.search_now()
+        self.assertEqual(spy.count(), 0)
+        self.assertEqual(tuple(window.people_page.model.rows), before)
+
     def test_navigation_is_one_shell_with_enabled_inscriptions(self):
         names = [item[0] for item in NAVIGATION]
         self.assertEqual(names, (

@@ -368,8 +368,13 @@ class PeopleTableModel(QAbstractTableModel):
         self.rows = list(rows)
 
     def replace_rows(self, rows: Iterable[PersonRow]) -> None:
+        # Même philosophie que le calendrier C7 : ne pas repeindre pour
+        # une recherche qui retourne exactement les mêmes personnes.
+        next_rows = list(rows)
+        if next_rows == self.rows:
+            return
         self.beginResetModel()
-        self.rows = list(rows)
+        self.rows = next_rows
         self.endResetModel()
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802

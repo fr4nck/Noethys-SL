@@ -166,7 +166,7 @@ class NoethysQtWindow(QMainWindow):
 
         self.search_action = QAction("Rechercher", self)
         self.search_action.setShortcut(QKeySequence.Find)
-        self.search_action.triggered.connect(self.focus_people_search)
+        self.search_action.triggered.connect(self.focus_current_search)
         self.addAction(self.search_action)
 
     def _build_toolbar(self, requested_theme: str | None) -> None:
@@ -413,6 +413,22 @@ class NoethysQtWindow(QMainWindow):
                 self.stack.setCurrentWidget(self.consumptions_page)
                 self.consumptions_page.activate()
             return
+
+    def focus_current_search(self) -> None:
+        """Ctrl+F reste dans la rubrique active au lieu de changer de page."""
+        current = self.stack.currentWidget()
+        if current is self.inscriptions_page:
+            self.inscriptions_page.search_edit.setFocus(
+                Qt.FocusReason.ShortcutFocusReason
+            )
+            self.inscriptions_page.search_edit.selectAll()
+        elif current is self.consumptions_page:
+            self.consumptions_page.list_page.search_edit.setFocus(
+                Qt.FocusReason.ShortcutFocusReason
+            )
+            self.consumptions_page.list_page.search_edit.selectAll()
+        else:
+            self.focus_people_search()
 
     def focus_people_search(self) -> None:
         self.navigate("people")
