@@ -62,4 +62,19 @@ avant toute réutilisation du moteur transactionnel.
 | --- | --- | --- |
 | main | f6f5ccd | NON APPLICABLE, inchangée |
 | wx | 11b8546 | source auditée, inchangée par C4 |
-| qt | 8ff9bfc | base C4, CI du commit final à consigner |
+| qt | 2db9475 | VALIDÉ TECHNIQUEMENT en CI hors écran, écriture réelle NON APPLICABLE |
+
+
+## Verdict CI et suivi réel
+
+- Commit fonctionnel C4 : 2db94752971afb1cb28f605dcdd2a6a511435988.
+- GitHub Actions : https://github.com/fr4nck/Noethys-SL/actions/runs/40516177146
+- Windows / Python 3.11 / PySide6 : compileall PASS, unittest discover **195 tests, 0 échec, 0 erreur**.
+- Les 15 tests C4 ont tous réussi, parmi les 195 tests de la branche. Les 180 tests précédents sont restés verts.
+- Aucune base réelle, aucun code d'écriture du produit, aucun paquet Qt et aucune connexion réseau utilisés dans ce lot.
+- Branche main f6f5ccd : NON APPLICABLE, inchangée. Branche wx 11b8546 : NON APPLICABLE au banc C4, inchangée ; source des règles, parité EN ATTENTE. Branche qt 2db9475 : VALIDÉ TECHNIQUEMENT.
+- **STOP-GATE release :** divergence des branches, parité métier et épreuves visuelles/Windows/MySQL non levées ; aucune affirmation de disponibilité générale de Qt.
+
+## Priorité de migration après C4
+
+Pour réduire la dépendance aux défauts d'affichage wx, privilégier un Qt fonctionnel sur les usages fréquents (consommations, filtres, saisie, affichage et gestion des activités), sans réécrire en premier toute la facturation. Le chantier C5 devra élaborer des cas de recette wx et vérifier les écarts sur des copies entièrement isolées avant de proposer un raccordement réel des écritures. Aucun retrait de wx n'est décidé à ce stade.

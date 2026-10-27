@@ -2,7 +2,7 @@
 
 ## Qt C4 - transaction SQLite synthétique et rollback (27/10/2026)
 
-Branche qt, base 8ff9bfc ; main f6f5ccd et wx 11b8546 à l'ouverture. Banc de tests seul dans tests_qt/test_consumptions_c4_transactions.py, sans writer Qt et sans accès à une base externe : cinq tables lab_*, transaction unique, pannes injectées, rollback, sauvegarde/restauration, contrôles factures/forfaits/ventilations simulés et démonstration du risque d'un commit intermédiaire. Contrôles et montants métier wx NON PORTÉS ; saisie Qt toujours sous STOP-GATE. CI Windows du commit fonctionnel à consigner. Référence : [QT_CONSOMMATIONS_LOT4.md](QT_CONSOMMATIONS_LOT4.md).
+Branche qt, base 8ff9bfc ; main f6f5ccd et wx 11b8546 à l'ouverture. Banc de tests seul dans tests_qt/test_consumptions_c4_transactions.py, sans writer Qt et sans accès à une base externe : cinq tables lab_*, transaction unique, pannes injectées, rollback, sauvegarde/restauration, contrôles factures/forfaits/ventilations simulés et démonstration du risque d'un commit intermédiaire. Contrôles et montants métier wx NON PORTÉS ; saisie Qt toujours sous STOP-GATE. CI Windows **SUCCESS** sur 2db94752971afb1cb28f605dcdd2a6a511435988 : [run 40516177146](https://github.com/fr4nck/Noethys-SL/actions/runs/40516177146), compilation PASS, **195 tests / 0 échec**, dont 15 nouveaux C4. Matrice : main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE au banc et référence métier EN ATTENTE, qt 2db9475 VALIDÉ TECHNIQUEMENT. Recette visuelle, parité wx/Qt et MySQL non qualifiés ; STOP-GATE d'écriture et de release maintenu. Référence : [QT_CONSOMMATIONS_LOT4.md](QT_CONSOMMATIONS_LOT4.md).
 
 
 ## Qt C3 — précontrôle bloquant des changements d'état (27/10/2026)
