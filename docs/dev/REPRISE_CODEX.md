@@ -1,5 +1,10 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C8 — recette graphique Windows sur source fictive (27/10/2026)
+
+Lanceur Windows interactif tools/qt_c8_windows_demo.py et tools/Noethys-Qt-C8-Demo.cmd, uniquement TemporaryDirectory (112 consommations inventées), sans lecture Config.json ni aucune base de production. Tests Qt thèmes, dates, filtres, DPI simulé, redimensionnements et captures en CI. La validation réelle des scintillements sur poste utilisateur reste EN ATTENTE. Matrice C8 main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE, qt base a55fba2, SHA CI à qualifier. Détails : docs/dev/QT_CONSOMMATIONS_LOT8.md. Aucun writer métier, aucune release.
+
+
 ## Qt C7 — stabilité de rafraîchissement et navigation (27/10/2026)
 
 Lot Qt de réduction des causes de scintillement : le modèle de consommations évite modelReset sur données inchangées, conserve la sélection par ID après modification, garde la table interactive pendant la lecture et stabilise les largeurs de colonnes. Les boutons « Tout sélectionner / Tout désélectionner » ne déclenchent plus sept requêtes mensuelles. Le calendrier ne reconstruit pas les journées identiques. Batterie de stress C7 sur SQLite fictif : rafraîchissements, filtres, touches, agrandissement/retrait, résultats asynchrones périmés. Le STOP-GATE saisie/production reste en place. CI Windows validée sur 8aade7b3ddd018a9ea9dc7669ebd275254f2241b : run 40526847975, Python 3.11, compilation PASS, 224 tests/0 échec (9 nouveaux C7, sans doublons). Trace dynamique 100 % et 150 % : trois captures à chaque échelle, 20 refresh sans modelReset, 24 changements rapides, 30 Paint tableau + 30 Paint calendrier observés par profil (métrique informative, pas preuve d'absence de scintillement). Artifact qt-c7-interactions-fictives ID 12744657634 (rétention 14 jours). Rapport complet : [QT_CONSOMMATIONS_LOT7.md](QT_CONSOMMATIONS_LOT7.md). STOP-GATE saisie et diffusion inchangé.
