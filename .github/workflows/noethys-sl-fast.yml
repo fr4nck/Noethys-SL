@@ -39,12 +39,14 @@ on:
         options:
           - rapide
           - complete
+          - ui432_sortie
 
 permissions:
   contents: read
 
 concurrency:
-  group: noethys-sl-wx-fast-${{ github.event.pull_request.number || github.ref }}
+  # Une campagne sur demande ne doit pas annuler la CI du push (et inversement).
+  group: noethys-sl-wx-fast-${{ github.event.pull_request.number || github.ref }}-${{ inputs.mode || 'auto' }}
   cancel-in-progress: true
 
 jobs:
@@ -64,7 +66,7 @@ jobs:
     name: Contrats metier et wxPython - Windows
     needs: syntax
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ inputs.mode == 'ui432_sortie' && 45 || 20 }}
     env:
       PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
     steps:
@@ -82,7 +84,7 @@ jobs:
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5
       - name: Recette rapide - reseau isole, adhesions, reglements, devis
-        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'complete'
+        if: github.event_name != 'workflow_dispatch' || inputs.mode == 'rapide'
         run: >-
           python -m unittest -v
           tests.test_000_garde_reseau
@@ -216,6 +218,9 @@ jobs:
           tests.test_noethys_sl_recus_envoi
           tests.test_noethys_sl_printer_pen
           tests.test_noethys_sl_releve_couleur
+      - name: Campagne bornee issue 432 - sortie wx (sur demande)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'ui432_sortie'
+        run: python tools/ui432_campagne_sortie.py --repetitions 30
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
