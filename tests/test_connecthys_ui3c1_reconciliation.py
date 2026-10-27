@@ -165,7 +165,10 @@ class ReconciliationTests(unittest.TestCase):
 
     def test_nouvelle_action_identique_quantite_ne_double_pas(self):
         self.preparer()
-        self.assertTrue(self.ui.Traitement())
+        # Traitement() retourne historiquement None en cas de succes.
+        # Qualifier le commit SQL et la quantite au lieu du retour UI.
+        self.ui.Traitement()
+        self.assertEqual(self.etat_sql(7)[0], "validation")
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
         anciennes_saisies = self.ui.ctrl_grille.saisies
         # Deuxième demande Connecthys du même enfant, mêmes dates/unités.
@@ -188,7 +191,7 @@ class ReconciliationTests(unittest.TestCase):
                       GetListeConso=lambda: [conso])
         self.ui.ctrl_grille.GetCase = case_persistante
 
-        self.assertTrue(self.ui.Traitement())
+        self.ui.Traitement()
         self.assertEqual(self.ui.ctrl_grille.saisies, anciennes_saisies)
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
         self.assertEqual(self.etat_sql(8)[0], "validation")
@@ -395,7 +398,8 @@ class ReconciliationTests(unittest.TestCase):
 
     def test_fin_de_reconciliation_deja_validee_ne_sauve_pas_grille(self):
         self.preparer()
-        self.assertTrue(self.ui.Traitement())
+        self.ui.Traitement()
+        self.assertEqual(self.etat_sql(7)[0], "validation")
         nombre_sauvegardes = self.ui.ctrl_grille.saves
         self.base.inserer("parametres", ["categorie", "nom", "parametre"],
                           [(Marqueurs.CATEGORIE, "action_7", "a" * 32)])
