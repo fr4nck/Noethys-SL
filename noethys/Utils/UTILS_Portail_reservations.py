@@ -128,6 +128,12 @@ def planifier_priorites(reservations, unites, etat_existant, place_disponible):
             if len(ids) > 1:
                 raise ArbitrageManuelRequis(
                     'Plusieurs unités %s pour un même accueil : arbitrage requis.' % nom_role)
+            # Les demandes repetees pour une meme unite et un meme accueil
+            # ne doivent produire qu'une seule ecriture.
+            if len(par_role[nom_role]) > 1:
+                exclus.update(r['IDreservation']
+                              for r in par_role[nom_role][1:])
+                decisions.append(('doublon_demande', contexte))
 
         if not any(par_role[nom_role] for nom_role in PERIODS):
             continue
@@ -136,8 +142,14 @@ def planifier_priorites(reservations, unites, etat_existant, place_disponible):
         moities = par_role['matin'] + par_role['apres_midi']
         etat_jour = etat_existant(reference, 'journee')
         if etat_jour in ('reservation', 'present'):
-            # La journée acquise couvre les demi-journées, même si elle
-            # provient d'une autre action Connecthys.
+            # Un cumul deja persiste avec une demi-journee ne doit pas etre
+            # camoufle : l'operateur doit arbitrer avant toute reprise.
+            if any(etat_existant(reference, demi) is not None
+                   for demi in ('matin', 'apres_midi')):
+                raise ArbitrageManuelRequis(
+                    'Journee et demi-journee deja enregistrees : arbitrage necessaire.')
+            # La journee acquise couvre les demandes de demi-journee
+            # suivantes, meme si elle provient d'une autre action.
             exclus.update(r['IDreservation'] for r in jour + moities)
             if jour or moities:
                 decisions.append(('journee_deja_presente', contexte))
