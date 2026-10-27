@@ -55,13 +55,18 @@ class C9NavigationTests(unittest.TestCase):
         page.show_domain("familles")
         page._open_related(0, 0)
         self.assertEqual(page.domain, "individus")
+        # La liste est triée par NOM : ne pas supposer qu'un ID est premier.
+        chosen_individual = page._selected_id()
+        self.assertIn(chosen_individual, (10, 12))
         page._open_related(0, 0)
         self.assertEqual(page.domain, "inscriptions")
+        chosen_inscription = page._selected_id()
+        self.assertIn(chosen_inscription, (501, 503))
         page._open_related(0, 0)
         self.assertIs(self.window.tabs.currentWidget(), self.window.page)
         self.assertEqual(self.window.page.list_page.model.rowCount(), 28)
-        self.assertEqual(self.window.page._record_individual_id, 10)
-        self.assertEqual(self.window.page._record_inscription_id, 501)
+        self.assertEqual(self.window.page._record_individual_id, chosen_individual)
+        self.assertEqual(self.window.page._record_inscription_id, chosen_inscription)
 
     def test_no_business_table_has_editable_items(self):
         page = self.window.business_page
