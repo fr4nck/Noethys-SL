@@ -8,6 +8,7 @@ aucune base, aucun reseau, aucune fenetre.
 import ast
 import io
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -17,11 +18,13 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "noethys"))
 
-try:
+# La wx.App de la comparaison ne vit que dans un sous-processus : la suite
+# CI partage un seul processus, qui ne doit pas garder d'application wx.
+ENFANT = os.environ.get("UI432_LOGO_ENFANT") == "1"
+wx = UTILS_Organisateur = None
+if ENFANT:
     import wx
     from Utils import UTILS_Organisateur
-except Exception:  # pragma: no cover - dependances absentes
-    wx = UTILS_Organisateur = None
 
 
 def logo_png(alpha):
@@ -54,7 +57,7 @@ class FausseDB:
         pass
 
 
-@unittest.skipIf(UTILS_Organisateur is None, "wx ou Noethys indisponible")
+@unittest.skipUnless(ENFANT, "execute dans le sous-processus de SousProcessusTests")
 class LogoWorkerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -103,6 +106,22 @@ class LogoWorkerTests(unittest.TestCase):
 
     def test_logo_transparent_fidele_a_la_source(self):
         self.comparer(alpha=True)
+
+
+class SousProcessusTests(unittest.TestCase):
+    def test_comparaisons_de_logo_dans_un_processus_isole(self):
+        try:
+            import wx as _wx  # noqa: F401
+        except Exception:
+            self.skipTest("wx indisponible")
+        p = subprocess.run([sys.executable, "-m", "unittest", "-v",
+                            "tests.test_connecthys_ui432_logo_worker.LogoWorkerTests"],
+                           cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120,
+                           env={**os.environ, "UI432_LOGO_ENFANT": "1"})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("Ran 2 tests", p.stderr)
+        self.assertNotIn("skipped", p.stderr)
 
 
 class ContratSourceTests(unittest.TestCase):
