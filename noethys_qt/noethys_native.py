@@ -94,6 +94,7 @@ class NoethysQtWindow(QMainWindow):
         requested_theme: str | None = None,
         source_label: str = "Base Noethys configurée",
         background_queries: bool = True,
+        read_only_demo: bool = False,
     ):
         super().__init__()
         self.people_repository = people_repository
@@ -101,6 +102,9 @@ class NoethysQtWindow(QMainWindow):
         self.consumptions_repository = ConsumptionRepository(people_repository.editor_repository)
         self.inscriptions_repository = InscriptionRepository(people_repository.editor_repository)
         self.background_queries = background_queries
+        # Seulement pour la démonstration C12 : ne jamais ouvrir le
+        # panneau d'édition d'activité, même sur une fixture inventée.
+        self.read_only_demo = read_only_demo
         self._context_navigation = False
         self._context_history: list[tuple] = []
         self._return_context: tuple | None = None
@@ -138,6 +142,7 @@ class NoethysQtWindow(QMainWindow):
         self.home_action.setShortcut(QKeySequence("Alt+1"))
         self.people_action.setShortcut(QKeySequence("Alt+2"))
         self.activities_action.setShortcut(QKeySequence("Alt+3"))
+        self.activities_action.setEnabled(not self.read_only_demo)
         self.inscriptions_action.setShortcut(QKeySequence("Alt+4"))
         self.consumptions_action.setShortcut(QKeySequence("Alt+5"))
         self.back_context_action.setShortcut(QKeySequence("Alt+Left"))
@@ -205,7 +210,7 @@ class NoethysQtWindow(QMainWindow):
         for code, label, enabled in NAVIGATION:
             item = QListWidgetItem(label if enabled else f"{label}  · à migrer")
             item.setData(Qt.ItemDataRole.UserRole, code)
-            if not enabled:
+            if not enabled or (self.read_only_demo and code == "activities"):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
             self._nav_codes.append(code)
@@ -299,6 +304,7 @@ class NoethysQtWindow(QMainWindow):
         consumptions_button = QPushButton("Consulter les consommations", page)
         people_button.clicked.connect(lambda: self.navigate("people"))
         activities_button.clicked.connect(self.open_activities)
+        activities_button.setEnabled(not self.read_only_demo)
         inscriptions_button.clicked.connect(lambda: self.navigate("inscriptions"))
         consumptions_button.clicked.connect(lambda: self.navigate("consumptions"))
         quick.addWidget(people_button)
@@ -427,6 +433,11 @@ class NoethysQtWindow(QMainWindow):
             self.statusBar().showMessage(self.source_label, 2500)
 
     def open_activities(self, *_args) -> None:
+        if self.read_only_demo:
+            self.statusBar().showMessage(
+                "Démonstration fictive : éditeur d'activités désactivé.", 6500
+            )
+            return
         if self._activities_window is not None:
             self._activities_window.show()
             self._activities_window.raise_()
