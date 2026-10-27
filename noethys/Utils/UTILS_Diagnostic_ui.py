@@ -146,13 +146,16 @@ class Diagnostic:
             for _ in range(64):
                 if cadre is None:
                     break
-                chemin = os.path.normcase(os.path.abspath(cadre.f_code.co_filename))
+                chemin_source = os.path.abspath(cadre.f_code.co_filename)
+                chemin = os.path.normcase(chemin_source)
                 try:
                     local = os.path.commonpath((racine, chemin)) == racine
                 except ValueError:
                     local = False
                 if local:
-                    fichier = os.path.basename(chemin)
+                    # normcase() minuscule les chemins sous Windows : conserver
+                    # la casse du fichier d'origine dans la trace anonymisee.
+                    fichier = os.path.basename(chemin_source)
                     fonction = cadre.f_code.co_name
                     if (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,70}\.py", fichier)
                             and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,70}", fonction)):
