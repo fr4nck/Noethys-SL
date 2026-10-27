@@ -45,7 +45,7 @@ class CTRL_Html(html.HtmlWindow):
 
 
 class Dialog(wx.Dialog):
-    def __init__(self, parent, track=None):
+    def __init__(self, parent, track=None, reconciliation=False):
         if parent == None :
             dlgparent = None
         else :
@@ -53,6 +53,7 @@ class Dialog(wx.Dialog):
         wx.Dialog.__init__(self, dlgparent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
         self.parent = parent
         self.track = track
+        self.reconciliation = reconciliation
         self.reponse = ""
 
         # Bandeau
@@ -96,6 +97,12 @@ class Dialog(wx.Dialog):
 
         self.__set_properties()
         self.__do_layout()
+        if self.reconciliation:
+            self.SetTitle(_(u"Vérifier et reprendre les réservations"))
+            # Ce mode ouvre les consommations déjà persistées. Il ne peut
+            # jamais rejouer « Appliquer la demande » en arrière-plan.
+            self.bouton_traiter.Enable(False)
+            self.bouton_outils.Enable(False)
 
         self.Bind(wx.EVT_BUTTON, self.OnBoutonTraiter, self.bouton_traiter)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonReinit, self.bouton_reinit)
@@ -232,12 +239,30 @@ class Dialog(wx.Dialog):
         menuPop.Destroy()
 
     def OnBoutonTraiter(self, event):
+        if self.reconciliation:
+            return False
         self.reponse = self.parent.Appliquer_reservations(ctrl_grille=self.ctrl_grille, log_jumeau=self.ctrl_log)
 
     def OnBoutonReinit(self, event):
         self.parent.Init_grille(ctrl_grille=self.ctrl_grille)
 
     def OnBoutonOk(self, event):
+        if self.reconciliation:
+            dlg = wx.MessageDialog(
+                self,
+                _(u"Vous avez comparé cette demande avec les réservations "
+                  u"déjà enregistrées, vérifié les pointages et factures "
+                  u"et corrigé uniquement les écarts.\n\n"
+                  u"Confirmez-vous cette reprise manuelle, sans rejouer "
+                  u"la demande ni envoyer automatiquement de message ?"),
+                _(u"Confirmer l'arbitrage Connecthys"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING)
+            try:
+                accord = dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+            if accord != wx.ID_YES:
+                return False
         UTILS_Dialogs.SaveSizePerso(self, __file__)
         self.EndModal(wx.ID_OK)
 
