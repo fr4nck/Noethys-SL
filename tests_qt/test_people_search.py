@@ -132,13 +132,15 @@ class PeopleSearchTests(unittest.TestCase):
             source_label="copie de test",
         )
         self.addCleanup(window.close)
-        self.assertEqual(window.navigation.count(), 7)
+        self.assertEqual(window.navigation.count(), 8)
         window.navigate("people")
         self.assertIs(window.stack.currentWidget(), window.people_page)
         window.people_page.search_edit.setText("Dupont")
         window.people_page.search_now()
         self._wait_until(lambda: window.people_page.model.rowCount() == 2)
-        consumptions = window.navigation.item(3)
+        inscriptions = window.navigation.item(3)
+        consumptions = window.navigation.item(4)
+        self.assertTrue(bool(inscriptions.flags() & Qt.ItemFlag.ItemIsEnabled))
         self.assertTrue(bool(consumptions.flags() & Qt.ItemFlag.ItemIsEnabled))
 
 

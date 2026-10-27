@@ -38,6 +38,7 @@ from .people_search import PeopleSearchPage, PeopleSearchRepository, PersonRow
 from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepository
 from .consumptions_core import ConsumptionRepository
 from .consumptions_calendar_ui import ConsumptionCalendarPage
+from .inscriptions_readonly import InscriptionPage, InscriptionRepository
 
 
 class _DetailSignals(QObject):
@@ -73,6 +74,7 @@ NAVIGATION = (
     ("home", "Accueil", True),
     ("people", "Individus / Familles", True),
     ("activities", "Activités", True),
+    ("inscriptions", "Inscriptions", True),
     ("consumptions", "Consommations", True),
     ("billing", "Facturation", False),
     ("payments", "Règlements", False),
@@ -91,11 +93,16 @@ class NoethysQtWindow(QMainWindow):
         editor_sqlite_path: Path | None = None,
         requested_theme: str | None = None,
         source_label: str = "Base Noethys configurée",
+        background_queries: bool = True,
     ):
         super().__init__()
         self.people_repository = people_repository
         self.details_repository = PeopleDetailsRepository(people_repository)
         self.consumptions_repository = ConsumptionRepository(people_repository.editor_repository)
+        self.inscriptions_repository = InscriptionRepository(people_repository.editor_repository)
+        self.background_queries = background_queries
+        self._context_navigation = False
+        self._return_context: tuple | None = None
         self._detail_request = 0
         self._detail_workers: dict[int, _DetailWorker] = {}
         self._current_detail: tuple[str, int] | None = None
@@ -121,18 +128,33 @@ class NoethysQtWindow(QMainWindow):
         self.home_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DesktopIcon), "Accueil", self)
         self.people_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon), "Individus / Familles", self)
         self.activities_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogListView), "Activités", self)
+        self.inscriptions_action = QAction("Inscriptions", self)
+        self.consumptions_action = QAction("Consommations", self)
+        self.back_context_action = QAction("Retour au dossier précédent", self)
         self.refresh_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "Actualiser", self)
         self.quit_action = QAction("Quitter", self)
 
         self.home_action.setShortcut(QKeySequence("Alt+1"))
         self.people_action.setShortcut(QKeySequence("Alt+2"))
         self.activities_action.setShortcut(QKeySequence("Alt+3"))
+        self.inscriptions_action.setShortcut(QKeySequence("Alt+4"))
+        self.consumptions_action.setShortcut(QKeySequence("Alt+5"))
+        self.back_context_action.setShortcut(QKeySequence("Alt+Left"))
+        self.back_context_action.setEnabled(False)
         self.refresh_action.setShortcut(QKeySequence.Refresh)
         self.quit_action.setShortcut(QKeySequence.Quit)
 
         self.home_action.triggered.connect(lambda: self.navigate("home"))
         self.people_action.triggered.connect(lambda: self.navigate("people"))
         self.activities_action.triggered.connect(self.open_activities)
+        self.inscriptions_action.triggered.connect(
+            lambda: self.navigate("inscriptions")
+        )
+        self.consumptions_action.triggered.connect(
+            lambda: self.navigate("consumptions")
+        )
+        self.back_context_action.triggered.connect(self.return_to_context)
+        self.addAction(self.back_context_action)
         self.refresh_action.triggered.connect(self.refresh_current)
         self.quit_action.triggered.connect(self.close)
 
@@ -149,6 +171,8 @@ class NoethysQtWindow(QMainWindow):
         toolbar.addAction(self.home_action)
         toolbar.addAction(self.people_action)
         toolbar.addAction(self.activities_action)
+        toolbar.addAction(self.inscriptions_action)
+        toolbar.addAction(self.consumptions_action)
         toolbar.addSeparator()
         toolbar.addAction(self.refresh_action)
         spacer = QWidget(toolbar)
@@ -187,21 +211,62 @@ class NoethysQtWindow(QMainWindow):
         self.navigation.currentItemChanged.connect(self._navigation_changed)
         layout.addWidget(self.navigation)
 
-        self.stack = QStackedWidget(root)
+        right = QWidget(root)
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+        self.context_bar = QFrame(right)
+        route = QHBoxLayout(self.context_bar)
+        route.setContentsMargins(10, 5, 10, 5)
+        self.context_back_button = QPushButton("← Retour à la fiche", self.context_bar)
+        self.context_back_button.clicked.connect(self.return_to_context)
+        self.context_label = QLabel("", self.context_bar)
+        self.context_label.setWordWrap(True)
+        route.addWidget(self.context_back_button)
+        route.addWidget(self.context_label, 1)
+        right_layout.addWidget(self.context_bar)
+        self.context_bar.hide()
+
+        self.stack = QStackedWidget(right)
         self.home_page = self._build_home_page()
-        self.people_page = PeopleSearchPage(self.people_repository, self.stack, background=True)
+        self.people_page = PeopleSearchPage(
+            self.people_repository, self.stack, background=self.background_queries
+        )
         self.people_page.familyRequested.connect(self._family_requested)
         self.people_page.individualRequested.connect(self._individual_requested)
         self.details_page = PeopleDetailsPage(self.stack)
         self.details_page.backRequested.connect(self._back_to_people)
         self.details_page.familyRequested.connect(self._family_requested)
         self.details_page.individualRequested.connect(self._individual_requested)
+        self.details_page.familyInscriptionsRequested.connect(
+            self._family_inscriptions_requested
+        )
+        self.details_page.individualInscriptionsRequested.connect(
+            self._individual_inscriptions_requested
+        )
+        self.details_page.individualConsumptionsRequested.connect(
+            self._individual_consumptions_requested
+        )
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
         self.stack.addWidget(self.details_page)
-        self.consumptions_page = ConsumptionCalendarPage(self.consumptions_repository, self.stack, background=True)
+        self.inscriptions_page = InscriptionPage(
+            self.inscriptions_repository, self.stack,
+            background=self.background_queries,
+        )
+        self.inscriptions_page.familyRequested.connect(self._family_requested)
+        self.inscriptions_page.individualRequested.connect(self._individual_requested)
+        self.inscriptions_page.consumptionsRequested.connect(
+            self._inscription_consumptions_requested
+        )
+        self.stack.addWidget(self.inscriptions_page)
+        self.consumptions_page = ConsumptionCalendarPage(
+            self.consumptions_repository, self.stack,
+            background=self.background_queries,
+        )
         self.stack.addWidget(self.consumptions_page)
-        layout.addWidget(self.stack, 1)
+        right_layout.addWidget(self.stack, 1)
+        layout.addWidget(right, 1)
         self.setCentralWidget(root)
         self.navigation.setCurrentRow(0)
 
@@ -229,15 +294,21 @@ class NoethysQtWindow(QMainWindow):
         quick = QHBoxLayout()
         people_button = QPushButton("Rechercher une famille ou un individu", page)
         activities_button = QPushButton("Paramétrer les activités", page)
+        inscriptions_button = QPushButton("Consulter les inscriptions", page)
+        consumptions_button = QPushButton("Consulter les consommations", page)
         people_button.clicked.connect(lambda: self.navigate("people"))
         activities_button.clicked.connect(self.open_activities)
+        inscriptions_button.clicked.connect(lambda: self.navigate("inscriptions"))
+        consumptions_button.clicked.connect(lambda: self.navigate("consumptions"))
         quick.addWidget(people_button)
         quick.addWidget(activities_button)
+        quick.addWidget(inscriptions_button)
+        quick.addWidget(consumptions_button)
         quick.addStretch(1)
         layout.addLayout(quick)
 
         migration = QLabel(
-            "Disponible en Qt : Individus/Familles, Activités et consultation des consommations.\n"
+            "Disponible en Qt : Individus/Familles, Activités, Inscriptions et consultation des consommations.\n"
             "À venir : saisie des consommations, facturation et règlements.",
             page,
         )
@@ -253,6 +324,9 @@ class NoethysQtWindow(QMainWindow):
         navigation_menu.addAction(self.home_action)
         navigation_menu.addAction(self.people_action)
         navigation_menu.addAction(self.activities_action)
+        navigation_menu.addAction(self.inscriptions_action)
+        navigation_menu.addAction(self.consumptions_action)
+        navigation_menu.addAction(self.back_context_action)
         navigation_menu.addSeparator()
         navigation_menu.addAction(self.search_action)
         navigation_menu.addAction(self.refresh_action)
@@ -279,7 +353,20 @@ class NoethysQtWindow(QMainWindow):
             self._back_to_people()
         elif code == "activities":
             self.open_activities()
+        elif code == "inscriptions":
+            if not self._context_navigation:
+                self._set_return_context(None)
+                self.inscriptions_page.clear_context()
+            self.stack.setCurrentWidget(self.inscriptions_page)
+            self.inscriptions_page.activate()
         elif code == "consumptions":
+            if not self._context_navigation:
+                self._set_return_context(None)
+                if (
+                    self.consumptions_page._record_individual_id is not None
+                    or self.consumptions_page._record_inscription_id is not None
+                ):
+                    self.consumptions_page.clear_record_context()
             self.stack.setCurrentWidget(self.consumptions_page)
             self.consumptions_page.activate()
 
@@ -292,7 +379,17 @@ class NoethysQtWindow(QMainWindow):
                     self._back_to_people()
                 if code == "activities":
                     self.open_activities()
+                if code == "inscriptions":
+                    if not self._context_navigation:
+                        self.inscriptions_page.clear_context()
+                        self._set_return_context(None)
+                    self.stack.setCurrentWidget(self.inscriptions_page)
+                    self.inscriptions_page.activate()
                 if code == "consumptions":
+                    if not self._context_navigation:
+                        self._set_return_context(None)
+                        self.consumptions_page.clear_record_context()
+                    self.stack.setCurrentWidget(self.consumptions_page)
                     self.consumptions_page.activate()
                 return
 
@@ -306,6 +403,8 @@ class NoethysQtWindow(QMainWindow):
             self.statusBar().showMessage("Recherche actualisée", 2500)
         elif self.stack.currentWidget() is self.consumptions_page:
             self.consumptions_page.refresh()
+        elif self.stack.currentWidget() is self.inscriptions_page:
+            self.inscriptions_page.refresh()
         elif self.stack.currentWidget() is self.details_page and self._current_detail:
             kind, entity_id = self._current_detail
             self._open_detail(kind, entity_id)
@@ -337,6 +436,7 @@ class NoethysQtWindow(QMainWindow):
         self._activities_window = None
 
     def _back_to_people(self) -> None:
+        self._set_return_context(None)
         self._detail_request += 1
         self._current_detail = None
         self.stack.setCurrentWidget(self.people_page)
@@ -369,6 +469,90 @@ class NoethysQtWindow(QMainWindow):
             self.details_page.show_individual(detail)
         else:
             self.details_page.show_error(kind, entity_id, "Réponse inattendue.")
+
+    def _set_return_context(self, value: tuple | None) -> None:
+        self._return_context = value
+        self.context_bar.setVisible(value is not None)
+        self.back_context_action.setEnabled(value is not None)
+        if value is None:
+            self.context_label.clear()
+        elif value[0] == "details":
+            self.context_label.setText(
+                f"Retour à la fiche {value[1]} #{value[2]}"
+            )
+        elif value[0] == "inscriptions":
+            self.context_label.setText("Retour à la liste des inscriptions")
+
+    def _navigate_with_context(self, code: str) -> None:
+        self._context_navigation = True
+        try:
+            self.navigate(code)
+        finally:
+            self._context_navigation = False
+
+    def _family_inscriptions_requested(self, family_id: int) -> None:
+        self._show_inscriptions_from_detail("family", family_id)
+
+    def _individual_inscriptions_requested(self, individual_id: int) -> None:
+        self._show_inscriptions_from_detail("individual", individual_id)
+
+    def _show_inscriptions_from_detail(self, kind: str, entity_id: int) -> None:
+        if not isinstance(entity_id, int) or isinstance(entity_id, bool) or entity_id <= 0:
+            raise ValueError("Fiche invalide")
+        if kind not in ("family", "individual"):
+            raise ValueError("Type de fiche invalide")
+        filters = (
+            {"family_id": entity_id} if kind == "family"
+            else {"individual_id": entity_id}
+        )
+        self.inscriptions_page.set_context(**filters)
+        self._navigate_with_context("inscriptions")
+        self._set_return_context(("details", kind, entity_id))
+
+    def _individual_consumptions_requested(self, individual_id: int) -> None:
+        self._show_consumptions(
+            individual_id=individual_id,
+            origin=("details", "individual", individual_id),
+        )
+
+    def _inscription_consumptions_requested(self, inscription_id: int) -> None:
+        try:
+            link = self.inscriptions_repository.resolve_link(inscription_id)
+        except (ValueError, LookupError, OSError, RuntimeError) as exc:
+            self.statusBar().showMessage(
+                f"Consultation indisponible : {exc}", 8000
+            )
+            return
+        self._show_consumptions(
+            individual_id=link.individual_id,
+            inscription_id=link.inscription_id,
+            origin=("inscriptions",),
+        )
+
+    def _show_consumptions(
+        self, *, individual_id: int, inscription_id: int | None = None,
+        origin: tuple | None = None,
+    ) -> None:
+        # Aucun recalcul financier ; les filtres exacts sont appliqués en
+        # lecture seule sur la même page que la navigation principale.
+        if not isinstance(individual_id, int) or isinstance(individual_id, bool) or individual_id <= 0:
+            raise ValueError("Identifiant individu invalide")
+        self.consumptions_page.focus_record(
+            individual_id=individual_id, inscription_id=inscription_id
+        )
+        self._navigate_with_context("consumptions")
+        self._set_return_context(origin)
+
+    def return_to_context(self) -> None:
+        origin = self._return_context
+        if origin is None:
+            return
+        self._set_return_context(None)
+        if origin[0] == "inscriptions":
+            self._navigate_with_context("inscriptions")
+        elif origin[0] == "details":
+            self.navigate("people")
+            self._open_detail(origin[1], origin[2])
 
     def _family_requested(self, family_id: int) -> None:
         self._open_detail("family", family_id)

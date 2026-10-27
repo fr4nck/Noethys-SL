@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from PySide6.QtCore import (
-    QAbstractTableModel, QModelIndex, QObject, QRunnable, QThreadPool,
+    QAbstractTableModel, QModelIndex, QObject, QRunnable, QSignalBlocker, QThreadPool,
     Qt, QTimer, Signal,
 )
 from PySide6.QtWidgets import (
@@ -106,9 +106,48 @@ def build_inscription_query(
     return sql, tuple(values)
 
 
+@dataclass(frozen=True, slots=True)
+class InscriptionLink:
+    """Clés d'une inscription lues par ID sur une connexion jetable."""
+    inscription_id: int
+    individual_id: int
+    family_id: int | None
+    activity_id: int | None
+
+
 class InscriptionRepository:
     def __init__(self, editor_repository):
         self.editor_repository = editor_repository
+
+    def resolve_link(self, inscription_id: int) -> InscriptionLink:
+        """Résoudre les clés métier depuis SQL, jamais depuis le nom UI."""
+        _valid_id(inscription_id, "inscription")
+        connection, placeholder = self.editor_repository._connect()
+        try:
+            if isinstance(connection, sqlite3.Connection):
+                connection.execute("PRAGMA query_only = ON")
+            cursor = connection.cursor()
+            try:
+                cursor.execute(
+                    "SELECT IDinscription, IDindividu, IDfamille, IDactivite "
+                    f"FROM inscriptions WHERE IDinscription = {placeholder}",
+                    (inscription_id,),
+                )
+                record = cursor.fetchone()
+            finally:
+                cursor.close()
+        finally:
+            connection.close()
+        if record is None or record[1] is None:
+            raise LookupError(
+                f"Inscription #{inscription_id} introuvable ou sans individu lié."
+            )
+        _valid_id(int(record[1]), "individu")
+        return InscriptionLink(
+            inscription_id=int(record[0]), individual_id=int(record[1]),
+            family_id=int(record[2]) if record[2] is not None else None,
+            activity_id=int(record[3]) if record[3] is not None else None,
+        )
 
     def search(
         self, *, family_id=None, individual_id=None,
@@ -310,7 +349,13 @@ class InscriptionPage(QWidget):
             ("Famille", family_id), ("Individu", individual_id), ("Activité", activity_id)
         ) if val is not None]
         self.context_label.setText(" · ".join(words) if words else "Toutes les inscriptions")
-        self.search_edit.clear()
+        # Aucun signal textChanged parasite pendant un changement de dossier.
+        blocker = QSignalBlocker(self.search_edit)
+        try:
+            self.search_edit.clear()
+        finally:
+            blocker.unblock()
+        self.timer.stop()
         if self._loaded:
             self.refresh()
 

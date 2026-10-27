@@ -127,6 +127,9 @@ class PeopleDetailsPage(QWidget):
     backRequested = Signal()
     familyRequested = Signal(int)
     individualRequested = Signal(int)
+    familyInscriptionsRequested = Signal(int)
+    individualInscriptionsRequested = Signal(int)
+    individualConsumptionsRequested = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -149,6 +152,35 @@ class PeopleDetailsPage(QWidget):
         root.addWidget(self.title)
         self.message = _plain_label()
         root.addWidget(self.message)
+
+        # C12 : actions contextuelles compactes, pas de nouvelle fenêtre.
+        actions = QHBoxLayout()
+        self.family_inscriptions_button = QPushButton(
+            "Inscriptions de cette famille", self
+        )
+        self.individual_inscriptions_button = QPushButton(
+            "Inscriptions de cet individu", self
+        )
+        self.individual_consumptions_button = QPushButton(
+            "Consommations de cet individu", self
+        )
+        for button in (
+            self.family_inscriptions_button,
+            self.individual_inscriptions_button,
+            self.individual_consumptions_button,
+        ):
+            actions.addWidget(button)
+        actions.addStretch(1)
+        root.addLayout(actions)
+        self.family_inscriptions_button.clicked.connect(
+            self._request_family_inscriptions
+        )
+        self.individual_inscriptions_button.clicked.connect(
+            self._request_individual_inscriptions
+        )
+        self.individual_consumptions_button.clicked.connect(
+            self._request_individual_consumptions
+        )
 
         self.person_group = QGroupBox("Identité et coordonnées", self)
         person_form = QFormLayout(self.person_group)
@@ -197,6 +229,21 @@ class PeopleDetailsPage(QWidget):
         self.person_group.setVisible(individual)
         self.links_group.setVisible(individual)
         self.family_group.setVisible(family)
+        self.family_inscriptions_button.setVisible(family)
+        self.individual_inscriptions_button.setVisible(individual)
+        self.individual_consumptions_button.setVisible(individual)
+
+    def _request_family_inscriptions(self) -> None:
+        if self.loaded_kind == "family" and self.current_id is not None:
+            self.familyInscriptionsRequested.emit(self.current_id)
+
+    def _request_individual_inscriptions(self) -> None:
+        if self.loaded_kind == "individual" and self.current_id is not None:
+            self.individualInscriptionsRequested.emit(self.current_id)
+
+    def _request_individual_consumptions(self) -> None:
+        if self.loaded_kind == "individual" and self.current_id is not None:
+            self.individualConsumptionsRequested.emit(self.current_id)
 
     def show_loading(self, kind: str, record_id: int) -> None:
         self.loaded_kind = None
