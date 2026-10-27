@@ -23,6 +23,53 @@ OPERATIONS = frozenset((
     "reservations.sauvegarde",
 ))
 
+ETAPES_GRILLE = frozenset((
+    "grille.activites",
+    "grille.individus",
+    "grille.groupes",
+    "grille.comptes_payeurs",
+    "grille.quotients",
+    "grille.aides",
+    "grille.etiquettes",
+    "grille.deductions",
+    "grille.prestations",
+    "grille.forfaits",
+    "grille.transports",
+    "grille.ouvertures",
+    "grille.unites",
+    "grille.raccourcis",
+    "grille.vacances",
+    "grille.feries",
+    "grille.remplissage",
+    "grille.inscriptions",
+    "grille.infos_individus",
+    "grille.memos",
+    "grille.calcul_remplissage",
+    "grille.affichage",
+    "grille.finalisation",
+    "grille.erreur",
+    "grille.inconnue",
+))
+
+
+def tracer_etape_grille(etape, duree_ms, sortie=None):
+    """Duree d'une etape wx, nom fixe et aucune donnee metier."""
+    if os.environ.get(ENVIRONNEMENT) != "1":
+        return
+    etape = etape if isinstance(etape, str) and etape in ETAPES_GRILLE else "grille.inconnue"
+    try:
+        evenement = {"evenement": "etape", "etape": etape,
+                     "duree_ms": max(0, int(duree_ms))}
+        if sortie is None:
+            print("NOETHYS_UI_DIAG " + " ".join(
+                "%s=%s" % (cle, evenement[cle]) for cle in sorted(evenement)
+            ), flush=True)
+        else:
+            sortie(evenement)
+    except Exception:
+        # Le diagnostic ne doit jamais interrompre la saisie.
+        pass
+
 
 class Diagnostic:
     """Observer l'ecart entre les battements wx, jamais les donnees metier."""

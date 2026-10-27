@@ -119,6 +119,19 @@ class DiagnosticTests(TestCase):
         self.assertNotIn("contact@example.test", repr(compte))
         self.assertFalse({"famille", "adresse", "email", "montant"} & set(compte))
 
+    def test_etapes_individuelles_inertes_et_anonymisees(self):
+        logs = []
+        with mock.patch.dict(os.environ, {}, clear=True):
+            diag_module.tracer_etape_grille("grille.activites", 3465, sortie=logs.append)
+        self.assertEqual(logs, [])
+        with mock.patch.dict(os.environ, {diag_module.ENVIRONNEMENT: "1"}):
+            diag_module.tracer_etape_grille("grille.activites", 3465.8, sortie=logs.append)
+            diag_module.tracer_etape_grille("contact@example.test", 11, sortie=logs.append)
+        self.assertEqual(logs[0], {"evenement": "etape", "etape": "grille.activites",
+                                   "duree_ms": 3465})
+        self.assertEqual(logs[1]["etape"], "grille.inconnue")
+        self.assertNotIn("contact@example.test", repr(logs))
+
     def test_focus_et_maximisation_ne_loggent_que_des_booleens(self):
         d = self.nouveau()
         ev = Evenement(actif=False, source=self.fenetre)

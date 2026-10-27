@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Etapes cooperatives wx, sans worker ni yield au milieu d'une ecriture SQL."""
+import os
 import sys
+import time
 import wx
 from Utils.UTILS_Traduction import _
 
@@ -38,17 +40,26 @@ class Attente(wx.Dialog):
             return
         self.en_cours = True
         termine = False
+        debut = time.monotonic() if os.environ.get("NOETHYS_SL_UI_DIAG") == "1" else None
+        etape = "grille.finalisation"
         try:
-            next(self.etapes)
+            etape = next(self.etapes)
             self.gauge.Pulse()
         except StopIteration:
             self.termine = True
             termine = True
         except BaseException:
+            etape = "grille.erreur"
             self.erreur = sys.exc_info()
             termine = True
         finally:
             self.en_cours = False
+            if debut is not None:
+                try:
+                    from Utils.UTILS_Diagnostic_ui import tracer_etape_grille
+                    tracer_etape_grille(etape, (time.monotonic() - debut) * 1000)
+                except Exception:
+                    pass
         if termine:
             self.timer.Stop()
             self.EndModal(wx.ID_OK)

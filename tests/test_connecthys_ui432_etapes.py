@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """P0 Windows : vraies boucles wx, lectures fictives et aucun transport reel."""
 import json
+import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -271,12 +273,16 @@ class ReactiviteWindowsTests(unittest.TestCase):
     def test_contre_epreuve_lecture_unique_lente_reste_visible_au_diagnostic(self):
         p = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--lente"],
                            cwd=ROOT / "noethys", capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=25)
+                           encoding="utf-8", errors="replace", timeout=25,
+                           env={**os.environ, "NOETHYS_SL_UI_DIAG": "1"})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         ligne = next(l for l in p.stdout.splitlines() if l.startswith("UI432_RESULT "))
         m = json.loads(ligne.split(" ", 1)[1])
         print("UI432_LIMITE " + json.dumps(m), flush=True)
         self.assertGreater(m["retard_max_ms"], 3000)
+        etape = next((l for l in p.stdout.splitlines() if "etape=grille.activites" in l), None)
+        self.assertIsNotNone(etape, p.stdout)
+        self.assertGreater(int(re.search(r"duree_ms=(\d+)", etape).group(1)), 3000)
         self.assertTrue(m["maximise"])
         self.assertTrue(m["geometrie_identique"])
         self.assertTrue(m["owner_modal_ok"])

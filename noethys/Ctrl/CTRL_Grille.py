@@ -719,16 +719,16 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         
         self.DB = GestionDB.DB()
         try:
-            for attribut, lecture in (
-                    ("dictActivites", self.Importation_activites),
-                    ("dictIndividus", self.Importation_individus),
-                    ("dictGroupes", self.GetDictGroupes),
-                    ("dictComptesPayeurs", self.GetComptesPayeurs),
-                    ("dictQuotientsFamiliaux", self.GetQuotientsFamiliaux),
-                    ("dictAides", self.GetAides),
-                    ("dictEtiquettes", self.GetDictEtiquettes)):
+            for etape, attribut, lecture in (
+                    ("grille.activites", "dictActivites", self.Importation_activites),
+                    ("grille.individus", "dictIndividus", self.Importation_individus),
+                    ("grille.groupes", "dictGroupes", self.GetDictGroupes),
+                    ("grille.comptes_payeurs", "dictComptesPayeurs", self.GetComptesPayeurs),
+                    ("grille.quotients", "dictQuotientsFamiliaux", self.GetQuotientsFamiliaux),
+                    ("grille.aides", "dictAides", self.GetAides),
+                    ("grille.etiquettes", "dictEtiquettes", self.GetDictEtiquettes)):
                 setattr(self, attribut, lecture())
-                yield
+                yield etape
         finally:
             self.DB.Close()
         
@@ -788,18 +788,20 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         self.listePeriodes = listePeriodes
         self.DB = GestionDB.DB()
         try:
-            for lecture in (self.Importation_deductions, self.Importation_prestations,
-                            self.Importation_forfaits):
+            for etape, lecture in (
+                    ("grille.deductions", self.Importation_deductions),
+                    ("grille.prestations", self.Importation_prestations),
+                    ("grille.forfaits", self.Importation_forfaits)):
                 lecture(listeComptesPayeurs=[self.dictComptesPayeurs[self.IDfamille]])
-                yield
+                yield etape
             self.Importation_transports()
-            yield
+            yield "grille.transports"
         finally:
             self.DB.Close()
         yield from self.MAJDonneesEtapes()
         self.MAJ_affichage()
         # La grille est cachee : ne pas lui donner le focus pendant l'attente.
-        yield
+        yield "grille.affichage"
 
     def SetModeDate(self, listeActivites=[], listeSelectionIndividus=[], date=None, modeSilencieux=False):
         if modeSilencieux == False :
@@ -834,28 +836,29 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         self.DB = GestionDB.DB()
         try:
             self.dictOuvertures, self.listeUnitesOuvertes = self.GetDictOuvertures(self.listeActivites, self.listePeriodes)
-            yield
+            yield "grille.ouvertures"
             self.dictListeUnites, self.dictUnites = self.GetListeUnites(self.listeUnitesOuvertes)
-            yield
+            yield "grille.unites"
             self.listeTouchesRaccourcis = self.GetListeTouchesRaccourcis()
-            yield
+            yield "grille.raccourcis"
             self.listeVacances = self.GetListeVacances()
-            yield
+            yield "grille.vacances"
             self.listeFeries = self.GetListeFeries()
-            yield
+            yield "grille.feries"
             self.dictRemplissage, self.dictUnitesRemplissage, self.dictConsoIndividus = self.GetDictRemplissage(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
-            yield
+            yield "grille.remplissage"
             listeIndividus = self.listeSelectionIndividus
             self.dictInfosInscriptions = self.GetInfosInscriptions(listeIndividus)
-            yield
+            yield "grille.inscriptions"
             self.dictInfosIndividus = self.GetInfosIndividus(listeIndividus)
-            yield
+            yield "grille.infos_individus"
             self.dictMemos = self.GetDictMemoJournee(self.listeActivites, self.listePeriodes, self.listeIndividusFamille)
         finally:
             self.DB.Close()
-        yield
+        yield "grille.memos"
         
-        self.CalcRemplissage() 
+        self.CalcRemplissage()
+        yield "grille.calcul_remplissage"
         
     def MAJ_affichage(self):
         if self.GetNumberRows() > 0 : 
