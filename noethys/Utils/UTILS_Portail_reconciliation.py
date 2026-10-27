@@ -99,3 +99,27 @@ def Terminer(IDaction, jeton):
         _executer(DB, "DELETE FROM parametres WHERE categorie=? AND nom=? AND parametre=?",
                   (CATEGORIE, _cle(IDaction), jeton))
         DB.connexion.commit()
+
+
+def LireReprise(IDaction):
+    """Lire le marqueur unique et l'état durable avant arbitrage opérateur.
+
+    Ne modifie ni les consommations ni le marqueur. La prise de décision
+    est séparée du contrôle du jeton, qui doit être re-vérifié avant écritures.
+    """
+    import re
+    with _verrouiller(IDaction) as DB:
+        valeurs = _lire(DB, IDaction)
+        if (len(valeurs) != 1 or len(valeurs[0]) != 1 or
+                not isinstance(valeurs[0][0], str) or
+                re.fullmatch(r'[0-9a-f]{32}', valeurs[0][0]) is None):
+            raise ReconciliationRequise(
+                'Marqueur de reprise absent, dupliqué ou illisible')
+        _executer(DB,
+                  'SELECT etat FROM portail_actions WHERE IDaction=?',
+                  (IDaction,))
+        etats = list(DB.cursor.fetchall())
+        if len(etats) != 1 or etats[0][0] not in ('attente', 'validation'):
+            raise ReconciliationRequise(
+                'État de demande non compatible avec une reprise')
+        return valeurs[0][0], etats[0][0]
