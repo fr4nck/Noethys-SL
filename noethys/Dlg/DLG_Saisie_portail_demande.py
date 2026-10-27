@@ -2111,7 +2111,15 @@ class Traitement():
 
         demandes_initiales = listeReservations
         try:
-            listeReservations, choix_redondants = regles_reservations.prepare(listeReservations, unites_reservations)
+            # Prévol strictement en lecture : aucune modification de grille
+            # avant la détection des doublons et conflits entre actions.
+            listeReservations, decisions_priorites = regles_reservations.planifier_sur_grille(
+                listeReservations, unites_reservations, ctrl_grille, IDactivite)
+            listeReservations, choix_redondants = regles_reservations.prepare(
+                listeReservations, unites_reservations)
+            choix_redondants.extend(
+                contexte[0] for motif, contexte in decisions_priorites
+                if motif == 'journee_prioritaire')
         except ValueError as error:
             self.EcritLog(str(error), log_jumeau)
             return ""
@@ -2119,8 +2127,16 @@ class Traitement():
         # La priorité Journée normalise les nouveaux choix, sans convertir
         # silencieusement des consommations déjà enregistrées sur les demi-journées.
         retenues = {r['IDreservation'] for r in listeReservations}
+        contextes_conversion = {
+            contexte for motif, contexte in decisions_priorites
+            if motif == 'journee_prioritaire'
+        }
         for demande in demandes_initiales:
             if demande['IDreservation'] in retenues:
+                continue
+            # Un doublon déjà conforme ou le repli Journée complète ne
+            # constitue pas une conversion de demi-journée en Journée.
+            if (demande['date'], demande['IDinscription']) not in contextes_conversion:
                 continue
             unite = self.parent.dictUnites[demande['IDunite']]
             for IDunite in unite['unites_principales'] + unite['unites_secondaires']:
@@ -2310,6 +2326,11 @@ class Traitement():
 
             for date_redondante in sorted(set(choix_redondants)):
                 reponse += _(u" Pour le %s, Journée ne peut pas être cumulée avec Matin et Après-midi. La formule Journée a été retenue ; les deux demi-journées ont été écartées car elles sont déjà incluses.") % UTILS_Dates.DateDDEnFr(date_redondante)
+            for motif, contexte in decisions_priorites:
+                if motif == 'journee_complete_repli_demi':
+                    reponse += _(u" Journée complète le %s : seules les demi-journées encore disponibles sont retenues.") % UTILS_Dates.DateDDEnFr(contexte[0])
+                if motif == 'demi_journee_complete':
+                    reponse += _(u" Une demi-journée est complète le %s et n'a pas été ajoutée.") % UTILS_Dates.DateDDEnFr(contexte[0])
             self.EcritLog(_(u"Réponse : %s") % reponse, log_jumeau)
             return reponse
 
