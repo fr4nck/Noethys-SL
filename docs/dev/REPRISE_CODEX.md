@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C11 — lien exact fiche et consommations (27/10/2026)
+
+Navigation de l'interface fictive : depuis la fiche Individu, bouton direct vers les consommations limitées par IDindividu ; depuis la fiche Inscription, double-clic vers l'intersection IDindividu + IDinscription, récupérés de la source SQLite fictive par identifiants et non par le libellé affiché. Le calendrier et la liste portent exactement les mêmes filtres ; les filtres précédents (année, texte, activité, états, jour) sont normalisés en une seule actualisation de contexte. Étiquette « Filtre exact » et bouton de retrait ; aucun dialogue ajouté ni écriture. La recette exclut les états incohérents, les identifiants invalides et les résultats asynchrones périmés.
+
+Références : main f6f5ccd (NON APPLICABLE, inchangée), wx 11b8546 (NON APPLICABLE, inchangée), qt base 48d029e ; commits 5389cc2 (raccordement), 9cf9a2c (11 tests), ee0fcaf (correction de l'hypothèse de tri du test C9), 952f707 (captures CI). GitHub Actions Windows [40550244620](https://github.com/fr4nck/Noethys-SL/actions/runs/40550244620) : **SUCCESS, 255 tests PASS / 0 échec / aucun traceback Qt** ; les captures interactives C11 clair 100 % et sombre 150 % sont validées et publiées dans l'artifact qt-c11-parcours-exacts-fictifs ID 12755261302 (8 PNG, 2 JSON, 147 699 octets). La base SQLite fictive de recette reste inchangée après les parcours. Les CI intermédiaires 40549096815 et 40549491102 ont échoué sur la même ancienne assertion C9 (« premier individu forcément ID 10 »), alors que la liste était triée alphabétiquement ; l'assertion a été corrigée pour vérifier l'ID réellement sélectionné sans perdre le contrôle de non-régression. La CI 40549694485 a ensuite passé 255 tests, et 40550244620 a ajouté les preuves visuelles.
+
+Matrice C11 : main NON APPLICABLE ; wx NON APPLICABLE ; qt VALIDÉ TECHNIQUEMENT sur données fictives, fonctionnalité de démonstration seulement. Les rôles de rattachement, la facturation, les permissions, l'usage MySQL, le comportement sur base réelle et l'enregistrement restent EN ATTENTE / STOP-GATE. Rapport : [QT_CONSOMMATIONS_LOT11.md](QT_CONSOMMATIONS_LOT11.md).
+
+
 ## Qt C10 — fiches famille et individu contextuelles (27/10/2026)
 
 Le retour utilisateur du démonstrateur C8 sur PC Windows est positif pour la légèreté et l'absence de scintillement perceptible (avis qualitatif, non mesure). C10 ajoute la fiche latérale dans la même fenêtre Qt, Familles → individus rattachés → inscriptions filtrées par ID, navigation de retour avec sélection et recherche locale des lignes. Les valeurs IDcategorie et titulaire de rattachements restent brutes, sans déduction des rôles familiaux. Depuis une inscription, le calendrier ouvert est encore GLOBAL, sans filtre individuel exact : raccordement C11 à prévoir. Aucun writer Qt métier.
