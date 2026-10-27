@@ -1,5 +1,26 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C6 — comparaison transactionnelle wx et captures Windows (27/10/2026)
+
+Bases contrôlées : main f6f5ccd (NON APPLICABLE au banc), wx 11b8546
+(source de référence, non modifiée), qt 016ab17 puis commits C6
+8da8870 (tests) et ce5656d (CI visuelle). Le corps Sauvegarde wx
+épinglé au C5 a été exécuté avec un adaptateur de TEST qui diffère
+ses deux Commit. Sur données fictives, sorties identiques au comportement
+historique lorsque tout réussit, mais rollback global après erreur
+d'historique ou de mémo avec validation unique ; aucun writer
+métier Qt n'est autorisé par cette preuve.
+
+CI Windows SUCCESS : run 40522554249 puis run 40522819704,
+215 tests / 0 échec, compilation PASS. Deux captures sur fixtures
+entièrement fictives (100 % : 1280x830 ; 150 % : 1920x1245),
+artifact qt-c6-captures-fictives ID 12740784525, upload PASS.
+Ce sont des captures statiques, pas une preuve d'absence de scintillement.
+Aucune base réelle, MySQL de production, packaging, ni modification
+de main/wx. STOP-GATE de saisie Qt maintenu.
+Détails : [QT_CONSOMMATIONS_LOT6.md](QT_CONSOMMATIONS_LOT6.md).
+
+
 ## Qt C5 — exécution de Sauvegarde wx sur copie fictive (27/10/2026)
 
 Qualification des blobs main f6f5ccd, wx 11b8546, qt 754a014 : CTRL_Grille.py diverge globalement, mais son corps Sauvegarde est identique (empreinte FNV32 d4745a0b). Nouveau test tests_qt/test_consumptions_c5_wx_execution.py : extraction du vrai corps wx sur qt, DB et dépendances substituées, fixture SQLite totalement fictive, scénarios CRUD, prestation/ventilation, pannes injectées avant et après premier DB.Commit. Aucune saisie Qt activée ; garde des adhésions maintenue. Risque de commit partiel entre consommation et historique démontrable dans la fixture, pas sur site réel. Contrat, limites et matrice : [QT_CONSOMMATIONS_LOT5.md](QT_CONSOMMATIONS_LOT5.md). **CI Windows SUCCESS** sur `2f3822c80184e56f68b0df22023628c2cdafefe6`, [run 40519141174](https://github.com/fr4nck/Noethys-SL/actions/runs/40519141174) : 205 tests PASS, 0 échec, compilation PASS. Le vrai corps de Sauvegarde historique wx est exécuté sur adaptateur SQLite fictif; l'erreur injectée entre les deux commits reproduit une sauvegarde partielle dans le banc. Matrice : main f6f5ccd NON APPLICABLE ; wx 11b8546 source wx de référence EN ATTENTE de parité ; qt 2f3822c VALIDÉ TECHNIQUEMENT sans saisie. Aucune recette métier Windows, base privée, MySQL ou installateur réalisé ; STOP-GATE sur écriture conservé.
