@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-432B — instrumentation des lectures indivuelles (27/10/2026)
+
+- **Branche wx uniquement**, base `3eeda62964dc12073f489af4e5279cbdd58aef14`, code `6c42d4c02b7b6d76170f411ff424e3e09301d42f`. Refs `main=f6f5ccdf` et `qt=f2316046` verifiees non modifiees. Aucune fusion ou branche supplementaire.
+- Ajout de chronometrage **par etape nommee, allowlist et sans donnee personnelle**, uniquement avec `NOETHYS_SL_UI_DIAG=1`. Lectures de la grille, remplissage, calcul et affichage sont distingues. L'etape de calcul du remplissage et celle d'affichage ont des ticks wx distincts. Aucune requete SQL, fermeture de connexion, ecriture, transaction, email, jeton UI-3C.1 ou logique de traitement modifies.
+- Tests ajoutes : journalisation inactive et anonymisee ; contre-epreuve d'une lecture artificielle de 3,465 s exigeant une mesure `etape=grille.activites`. Tests existants de modalite, proprietaire Win32, equivalence de grille et absence de reseau conserves. [CI rapide Windows #40460682032](https://github.com/fr4nck/Noethys-SL/actions/runs/40460682032), issue #432, resultat a verifier sur le SHA du code.
+- Une lecture SQL ou calcul individuel lent **reste bloquant** sur le thread wx ; le chronometrage le rend attribuable mais ne le rend pas asynchrone. `GetDictRemplissage` lit toutes les consommations de l'activite sur la periode, necessaires notamment aux calculs de remplissage : ne pas supprimer ce perimetre sans preuve metier et qualification. Le scenario entier de la video n'est pas rejoue. Pas de ZIP, tag, release, donnees PMSL, synchronisation ni email reel.
+- **Matrice** : wx = instrumentation UI-432B candidate (CI/recette en attente), main/qt = NON APPLICABLE pour cette instrumentation wx. L'issue #432 doit rester ouverte. Jalon suivant : analyser les etapes lentes mesurees sur fixture representative, verifier les phases traitement/calcul/sauvegarde/actualisation et la geometrie/focus du parcours complet avant de decider d'une mitigation non bloquante et d'un ZIP candidat.
+
 ## Issue #432 — amelioration ciblee, sous reserve (27/10/2026)
 
 - Base distante verifiee : wx `2bf7dbe644e1672e44dd4df9b09f5d5b959c98a0`, main `f6f5ccdf6a491025db052b7759aa6facc01b2eca`, qt `f2316046f9f22ed59aeba33f9f8c090d3667ca06`, pas de master distant. Seul wx modifie, sans fusion ; travaux repas preserves.
