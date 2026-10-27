@@ -89,3 +89,35 @@ jobs:
           path: artifacts/qt-c7/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C8 démonstration - clair 100% - 1024 pixels
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/qt_c8_windows_demo.py --smoke --scale 1 --theme light --label light-100
+
+      - name: C8 démonstration - sombre 125% - 1100 pixels
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/qt_c8_windows_demo.py --smoke --scale 1.25 --theme dark --label dark-125
+
+      - name: C8 démonstration - clair 150% - 1280 pixels
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/qt_c8_windows_demo.py --smoke --scale 1.5 --theme light --label light-150
+
+      - name: C8 démonstration - sombre 150% - 1100 pixels
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/qt_c8_windows_demo.py --smoke --scale 1.5 --theme dark --label dark-150
+
+      - name: Archiver les captures de démonstration C8
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c8-recette-fictive
+          path: artifacts/qt-c8/*
+          if-no-files-found: error
+          retention-days: 14
