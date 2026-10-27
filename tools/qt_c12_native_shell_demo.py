@@ -61,8 +61,10 @@ def capture_scenario(app, window, fictive, label):
     for path in [*output_files, report]:
         if path.parent.resolve() != root or path.is_symlink():
             raise RuntimeError("Chemin de sortie non autorisé")
-    if not window.read_only_demo:
-        raise AssertionError("La coque de démonstration doit être verrouillée")
+    if not window.read_only_demo or window.finance_enabled:
+        raise AssertionError("La coque C12 doit rester sans écriture ni finance")
+    if any(action.isEnabled() for action in window.finance_actions.values()):
+        raise AssertionError("Les rubriques C13 ne doivent pas ouvrir la fixture C12")
     initial = fictive.dump()
     result = []
     window.resize(1330, 830)
