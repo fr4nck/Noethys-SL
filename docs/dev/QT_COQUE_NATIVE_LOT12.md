@@ -83,9 +83,15 @@ CI graphique : https://github.com/fr4nck/Noethys-SL/actions/runs/40554367190
 Artifact : qt-c12-coque-native-fictive ID 12756029369, 290 881 octets,
 rétention 14 jours annoncée dans le workflow.
 
-CI intégrale finale avec 2 tests clavier/repaint supplémentaires :
+CI intégrale définitive (2 tests clavier/repaint supplémentaires) :
 https://github.com/fr4nck/Noethys-SL/actions/runs/40554692254
-Verdict EN ATTENTE au moment de rédaction ; ne pas préjuger 273 PASS.
+Windows/Python 3.11/PySide6, compilation PASS, **273 tests PASS**,
+0 échec, 0 erreur, **aucun traceback Qt**. Les deux parcours graphiques
+C12 de cette même CI sont SUCCESS : 9 PNG par échelle, en clair 100 %
+et sombre 150 %, avec la base fictive inchangée. Artifact du run définitif :
+**qt-c12-coque-native-fictive**, ID 12755553940, 290 881 octets,
+18 PNG et 2 JSON, durée de conservation prévue 14 jours.
+Ce run est la référence de qualification C12.
 
 ## 5. Limites et matrice interbranches
 
@@ -93,7 +99,7 @@ Verdict EN ATTENTE au moment de rédaction ; ne pas préjuger 273 PASS.
 | --- | --- | --- |
 | main f6f5ccd | NON APPLICABLE (interfaces Qt seulement) | Non modifiée |
 | wx 11b8546 | NON APPLICABLE (référence wx) | Non modifiée |
-| qt 44e71c6 | VALIDÉ partiellement (271 CI, 18 images), 273 en attente | Démonstration fictive seulement |
+| qt 44e71c6 | VALIDÉ TECHNIQUEMENT (273 CI, 18 images, 0 traceback) | Démonstration fictive seulement |
 
 Aucun changement des moteurs de tarification, de pointage, de
 facturation, d'historique ou d'adhésions. Les constantes autoritatives
