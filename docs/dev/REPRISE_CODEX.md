@@ -1762,3 +1762,53 @@ Qualification globale wx/qt : EN ATTENTE / STOP-GATE pour une release, compte
 tenu des écarts ci-dessus et des recettes réseau/Windows restant hors de ce lot.
 Prochaine étape : qualifier séparément les correctifs communs manquants et
 les parcours métier réels avant de déclarer une branche stable.
+
+## 2026-10-27 — Noethys #435, arbitrage Connecthys et navigation wx
+
+Décision terrain : une même demande Connecthys doit être rejouable sans double
+quantité, avec priorité Journée lorsque disponible ; sinon seules les
+demi-journées encore disponibles sont retenues. Si facture, pointage, conflit
+persisté, attribution ou disponibilité incertaine : arbitrage de l'opérateur,
+jamais écrasement silencieux. L'issue #435 est l'autorité de suivi :
+https://github.com/fr4nck/Noethys-SL/issues/435
+
+**Travail publié sur la seule branche wx depuis 11b85461 :**
+- c877a577 : planificateur pur Journée / demi-journées ;
+- 2b5c1e1e : 15 tests purs ;
+- d75fdc27 : cumul persisté Journée + demi-journée => arbitrage ; doublon de demande évité ;
+- 494ad6f7 : 2 tests métier supplémentaires ;
+- c24e778a : aide de décision Quantite (créer/existant/requalifier), sans écriture ;
+- 699e2338 : 8 tests quantité ;
+- 8723f0ab : navigation/fermeture d'une demande incertaine sans
+  sauvegarde ni alerte modale répétée ; marqueur conservé ;
+- 18267956 : 2 tests wx de navigation/fermeture.
+
+**Qualification au point de reprise :** 27 nouveaux tests ajoutés au dépôt,
+CI Windows sur 18267956 =
+https://github.com/fr4nck/Noethys-SL/actions/runs/40579210562 ;
+syntaxe Python PASS, contrats métier Windows **en cours** au relevé.
+Le paquet préliminaire `noethys435_lot_dev_non_deployable.zip` avait 41 tests
+isolés PASS hors dépôt, mais **son installateur est obsolète** (SHA 11b85461)
+et ne doit pas être exécuté sur la nouvelle wx.
+
+**État et limites :** le planificateur et la décision Quantite sont publiés,
+mais PAS ENCORE RACCORDÉS au parcours réel d'application des réservations.
+Le marqueur de réconciliation existe toujours ; la reprise manuelle avec
+preuve du delta et contrôle multi-postes reste à coder et qualifier. La
+navigation sans mutation est seule modification fonctionnelle active.
+Ne déclarer ni correctif métier complet, ni installation, ni release stable.
+Aucune base réelle, aucun profil Portable, email réel, tag ou release modifié.
+
+Matrice au jalon : wx = moteur pur et navigation partiellement VALIDÉS
+(syntaxe PASS, tests Windows EN ATTENTE) ; main = NOUVELLES MODIFICATIONS ABSENTES ;
+qt = NOUVELLES MODIFICATIONS ABSENTES. Ne pas propager le lot tant que le
+contrat métier multi-postes et la séparation wx/Qt ne sont pas qualifiés.
+Rappel : worktrees utilisateur conservés intentionnellement : Noethys-SL
+(sur wx) et Noethys-SL-qt (sur qt), anciens rc2/travail retirés.
+
+**Suite de travail :** lire les résultats CI et conserver les tests CE-4/CE-5.
+Intégrer la décision quantité au précontrôle *avant toute écriture* puis
+rejouer les essais de sauvegarde partielle/crash. Développer le formulaire
+« Vérifier et reprendre » avec confirmation visible, comparaison durable
+et absence de rejeu des emails acceptés. Qualifier SQLite + MySQL isolé et
+Windows réel. Installation seulement après cette qualification.
