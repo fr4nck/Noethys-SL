@@ -143,3 +143,25 @@ jobs:
           path: artifacts/qt-c10/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C11 contexte exact - clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c11_context_capture.py --theme light --profile 100
+
+      - name: C11 contexte exact - sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c11_context_capture.py --theme dark --profile 150
+
+      - name: Publier les captures de liaison C11
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c11-parcours-exacts-fictifs
+          path: artifacts/qt-c11/*
+          if-no-files-found: error
+          retention-days: 14
