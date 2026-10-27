@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C13 — trois grands modules financiers et 6 listes natives (27/10/2026)
+
+Périmètre exclusivement Qt, sans mise en forme définitive : Facturation (factures/prestations), Règlements (règlements/ventilation), Comptabilité (opérations de trésorerie/dépôts). Les trois rubriques auparavant désactivées sont accessibles depuis la navigation principale ; la fiche Famille permet de consulter ses factures et règlements par IDfamille réel du compte payeur. Liens exacts factures→prestations (IDfacture), règlements→ventilation (IDreglement) et dépôts→règlements (IDdepot). Recherche/année, année interdite pour ventilation sans date, limites de 250 lignes annoncées. Les montants affichent la précision source (ex. 12.005) : aucun arrondi, total, facture, solde, comptabilisation ni réconciliation recalculé en Qt.
+
+Implémentation : noethys_qt/finance_readonly_core.py et finance_readonly_ui.py ; fichier source de données C13 inventées tools/qt_c13_finance_fixture.py, tests tests_qt/test_finance_c13_readonly.py, lanceur tools/Noethys-Qt-C13-Finance-Demo.cmd et tools/qt_c13_native_finance_demo.py, recette CI 18 captures sous artifacts/qt-c13. Les connexions sont SELECT-only, SQLite PRAGMA query_only=ON, et les contrôles d'IDs / bornes SQL sont faits avant ouverture. Aucune base réelle, aucun wx import ni schéma migré. Le mode read_only_demo de la coque interdit l'éditeur Activités.
+
+Branches relevées : main f6f5ccd INCHANGÉ / NON APPLICABLE, wx 11b8546 INCHANGÉ / NON APPLICABLE, qt C12 c401cf8 ; commits du code financier 593714c, a6fe1ce, dc5e0bd, 10a6f12, fixture fb0806c, tests d138a63, captures 1778546. La qualification de référence Windows est la CI [40558968795](https://github.com/fr4nck/Noethys-SL/actions/runs/40558968795), EN COURS à la rédaction ; ne pas annoncer son résultat avant vérification. STOP-GATE maintenu : validation des droits effectifs, lecture MySQL réelle, rapprochement, génération et édition de factures, encaissements, export comptable, conformité des soldes et publication d'une version installable. Voir [QT_FINANCE_LOT13.md](QT_FINANCE_LOT13.md).
+
+
 ## Qt C12 — coque native intégrée, inscriptions et parcours complet (27/10/2026)
 
 C12 ne duplique plus le démonstrateur : il intègre le module existant noethys_qt/inscriptions_readonly.py dans la vraie coque noethys_qt/noethys_native.py. Navigation principale Familles/Individus → Inscriptions → Consommations par clés SQL exactes, accès depuis les fiches, retour multi-niveaux préservant le contexte, raccourcis Alt+4/Alt+5 et Alt+Gauche. Ctrl+F recherche dans la rubrique active ; la recherche d'individus évite les modelReset sur résultats identiques. Le résolveur d'inscription est SELECT-only et refuse les IDs invalides avant toute connexion. Mode démo natif (read_only_demo=True) interdit l'éditeur Activités pour empêcher toute écriture même sur la fixture.
