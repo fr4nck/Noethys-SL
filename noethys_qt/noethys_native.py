@@ -346,6 +346,7 @@ class NoethysQtWindow(QMainWindow):
             return
         code = str(current.data(Qt.ItemDataRole.UserRole) or "")
         if code == "home":
+            self._set_return_context(None)
             self._detail_request += 1
             self._current_detail = None
             self.stack.setCurrentWidget(self.home_page)
@@ -371,27 +372,40 @@ class NoethysQtWindow(QMainWindow):
             self.consumptions_page.activate()
 
     def navigate(self, code: str) -> None:
+        """Une entrée de menu = une navigation, sans double lecture SQL."""
         for row in range(self.navigation.count()):
             item = self.navigation.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == code:
-                self.navigation.setCurrentRow(row)
-                if code == "people" and self.stack.currentWidget() is self.details_page:
-                    self._back_to_people()
-                if code == "activities":
-                    self.open_activities()
-                if code == "inscriptions":
-                    if not self._context_navigation:
-                        self.inscriptions_page.clear_context()
-                        self._set_return_context(None)
-                    self.stack.setCurrentWidget(self.inscriptions_page)
-                    self.inscriptions_page.activate()
-                if code == "consumptions":
-                    if not self._context_navigation:
-                        self._set_return_context(None)
-                        self.consumptions_page.clear_record_context()
-                    self.stack.setCurrentWidget(self.consumptions_page)
-                    self.consumptions_page.activate()
+            if item.data(Qt.ItemDataRole.UserRole) != code:
+                continue
+            if not (item.flags() & Qt.ItemFlag.ItemIsEnabled):
                 return
+            if self.navigation.currentRow() != row:
+                # Le signal currentItemChanged effectue déjà la transition.
+                self.navigation.setCurrentRow(row)
+                return
+            # Recliquer sur l'entrée courante doit seulement recharger son
+            # contexte général, sans laisser un filtre de fiche résiduel.
+            if code == "people" and self.stack.currentWidget() is self.details_page:
+                self._back_to_people()
+            elif code == "activities":
+                self.open_activities()
+            elif code == "inscriptions":
+                if not self._context_navigation:
+                    self.inscriptions_page.clear_context()
+                    self._set_return_context(None)
+                self.stack.setCurrentWidget(self.inscriptions_page)
+                self.inscriptions_page.activate()
+            elif code == "consumptions":
+                if not self._context_navigation:
+                    self._set_return_context(None)
+                    if (
+                        self.consumptions_page._record_individual_id is not None
+                        or self.consumptions_page._record_inscription_id is not None
+                    ):
+                        self.consumptions_page.clear_record_context()
+                self.stack.setCurrentWidget(self.consumptions_page)
+                self.consumptions_page.activate()
+            return
 
     def focus_people_search(self) -> None:
         self.navigate("people")
