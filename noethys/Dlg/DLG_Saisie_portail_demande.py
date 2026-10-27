@@ -613,7 +613,8 @@ class Dialog(wx.Dialog):
             if event.CanVeto():
                 event.Veto()
             return
-        sauve = self.Sauvegarde()
+        sauve = (not self._ReservationsBloquees(afficher=False)
+                 and self.Sauvegarde())
         if not sauve and getattr(self, "_finalisation_en_attente", None) is not None:
             # Un traitement de reservations peut deja etre durable : garder
             # son contexte de finalisation au lieu de permettre sa reexecution.
@@ -632,7 +633,8 @@ class Dialog(wx.Dialog):
     def OnBoutonFermer(self, event):
         if getattr(self, "_traitement_en_cours", False):
             return
-        sauve = self.Sauvegarde()
+        sauve = (not self._ReservationsBloquees(afficher=False)
+                 and self.Sauvegarde())
         if not sauve and getattr(self, "_finalisation_en_attente", None) is not None:
             return
         UTILS_Dialogs.SaveSizePerso(self, __file__)
@@ -692,14 +694,14 @@ class Dialog(wx.Dialog):
         self._AfficherEtatEnregistre(etat, reponse, traitement_date)
         self.track.Refresh()
 
-    def _ReservationsBloquees(self):
+    def _ReservationsBloquees(self, afficher=True):
         if getattr(self.track, "categorie", None) != "reservations":
             return False
         try:
             bloque = UTILS_Portail_reconciliation.EnAttente(self.track.IDaction)
         except Exception:
             bloque = True  # lecture impossible : ne jamais supposer l'absence
-        if bloque:
+        if bloque and afficher:
             self._SignalerReconciliation()
         return bloque
 
@@ -1132,8 +1134,13 @@ class Dialog(wx.Dialog):
     def OnNavigation(self, event):
         if getattr(self, "_traitement_en_cours", False):
             return False
-        if not self.Sauvegarde():
-            # Le destinataire d'une finalisation en attente ne peut changer.
+        # Une demande incertaine ne doit pas empecher de consulter les
+        # autres demandes. Aucun enregistrement ni nouvelle saisie ici.
+        if self._ReservationsBloquees(afficher=False):
+            if getattr(self, '_finalisation_en_attente', None) is not None:
+                return False
+            self._RestaurerEtatDurable()
+        elif not self.Sauvegarde():
             return False
 
         ID = event.GetId()
