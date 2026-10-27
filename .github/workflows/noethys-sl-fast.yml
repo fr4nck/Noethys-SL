@@ -159,6 +159,7 @@ jobs:
           tests.test_connecthys_ui432_signatures
           tests.test_connecthys_ui432_logo_worker
           tests.test_connecthys_ui432_upload_cooperatif
+          tests.test_ui432g_lanceur_recette
           tests.test_connecthys_ui3_reentrance
           tests.test_connecthys_ui3c_sauvegarde
           tests.test_connecthys_ui3c1_reconciliation
