@@ -73,6 +73,65 @@ class SuiviConnecthysMySQLTests(unittest.TestCase):
     def suivi_brut(self, cle=CLE):
         return self.lignes("SELECT parametre FROM parametres WHERE categorie='%s' AND nom='%s'" % (Suivis.CATEGORIE, cle))
 
+    def test_435_marqueur_durable_mysql_cycle_sans_rejeu(self):
+        """Un même IDaction ne peut pas créer deux tentatives durables."""
+        from Utils import UTILS_Portail_reconciliation as Marqueurs
+        self.assertFalse(Marqueurs.EnAttente(7))
+        jeton = Marqueurs.Commencer(7)
+        self.assertRegex(jeton, r"^[0-9a-f]{32}$")
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
+        with self.assertRaises(Marqueurs.ReconciliationRequise):
+            Marqueurs.Commencer(7)
+        self.assertEqual(self.lignes("SELECT etat FROM portail_actions WHERE IDaction=7"),
+                         [("attente",)])
+        Marqueurs.Terminer(7, jeton)
+        self.assertFalse(Marqueurs.EnAttente(7))
+
+    def test_435_verrou_mysql_tenu_par_un_second_poste(self):
+        """Le verrou de début de tentative s'applique à deux connexions."""
+        from Utils import UTILS_Portail_reconciliation as Marqueurs
+        autre = self.connexion()
+        self.addCleanup(autre.Close)
+        expression = "CONCAT('noethys_resa_', LEFT(MD5(DATABASE()), 12), '_7')"
+        autre.cursor.execute("SELECT GET_LOCK(%s, 0)" % expression)
+        self.assertEqual(autre.cursor.fetchall()[0][0], 1)
+        try:
+            with self.assertRaises(Marqueurs.ReconciliationRequise):
+                Marqueurs.Commencer(7)
+            self.assertFalse(Marqueurs.EnAttente(7))
+        finally:
+            autre.cursor.execute("SELECT RELEASE_LOCK(%s)" % expression)
+            self.assertEqual(autre.cursor.fetchall()[0][0], 1)
+        jeton = Marqueurs.Commencer(7)
+        self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
+        Marqueurs.Terminer(7, jeton)
+
+    def test_435_mauvais_jeton_ne_supprime_pas_le_marqueur_mysql(self):
+        from Utils import UTILS_Portail_reconciliation as Marqueurs
+        jeton = Marqueurs.Commencer(7)
+        autre_jeton = "0" * 32 if jeton != "0" * 32 else "f" * 32
+        with self.assertRaises(Marqueurs.ReconciliationRequise):
+            Marqueurs.Terminer(7, autre_jeton)
+        self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
+        Marqueurs.Terminer(7, jeton)
+        self.assertFalse(Marqueurs.EnAttente(7))
+
+    def test_435_reprise_apres_validation_sql_sans_modifier_les_conso(self):
+        from Utils import UTILS_Portail_reconciliation as Marqueurs
+        jeton = Marqueurs.Commencer(7)
+        db = self.connexion()
+        try:
+            db.cursor.execute("UPDATE portail_actions SET etat='validation' WHERE IDaction=7")
+            db.Commit()
+        finally:
+            db.Close()
+        self.assertEqual(Marqueurs.LireReprise(7), (jeton, "validation"))
+        Marqueurs.Terminer(7, jeton)
+        self.assertFalse(Marqueurs.EnAttente(7))
+        self.assertEqual(self.lignes("SELECT etat FROM portail_actions WHERE IDaction=7"),
+                         [("validation",)])
+
     def test_tables_transactionnelles(self):
         moteurs = dict((n.lower(), m.lower()) for n, m in self.lignes(
             "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() "
