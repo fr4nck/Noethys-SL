@@ -619,7 +619,8 @@ class Synchro():
         session.add(models.Parametre(nom="ORGANISATEUR_IMAGE_ROND", parametre=str(rond)))
 
         # Données organisateur
-        dict_organisateur = UTILS_Organisateur.GetDonnees(tailleLogo=(200, 200))
+        # Thread de synchro : logo en wx.Image, jamais de wx.Bitmap (GDI) (#432).
+        dict_organisateur = UTILS_Organisateur.GetDonnees(tailleLogo=(200, 200), logoBitmap=False)
 
         session.add(models.Parametre(nom="ORGANISATEUR_NOM", parametre=dict_organisateur["nom"]))
         session.add(models.Parametre(nom="ORGANISATEUR_RUE", parametre=dict_organisateur["rue"].replace("\n", "")))

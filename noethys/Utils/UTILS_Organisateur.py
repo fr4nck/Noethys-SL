@@ -55,7 +55,10 @@ def RecadreImg(img=None, tailleImage=(40, 40), fondBlanc=True):
     canvas.Paste(img, position[0], position[1])
     return canvas
 
-def GetDonnees(tailleLogo=(40, 40), fondLogoBlanc=True) :
+def GetDonnees(tailleLogo=(40, 40), fondLogoBlanc=True, logoBitmap=True) :
+    """ logoBitmap=False renvoie le logo en wx.Image : obligatoire hors du
+    thread wx (synchro Connecthys), un wx.Bitmap etant un objet GDI reserve
+    au thread principal (#432). """
     DB = GestionDB.DB()
     req = """SELECT nom, rue, cp, ville, tel, fax, mail, site, num_agrement, num_siret, code_ape, logo, logo_update
     FROM organisateur WHERE IDorganisateur=1;"""
@@ -85,7 +88,7 @@ def GetDonnees(tailleLogo=(40, 40), fondLogoBlanc=True) :
         else :
             img = wx.ImageFromStream(io, wx.BITMAP_TYPE_ANY)
         img = RecadreImg(img, tailleLogo, fondBlanc=fondLogoBlanc)
-        logo = img.ConvertToBitmap()
+        logo = img.ConvertToBitmap() if logoBitmap else img
     dictDonnees = {
         "nom":nom, "rue":rue, "cp":cp, "ville":ville, "tel":tel, "fax":fax, "mail":mail, "site":site, 
         "num_agrement":num_agrement, "num_siret":num_siret, "code_ape":code_ape, "logo":logo, "logo_update":logo_update,

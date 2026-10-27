@@ -156,6 +156,8 @@ jobs:
           tests.test_connecthys_ui3_diagnostic
           tests.test_connecthys_ui432_etapes
           tests.test_connecthys_ui432_synchro_manuelle
+          tests.test_connecthys_ui432_signatures
+          tests.test_connecthys_ui432_logo_worker
           tests.test_connecthys_ui3_reentrance
           tests.test_connecthys_ui3c_sauvegarde
           tests.test_connecthys_ui3c1_reconciliation
@@ -220,7 +222,7 @@ jobs:
           tests.test_noethys_sl_releve_couleur
       - name: Campagne bornee issue 432 - sortie wx (sur demande)
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'ui432_sortie'
-        run: python tools/ui432_campagne_sortie.py --repetitions 30
+        run: python tools/ui432_campagne_sortie.py --variantes base:60,trace:20
       - name: Suite complete - sur demande
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'complete'
         run: python -m unittest discover -s tests -p 'test_*.py' -v
