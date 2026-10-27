@@ -30,4 +30,15 @@ Le chantier Qt ne dispose pas encore de la parité fonctionnelle du gestionnaire
 
 - main \`f6f5ccd\` : NON APPLICABLE à cette interface spécifique.
 - wx \`a24e1dd\` : SOURCE de référence de la grille, aucune modification.
-- qt \`ef36db0\` : base de développement C3. Le SHA du commit C3 et sa CI sont à consigner après exécution.
+- qt \`ef36db0\` : base de développement C3. Le code C3 qualifié est `0300c490b775ae12264e50d040aed3df92f28148` : [CI Windows 40511900553](https://github.com/fr4nck/Noethys-SL/actions/runs/40511900553), **180 tests / 0 échec / 0 erreur**, compilation PASS. Environnement CI : Windows, Python 3.11, PySide6 hors écran. Aucune recette utilisateur Windows ou qualification MySQL réelle n'est déduite de ce résultat.
+
+
+## Matrice C3 après exécution — 27/10/2026
+
+| Ligne | Statut | Source et preuve |
+| --- | --- | --- |
+| \`main\` | NON APPLICABLE au panneau Qt ; synchronisation métier générale EN ATTENTE | \`f6f5ccd\` conservé sans changement |
+| \`wx\` | NON APPLICABLE au panneau Qt ; référence de comportement, parité EN ATTENTE | \`a24e1dd\` à l'audit, puis \`6c46c55\` observé ; comparaison de ces deux têtes : \`CTRL_Grille_cases.py\` et \`CTRL_Grille.py\` non modifiés |
+| \`qt\` | VALIDÉ TECHNIQUEMENT en CI hors écran ; NON HOMOLOGUÉ pour les écritures | \`0300c49\`, run \`40511900553\`, 180 tests PASS |
+
+**Reste en STOP-GATE** : droits et vérification de période wx à extraire vers un contrat indépendant ; décisions de facture/ventilation/forfait et recalcul financier à qualifier ; transaction et rollback sur copies isolées ; recette fonctionnelle Windows/DPI/MySQL représentative avant toute commande d'enregistrement. L'absence de connecteur d'écriture en C3 est intentionnelle, pas un succès de migration de la saisie.
