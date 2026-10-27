@@ -212,3 +212,44 @@ def planifier_priorites(reservations, unites, etat_existant, place_disponible):
 
     retenues = [dict(r) for r in reservations if r['IDreservation'] not in exclus]
     return retenues, decisions
+
+
+def decision_quantite(case, IDinscription, etat_cible):
+    """Décider sans écrire si une demande Quantite peut être rejouée.
+
+    Retourne 'creer', 'existant' ou 'requalifier'. Le cas existant doit
+    produire zéro appel à SaisieConso ; les deux autres utilisent une
+    quantité CIBLE ABSOLUE de 1 dans le parcours Connecthys uniquement.
+    Ne jamais appliquer cette règle aux saisies manuelles ordinaires.
+    """
+    if etat_cible not in ('reservation', 'attente'):
+        raise ArbitrageManuelRequis('État cible Quantite non admissible.')
+    if case is None:
+        raise ArbitrageManuelRequis('Case Quantite inaccessible.')
+    if (getattr(case, 'IDfacture', None) is not None or
+            getattr(case, 'verrouillage', 0)):
+        raise ArbitrageManuelRequis('Case Quantite facturée ou verrouillée.')
+    presentes = [c for c in case.GetListeConso()
+                 if c is not None and getattr(c, 'etat', None) is not None]
+    if not presentes:
+        if (getattr(case, 'etat', None) is not None or
+                getattr(case, 'quantite', None) not in (None, 0)):
+            raise ArbitrageManuelRequis('Quantite sans consommation attribuable.')
+        return 'creer'
+    if len(presentes) != 1:
+        raise ArbitrageManuelRequis('Plusieurs consommations sur la case Quantite.')
+    conso = presentes[0]
+    if getattr(conso, 'IDinscription', None) != IDinscription:
+        raise ArbitrageManuelRequis('Quantite attribuée à une autre inscription.')
+    if (getattr(conso, 'IDfacture', None) is not None or
+            getattr(conso, 'verrouillage', 0)):
+        raise ArbitrageManuelRequis('Quantite protégée : arbitrage obligatoire.')
+    if getattr(case, 'quantite', None) != 1:
+        raise ArbitrageManuelRequis('Quantite différente de 1 : ne pas écraser.')
+    etat = getattr(conso, 'etat', None)
+    if etat == etat_cible:
+        return 'existant'
+    if etat == 'attente' and etat_cible == 'reservation':
+        return 'requalifier'
+    raise ArbitrageManuelRequis(
+        'Quantite déjà en état %s : arbitrage nécessaire.' % etat)
