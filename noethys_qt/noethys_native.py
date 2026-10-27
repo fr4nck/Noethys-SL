@@ -102,6 +102,7 @@ class NoethysQtWindow(QMainWindow):
         self.inscriptions_repository = InscriptionRepository(people_repository.editor_repository)
         self.background_queries = background_queries
         self._context_navigation = False
+        self._context_history: list[tuple] = []
         self._return_context: tuple | None = None
         self._detail_request = 0
         self._detail_workers: dict[int, _DetailWorker] = {}
@@ -485,7 +486,18 @@ class NoethysQtWindow(QMainWindow):
             self.details_page.show_error(kind, entity_id, "Réponse inattendue.")
 
     def _set_return_context(self, value: tuple | None) -> None:
-        self._return_context = value
+        """Empiler les étapes de navigation ; None annule le parcours."""
+        if value is None:
+            self._context_history.clear()
+        else:
+            self._context_history.append(value)
+        self._render_context_back()
+
+    def _render_context_back(self) -> None:
+        self._return_context = (
+            self._context_history[-1] if self._context_history else None
+        )
+        value = self._return_context
         self.context_bar.setVisible(value is not None)
         self.back_context_action.setEnabled(value is not None)
         if value is None:
@@ -561,7 +573,8 @@ class NoethysQtWindow(QMainWindow):
         origin = self._return_context
         if origin is None:
             return
-        self._set_return_context(None)
+        self._context_history.pop()
+        self._render_context_back()
         if origin[0] == "inscriptions":
             self._navigate_with_context("inscriptions")
         elif origin[0] == "details":
