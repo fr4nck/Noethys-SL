@@ -235,7 +235,7 @@ def main():
                 source_label="DÉMONSTRATION — données 100 % fictives / consultation",
                 requested_theme=args.theme,
                 background_queries=False if args.smoke else True,
-                read_only_demo=True,
+                read_only_demo=True, finance_enabled=False,
             )
         window.setWindowTitle(
             "Noethys Qt — démonstration C12 — AUCUNE donnée réelle"

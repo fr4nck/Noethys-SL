@@ -97,6 +97,7 @@ class NoethysQtWindow(QMainWindow):
         source_label: str = "Base Noethys configurée",
         background_queries: bool = True,
         read_only_demo: bool = False,
+        finance_enabled: bool = True,
     ):
         super().__init__()
         self.people_repository = people_repository
@@ -108,6 +109,9 @@ class NoethysQtWindow(QMainWindow):
         # Seulement pour la démonstration C12 : ne jamais ouvrir le
         # panneau d'édition d'activité, même sur une fixture inventée.
         self.read_only_demo = read_only_demo
+        # Ancienne fixture C12 sans tables comptables : masquer ses modules
+        # plutôt que permettre une navigation vers une liste indisponible.
+        self.finance_enabled = finance_enabled
         self._context_navigation = False
         self._context_history: list[tuple] = []
         self._return_context: tuple | None = None
@@ -154,6 +158,7 @@ class NoethysQtWindow(QMainWindow):
         self.inscriptions_action.setShortcut(QKeySequence("Alt+4"))
         self.consumptions_action.setShortcut(QKeySequence("Alt+5"))
         for code, digit in (("billing", 6), ("payments", 7), ("accounting", 8)):
+            self.finance_actions[code].setEnabled(self.finance_enabled)
             self.finance_actions[code].setShortcut(QKeySequence(f"Alt+{digit}"))
             self.finance_actions[code].triggered.connect(
                 lambda _checked=False, target=code: self.navigate(target)
@@ -223,7 +228,11 @@ class NoethysQtWindow(QMainWindow):
         for code, label, enabled in NAVIGATION:
             item = QListWidgetItem(label if enabled else f"{label}  · à migrer")
             item.setData(Qt.ItemDataRole.UserRole, code)
-            if not enabled or (self.read_only_demo and code == "activities"):
+            if (
+                not enabled
+                or (self.read_only_demo and code == "activities")
+                or (not self.finance_enabled and code in MODULES)
+            ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
             self._nav_codes.append(code)
@@ -254,6 +263,8 @@ class NoethysQtWindow(QMainWindow):
         self.people_page.familyRequested.connect(self._family_requested)
         self.people_page.individualRequested.connect(self._individual_requested)
         self.details_page = PeopleDetailsPage(self.stack)
+        self.details_page.family_invoices_button.setEnabled(self.finance_enabled)
+        self.details_page.family_payments_button.setEnabled(self.finance_enabled)
         self.details_page.backRequested.connect(self._back_to_people)
         self.details_page.familyRequested.connect(self._family_requested)
         self.details_page.individualRequested.connect(self._individual_requested)
@@ -361,6 +372,7 @@ class NoethysQtWindow(QMainWindow):
                 lambda _checked=False, destination=code:
                 self.navigate(destination)
             )
+            button.setEnabled(self.finance_enabled)
             finance_quick.addWidget(button)
         finance_quick.addStretch(1)
         layout.addLayout(finance_quick)
