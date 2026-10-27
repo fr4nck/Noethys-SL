@@ -2,12 +2,12 @@
 
 ## C2 — calendrier des consommations Qt (27/10/2026)
 
-C2 sur qt, base e65a590 : synthèse SQL mensuelle complète, activité, sélection d'un jour, consultation des événements liés, maintien du filtre annuel C1 et du plafond de 300 résultats. Aucun code métier commun modifié, aucune migration de schéma ni base réelle. Tests SQLite fictifs et Qt hors écran ajoutés ; CI Windows à qualifier sur le SHA final. Consultez docs/dev/QT_CONSOMMATIONS_LOT2.md. Main f6f5ccd, wx a24e1dd : non modifiées, divergence interbranches toujours sous STOP-GATE pour publication. Prochaine étape : recette graphique Windows, contrôles MySQL réels sur environnement jetable, puis C3 transactionnel séparé.
+C2 sur qt, base e65a590 : synthèse SQL mensuelle complète, activité, sélection d'un jour, consultation des événements liés, maintien du filtre annuel C1 et du plafond de 300 résultats. Aucun code métier commun modifié, aucune migration de schéma ni base réelle. Tests SQLite fictifs et Qt hors écran ajoutés ; **CI Windows SUCCESS** sur 5914c75 (run 40508025972) : compilation PASS, 151 tests / 0 échec. UI Windows en situation réelle, DPI, MySQL et publication restent EN ATTENTE. Consultez docs/dev/QT_CONSOMMATIONS_LOT2.md. Main f6f5ccd, wx a24e1dd : non modifiées, divergence interbranches toujours sous STOP-GATE pour publication. Prochaine étape : recette graphique Windows, contrôles MySQL réels sur environnement jetable, puis C3 transactionnel séparé.
 
 
 ## Lot Qt C1 — consultation des consommations (27/10/2026)
 
-Première surface native en lecture seule, sans synchronisation globale depuis main/wx. Six états historiques + états inconnus/vides, filtres cliquables, recherche SQL paramétrée, limite 300, worker Qt, test SQLite fictif et contrôles hors écran. Voir [contrat et limites](QT_CONSOMMATIONS_LOT1.md). Aucune validation de production, de MySQL réel, de packaging ni de facture ; qualification GitHub du SHA final requise.
+Première surface native en lecture seule, sans synchronisation globale depuis main/wx. Six états historiques + états inconnus/vides, filtres cliquables, recherche SQL paramétrée, limite 300, worker Qt, test SQLite fictif et contrôles hors écran. Voir [contrat et limites](QT_CONSOMMATIONS_LOT1.md). La CI Windows du code C1 e65a590 (run 40505427492) a réussi : 129 tests, 0 échec. Aucune validation de production, de MySQL réel, de packaging ni de facture ; recette humaine EN ATTENTE.
 
 
 ## P1 #426 — audit RC7 renforcé et préparation de recette RC8.1 (21/10/2026)

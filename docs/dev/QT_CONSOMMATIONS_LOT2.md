@@ -14,8 +14,18 @@
 ## Tests et limites
 
 - Fixtures totalement fictives : SQL SQLite, bornes de mois/année, état inconnu, recherche et caractères SQL, filtre d'activité, événement réel associé, contrôle non-écriture, plus de 300 consommations un même jour, clics calendrier, retour au mode année et sélection.
-- CI cible : workflow « Qt prototype — Noethys » sur Windows / PySide6, compilation et unittest tests_qt.
+- **CI Windows validée** : workflow « Qt prototype — Noethys », run https://github.com/fr4nck/Noethys-SL/actions/runs/40508025972, sur commit fonctionnel 5914c75ca63f7d76190020d9d0cf3862acb9d189. Compilation Python PASS, 151 tests Qt (unittest), 0 échec / 0 erreur. Ce verdict qualifie le code de ce commit, pas une recette sur poste utilisateur ni un installateur.
 - Pas de comptage réglementaire des présences, ni de nombre de séances distinctes : GROUP BY date compte les lignes de consommations, pas des enfants distincts ni les événements.
 - Pas d'édition ni sauvegarde des consommations. Le prochain lot C3 devra qualifier les opérations de saisie transactionnelles sur copie isolée et la parité métier wx avant activation.
 - Garde de publication : tests hors écran ne remplacent pas une recette humaine Windows avec copie représentative, vérification DPI, performance MySQL et non-régression main/wx.
 - Source de travail : qt sur base e65a590 ; main f6f5ccd ; wx a24e1dd. Pas de merge global, ni de synchronisation de correctifs communs réalisée par ce lot.
+
+## Matrice de portage et preuve
+
+| Ligne | Classement C2 | Preuve |
+| --- | --- | --- |
+| main | NON APPLICABLE (interface Qt seulement) | HEAD contrôlé f6f5ccd, branche non modifiée |
+| wx | NON APPLICABLE (interface Qt seulement) | HEAD contrôlé a24e1dd, branche non modifiée |
+| qt | VALIDÉ techniquement en CI hors écran | Commit 5914c75, run 40508025972, 151 tests PASS |
+
+STOP-GATE : une recette Windows visuelle et une qualification des performances MySQL sur serveur jetable restent à réaliser, ainsi que la confrontation aux correctifs métier communs plus récents. Aucune release ni paquet Qt n'est qualifié.
