@@ -17,6 +17,10 @@ from contextlib import contextmanager
 
 ENVIRONNEMENT = "NOETHYS_SL_UI_DIAG"
 PERIODE_MS = 250
+PERIODE_VEILLE_S = 0.5
+# Threads de synchronisation Connecthys dont la position est utile pendant un
+# gel : un appel C qui conserve le GIL y bloquerait aussi le thread wx.
+THREADS_SYNCHRO = ("Noethys-Connecthys-synchro", "Noethys-Connecthys-manuel")
 OPERATIONS = frozenset((
     "demande.traitement",
     "demande.enregistrement",
@@ -120,7 +124,7 @@ class Diagnostic:
             "operation", "duree_ms", "sans_evenements_ms", "erreur_type",
             "retard_ms", "actif", "maximise", "largeur", "hauteur", "iconise",
             "wx_maximise", "win32_maximise", "win32_iconise", "premier_plan",
-            "point",
+            "point", "point_synchro", "veille_retard_ms",
         }
         evenement = {"evenement": type_evenement}
         if self.role is not None:
@@ -165,23 +169,46 @@ class Diagnostic:
             pass
         return "hors_noethys"
 
+    def _point_synchro(self):
+        """Position du thread de synchro Connecthys actif, sinon 'aucune'."""
+        try:
+            for thread in threading.enumerate():
+                if thread.name in THREADS_SYNCHRO and thread.is_alive():
+                    return self._point_thread(thread.ident)
+        except Exception:
+            pass
+        return "aucune"
+
     def _surveiller_blocages(self, ident):
         """Lecture des seules frames Python, hors wx et hors transactions SQL."""
         prochaine = 0.0
-        while not self._veille_stop.wait(0.5):
-            try:
-                maintenant = self.clock()
-                retard = maintenant - self._dernier_battement
-                if retard < 1.5:
-                    prochaine = 0.0
-                    continue
-                if maintenant < prochaine:
-                    continue
-                prochaine = maintenant + 5.0
-                self._emettre("blocage_thread", duree_ms=int(retard * 1000),
-                              point=self._point_thread(ident))
-            except Exception:
-                pass
+        attendu = self.clock() + PERIODE_VEILLE_S
+        while not self._veille_stop.wait(PERIODE_VEILLE_S):
+            prochaine = self._cycle_veille(ident, self.clock(), attendu, prochaine)
+            attendu = self.clock() + PERIODE_VEILLE_S
+
+    def _cycle_veille(self, ident, maintenant, attendu, prochaine):
+        """Un passage de la veille. Un reveil tres tardif de ce thread signale
+        que le GIL (ou le processus) etait monopolise : le gel ne vient alors
+        pas forcement du code execute par le thread wx."""
+        try:
+            veille_retard = max(0.0, maintenant - attendu)
+            if veille_retard >= 1.0:
+                self._emettre("veille_retardee",
+                              veille_retard_ms=int(veille_retard * 1000),
+                              point_synchro=self._point_synchro())
+            retard = maintenant - self._dernier_battement
+            if retard < 1.5:
+                return 0.0
+            if maintenant < prochaine:
+                return prochaine
+            self._emettre("blocage_thread", duree_ms=int(retard * 1000),
+                          point=self._point_thread(ident),
+                          point_synchro=self._point_synchro(),
+                          veille_retard_ms=int(veille_retard * 1000))
+            return maintenant + 5.0
+        except Exception:
+            return prochaine
 
     def _on_battement(self, event):
         instant = self.clock()

@@ -189,6 +189,47 @@ class DiagnosticTests(TestCase):
                                return_value={987: cadre}):
             self.assertEqual(d._point_thread(987), "hors_noethys")
 
+    def test_veille_retardee_distingue_famine_gil_et_localise_la_synchro(self):
+        from types import SimpleNamespace as NS
+        d = self.nouveau()
+        d._dernier_battement = 100.0
+        point_code = NS(co_filename=diag_module.__file__, co_name="Upload_data")
+        cadre = NS(f_code=point_code, f_lineno=77, f_back=None,
+                   f_locals={"mdp": "SECRET_JAMAIS_DANS_LE_LOG"})
+        synchro = NS(name="Noethys-Connecthys-synchro", ident=555,
+                     is_alive=lambda: True)
+        with mock.patch.object(diag_module.sys, "_current_frames",
+                               return_value={555: cadre}), \
+                mock.patch.object(diag_module.threading, "enumerate",
+                                  return_value=[synchro]):
+            prochaine = d._cycle_veille(987, maintenant=123.0, attendu=100.5,
+                                        prochaine=0.0)
+        self.assertEqual(prochaine, 128.0)
+        veille, blocage = self.logs[-2], self.logs[-1]
+        self.assertEqual(veille["evenement"], "veille_retardee")
+        self.assertEqual(veille["veille_retard_ms"], 22500)
+        self.assertEqual(veille["point_synchro"], "UTILS_Diagnostic_ui.py:Upload_data:77")
+        self.assertEqual(blocage["evenement"], "blocage_thread")
+        self.assertEqual(blocage["duree_ms"], 23000)
+        self.assertEqual(blocage["point"], "hors_noethys")
+        self.assertNotIn("SECRET", repr(self.logs))
+
+    def test_veille_ponctuelle_sans_synchro_ne_signale_rien(self):
+        d = self.nouveau()
+        d._dernier_battement = 100.0
+        avant = len(self.logs)
+        with mock.patch.object(diag_module.threading, "enumerate", return_value=[]):
+            self.assertEqual(d._cycle_veille(987, 100.6, 100.5, 0.0), 0.0)
+            self.assertEqual(d._point_synchro(), "aucune")
+        self.assertEqual(len(self.logs), avant)
+
+    def test_threads_synchro_nommes_pour_le_diagnostic(self):
+        racine = ROOT / "noethys"
+        serveur = (racine / "Ctrl" / "CTRL_Portail_serveur.py").read_text(encoding="utf-8")
+        manuel = (racine / "Dlg" / "DLG_Portail_config.py").read_text(encoding="utf-8")
+        self.assertIn('Thread.__init__(self, name="%s")' % diag_module.THREADS_SYNCHRO[0], serveur)
+        self.assertIn('name="%s"' % diag_module.THREADS_SYNCHRO[1], manuel)
+
     def test_timer_arrete_uniquement_a_la_destruction_de_la_fenetre(self):
         d = self.nouveau()
         d._on_destruction(Evenement(source=object()))

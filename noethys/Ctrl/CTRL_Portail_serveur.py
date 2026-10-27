@@ -103,7 +103,8 @@ def AppelerSurThreadUI(fonction, *args, **kwds):
 
 class Serveur(Thread):
     def __init__(self, parent):
-        Thread.__init__(self)
+        # Nom stable : le diagnostic UI (#432) localise ce thread pendant un gel.
+        Thread.__init__(self, name="Noethys-Connecthys-synchro")
         self.parent = parent
         self.start_synchro = False
         self.synchro_en_cours = False
