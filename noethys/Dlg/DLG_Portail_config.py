@@ -17,6 +17,7 @@ import wx.propgrid as wxpg
 import copy
 import random
 import time
+import threading
 import datetime
 import codecs
 import os.path
@@ -2240,31 +2241,97 @@ class Synchro():
         return synchro.ConnectEtTelechargeFichier(nomFichier=nomFichier, repFichier=repFichier)
 
     def Start(self, full_synchro=False):
+        """Synchronisation manuelle hors boucle graphique, sous dialogue modal.
+
+        Connexions et traitements restent dans un unique thread de travail ;
+        les messages et la jauge ne sont modifies que par le thread wx.
+        """
+        if not wx.IsMainThread():
+            raise RuntimeError("Synchronisation manuelle hors du thread wx")
         from Utils import UTILS_Portail_synchro
-        synchro = UTILS_Portail_synchro.Synchro(dict_parametres=self.dict_parametres, log=self)
+        self._erreur_synchro = None
+        self._resultat_synchro = None
+        self._synchro_terminee = False
+        self.dlgprogress = wx.Dialog(
+            self.parent, title=_(u"Synchronisation en cours - Veuillez patienter..."),
+            style=wx.DEFAULT_DIALOG_STYLE & ~wx.CLOSE_BOX)
+        boite = wx.BoxSizer(wx.VERTICAL)
+        self._message_progression = wx.StaticText(
+            self.dlgprogress, label=_(u"Lancement de la synchronisation..."))
+        boite.Add(self._message_progression, 0, wx.ALL | wx.EXPAND, 15)
+        self._jauge_progression = wx.Gauge(self.dlgprogress, range=100, size=(360, -1))
+        boite.Add(self._jauge_progression, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 15)
+        self.dlgprogress.SetSizerAndFit(boite)
+        self.dlgprogress.CentreOnParent()
+        self.dlgprogress.Bind(wx.EVT_CLOSE, self._refuser_fermeture_progression)
+        self.dlgprogress.Bind(wx.EVT_CHAR_HOOK, self._refuser_echap_progression)
 
-        # Ouverture de la dlg de progress
-        self.dlgprogress = wx.ProgressDialog(_(u"Synchronisation en cours - Veuillez patienter..."), _(u"Lancement de la synchronisation..."), maximum=100, parent=None, style= wx.PD_SMOOTH | wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+        def effectuer():
+            try:
+                synchro = UTILS_Portail_synchro.Synchro(
+                    dict_parametres=self.dict_parametres, log=self)
+                self._resultat_synchro = synchro.Synchro_totale(full_synchro=full_synchro)
+            except BaseException as erreur:
+                self._erreur_synchro = erreur
+            finally:
+                wx.CallAfter(self._terminer_progression)
 
-        # Lancement de la synchro
-        synchro.Synchro_totale(full_synchro=full_synchro)
+        self._thread_synchro = threading.Thread(
+            target=effectuer, name="Noethys-Connecthys-manuel", daemon=False)
+        try:
+            self._thread_synchro.start()
+            self.dlgprogress.ShowModal()
+            if not self._synchro_terminee:
+                raise RuntimeError("Synchronisation interrompue avant sa fin")
+            self._thread_synchro.join(timeout=0.05)
+            if self._erreur_synchro is not None:
+                raise self._erreur_synchro
+            return self._resultat_synchro
+        finally:
+            self.dlgprogress.Destroy()
+            self.dlgprogress = None
 
-        self.dlgprogress.Destroy()
+    def _refuser_fermeture_progression(self, event):
+        if not self._synchro_terminee and event.CanVeto():
+            event.Veto()
+        else:
+            event.Skip()
 
-    def EcritLog(self, texte=""):
+    def _refuser_echap_progression(self, event):
+        if event.GetKeyCode() != wx.WXK_ESCAPE:
+            event.Skip()
+
+    def _terminer_progression(self):
+        self._synchro_terminee = True
+        if self.dlgprogress is not None and self.dlgprogress.IsModal():
+            self.dlgprogress.EndModal(wx.ID_OK)
+
+    def _ecrire_log_ui(self, texte):
         self.texte_etape = texte
         self.parent.EcritLog(texte)
         self.Update_gauge()
 
+    def EcritLog(self, texte=""):
+        if wx.IsMainThread():
+            self._ecrire_log_ui(texte)
+        else:
+            wx.CallAfter(self._ecrire_log_ui, texte)
+
     def SetGauge(self, num=None):
         self.num_etape = num
-        self.Update_gauge()
+        if wx.IsMainThread():
+            self.Update_gauge()
+        else:
+            wx.CallAfter(self.Update_gauge)
 
     def Update_gauge(self):
-        try :
-            keepGoing, skip = self.dlgprogress.Update(self.num_etape, self.texte_etape)
-        except :
-            pass
+        """Aucun appel wx depuis le travail de synchronisation."""
+        if not wx.IsMainThread():
+            raise RuntimeError("Progression Connecthys hors du thread wx")
+        if getattr(self, "dlgprogress", None) is None:
+            return
+        self._jauge_progression.SetValue(max(0, min(100, int(self.num_etape or 0))))
+        self._message_progression.SetLabel(str(self.texte_etape))
 
 
 if __name__ == u"__main__":
