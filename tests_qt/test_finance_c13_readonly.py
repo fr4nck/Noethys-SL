@@ -338,6 +338,18 @@ class C13NativeFinancialPagesTests(unittest.TestCase):
         self.assertIs(self.window.stack.currentWidget(), hub)
         self.assertEqual(hub.current_page.kind, "deposits")
 
+    def test_global_module_after_drilldown_reopens_primary_list(self):
+        self.window.navigate("billing")
+        hub = self.window.finance_pages["billing"]
+        hub.pages["invoices"].table.selectRow(0)
+        hub.pages["invoices"].related_button.click()
+        self.assertEqual(hub.current_page.kind, "services")
+        self.window.navigate("home")
+        self.window.navigate("billing")
+        self.assertEqual(hub.current_page.kind, "invoices")
+        self.assertEqual(hub.current_page.model.rowCount(), 4)
+        self.assertIsNone(hub.current_page._related_id)
+
     def test_direct_global_module_navigation_clears_family_context(self):
         self._family(100).family_invoices_button.click()
         self.assertEqual(

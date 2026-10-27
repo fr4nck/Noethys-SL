@@ -220,6 +220,10 @@ class FinanceTablePage(QWidget):
             "services", "allocations", "payments"
         ):
             raise ValueError("Ce domaine n'accepte pas ce lien")
+        changed = (
+            self._family_id != family_id or self._related_id != related_id
+            or bool(self.search_edit.text()) or self.year_spin.value() != 0
+        )
         blockers = [
             QSignalBlocker(self.search_edit), QSignalBlocker(self.year_spin)
         ]
@@ -244,7 +248,7 @@ class FinanceTablePage(QWidget):
             " · ".join(context) + " · lecture seule" if context
             else "Tous les dossiers · lecture seule"
         )
-        if self._loaded:
+        if self._loaded and changed:
             self.refresh()
 
     def clear_context(self):
@@ -393,6 +397,9 @@ class FinanceHubPage(QWidget):
         self._family_id = family_id
         for page in self.pages.values():
             page.set_context(family_id=family_id)
+        # Une entrée globale ou famille repart toujours de la liste
+        # primaire, pas d'un ancien détail de prestations/ventilation.
+        self.tabs.setCurrentIndex(0)
 
     def focus_related(self, kind, related_id, *, family_id=None):
         if kind not in self.pages:
