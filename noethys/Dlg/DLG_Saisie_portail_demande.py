@@ -707,11 +707,13 @@ class Dialog(wx.Dialog):
 
     def _SignalerReconciliation(self):
         dlg = wx.MessageDialog(
-            self, _(u"L'état durable des réservations est incertain. Une tentative a pu "
-                    u"appliquer tout ou partie des modifications.\n\n"
-                    u"Retraitement, validation et envoi d'emails bloqués. Faites réconcilier "
-                    u"la demande avec les consommations et les confirmations déjà acceptées "
-                    u"avant toute reprise, même après réouverture."),
+            self, _(u"Cette demande nécessite une vérification : une tentative a "
+                    u"pu enregistrer une partie des réservations.\n\n"
+                    u"Vous pouvez consulter les autres demandes sans modifier celle-ci. "
+                    u"Pour arbitrer, cliquez sur Traitement manuel : vérifiez et corrigez "
+                    u"les seules différences dans la grille existante. "
+                    u"Ne rejouez pas automatiquement la demande. "
+                    u"Les emails déjà acceptés ne seront pas renvoyés automatiquement."),
             _(u"Réconciliation requise"), wx.OK | wx.ICON_ERROR)
         try:
             dlg.ShowModal()
@@ -754,6 +756,82 @@ class Dialog(wx.Dialog):
             return True
         finally:
             self._finalisation_en_cours = False
+
+    def _ReprendreReservationsManuellement(self):
+        """Arbitrage explicite, sans rejouer les choix portail ni les emails.
+
+        Seule une validation humaine de la grille durable peut relancer la
+        finalisation. Les marqueurs absents/corrompus restent en STOP.
+        """
+        from Dlg import DLG_Portail_reservations
+        try:
+            jeton, etat_sql = UTILS_Portail_reconciliation.LireReprise(
+                self.track.IDaction)
+        except Exception:
+            self._SignalerReconciliation()
+            return False
+
+        if etat_sql == 'validation':
+            # Un commit de validation a déjà eu lieu. Ne jamais refaire
+            # Save_grille : seul un marqueur de fin resté en base est à lever.
+            dlg = wx.MessageDialog(
+                self,
+                _(u"Cette demande est déjà VALIDÉE en base. Les consommations "
+                  u"ne seront pas réenregistrées et aucun email ne sera envoyé."
+                  u"\n\nVoulez-vous simplement confirmer la fin de cette "
+                  u"réconciliation ?"),
+                _(u"Finalisation déjà enregistrée"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING)
+            try:
+                accord = dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+            if accord != wx.ID_YES:
+                return False
+            try:
+                nouveau_jeton, nouvel_etat = UTILS_Portail_reconciliation.LireReprise(
+                    self.track.IDaction)
+                if (nouveau_jeton, nouvel_etat) != (jeton, 'validation'):
+                    raise RuntimeError('Etat de la demande modifié sur un autre poste')
+                UTILS_Portail_reconciliation.Terminer(self.track.IDaction, jeton)
+                self.track.Refresh()
+                return True
+            except Exception:
+                self._SignalerReconciliation()
+                return False
+
+        # La demande est encore en attente en SQL. La grille manuelle est
+        # chargée depuis l'état enregistré ; le bouton Appliquer est désactivé.
+        traitement = Traitement(parent=self, track=self.track, mode='manuel')
+        dlg = DLG_Portail_reservations.Dialog(
+            traitement, track=self.track, reconciliation=True)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            try:
+                nouveau_jeton, nouvel_etat = UTILS_Portail_reconciliation.LireReprise(
+                    self.track.IDaction)
+                if (nouveau_jeton, nouvel_etat) != (jeton, 'attente'):
+                    raise RuntimeError('Etat de la demande modifié sur un autre poste')
+                if traitement.Save_grille(dlg.ctrl_grille) is False:
+                    raise RuntimeError('Sauvegarde de la grille refusée')
+            except Exception:
+                self._SignalerReconciliation()
+                return False
+        finally:
+            dlg.Destroy()
+
+        # Save_grille a déjà terminé. Un échec de la validation SQL ne doit
+        # jamais repasser par le traitement des réservations ni les emails.
+        self._finalisation_en_attente = {
+            'IDaction': self.track.IDaction,
+            'etat': 'validation',
+            'reponse': (self.ctrl_reponse.GetValue() or
+                        _(u"Réservations vérifiées et arbitrées manuellement.")),
+            'traitement_date': datetime.date.today(),
+            'jeton_reservations': jeton,
+        }
+        return self._FinaliserTraitementEnAttente()
 
     def Sauvegarde(self):
         if getattr(self, "_traitement_en_cours", False) and getattr(self, "_finalisation_en_attente", None) is None:
@@ -1195,6 +1273,19 @@ class Dialog(wx.Dialog):
             # Ne pas reexecuter la sauvegarde des consommations deja tentee.
             with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
                 return self._FinaliserTraitementEnAttente()
+        if (mode == 'manuel' and
+                getattr(self.track, 'categorie', None) == 'reservations'):
+            try:
+                marqueur = UTILS_Portail_reconciliation.EnAttente(self.track.IDaction)
+            except Exception:
+                self._SignalerReconciliation()
+                return False
+            if marqueur:
+                reprise = getattr(self, '_ReprendreReservationsManuellement', None)
+                if reprise is None:  # double de tests sans contrôle graphique
+                    self._SignalerReconciliation()
+                    return False
+                return reprise()
         if getattr(self.track, "etat", None) in ("validation", "valide"):
             return False
 
