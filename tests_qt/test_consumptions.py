@@ -5,6 +5,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest import mock
 
@@ -21,7 +22,7 @@ class ConsumptionSqlTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "fictive_DATA.dat"
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.executescript("""
                 CREATE TABLE individus (IDindividu INTEGER PRIMARY KEY, nom TEXT, prenom TEXT);
                 CREATE TABLE activites (IDactivite INTEGER PRIMARY KEY, nom TEXT);
@@ -132,10 +133,10 @@ class ConsumptionSqlTests(unittest.TestCase):
             build_statement(year=2026, states=ALL_STATES, limit=50000)
 
     def test_sqlite_database_remains_unchanged(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             before = list(db.iterdump())
         self.repository.search(year=2026, states={OTHER}, text="Durand")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             after = list(db.iterdump())
         self.assertEqual(before, after)
 
