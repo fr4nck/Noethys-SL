@@ -253,3 +253,124 @@ def decision_quantite(case, IDinscription, etat_cible):
         return 'requalifier'
     raise ArbitrageManuelRequis(
         'Quantite déjà en état %s : arbitrage nécessaire.' % etat)
+
+
+def planifier_sur_grille(reservations, unites, grille, IDactivite):
+    """Prévol lecture seule des demandes sur la grille de l'enfant.
+
+    Aucune écriture : ambiguïtés, ancien pointage, rattachement inconnu
+    ou ancien montant ne sont jamais inférés comme une place libre.
+    Retour : (demandes conservées, décisions journalisables).
+    """
+    from collections import defaultdict
+    par_role = defaultdict(set)
+    for unite in unites.values():
+        if unite.get('IDactivite') != IDactivite:
+            continue
+        nom_role = role(unite)
+        if nom_role in PERIODS:
+            par_role[nom_role].update(
+                unite.get('unites_principales', ()))
+            par_role[nom_role].update(
+                unite.get('unites_secondaires', ()))
+
+    demandes_periodes = [
+        r for r in reservations
+        if r['etat'] == 1 and role(unites[r['IDunite']]) in PERIODS
+    ]
+    if demandes_periodes:
+        for x in PERIODS:
+            for y in PERIODS:
+                if x < y and par_role[x] & par_role[y]:
+                    raise ArbitrageManuelRequis(
+                        'Unité physique commune aux formules %s et %s : vérification manuelle.' % (x, y))
+
+    def lire_etat(demande, nom_role):
+        etats = []
+        ids = par_role[nom_role]
+        for IDunite in sorted(ids):
+            case = grille.GetCase(IDunite, demande['date'])
+            if case is None:
+                continue
+            conso_liste = [c for c in case.GetListeConso()
+                          if c is not None and getattr(c, 'etat', None) is not None]
+            if getattr(case, 'etat', None) is not None and not conso_liste:
+                raise ArbitrageManuelRequis('Case déjà remplie mais origine illisible.')
+            for c in conso_liste:
+                if getattr(c, 'IDinscription', None) != demande['IDinscription']:
+                    raise ArbitrageManuelRequis('Consommation d’une autre inscription.')
+                if (getattr(case, 'IDfacture', None) is not None or
+                        getattr(case, 'verrouillage', 0) or
+                        getattr(c, 'IDfacture', None) is not None or
+                        getattr(c, 'verrouillage', 0)):
+                    raise ArbitrageManuelRequis('Consommation facturée ou verrouillée.')
+                etats.append(c.etat)
+        if not etats:
+            return None
+        if len(etats) != len(ids) or len(set(etats)) != 1:
+            raise ArbitrageManuelRequis('Consommations partielles ou contradictoires.')
+        return etats[0]
+
+    def place_disponible(demande):
+        config = unites[demande['IDunite']]
+        physiques = (list(config.get('unites_principales', ())) +
+                     list(config.get('unites_secondaires', ())))
+        if not physiques:
+            return None
+        for IDunite in physiques:
+            if (grille.GetCase(IDunite, demande['date']) is None or
+                    not grille.IsOuvert(IDunite=IDunite, date=demande['date'])):
+                return False
+            place = grille.HasPlacesDisponibles(
+                IDunite=IDunite, date=demande['date'])
+            if place is None:
+                return None
+            if not place:
+                return False
+        return True
+
+    if demandes_periodes:
+        retenues, decisions = planifier_priorites(
+            reservations, unites, lire_etat, place_disponible)
+    else:
+        retenues, decisions = ([dict(r) for r in reservations], [])
+
+    # Le sous-parcours Quantite ne doit jamais augmenter la même case
+    # à chaque nouveau passage ni écraser une quantité légitime de 2.
+    types = getattr(getattr(grille, 'grille', None), 'dictUnites', {})
+    deja_vues = set()
+    cible = []
+    for demande in retenues:
+        if demande['etat'] != 1:
+            cible.append(demande)
+            continue
+        unite = unites[demande['IDunite']]
+        physiques = (list(unite.get('unites_principales', ())) +
+                     list(unite.get('unites_secondaires', ())))
+        quantites = [i for i in physiques if types.get(i, {}).get('type') == 'Quantite']
+        if not quantites:
+            cible.append(demande)
+            continue
+        if len(physiques) != len(quantites) or len(set(quantites)) != len(quantites):
+            raise ArbitrageManuelRequis(
+                'Formule combinant Quantite et unités incompatibles.')
+        signature = (demande['date'], demande['IDinscription'],
+                     tuple(sorted(quantites)))
+        if signature in deja_vues:
+            decisions.append(('quantite_demande_repetee', signature[:2]))
+            continue
+        deja_vues.add(signature)
+        choix = []
+        for IDunite in quantites:
+            decision = decision_quantite(
+                grille.GetCase(IDunite, demande['date']),
+                demande['IDinscription'], 'reservation')
+            choix.append(decision)
+        if all(x == 'existant' for x in choix):
+            decisions.append(('quantite_deja_presente', signature[:2]))
+            continue
+        if len(set(choix)) > 1:
+            raise ArbitrageManuelRequis(
+                'Unités Quantite partiellement enregistrées : reprise manuelle.')
+        cible.append(demande)
+    return cible, decisions
