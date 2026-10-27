@@ -111,6 +111,7 @@ def executer(cas):
     finally:
         if p.poll() is None:
             p.kill()
+        p.stdout.close()
     evenements = []
     for ligne in lignes:
         if ligne.startswith("NOETHYS_UI_DIAG "):
