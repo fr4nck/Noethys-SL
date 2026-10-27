@@ -1,4 +1,9 @@
-# Reprise du chantier Noethys-SL — état au 14/10/2026
+# Reprise du chantier Noethys-SL — état au 27/10/2026
+
+## Lot Qt C1 — consultation des consommations (27/10/2026)
+
+Première surface native en lecture seule, sans synchronisation globale depuis main/wx. Six états historiques + états inconnus/vides, filtres cliquables, recherche SQL paramétrée, limite 300, worker Qt, test SQLite fictif et contrôles hors écran. Voir [contrat et limites](QT_CONSOMMATIONS_LOT1.md). Aucune validation de production, de MySQL réel, de packaging ni de facture ; qualification GitHub du SHA final requise.
+
 
 ## P1 #426 — audit RC7 renforcé et préparation de recette RC8.1 (21/10/2026)
 

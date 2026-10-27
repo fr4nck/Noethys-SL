@@ -36,6 +36,8 @@ from .activity_editor import NativeActivityEditorRepository
 from .activity_visuals import apply_activity_visuals, apply_semantic_theme
 from .people_search import PeopleSearchPage, PeopleSearchRepository, PersonRow
 from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepository
+from .consumptions_core import ConsumptionRepository
+from .consumptions_ui import ConsumptionPage
 
 
 class _DetailSignals(QObject):
@@ -71,7 +73,7 @@ NAVIGATION = (
     ("home", "Accueil", True),
     ("people", "Individus / Familles", True),
     ("activities", "Activités", True),
-    ("consumptions", "Consommations", False),
+    ("consumptions", "Consommations", True),
     ("billing", "Facturation", False),
     ("payments", "Règlements", False),
     ("accounting", "Comptabilité", False),
@@ -93,6 +95,7 @@ class NoethysQtWindow(QMainWindow):
         super().__init__()
         self.people_repository = people_repository
         self.details_repository = PeopleDetailsRepository(people_repository)
+        self.consumptions_repository = ConsumptionRepository(people_repository.editor_repository)
         self._detail_request = 0
         self._detail_workers: dict[int, _DetailWorker] = {}
         self._current_detail: tuple[str, int] | None = None
@@ -196,6 +199,8 @@ class NoethysQtWindow(QMainWindow):
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
         self.stack.addWidget(self.details_page)
+        self.consumptions_page = ConsumptionPage(self.consumptions_repository, self.stack, background=True)
+        self.stack.addWidget(self.consumptions_page)
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(root)
         self.navigation.setCurrentRow(0)
@@ -232,8 +237,8 @@ class NoethysQtWindow(QMainWindow):
         layout.addLayout(quick)
 
         migration = QLabel(
-            "Disponible en Qt : recherche Individus/Familles et module Activités.\n"
-            "Prochains P0 : fiches Famille/Individu puis gestionnaire des consommations.",
+            "Disponible en Qt : Individus/Familles, Activités et consultation des consommations.\n"
+            "À venir : saisie des consommations, facturation et règlements.",
             page,
         )
         migration.setWordWrap(True)
@@ -274,6 +279,9 @@ class NoethysQtWindow(QMainWindow):
             self._back_to_people()
         elif code == "activities":
             self.open_activities()
+        elif code == "consumptions":
+            self.stack.setCurrentWidget(self.consumptions_page)
+            self.consumptions_page.activate()
 
     def navigate(self, code: str) -> None:
         for row in range(self.navigation.count()):
@@ -284,6 +292,8 @@ class NoethysQtWindow(QMainWindow):
                     self._back_to_people()
                 if code == "activities":
                     self.open_activities()
+                if code == "consumptions":
+                    self.consumptions_page.activate()
                 return
 
     def focus_people_search(self) -> None:
@@ -294,6 +304,8 @@ class NoethysQtWindow(QMainWindow):
         if self.stack.currentWidget() is self.people_page:
             self.people_page.search_now()
             self.statusBar().showMessage("Recherche actualisée", 2500)
+        elif self.stack.currentWidget() is self.consumptions_page:
+            self.consumptions_page.refresh()
         elif self.stack.currentWidget() is self.details_page and self._current_detail:
             kind, entity_id = self._current_detail
             self._open_detail(kind, entity_id)

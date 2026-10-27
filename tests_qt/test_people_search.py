@@ -138,8 +138,8 @@ class PeopleSearchTests(unittest.TestCase):
         window.people_page.search_edit.setText("Dupont")
         window.people_page.search_now()
         self._wait_until(lambda: window.people_page.model.rowCount() == 2)
-        pending = window.navigation.item(3)
-        self.assertFalse(bool(pending.flags() & Qt.ItemFlag.ItemIsEnabled))
+        consumptions = window.navigation.item(3)
+        self.assertTrue(bool(consumptions.flags() & Qt.ItemFlag.ItemIsEnabled))
 
 
     def test_multifamily_requires_an_explicit_choice(self) -> None:
