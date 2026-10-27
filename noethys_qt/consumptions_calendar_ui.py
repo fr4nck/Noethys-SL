@@ -64,6 +64,8 @@ class ConsumptionCalendarPage(QWidget):
         self._month_worker = None
         self._activity_worker = None
         self._activity_loaded = False
+        self._record_individual_id: int | None = None
+        self._record_inscription_id: int | None = None
         self._date_counts: tuple[DayCount, ...] = ()
         self._marked_dates: set[QDate] = set()
 
@@ -86,6 +88,15 @@ class ConsumptionCalendarPage(QWidget):
         self.activity_combo.setAccessibleName("Filtrer les consommations par activité")
         self.activity_combo.addItem("Toutes les activités", None)
         controls.addWidget(self.activity_combo)
+
+        self.record_filter_label = QLabel("", left)
+        self.record_filter_label.setObjectName("recordFilterLabel")
+        self.record_filter_label.setWordWrap(True)
+        self.record_filter_label.hide()
+        controls.addWidget(self.record_filter_label)
+        self.clear_record_button = QPushButton("Retirer le filtre de fiche", left)
+        self.clear_record_button.hide()
+        controls.addWidget(self.clear_record_button)
 
         self.calendar = QCalendarWidget(left)
         self.calendar.setObjectName("consumptionsCalendar")
@@ -139,6 +150,7 @@ class ConsumptionCalendarPage(QWidget):
         right_layout.addWidget(self.preparation_panel)
         root.addWidget(right, 1)
 
+        self.clear_record_button.clicked.connect(self.clear_record_context)
         self.activity_combo.currentIndexChanged.connect(self.refresh)
         self.calendar.selectionChanged.connect(self._day_changed)
         self.calendar.currentPageChanged.connect(self._page_changed)
@@ -169,7 +181,37 @@ class ConsumptionCalendarPage(QWidget):
         return date
 
     def _extra_filters(self) -> dict:
-        return {"activity_id": self.selected_activity_id, "day": self.selected_day}
+        return {
+            "activity_id": self.selected_activity_id,
+            "individual_id": self._record_individual_id,
+            "inscription_id": self._record_inscription_id,
+            "day": self.selected_day,
+        }
+
+    def focus_record(self, *, individual_id: int | None = None,
+                     inscription_id: int | None = None) -> None:
+        """Filtre exact par identifiants Noethys, jamais par nom approché."""
+        for value in (individual_id, inscription_id):
+            if value is not None and (
+                not isinstance(value, int) or isinstance(value, bool) or value <= 0
+            ):
+                raise ValueError("Identifiant de fiche invalide")
+        self._record_individual_id = individual_id
+        self._record_inscription_id = inscription_id
+        parts = []
+        if individual_id is not None:
+            parts.append(f"Individu #{individual_id}")
+        if inscription_id is not None:
+            parts.append(f"Inscription #{inscription_id}")
+        self.record_filter_label.setText(" · ".join(parts))
+        self.record_filter_label.setVisible(bool(parts))
+        self.clear_record_button.setVisible(bool(parts))
+        self.only_day.setChecked(False)
+        if self._loaded:
+            self.refresh()
+
+    def clear_record_context(self) -> None:
+        self.focus_record()
 
     def activate(self) -> None:
         if not self._loaded:
@@ -294,6 +336,8 @@ class ConsumptionCalendarPage(QWidget):
             "month": self.calendar.monthShown(),
             "states": states,
             "activity_id": self.selected_activity_id,
+            "individual_id": self._record_individual_id,
+            "inscription_id": self._record_inscription_id,
             "text": self.list_page.search_edit.text().strip(),
         }
         self.month_summary.setText("Calcul du mois…")

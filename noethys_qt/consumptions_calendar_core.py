@@ -21,7 +21,8 @@ class DayCount:
 
 def build_month_statement(
     *, year: int, month: int, states: Iterable[str] = ALL_STATES,
-    activity_id: int | None = None, text: str = "", placeholder: str = "?",
+    activity_id: int | None = None, individual_id: int | None = None,
+    inscription_id: int | None = None, text: str = "", placeholder: str = "?",
 ) -> tuple[str, tuple[object, ...]]:
     """COUNT(*) groupé par date avec les mêmes filtres que la liste annuelle."""
     if not isinstance(year, int) or not 1900 <= year <= 2098:
@@ -34,6 +35,11 @@ def build_month_statement(
         not isinstance(activity_id, int) or isinstance(activity_id, bool) or activity_id <= 0
     ):
         raise ValueError("Identifiant d'activité invalide.")
+    for name, value in (("individu", individual_id), ("inscription", inscription_id)):
+        if value is not None and (
+            not isinstance(value, int) or isinstance(value, bool) or value <= 0
+        ):
+            raise ValueError(f"Identifiant {name} invalide.")
     chosen = set(states)
     if not chosen or not chosen <= ALL_STATES:
         raise ValueError("Sélection d'états invalide.")
@@ -61,6 +67,12 @@ def build_month_statement(
     if activity_id is not None:
         conditions.append(f"c.IDactivite = {placeholder}")
         values.append(activity_id)
+    if individual_id is not None:
+        conditions.append(f"c.IDindividu = {placeholder}")
+        values.append(individual_id)
+    if inscription_id is not None:
+        conditions.append(f"c.IDinscription = {placeholder}")
+        values.append(inscription_id)
 
     query = text.strip()
     joins = ""
@@ -115,7 +127,8 @@ class ConsumptionCalendarRepository:
 
     def month_counts(
         self, *, year: int, month: int, states: Iterable[str] = ALL_STATES,
-        activity_id: int | None = None, text: str = "",
+        activity_id: int | None = None, individual_id: int | None = None,
+        inscription_id: int | None = None, text: str = "",
     ) -> tuple[DayCount, ...]:
         chosen = frozenset(states)
         if not chosen:
@@ -126,7 +139,8 @@ class ConsumptionCalendarRepository:
                 connection.execute("PRAGMA query_only = ON")
             sql, params = build_month_statement(
                 year=year, month=month, states=chosen,
-                activity_id=activity_id, text=text, placeholder=placeholder,
+                activity_id=activity_id, individual_id=individual_id,
+                inscription_id=inscription_id, text=text, placeholder=placeholder,
             )
             cursor = connection.cursor()
             try:

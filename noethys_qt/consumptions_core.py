@@ -100,6 +100,8 @@ def build_statement(
     states: Iterable[str],
     text: str = "",
     activity_id: int | None = None,
+    individual_id: int | None = None,
+    inscription_id: int | None = None,
     day: dt.date | None = None,
     limit: int = MAX_RESULTS,
     placeholder: str = "?",
@@ -118,6 +120,11 @@ def build_statement(
         raise ValueError("Aucun état sélectionné.")
     if activity_id is not None and (not isinstance(activity_id, int) or activity_id <= 0):
         raise ValueError("Identifiant d'activité invalide.")
+    for name, value in (("individu", individual_id), ("inscription", inscription_id)):
+        if value is not None and (
+            not isinstance(value, int) or isinstance(value, bool) or value <= 0
+        ):
+            raise ValueError(f"Identifiant {name} invalide.")
     if day is not None and (
         not isinstance(day, dt.date) or isinstance(day, dt.datetime) or day.year != year
     ):
@@ -148,6 +155,12 @@ def build_statement(
     if activity_id is not None:
         conditions.append(f"c.IDactivite = {placeholder}")
         values.append(activity_id)
+    if individual_id is not None:
+        conditions.append(f"c.IDindividu = {placeholder}")
+        values.append(individual_id)
+    if inscription_id is not None:
+        conditions.append(f"c.IDinscription = {placeholder}")
+        values.append(inscription_id)
 
     query = text.strip()
     if query:
@@ -211,6 +224,8 @@ class ConsumptionRepository:
         states: Iterable[str] = ALL_STATES,
         text: str = "",
         activity_id: int | None = None,
+        individual_id: int | None = None,
+        inscription_id: int | None = None,
         day: dt.date | None = None,
         limit: int = MAX_RESULTS,
     ) -> ConsumptionResult:
@@ -225,7 +240,8 @@ class ConsumptionRepository:
                 connection.execute("PRAGMA query_only = ON")
             sql, params = build_statement(
                 year=year, states=chosen, text=text,
-                activity_id=activity_id, day=day,
+                activity_id=activity_id, individual_id=individual_id,
+                inscription_id=inscription_id, day=day,
                 limit=limit, placeholder=placeholder,
             )
             cursor = connection.cursor()

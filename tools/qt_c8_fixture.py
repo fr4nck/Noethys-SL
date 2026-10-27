@@ -45,9 +45,26 @@ class C8FictiveDatabase:
             db.executescript("""
                 CREATE TABLE c8_marker (token TEXT PRIMARY KEY);
                 CREATE TABLE individus (
-                    IDindividu INTEGER PRIMARY KEY, nom TEXT NOT NULL, prenom TEXT NOT NULL
+                    IDindividu INTEGER PRIMARY KEY, nom TEXT NOT NULL, prenom TEXT NOT NULL,
+                    date_naiss TEXT, adresse_auto INTEGER, rue_resid TEXT, cp_resid TEXT,
+                    ville_resid TEXT, tel_domicile TEXT, tel_mobile TEXT,
+                    travail_tel TEXT, mail TEXT, travail_mail TEXT,
+                    profession TEXT, employeur TEXT, etat TEXT
                 );
-                CREATE TABLE activites (IDactivite INTEGER PRIMARY KEY, nom TEXT);
+                CREATE TABLE familles (IDfamille INTEGER PRIMARY KEY, etat TEXT);
+                CREATE TABLE rattachements (
+                    IDrattachement INTEGER PRIMARY KEY,
+                    IDindividu INTEGER, IDfamille INTEGER, IDcategorie INTEGER, titulaire INTEGER
+                );
+                CREATE TABLE activites (
+                    IDactivite INTEGER PRIMARY KEY, nom TEXT, abrege TEXT,
+                    date_debut TEXT, date_fin TEXT
+                );
+                CREATE TABLE inscriptions (
+                    IDinscription INTEGER PRIMARY KEY, IDindividu INTEGER, IDfamille INTEGER,
+                    IDactivite INTEGER, IDgroupe INTEGER, IDcategorie_tarif INTEGER,
+                    date_inscription TEXT, date_desinscription TEXT, statut TEXT
+                );
                 CREATE TABLE unites (IDunite INTEGER PRIMARY KEY, nom TEXT);
                 CREATE TABLE groupes (IDgroupe INTEGER PRIMARY KEY, nom TEXT);
                 CREATE TABLE evenements (IDevenement INTEGER PRIMARY KEY, nom TEXT);
@@ -69,14 +86,26 @@ class C8FictiveDatabase:
                     heure_debut TEXT, heure_fin TEXT,
                     verrouillage INTEGER, forfait INTEGER
                 );
-                INSERT INTO individus VALUES
-                    (10, 'Exemple', 'Camille'),
-                    (11, 'Fictif', 'Morgan'),
-                    (12, 'Démonstration', 'Alex'),
-                    (13, 'Test', 'Sacha');
+                INSERT INTO individus (IDindividu, nom, prenom, date_naiss, adresse_auto,
+                                       rue_resid, cp_resid, ville_resid, mail) VALUES
+                    (10, 'Exemple', 'Camille', '1986-04-12', NULL, '1 rue Fictive', '35000', 'Rennes', 'camille@example.invalid'),
+                    (11, 'Fictif', 'Morgan', '1987-05-23', NULL, '2 rue Fictive', '35000', 'Rennes', 'morgan@example.invalid'),
+                    (12, 'Démonstration', 'Alex', '2014-06-01', 10, NULL, NULL, NULL, NULL),
+                    (13, 'Test', 'Sacha', '2015-03-07', 11, NULL, NULL, NULL, NULL);
+                INSERT INTO familles VALUES (100, NULL), (101, NULL);
+                INSERT INTO rattachements VALUES
+                    (1, 10, 100, 1, 1),
+                    (2, 12, 100, 2, 0),
+                    (3, 11, 101, 1, 1),
+                    (4, 13, 101, 2, 0);
                 INSERT INTO activites VALUES
-                    (1, 'Sport scolaire fictif'),
-                    (2, 'Loisirs et ateliers fictifs');
+                    (1, 'Sport scolaire fictif', 'SPORT', '2026-09-01', '2027-08-31'),
+                    (2, 'Loisirs et ateliers fictifs', 'ATEL', '2026-09-01', '2027-08-31');
+                INSERT INTO inscriptions VALUES
+                    (501, 10, 100, 1, 21, 1, '2026-09-02', NULL, 'ok'),
+                    (502, 11, 101, 2, 22, 1, '2026-09-03', NULL, 'ok'),
+                    (503, 12, 100, 1, 21, 1, '2026-09-04', NULL, 'ok'),
+                    (504, 13, 101, 2, 22, 1, '2026-09-05', NULL, 'ok');
                 INSERT INTO unites VALUES
                     (11, 'Matinée'), (12, 'Après-midi');
                 INSERT INTO groupes VALUES
