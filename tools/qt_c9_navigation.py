@@ -99,6 +99,11 @@ class C9BusinessPage(QWidget):
         self.related_button = QPushButton("Voir les liens", detail)
         self.related_button.setEnabled(False)
         details_layout.addWidget(self.related_button)
+        self.individual_consumptions_button = QPushButton(
+            "Voir les consommations de cet individu", detail
+        )
+        self.individual_consumptions_button.hide()
+        details_layout.addWidget(self.individual_consumptions_button)
         self.back_button = QPushButton("Retour", detail)
         self.back_button.setEnabled(False)
         details_layout.addWidget(self.back_button)
@@ -123,6 +128,9 @@ class C9BusinessPage(QWidget):
             lambda item: self._open_related(item.row(), item.column())
         )
         self.related_button.clicked.connect(lambda: self._open_related(self.table.currentRow(), 0))
+        self.individual_consumptions_button.clicked.connect(
+            self._open_individual_consumptions
+        )
         self.back_button.clicked.connect(self.go_back)
         self.search.textChanged.connect(self._render_rows)
         self.show_domain("familles", remember=False)
@@ -356,9 +364,9 @@ class C9BusinessPage(QWidget):
             f"Famille référencée : #{family}\n"
             f"Activité : {activity}\n"
             f"Statut brut : {state or '—'}\nDate : {date or '—'}\n\n"
-            "Le calendrier suivant est global et ne représente pas un "
-            "filtre exact de cette inscription.",
-            "Ouvrir le calendrier des consommations",
+            "Le calendrier sera filtré précisément par les identifiants "
+            "de cet individu et de cette inscription (lecture seule).",
+            "Voir les consommations de cette inscription",
         )
 
     def _show_selection(self):
@@ -369,12 +377,23 @@ class C9BusinessPage(QWidget):
             self.detail_title.setText("Sélectionnez un élément")
             self.detail_body.setText("Aucune fiche à afficher.")
             self.related_button.setEnabled(False)
+            self.individual_consumptions_button.hide()
             return
         title, body, action = self._detail(self._domain, int(ident))
         self.detail_title.setText(title)
         self.detail_body.setText(body)
         self.related_button.setText(action)
         self.related_button.setEnabled(True)
+        self.individual_consumptions_button.setVisible(
+            self._domain == "individus"
+        )
+
+    def _open_individual_consumptions(self):
+        if self._domain != "individus":
+            return
+        ident = self._selected_id()
+        if ident is not None and callable(self.on_domain_requested):
+            self.on_domain_requested("consommations", individual_id=int(ident))
 
     def _open_related(self, row, _column):
         if row < 0 or row >= self.table.rowCount():
@@ -389,8 +408,21 @@ class C9BusinessPage(QWidget):
             self.show_domain("inscriptions", individual_id=ident)
         elif self._domain == "activites":
             self.show_domain("inscriptions", activity_id=ident)
-        elif callable(self.on_domain_requested):
-            self.on_domain_requested("consommations")
+        elif self._domain == "inscriptions" and callable(self.on_domain_requested):
+            linked = self._read(
+                "SELECT IDindividu FROM inscriptions WHERE IDinscription=?",
+                (ident,),
+            )
+            if len(linked) != 1 or linked[0][0] is None:
+                self.detail_body.setText(
+                    "Inscription sans individu vérifié : navigation bloquée."
+                )
+                return
+            self.on_domain_requested(
+                "consommations",
+                individual_id=int(linked[0][0]),
+                inscription_id=ident,
+            )
 
     def go_back(self):
         if not self._history:

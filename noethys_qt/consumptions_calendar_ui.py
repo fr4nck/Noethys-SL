@@ -9,7 +9,7 @@ from __future__ import annotations
 import calendar
 import datetime as dt
 
-from PySide6.QtCore import QDate, QObject, QRunnable, QThreadPool, Qt, Signal
+from PySide6.QtCore import QDate, QObject, QRunnable, QSignalBlocker, QThreadPool, Qt, Signal
 from PySide6.QtGui import QFont, QTextCharFormat
 from PySide6.QtWidgets import (
     QCalendarWidget, QCheckBox, QComboBox, QGroupBox, QHBoxLayout,
@@ -189,13 +189,44 @@ class ConsumptionCalendarPage(QWidget):
         }
 
     def focus_record(self, *, individual_id: int | None = None,
-                     inscription_id: int | None = None) -> None:
-        """Filtre exact par identifiants Noethys, jamais par nom approché."""
-        for value in (individual_id, inscription_id):
-            if value is not None and (
-                not isinstance(value, int) or isinstance(value, bool) or value <= 0
+                     inscription_id: int | None = None,
+                     year: int | None = None) -> None:
+        """C11 : ID exact, état de filtres cohérent, une seule actualisation."""
+        for label, ident in (("individu", individual_id), ("inscription", inscription_id)):
+            if ident is not None and (
+                not isinstance(ident, int) or isinstance(ident, bool) or ident <= 0
             ):
-                raise ValueError("Identifiant de fiche invalide")
+                raise ValueError(f"Identifiant {label} de fiche invalide")
+        if year is not None and (
+            not isinstance(year, int) or isinstance(year, bool)
+            or not 1900 <= year <= 2098
+        ):
+            raise ValueError("Année de fiche invalide")
+
+        controls = (
+            self.only_day, self.list_page.year_spin, self.calendar,
+            self.activity_combo, self.list_page.search_edit,
+            *self.list_page.state_checks.values(),
+        )
+        blockers = [QSignalBlocker(widget) for widget in controls]
+        try:
+            self.only_day.setChecked(False)
+            self.activity_combo.setCurrentIndex(0)
+            self.list_page.search_edit.clear()
+            self.list_page._debounce.stop()
+            for check in self.list_page.state_checks.values():
+                check.setChecked(True)
+            if year is not None:
+                old = self.calendar.selectedDate()
+                day = min(old.day(), calendar.monthrange(year, old.month())[1])
+                new_date = QDate(year, old.month(), day)
+                self.calendar.setSelectedDate(new_date)
+                self.calendar.setCurrentPage(year, old.month())
+                self.list_page.year_spin.setValue(year)
+        finally:
+            for blocker in blockers:
+                blocker.unblock()
+
         self._record_individual_id = individual_id
         self._record_inscription_id = inscription_id
         parts = []
@@ -203,10 +234,11 @@ class ConsumptionCalendarPage(QWidget):
             parts.append(f"Individu #{individual_id}")
         if inscription_id is not None:
             parts.append(f"Inscription #{inscription_id}")
-        self.record_filter_label.setText(" · ".join(parts))
+        self.record_filter_label.setText(
+            "Filtre exact : " + " · ".join(parts) if parts else ""
+        )
         self.record_filter_label.setVisible(bool(parts))
         self.clear_record_button.setVisible(bool(parts))
-        self.only_day.setChecked(False)
         if self._loaded:
             self.refresh()
 

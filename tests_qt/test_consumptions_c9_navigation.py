@@ -59,6 +59,9 @@ class C9NavigationTests(unittest.TestCase):
         self.assertEqual(page.domain, "inscriptions")
         page._open_related(0, 0)
         self.assertIs(self.window.tabs.currentWidget(), self.window.page)
+        self.assertEqual(self.window.page.list_page.model.rowCount(), 28)
+        self.assertEqual(self.window.page._record_individual_id, 10)
+        self.assertEqual(self.window.page._record_inscription_id, 501)
 
     def test_no_business_table_has_editable_items(self):
         page = self.window.business_page

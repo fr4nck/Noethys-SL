@@ -119,13 +119,18 @@ class C10BusinessDetailsTests(unittest.TestCase):
             self.assertEqual(self.page.table.rowCount(), 4)
         self.assertEqual(before, self.db.dump())
 
-    def test_opening_calendar_never_implies_exact_registration_filter(self):
+    def test_opening_calendar_uses_exact_registration_filter(self):
         self.page.show_domain("inscriptions", individual_id=12)
         self.assertEqual(self.page.table.rowCount(), 1)
-        self.assertIn("calendrier suivant est global", self.page.detail_body.text())
+        self.assertIn("filtré précisément", self.page.detail_body.text())
         self.page._open_related(0, 0)
         self.assertIs(self.window.tabs.currentWidget(), self.window.page)
-        self.assertEqual(self.window.page.list_page.model.rowCount(), 4)
+        self.assertEqual(self.window.page._record_individual_id, 12)
+        self.assertEqual(self.window.page._record_inscription_id, 503)
+        self.assertEqual(self.window.page.list_page.model.rowCount(), 28)
+        self.assertTrue(all(
+            row.individual_id == 12 for row in self.window.page.list_page.model.rows
+        ))
 
     def test_no_real_database_path_substitution(self):
         original = self.db.path

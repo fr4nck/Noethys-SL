@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 )
 from noethys_qt.activity_visuals import apply_semantic_theme
 from noethys_qt.consumptions_calendar_ui import ConsumptionCalendarPage
-from tools.qt_c8_fixture import C8FictiveDatabase, EXPECTED_ROWS, MARKER
+from tools.qt_c8_fixture import C8FictiveDatabase, EXPECTED_ROWS, FIRST_DAY, MARKER
 from tools.qt_c9_navigation import C9BusinessPage
 
 
@@ -82,7 +82,7 @@ class C8DemoWindow(QMainWindow):
             self.business_page = C9BusinessPage(fictive_db, self.tabs)
             self.tabs.addTab(self.business_page, "Familles · Individus · Activités · Inscriptions")
             self.tabs.addTab(self.page, "Consommations")
-            self.business_page.on_domain_requested = lambda _domain: self.tabs.setCurrentWidget(self.page)
+            self.business_page.on_domain_requested = self._open_business_consumptions
             self.tabs.setCurrentWidget(self.page)
             layout.addWidget(self.tabs, 1)
         else:
@@ -106,6 +106,16 @@ class C8DemoWindow(QMainWindow):
         self.find_action.triggered.connect(self.page.list_page.search_edit.setFocus)
         self.addAction(self.find_action)
         apply_semantic_theme(self)
+
+    def _open_business_consumptions(self, domain, *, individual_id=None,
+                                    inscription_id=None):
+        if domain != "consommations" or self.tabs is None:
+            raise ValueError("Destination métier indisponible.")
+        self.page.focus_record(
+            individual_id=individual_id, inscription_id=inscription_id,
+            year=FIRST_DAY.year,
+        )
+        self.tabs.setCurrentWidget(self.page)
 
     def focus_sample_day(self):
         self.page.list_page.year_spin.setValue(2026)
