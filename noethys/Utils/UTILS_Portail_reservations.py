@@ -97,3 +97,106 @@ def current_period_states(units, grid, meal, activity):
             if inscription == meal['IDinscription']:
                 states.append(getattr(record, 'etat', None))
     return states
+
+
+class ArbitrageManuelRequis(ValueError):
+    """Une écriture automatique risquerait une perte ou un doublon."""
+
+
+def planifier_priorites(reservations, unites, etat_existant, place_disponible):
+    """Retourne (réservations retenues, décisions) sans toucher aux sources.
+
+    Les callbacks lisent la grille durable du même enfant / inscription.
+    etat_existant(reservation, role) -> etat ou None ; une origine incertaine
+    doit lever ArbitrageManuelRequis, et non être assimilée à une case vide.
+    place_disponible(reservation) -> bool ; None signifie « non vérifiable ».
+    Les annulations ne sont jamais transformées ou effacées ici.
+    """
+    groupes = defaultdict(list)
+    for r in reservations:
+        if r['etat'] == 1:
+            groupes[(r['date'], r['IDinscription'])].append(r)
+
+    exclus = set()
+    decisions = []
+    for contexte, demandes in groupes.items():
+        par_role = defaultdict(list)
+        for demande in demandes:
+            par_role[role(unites[demande['IDunite']])].append(demande)
+        for nom_role in PERIODS:
+            ids = {r['IDunite'] for r in par_role[nom_role]}
+            if len(ids) > 1:
+                raise ArbitrageManuelRequis(
+                    'Plusieurs unités %s pour un même accueil : arbitrage requis.' % nom_role)
+
+        if not any(par_role[nom_role] for nom_role in PERIODS):
+            continue
+        reference = demandes[0]
+        jour = par_role['journee']
+        moities = par_role['matin'] + par_role['apres_midi']
+        etat_jour = etat_existant(reference, 'journee')
+        if etat_jour in ('reservation', 'present'):
+            # La journée acquise couvre les demi-journées, même si elle
+            # provient d'une autre action Connecthys.
+            exclus.update(r['IDreservation'] for r in jour + moities)
+            if jour or moities:
+                decisions.append(('journee_deja_presente', contexte))
+        elif etat_jour not in (None, 'attente'):
+            raise ArbitrageManuelRequis(
+                'Journée déjà enregistrée dans un état à arbitrer : %s.' % etat_jour)
+        elif etat_jour == 'attente' and jour:
+            raise ArbitrageManuelRequis(
+                'Journée déjà en attente : vérifier avant de la modifier.')
+        elif jour:
+            disponible = place_disponible(jour[0])
+            if disponible is None:
+                raise ArbitrageManuelRequis('Disponibilité Journée indéterminée.')
+            if disponible:
+                # Remplacer des demi-journées déjà enregistrées peut modifier
+                # une prestation ou une consommation protégée.
+                for nom_role in ('matin', 'apres_midi'):
+                    if etat_existant(reference, nom_role) is not None:
+                        raise ArbitrageManuelRequis(
+                            'Demi-journée existante : conversion en Journée à vérifier manuellement.')
+                exclus.update(r['IDreservation'] for r in moities)
+                if moities:
+                    decisions.append(('journee_prioritaire', contexte))
+            else:
+                # Sans alternative explicite, la journée conserve son attente.
+                if moities:
+                    exclus.update(r['IDreservation'] for r in jour)
+                    decisions.append(('journee_complete_repli_demi', contexte))
+                for demi in moities:
+                    if etat_existant(demi, role(unites[demi['IDunite']])) is not None:
+                        continue
+                    disponible = place_disponible(demi)
+                    if disponible is None:
+                        raise ArbitrageManuelRequis('Disponibilité demi-journée indéterminée.')
+                    if not disponible:
+                        exclus.add(demi['IDreservation'])
+                        decisions.append(('demi_journee_complete', contexte))
+                if moities and all(demi['IDreservation'] in exclus for demi in moities):
+                    raise ArbitrageManuelRequis(
+                        'Journée et deux demi-journées complètes : arbitrage ou attente nécessaires.')
+
+        # Rejouer une demande ne doit pas ajouter de seconde consommation.
+        for demande in demandes:
+            if demande['IDreservation'] in exclus:
+                continue
+            nom_role = role(unites[demande['IDunite']])
+            if nom_role not in PERIODS:
+                continue
+            etat = etat_existant(demande, nom_role)
+            if etat in ('reservation', 'present'):
+                exclus.add(demande['IDreservation'])
+                decisions.append(('deja_enregistre', contexte))
+            elif etat == 'attente':
+                # Une attente existante peut être requalifiée par les règles
+                # normales de disponibilité de la grille, sans nouvelle ligne.
+                continue
+            elif etat is not None:
+                raise ArbitrageManuelRequis(
+                    'Consommation %s déjà dans un état à vérifier : %s.' % (nom_role, etat))
+
+    retenues = [dict(r) for r in reservations if r['IDreservation'] not in exclus]
+    return retenues, decisions
