@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication
 
 from noethys_qt.consumptions_calendar_ui import ConsumptionCalendarPage
 from noethys_qt.consumptions_core import ConsumptionResult
-from test_consumptions_calendar import ConsumptionCalendarSqlTests
+import test_consumptions_calendar as c2
 
 
 class C7VisualStabilityTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class C7VisualStabilityTests(unittest.TestCase):
     def setUp(self):
         # Réutiliser la fixture C2 sans exposer les 9 tests du parent à
         # une seconde découverte unittest (la classe n'en hérite pas).
-        self.fixture = ConsumptionCalendarSqlTests(
+        self.fixture = c2.ConsumptionCalendarSqlTests(
             "test_month_counts_are_exact_and_bound_to_month"
         )
         self.fixture.setUp()
