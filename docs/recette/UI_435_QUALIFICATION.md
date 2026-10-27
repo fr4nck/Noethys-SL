@@ -36,14 +36,14 @@ Les cas sont qualifiés par tests unitaires et d'intégration avec simulations. 
   - `GET_LOCK` détenu par une autre connexion empêche une seconde tentative ;
   - mauvais jeton refusé sans supprimer le marqueur ;
   - marqueur nettoyable après validation SQL, sans réappliquer la grille.
-- La campagne rapide Windows sur le code métier précédent était verte ; une nouvelle CI rapide est lancée sur `130324ca` pour vérifier également l'intégration du nouveau fichier de tests.
+- La seconde CI Windows sur ce SHA [run 40585542706](https://github.com/fr4nck/Noethys-SL/actions/runs/40585542706) est également **SUCCESS** : compilation PASS, **1 293 tests, 1 257 PASS, 0 FAIL, 0 ERROR, 36 SKIP**. Les quatre nouveaux tests MySQL sont ignorés par la CI rapide faute de serveur, mais tous quatre ont été exécutés avec succès dans la campagne MySQL ci-dessus.
 
 **Portée** : cette contre-épreuve valide les primitives SQL et leur sérialisation courte. Elle **ne valide pas** une transaction atomique couvrant la durée d'un formulaire ouvert puis `Save_grille` sur deux postes concurrents. Ce dernier scénario reste STOP-GATE de production.
 
 ## Limites et conditions de levée du STOP-GATE
 
 - **Concurrence MySQL multi-postes non qualifiée** : les deux lectures du jeton avant correction détectent des changements déjà visibles, mais ne rendent pas atomique la séquence finale `LireReprise → Save_grille → EnregistrerDemande → Terminer`. Deux opérateurs simultanés restent un scénario à contre-qualifier avec un serveur et deux clients isolés. Aucune promesse d'idempotence transactionnelle universelle.
-- **Vraie base réseau** : pas d'essai sur les données PMSL ; les tests MySQL locaux nécessitant les variables `NOETHYS_TEST_MYSQL_*` sont ignorés lorsque leur serveur jetable n'est pas configuré. Les 32 tests ignorés par la campagne doivent être inventoriés avant une déclaration de release.
+- **Vraie base réseau** : pas d'essai sur les données PMSL. Dans la dernière CI rapide, **30 tests MySQL** sont ignorés faute de serveur configuré, plus **6 essais conditionnels** (deux tests du logo exécutés via sous-processus, deux compatibilités smtplib, un contrôle PyYAML, une recette réelle non demandée). La campagne MySQL dédiée a exécuté 29 essais sur serveur jetable, mais ne remplace pas la recette multi-postes de l'interface.
 - **Recette graphique réelle** : sélectionner une demande incertaine, constater la navigation, ouvrir `Traitement manuel`, vérifier la grille, accepter/refuser, contrôler la reprise, les factures et les confirmations déjà acceptées, puis refermer et rouvrir Noethys.
 - **Cas métiers sensibles** : demi-journée déjà pointée/facturée, journée et demi-journée déjà persistées, quantité supérieure à 1, prestations ou états contradictoires, annulations successives et changements entre postes.
 - **Déploiement** : aucun installateur, tag, release, migration, modification de `noethys/Portable` ou de la base de production dans ce lot. L'archive provisoire `noethys435_lot_dev_non_deployable.zip` est **obsolète** ; ne pas l'exécuter.
