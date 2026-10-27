@@ -108,7 +108,7 @@ class C10BusinessDetailsTests(unittest.TestCase):
     def test_search_filters_visible_items_without_writing_or_requerying(self):
         before = self.db.dump()
         self.page.show_domain("individus")
-        with patch.object(self.page, "_read", side_effect=AssertionError("New SQL read")):
+        with patch.object(self.page, "_rows", side_effect=AssertionError("List SQL requery")):
             self.page.search.setText("Fictif")
             self.assertEqual(self.page.table.rowCount(), 1)
             self.assertEqual(self.page.table.item(0, 1).text(), "Fictif")

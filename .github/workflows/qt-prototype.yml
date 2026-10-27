@@ -121,3 +121,25 @@ jobs:
           path: artifacts/qt-c8/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C10 fiches metier fictives - theme clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c10_business_capture.py --theme light --profile 100
+
+      - name: C10 fiches metier fictives - theme sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c10_business_capture.py --theme dark --profile 150
+
+      - name: Publier les fiches metier fictives C10
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c10-fiches-fictives
+          path: artifacts/qt-c10/*
+          if-no-files-found: error
+          retention-days: 14
