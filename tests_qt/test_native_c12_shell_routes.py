@@ -286,6 +286,40 @@ class C12NativeShellTests(unittest.TestCase):
         self.window.navigate("consumptions")
         self.assertEqual(self.db.dump(), before)
 
+    def test_two_level_back_restores_inscription_then_family_details(self):
+        details = self._open_family(100)
+        details.family_inscriptions_button.click()
+        inscriptions = self.window.inscriptions_page
+        self.assertEqual({r.id for r in inscriptions.model.rows}, {501, 503})
+        self.assertEqual(len(self.window._context_history), 1)
+        index = next(i for i, row in enumerate(inscriptions.model.rows)
+                     if row.id == 503)
+        inscriptions.table.selectRow(index)
+        inscriptions.consumptions_button.click()
+        self.assertEqual(len(self.window._context_history), 2)
+        self.assertIs(self.window.stack.currentWidget(), self.window.consumptions_page)
+        self.assertIn("Retour à la liste", self.window.context_label.text())
+        self.window.return_to_context()
+        self.assertEqual(len(self.window._context_history), 1)
+        self.assertIs(self.window.stack.currentWidget(), inscriptions)
+        self.assertEqual(inscriptions.selected_row().id, 503)
+        self.assertIn("fiche family #100", self.window.context_label.text())
+        self.window.return_to_context()
+        self._wait(lambda: self.window.details_page.loaded_kind == "family"
+                   and self.window.details_page.current_id == 100)
+        self.assertIs(self.window.stack.currentWidget(), details)
+        self.assertFalse(self.window.context_bar.isVisible())
+        self.assertEqual(self.window._context_history, [])
+
+    def test_context_history_does_not_survive_unrelated_navigation(self):
+        self._open_person(12).individual_inscriptions_button.click()
+        self.assertEqual(len(self.window._context_history), 1)
+        self.window.navigate("home")
+        self.assertEqual(self.window._context_history, [])
+        self.window.navigate("consumptions")
+        self.assertIsNone(self.window._return_context)
+        self.assertFalse(self.window.context_back_button.isVisible())
+
     def test_all_pending_business_writers_still_unavailable(self):
         self.window.navigate("inscriptions")
         self.assertEqual(
