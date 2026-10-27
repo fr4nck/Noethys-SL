@@ -51,6 +51,15 @@ class PriorityTests(unittest.TestCase):
         result, _ = plan([2], states={'matin': 'reservation'})
         self.assertEqual(result, [])
 
+    def test_cumul_journee_et_matin_deja_persistes_a_arbitrer(self):
+        with self.assertRaises(ArbitrageManuelRequis):
+            plan([2], states={'journee': 'reservation', 'matin': 'reservation'})
+
+    def test_doublon_meme_demi_journee_pas_deux_saisies(self):
+        result, reasons = plan([2, 2])
+        self.assertEqual([r['IDunite'] for r in result], [2])
+        self.assertIn('doublon_demande', [reason[0] for reason in reasons])
+
     def test_ancienne_demi_ne_disparait_pas_silencieusement(self):
         with self.assertRaises(ArbitrageManuelRequis):
             plan([1, 2, 3], states={'matin': 'reservation'})
