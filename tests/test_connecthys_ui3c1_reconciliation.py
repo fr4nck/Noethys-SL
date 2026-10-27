@@ -163,6 +163,37 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
 
+    def test_nouvelle_action_identique_quantite_ne_double_pas(self):
+        self.preparer()
+        self.assertTrue(self.ui.Traitement())
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        anciennes_saisies = self.ui.ctrl_grille.saisies
+        # Deuxième demande Connecthys du même enfant, mêmes dates/unités.
+        self.base.inserer(
+            "portail_reservations",
+            ["IDreservation", "IDaction", "date", "IDinscription", "IDunite", "etat"],
+            [(3, 8, DAY, 77, 1, 1), (4, 8, DAY, 77, 2, 1)])
+        self.ui.track.IDaction = 8
+        self.ui.track.etat = "attente"
+        self.ui.track.reponse = None
+        self.ui.track.traitement_date = None
+
+        def case_persistante(IDunite, date):
+            quantite = self.ui.ctrl_grille.quantites[IDunite]
+            assert quantite == 1
+            conso = NS(etat="reservation", IDinscription=77,
+                       IDfacture=None, verrouillage=0)
+            return NS(etat="reservation", quantite=quantite,
+                      IDfacture=None, verrouillage=0,
+                      GetListeConso=lambda: [conso])
+        self.ui.ctrl_grille.GetCase = case_persistante
+
+        self.assertTrue(self.ui.Traitement())
+        self.assertEqual(self.ui.ctrl_grille.saisies, anciennes_saisies)
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql(8)[0], "validation")
+        self.assertFalse(Marqueurs.EnAttente(8))
+
     def test_reouverture_bloque_modes_validation_et_emails_apres_ce4_et_ce5(self):
         self.preparer()
         self.ui.ctrl_grille.partielle = True
