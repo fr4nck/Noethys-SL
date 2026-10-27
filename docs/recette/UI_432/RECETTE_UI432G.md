@@ -19,6 +19,20 @@ synchronisation **automatique** Connecthys, après le correctif
 - **Non démontré sur le poste réel** : volumes PMSL, MySQL et durée réelle de
   vos traitements d'interface diffèrent du banc.
 
+## Lanceur
+
+`tools/ui432g_recette.ps1` réalise toutes les vérifications puis lance Noethys
+depuis les sources (`.venv` du dépôt, seul interpréteur du poste disposant de
+`mysqlclient`), avec `NOETHYS_SL_UI_DIAG=1` pour cette exécution seulement.
+Il refuse si : branche différente de `wx`, correctif absent de HEAD, fichiers
+suivis modifiés sous `noethys\`, dépendance absente, SQLAlchemy < 1.4,
+dateutil ≥ 3, wx < 4.2, code chargé hors du dépôt ou sans les marqueurs du
+correctif, autre instance de Noethys ouverte. Journaux dans
+`%LOCALAPPDATA%\NoethysSL-recette\UI432G-<date>\` : sortie complète (locale,
+à ne pas diffuser) et extrait anonymisé (à transmettre). Le lanceur ne lit ni
+ne modifie le profil, les bases ou `journal.log` ; il compare seulement les
+empreintes SHA-256 de `Config.json` et `Customize.ini` avant/après.
+
 ## Préalables (sans risque pour les données)
 
 1. `git pull --ff-only origin wx` puis vérifier le SHA (au moins celui du
