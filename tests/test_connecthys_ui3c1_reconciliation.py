@@ -356,6 +356,33 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saisies, 0)
         self.assertEqual(self.quantites_sql(), [])
 
+    def test_navigation_incertaine_consulte_autre_demande_sans_saisie(self):
+        self.preparer()
+        self.ui.ctrl_grille.panne_save = "exception"
+        self.relancer_sans_exception()
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self.assertEqual(self.ui.ctrl_grille.saves, 1)
+        self.dlg.reset_mock()
+        evenement = mock.Mock()
+        evenement.GetId.return_value = 30
+        self.ui.OnNavigation(evenement)
+        self.assertEqual(self.ui.track.IDaction, 8)
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self.assertEqual(self.ui.ctrl_grille.saves, 1)
+        self.dlg.assert_not_called()
+
+    def test_fermeture_incertaine_pas_de_nouvelle_alerte(self):
+        self.preparer()
+        self.ui.ctrl_grille.panne_save = "exception"
+        self.relancer_sans_exception()
+        self.dlg.reset_mock()
+        evenement = mock.Mock()
+        self.ui.OnClose(evenement)
+        evenement.Skip.assert_called_once()
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self.assertEqual(self.ui.ctrl_grille.saves, 1)
+        self.dlg.assert_not_called()
+
     def test_fermeture_apres_incertain_conserve_barriere_et_suivis(self):
         self.preparer()
         precedent.Suivis.Enregistrer("portail_action_7_reponse", ["a@example.test"])
