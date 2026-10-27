@@ -56,7 +56,7 @@ FINANCE_DOMAINS = {
     ),
 }
 FAMILY_DOMAINS = frozenset(("invoices", "services", "payments", "allocations"))
-YEAR_DOMAINS = frozenset(FINANCE_DOMAINS)
+YEAR_DOMAINS = frozenset(FINANCE_DOMAINS) - {'allocations'}
 RELATED_FILTERS = {
     "services": ("invoice_id", "p.IDfacture"),
     "allocations": ("payment_id", "v.IDreglement"),
@@ -161,6 +161,8 @@ def validate_finance_query(
         raise ValueError("Année invalide")
     if family_id is not None and kind not in FAMILY_DOMAINS:
         raise ValueError("Le domaine ne permet pas de filtrer par famille")
+    if year is not None and kind not in YEAR_DOMAINS:
+        raise ValueError("Le domaine ne possède pas de date")
     if related_id is not None and kind not in RELATED_FILTERS:
         raise ValueError("Liaison non disponible sur ce domaine")
     if not isinstance(text, str) or len(text) > 120:

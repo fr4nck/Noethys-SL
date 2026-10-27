@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from .finance_readonly_core import (
-    FAMILY_DOMAINS, FINANCE_DOMAINS, FinanceRepository, FinanceResult,
+    FAMILY_DOMAINS, FINANCE_DOMAINS, YEAR_DOMAINS, FinanceRepository, FinanceResult,
     display_finance_value, validate_finance_id,
 )
 
@@ -141,6 +141,7 @@ class FinanceTablePage(QWidget):
         self.year_spin.setSpecialValueText("Toutes années")
         self.year_spin.setValue(0)
         self.year_spin.setAccessibleName("Année des opérations enregistrées")
+        self.year_spin.setVisible(kind in YEAR_DOMAINS)
         header.addWidget(self.year_spin)
         self.clear_button = QPushButton("Tous les dossiers", self)
         header.addWidget(self.clear_button)
@@ -356,6 +357,7 @@ class FinanceHubPage(QWidget):
             raise ValueError("Rubrique financière inconnue")
         self.repository = repository
         self.module = module
+        self._family_id = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 7, 10, 7)
         title = QLabel(MODULES[module][0] + " — consultation", self)
@@ -388,6 +390,7 @@ class FinanceHubPage(QWidget):
         if family_id is not None and self.module == "accounting":
             raise ValueError("Comptabilité non filtrable par famille")
         validate_finance_id(family_id, "famille")
+        self._family_id = family_id
         for page in self.pages.values():
             page.set_context(family_id=family_id)
 
@@ -401,6 +404,6 @@ class FinanceHubPage(QWidget):
 
     def _related(self, kind, record_id):
         if kind in self.pages:
-            self.focus_related(kind, record_id)
+            self.focus_related(kind, record_id, family_id=self._family_id)
         else:
             self.relatedRequested.emit(kind, record_id)
