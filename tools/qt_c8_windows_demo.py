@@ -30,15 +30,16 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QHBoxLayout, QLabel, QMainWindow,
-    QPushButton, QVBoxLayout, QWidget,
+    QPushButton, QTabWidget, QVBoxLayout, QWidget,
 )
 from noethys_qt.activity_visuals import apply_semantic_theme
 from noethys_qt.consumptions_calendar_ui import ConsumptionCalendarPage
 from tools.qt_c8_fixture import C8FictiveDatabase, EXPECTED_ROWS, MARKER
+from tools.qt_c9_navigation import C9BusinessPage
 
 
 class C8DemoWindow(QMainWindow):
-    def __init__(self, repository, *, theme="system", background=True):
+    def __init__(self, repository, *, theme="system", background=True, fictive_db=None):
         super().__init__()
         self.setObjectName("qtC8DemoWindow")
         self.setWindowTitle("Noethys Qt C8 — démonstration FICTIVE / lecture seule")
@@ -76,7 +77,19 @@ class C8DemoWindow(QMainWindow):
         layout.addLayout(toolbar)
 
         self.page = ConsumptionCalendarPage(repository, outer, background=background)
-        layout.addWidget(self.page, 1)
+        if fictive_db is not None:
+            self.tabs = QTabWidget(outer)
+            self.business_page = C9BusinessPage(fictive_db, self.tabs)
+            self.tabs.addTab(self.business_page, "Familles · Individus · Activités · Inscriptions")
+            self.tabs.addTab(self.page, "Consommations")
+            self.business_page.on_domain_requested = lambda _domain: self.tabs.setCurrentWidget(self.page)
+            self.tabs.setCurrentWidget(self.page)
+            layout.addWidget(self.tabs, 1)
+        else:
+            # Compatibilité des tests C8/C7 qui fournissent un repository seul.
+            self.tabs = None
+            self.business_page = None
+            layout.addWidget(self.page, 1)
         self.setCentralWidget(outer)
         self.statusBar().showMessage("Base fictive créée uniquement en mémoire de recette")
 
@@ -250,7 +263,7 @@ def main(argv=None):
     app.setStyle("Fusion")
 
     with C8FictiveDatabase() as db:
-        window = C8DemoWindow(db.repository, theme=args.theme, background=True)
+        window = C8DemoWindow(db.repository, theme=args.theme, background=True, fictive_db=db)
         try:
             if args.smoke:
                 smoke(app, window, db, label=args.label)
