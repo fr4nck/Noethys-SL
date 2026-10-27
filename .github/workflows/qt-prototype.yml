@@ -8,6 +8,7 @@ on:
     paths:
       - "noethys_qt/**"
       - "tests_qt/**"
+      - "tools/qt_c*.py"
       - "requirements-qt.txt"
       - ".github/workflows/qt-prototype.yml"
 
