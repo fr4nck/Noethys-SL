@@ -149,8 +149,9 @@ class ConsumptionCalendarPage(QWidget):
         self.list_page.year_spin.valueChanged.connect(self._year_changed)
         self.list_page.refresh_button.clicked.connect(self.refresh_month)
         self.list_page._debounce.timeout.connect(self.refresh_month)
-        for check in self.list_page.state_checks.values():
-            check.toggled.connect(self.refresh_month)
+        # Écouter la modification logique complète des filtres, et non les
+        # 7 signaux de cases émis pendant « Tout sélectionner ».
+        self.list_page.state_selection_changed.connect(self.refresh_month)
         self.list_page.table.selectionModel().selectionChanged.connect(self._selection_changed)
         self.list_page.model.modelReset.connect(self._clear_detail)
 
@@ -341,21 +342,24 @@ class ConsumptionCalendarPage(QWidget):
         self._marked_dates.clear()
 
     def _apply_month(self, rows: tuple[DayCount, ...]) -> None:
-        self._date_counts = rows
-        self._clear_marks()
-        self.day_list.clear()
-        for entry in rows:
-            qdate = QDate(entry.date.year, entry.date.month, entry.date.day)
-            fmt = QTextCharFormat()
-            fmt.setFontWeight(int(QFont.Weight.Bold))
-            fmt.setToolTip(f"{entry.count} consommation(s) suivant les filtres")
-            self.calendar.setDateTextFormat(qdate, fmt)
-            self._marked_dates.add(qdate)
-            item = QListWidgetItem(
-                f"{entry.date.strftime('%d/%m')} · {entry.count} consommation(s)"
-            )
-            item.setData(Qt.ItemDataRole.UserRole, entry.date.isoformat())
-            self.day_list.addItem(item)
+        # Un rafraîchissement sans données nouvelles ne doit ni vider la
+        # liste des jours, ni effacer les formats du calendrier.
+        if rows != self._date_counts:
+            self._date_counts = rows
+            self._clear_marks()
+            self.day_list.clear()
+            for entry in rows:
+                qdate = QDate(entry.date.year, entry.date.month, entry.date.day)
+                fmt = QTextCharFormat()
+                fmt.setFontWeight(int(QFont.Weight.Bold))
+                fmt.setToolTip(f"{entry.count} consommation(s) suivant les filtres")
+                self.calendar.setDateTextFormat(qdate, fmt)
+                self._marked_dates.add(qdate)
+                item = QListWidgetItem(
+                    f"{entry.date.strftime('%d/%m')} · {entry.count} consommation(s)"
+                )
+                item.setData(Qt.ItemDataRole.UserRole, entry.date.isoformat())
+                self.day_list.addItem(item)
         total = sum(row.count for row in rows)
         self.month_summary.setText(
             f"{total} consommation(s) sur {len(rows)} jour(s) du mois affiché "

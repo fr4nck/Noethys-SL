@@ -1,5 +1,10 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C7 — stabilité de rafraîchissement et navigation (27/10/2026)
+
+Lot Qt de réduction des causes de scintillement : le modèle de consommations évite modelReset sur données inchangées, conserve la sélection par ID après modification, garde la table interactive pendant la lecture et stabilise les largeurs de colonnes. Les boutons « Tout sélectionner / Tout désélectionner » ne déclenchent plus sept requêtes mensuelles. Le calendrier ne reconstruit pas les journées identiques. Batterie de stress C7 sur SQLite fictif : rafraîchissements, filtres, touches, agrandissement/retrait, résultats asynchrones périmés. Le STOP-GATE saisie/production reste en place. Vérification CI du commit C7 à reporter après exécution.
+
+
 ## Qt C6 — comparaison transactionnelle wx et captures Windows (27/10/2026)
 
 Bases contrôlées : main f6f5ccd (NON APPLICABLE au banc), wx 11b8546

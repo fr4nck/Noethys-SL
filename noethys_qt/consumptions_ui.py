@@ -26,10 +26,18 @@ class ConsumptionTableModel(QAbstractTableModel):
         super().__init__()
         self.rows: tuple[Consumption, ...] = ()
 
-    def replace_rows(self, rows):
+    def replace_rows(self, rows) -> bool:
+        """Éviter modelReset quand l'affichage est strictement identique.
+
+        QTableView perd sa sélection et repeint inutilement à chaque reset.
+        """
+        incoming = tuple(rows)
+        if incoming == self.rows:
+            return False
         self.beginResetModel()
-        self.rows = tuple(rows)
+        self.rows = incoming
         self.endResetModel()
+        return True
 
     def rowCount(self, parent=QModelIndex()):  # noqa: N802
         return 0 if parent.isValid() else len(self.rows)
@@ -86,6 +94,8 @@ class _ResultWorker(QRunnable):
 
 class ConsumptionPage(QWidget):
     """Aucune lecture à la construction ; activation explicite à l'ouverture."""
+
+    state_selection_changed = Signal()
 
     def __init__(self, repository: ConsumptionRepository, parent=None, *, background=True):
         super().__init__(parent)
@@ -163,7 +173,14 @@ class ConsumptionPage(QWidget):
         self.table.setShowGrid(False)
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # Largeurs stables : ResizeToContents recalculait la géométrie à
+        # chaque remise à zéro du modèle, particulièrement lors des filtres.
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column, width in (
+            (0, 62), (1, 96), (2, 145), (4, 115), (5, 100),
+            (7, 110), (8, 105), (9, 115), (10, 125),
+        ):
+            header.resizeSection(column, width)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.table, 1)
@@ -173,6 +190,7 @@ class ConsumptionPage(QWidget):
         self.refresh_button.clicked.connect(self.refresh)
         for check in self.state_checks.values():
             check.toggled.connect(self.refresh)
+            check.toggled.connect(self._notify_states_changed)
         self.all_button.clicked.connect(lambda: self._select_all(True))
         self.none_button.clicked.connect(lambda: self._select_all(False))
 
@@ -180,14 +198,22 @@ class ConsumptionPage(QWidget):
     def selected_states(self) -> frozenset[str]:
         return frozenset(code for code, check in self.state_checks.items() if check.isChecked())
 
+    def _notify_states_changed(self, *_args) -> None:
+        if not self._batch:
+            self.state_selection_changed.emit()
+
     def _select_all(self, selected: bool) -> None:
+        before = self.selected_states
         self._batch = True
         try:
             for check in self.state_checks.values():
                 check.setChecked(selected)
         finally:
             self._batch = False
-        self.refresh()
+        if before != self.selected_states:
+            self.refresh()
+            # Une seule notification pour les sept cases modifiées.
+            self.state_selection_changed.emit()
 
     def activate(self) -> None:
         if not self._loaded:
@@ -215,7 +241,8 @@ class ConsumptionPage(QWidget):
         if self.filter_context is not None:
             filters.update(self.filter_context())
         self.summary.setText("Chargement des consommations…")
-        self.table.setEnabled(False)
+        # Rester interactif pendant la lecture en arrière-plan : désactiver
+        # la table la grisait puis la repeignait à chaque actualisation.
         if not self.background:
             try:
                 result = self.repository.search(**filters)
@@ -256,7 +283,18 @@ class ConsumptionPage(QWidget):
         self.hint.setText(error)
 
     def _apply_result(self, result: ConsumptionResult) -> None:
-        self.model.replace_rows(result.rows)
+        selected = self.table.selectionModel().selectedRows()
+        selected_id = (
+            self.model.rows[selected[0].row()].consumption_id
+            if selected and selected[0].row() < len(self.model.rows) else None
+        )
+        changed = self.model.replace_rows(result.rows)
+        if changed and selected_id is not None:
+            # Une sélection n'a de sens que si son ID est toujours visible.
+            for index, row in enumerate(self.model.rows):
+                if row.consumption_id == selected_id:
+                    self.table.selectRow(index)
+                    break
         self.table.setEnabled(True)
         count = len(result.rows)
         suffix = " (limite atteinte, affiner les filtres)" if result.has_more else ""
