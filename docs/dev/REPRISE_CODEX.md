@@ -1,5 +1,10 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C5 — exécution de Sauvegarde wx sur copie fictive (27/10/2026)
+
+Qualification des blobs main f6f5ccd, wx 11b8546, qt 754a014 : CTRL_Grille.py diverge globalement, mais son corps Sauvegarde est identique (empreinte FNV32 d4745a0b). Nouveau test tests_qt/test_consumptions_c5_wx_execution.py : extraction du vrai corps wx sur qt, DB et dépendances substituées, fixture SQLite totalement fictive, scénarios CRUD, prestation/ventilation, pannes injectées avant et après premier DB.Commit. Aucune saisie Qt activée ; garde des adhésions maintenue. Risque de commit partiel entre consommation et historique démontrable dans la fixture, pas sur site réel. Contrat, limites et matrice : [QT_CONSOMMATIONS_LOT5.md](QT_CONSOMMATIONS_LOT5.md). CI Windows du SHA C5 EN ATTENTE.
+
+
 ## Qt C4 - transaction SQLite synthétique et rollback (27/10/2026)
 
 Branche qt, base 8ff9bfc ; main f6f5ccd et wx 11b8546 à l'ouverture. Banc de tests seul dans tests_qt/test_consumptions_c4_transactions.py, sans writer Qt et sans accès à une base externe : cinq tables lab_*, transaction unique, pannes injectées, rollback, sauvegarde/restauration, contrôles factures/forfaits/ventilations simulés et démonstration du risque d'un commit intermédiaire. Contrôles et montants métier wx NON PORTÉS ; saisie Qt toujours sous STOP-GATE. CI Windows **SUCCESS** sur 2db94752971afb1cb28f605dcdd2a6a511435988 : [run 40516177146](https://github.com/fr4nck/Noethys-SL/actions/runs/40516177146), compilation PASS, **195 tests / 0 échec**, dont 15 nouveaux C4. Matrice : main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE au banc et référence métier EN ATTENTE, qt 2db9475 VALIDÉ TECHNIQUEMENT. Recette visuelle, parité wx/Qt et MySQL non qualifiés ; STOP-GATE d'écriture et de release maintenu. Référence : [QT_CONSOMMATIONS_LOT4.md](QT_CONSOMMATIONS_LOT4.md).
