@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 27/10/2026
 
+## Qt C12 — coque native intégrée, inscriptions et parcours complet (27/10/2026)
+
+C12 ne duplique plus le démonstrateur : il intègre le module existant noethys_qt/inscriptions_readonly.py dans la vraie coque noethys_qt/noethys_native.py. Navigation principale Familles/Individus → Inscriptions → Consommations par clés SQL exactes, accès depuis les fiches, retour multi-niveaux préservant le contexte, raccourcis Alt+4/Alt+5 et Alt+Gauche. Ctrl+F recherche dans la rubrique active ; la recherche d'individus évite les modelReset sur résultats identiques. Le résolveur d'inscription est SELECT-only et refuse les IDs invalides avant toute connexion. Mode démo natif (read_only_demo=True) interdit l'éditeur Activités pour empêcher toute écriture même sur la fixture.
+
+Branches vérifiées à l'ouverture : main f6f5ccd NON APPLICABLE/INCHANGÉ, wx 11b8546 NON APPLICABLE/INCHANGÉ, qt bff581f. Commits de mise en œuvre bdb26d6, 0315fcf, 9919ad1, be75dfe, b946f1c, ecd08eb, e24ed12, eec341f, 44e71c6. La CI Windows de code corrigé [40554010593](https://github.com/fr4nck/Noethys-SL/actions/runs/40554010593) a passé 271 tests. Le test graphique [40554367190](https://github.com/fr4nck/Noethys-SL/actions/runs/40554367190) a passé 271 tests + deux parcours natifs Windows hors écran : 18 PNG, deux JSON, base fictive inchangée, artifact qt-c12-coque-native-fictive ID 12756029369. Dernière CI (273 tests prévus, couvrant Ctrl+F et modelReset) EN COURS au commit 44e71c6, run 40554692254 : vérifier le résultat final avant toute annonce d'homologation.
+
+Mode d'essai PC : worktree Noethys-SL-qt à actualiser, puis double-clic tools/Noethys-Qt-C12-Shell-Demo.cmd (ou .venv/Scripts/python.exe tools/qt_c12_native_shell_demo.py). Aucune donnée privée, aucun Config.json ni écriture métier en mode démo. IMPORTANT : le vrai lanceur Qt configuré n'est PAS qualifié pour la production, et son éditeur Activités existant reste inchangé en dehors du mode de démonstration. STOP-GATE sur saisie consommations, facturation, permissions et comptabilité maintenu. Rapport [QT_COQUE_NATIVE_LOT12.md](QT_COQUE_NATIVE_LOT12.md).
+
+
 ## Qt C11 — lien exact fiche et consommations (27/10/2026)
 
 Navigation de l'interface fictive : depuis la fiche Individu, bouton direct vers les consommations limitées par IDindividu ; depuis la fiche Inscription, double-clic vers l'intersection IDindividu + IDinscription, récupérés de la source SQLite fictive par identifiants et non par le libellé affiché. Le calendrier et la liste portent exactement les mêmes filtres ; les filtres précédents (année, texte, activité, états, jour) sont normalisés en une seule actualisation de contexte. Étiquette « Filtre exact » et bouton de retrait ; aucun dialogue ajouté ni écriture. La recette exclut les états incohérents, les identifiants invalides et les résultats asynchrones périmés.
