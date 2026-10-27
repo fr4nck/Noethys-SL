@@ -2,7 +2,7 @@
 
 ## Qt C8 — recette graphique Windows sur source fictive (27/10/2026)
 
-Lanceur Windows interactif tools/qt_c8_windows_demo.py et tools/Noethys-Qt-C8-Demo.cmd, uniquement TemporaryDirectory (112 consommations inventées), sans lecture Config.json ni aucune base de production. Tests Qt thèmes, dates, filtres, DPI simulé, redimensionnements et captures en CI. La validation réelle des scintillements sur poste utilisateur reste EN ATTENTE. Matrice C8 main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE, qt base a55fba2, SHA CI à qualifier. Détails : docs/dev/QT_CONSOMMATIONS_LOT8.md. Aucun writer métier, aucune release.
+Lanceur Windows interactif tools/qt_c8_windows_demo.py et tools/Noethys-Qt-C8-Demo.cmd, uniquement TemporaryDirectory (112 consommations inventées), sans lecture Config.json ni aucune base de production. Tests Qt thèmes, dates, filtres, DPI simulé, redimensionnements et captures en CI. La validation réelle des scintillements sur poste utilisateur reste EN ATTENTE. Matrice C8 main f6f5ccd NON APPLICABLE, wx 11b8546 NON APPLICABLE, qt base a55fba2, CI Windows SUCCESS, code 1df0e2d et workflow 2754681, run 40529970199 : compilation PASS, 229 tests / 0 échec ; quatre captures et quatre JSON, artifact qt-c8-recette-fictive ID 12745487136. Base de 112 consommations fictives restée inchangée. Main f6f5ccd et wx 11b8546 inchangées ; qt 2754681 VALIDÉ TECHNIQUEMENT, observation interactive Windows réelle EN ATTENTE, aucun writer activé. Détails : QT_CONSOMMATIONS_LOT8.md. Détails : docs/dev/QT_CONSOMMATIONS_LOT8.md. Aucun writer métier, aucune release.
 
 
 ## Qt C7 — stabilité de rafraîchissement et navigation (27/10/2026)

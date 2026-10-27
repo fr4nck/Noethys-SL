@@ -46,4 +46,31 @@ Ces essais tournent dans un runner Windows à rendu hors écran. Ils prouvent un
 
 ## Traçabilité
 
-Branches à l'ouverture : main f6f5ccd, wx 11b8546 et qt a55fba2. Le code métier wx, les adhésions et les trois branches de base ne sont pas modifiés, seul qt reçoit les fichiers du lot. Verdict CI, nombre de tests, captures et SHA final à consigner après exécution. Les écritures de consommation Qt et le remplacement de wx restent sous STOP-GATE.
+Branches à l'ouverture : main f6f5ccd, wx 11b8546 et qt a55fba2. Le code métier wx, les adhésions et les trois branches de base ne sont pas modifiés, seul qt reçoit les fichiers du lot. Lot fonctionnel 1df0e2d, workflow CI 2754681 ; GitHub Actions run 40529970199 SUCCESS : 229 tests Windows / 0 échec ; 4 captures de démonstration. Aucune saisie Qt activée. Les écritures de consommation Qt et le remplacement de wx restent sous STOP-GATE.
+
+
+## Qualifications factuelles C8 (27/10/2026)
+
+CI Windows : https://github.com/fr4nck/Noethys-SL/actions/runs/40529970199
+- Windows / Python 3.11 / PySide6 : compileall PASS ; 229 tests PASS, aucune erreur (224 antérieurs et 5 nouveaux C8).
+- Parcours réels de widget Qt mais rendus hors écran : 4 PASS avec thèmes et DPI simulés.
+- Clair 100 % : capture 1180 × 790 pixels.
+- Sombre 125 % : capture 1475 × 988 pixels.
+- Clair 150 % : capture 1770 × 1185 pixels.
+- Sombre 150 % : capture 1770 × 1185 pixels.
+- Filtres, sélection, recherches et simulation C3 : fonctionnels dans le banc ; C3 executable=False.
+- Base fictive : 112 consommations inventées et dump SQLite strictement identique avant/après toutes les interactions.
+- Artifact « qt-c8-recette-fictive » ID 12745487136, 92 629 octets, quatre PNG et quatre JSON, rétention 14 jours.
+- Tests C6 et traces C7 également PASS sur la même CI.
+- Aucune inspection humaine du rendu ni des scintillements : la CI s'exécute en mode offscreen.
+- La recette sur écran Windows réel, thème, résolution, écran secondaire, DPI matériel et performances interactives reste EN ATTENTE.
+
+## Matrice et conditions de diffusion
+
+| Branche | SHA vérifié | Statut |
+| --- | --- | --- |
+| main | f6f5ccdf6a491025db052b7759aa6facc01b2eca | NON APPLICABLE, inchangée |
+| wx | 11b85461607bd5186f4043fadde831832114911d | NON APPLICABLE au démonstrateur, inchangée |
+| qt | 2754681974bc86ad7abde44735402493dc07e55c | VALIDÉ TECHNIQUEMENT en CI, recette humaine EN ATTENTE |
+
+Pour lancer la recette sur un poste Windows : installer requirements-qt.txt avec Python 3.11, puis double-cliquer tools/Noethys-Qt-C8-Demo.cmd depuis le clone de la branche qt. La démonstration est une surface de consommations Qt fictive, pas encore le produit complet ni un installateur officiel. Le STOP-GATE concernant les écritures, la facturation et les bases de production reste absolu.
