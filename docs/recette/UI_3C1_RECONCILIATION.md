@@ -1,5 +1,21 @@
 # UI-3C.1 — reservations incertaines : preuve et reprise
 
+## Addendum UI-435 (27/10/2026)
+
+Ce document décrit la **barrière historique UI-3C.1** et ses contre-épreuves
+CE-4/CE-5. La branche `wx` a depuis reçu le lot [#435](https://github.com/fr4nck/Noethys-SL/issues/435) :
+un parcours opérateur `Vérifier et reprendre` sans rejouer automatiquement
+la demande ni les emails, des contrôles anti-doublons et une priorité
+Journée/demi-journées. Voir le verdict et les limitations actuelles dans
+[UI_435_QUALIFICATION.md](UI_435_QUALIFICATION.md).
+
+**Ne pas confondre** la protection contre le rejeu automatique, qui reste
+en place lorsque l'état durable est incertain, et la nouvelle reprise
+manuelle autorisée après vérification. Les tests Windows et MySQL 5.7 isolé
+sont verts, mais la simultanéité de deux opérateurs pendant une sauvegarde
+n'est pas qualifiée ; **STOP-GATE de production maintenu**.
+
+
 26/10/2026, developpement sur `wx` uniquement. Aucun candidat, build,
 tag, release, deploiement, migration ou utilisation des donnees PMSL.
 
