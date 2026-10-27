@@ -1840,3 +1840,31 @@ Prochaines opérations autorisées : qualification MySQL sur serveur isolé,
 scénarios de deux opérateurs, contrôle des factures/pointages,
 réouverture de la fiche et recette graphique réelle. Puis seulement une
 décision d'installation explicitement confirmée.
+
+## 27/10/2026 — UI-435 contre-qualification finale MySQL 5.7 et CI Windows
+
+**Code et tests qualifiés :** `wx` `130324ca6dfe2173515d41d3d0680b9fbd3f001a`.
+Les commits de documentation suivants ne modifient aucun source Python
+ni test déjà qualifié.
+
+- CI rapide Windows [40585542706](https://github.com/fr4nck/Noethys-SL/actions/runs/40585542706) :
+  **SUCCESS** ; compilation PASS ; **1 293 tests exécutés, 1 257 PASS,
+  0 FAIL, 0 ERROR, 36 SKIP**.
+- CI vraie MySQL 5.7.44 jetable Windows
+  [40585542910](https://github.com/fr4nck/Noethys-SL/actions/runs/40585542910) :
+  **SUCCESS** ; **29 PASS, 0 FAIL, 0 ERROR, 0 SKIP**, dont quatre nouveaux
+  tests #435 du marqueur et du GET_LOCK sur deux connexions.
+- La CI rapide ignore les essais MySQL faute de serveur : 30 SKIP MySQL,
+  et six essais conditionnels. Ils ne contredisent pas le PASS MySQL dédié.
+- Historique : première campagne Windows `40581168121` (3 FAIL),
+  puis `40583234323` (1 289, 0 FAIL) après correction des tests et du
+  libellé d'arbitrage.
+
+Dossier de preuve : `docs/recette/UI_435_QUALIFICATION.md` et issue #435.
+**STOP-GATE sur données PMSL inchangé** : l'interface wx interactive
+et le parcours manuel complet concurrent sur deux postes n'ont pas
+été qualifiés (les primitives de verrou SQL seules le sont).
+Aucune installation, tag, release, migration ni modification du profil
+Portable ; `main` et `qt` inchangés. Reprise sur code `130324ca`,
+puis contre-épreuve de deux opérateurs et recette terrain avant décision
+de publication/installation.
