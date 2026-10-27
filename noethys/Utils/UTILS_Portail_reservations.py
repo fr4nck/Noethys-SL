@@ -126,6 +126,9 @@ def planifier_priorites(reservations, unites, etat_existant, place_disponible):
         for nom_role in PERIODS:
             ids = {r['IDunite'] for r in par_role[nom_role]}
             if len(ids) > 1:
+                if nom_role == 'journee':
+                    raise ArbitrageManuelRequis(
+                        'Plusieurs formules Journée sont sélectionnées : traitement manuel nécessaire.')
                 raise ArbitrageManuelRequis(
                     'Plusieurs unités %s pour un même accueil : arbitrage requis.' % nom_role)
             # Les demandes repetees pour une meme unite et un meme accueil
