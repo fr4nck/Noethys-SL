@@ -319,6 +319,63 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(sum(v is not None for v in resultats), 1)
         self.assertTrue(Marqueurs.EnAttente(7))
 
+    def _lier_reprise_operateur_435(self):
+        from types import MethodType
+        self.ui._ReprendreReservationsManuellement = MethodType(
+            Module.Dialog._ReprendreReservationsManuellement, self.ui)
+
+    def test_reprise_manuelle_refusee_ne_rejoue_ni_sauve(self):
+        self.preparer()
+        self.ui.ctrl_grille.partielle = True
+        self.relancer_sans_exception()
+        self.assertTrue(Marqueurs.EnAttente(7))
+        nombre_sauvegardes = self.ui.ctrl_grille.saves
+        self._lier_reprise_operateur_435()
+        from Dlg import DLG_Portail_reservations
+        dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
+        dlg.ShowModal.return_value = Module.wx.ID_CANCEL
+        with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg):
+            self.assertFalse(self.ui.Traitement(mode="manuel"))
+        self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes)
+        self.assertEqual(self.etat_sql()[0], "attente")
+        self.assertTrue(Marqueurs.EnAttente(7))
+        dlg.Destroy.assert_called_once()
+
+    def test_reprise_manuelle_explicitement_confirmee_ne_rejoue_pas_saisie(self):
+        self.preparer()
+        self.ui.ctrl_grille.partielle = True
+        self.relancer_sans_exception()
+        self.assertTrue(Marqueurs.EnAttente(7))
+        nombre_saisies = self.ui.ctrl_grille.saisies
+        nombre_sauvegardes = self.ui.ctrl_grille.saves
+        self.ui.ctrl_grille.partielle = False
+        self._lier_reprise_operateur_435()
+        from Dlg import DLG_Portail_reservations
+        dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
+        dlg.ShowModal.return_value = Module.wx.ID_OK
+        with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg) as constructeur:
+            self.assertTrue(self.ui.Traitement(mode="manuel"))
+        self.assertTrue(constructeur.call_args.kwargs["reconciliation"])
+        self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies)
+        self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes + 1)
+        self.assertEqual(self.quantites_sql(), [(101, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertFalse(Marqueurs.EnAttente(7))
+
+    def test_fin_de_reconciliation_deja_validee_ne_sauve_pas_grille(self):
+        self.preparer()
+        self.assertTrue(self.ui.Traitement())
+        nombre_sauvegardes = self.ui.ctrl_grille.saves
+        self.base.inserer("parametres", ["categorie", "nom", "parametre"],
+                          [(Marqueurs.CATEGORIE, "action_7", "a" * 32)])
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self._lier_reprise_operateur_435()
+        self.dlg.return_value.ShowModal.return_value = Module.wx.ID_YES
+        self.assertTrue(self.ui.Traitement(mode="manuel"))
+        self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes)
+        self.assertFalse(Marqueurs.EnAttente(7))
+        self.assertEqual(self.etat_sql()[0], "validation")
+
     def test_mode_manuel_annulation_et_refus_save(self):
         self.preparer()
         from Dlg import DLG_Portail_reservations
