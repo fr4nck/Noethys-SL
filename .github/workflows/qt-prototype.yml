@@ -340,3 +340,25 @@ jobs:
           path: artifacts/qt-c17/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C18 - ecoles produits pieces fictives - clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c18_native_demo.py --smoke --theme light --profile 100
+
+      - name: C18 - ecoles produits pieces fictives - sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c18_native_demo.py --smoke --theme dark --profile 150
+
+      - name: Publier captures de la coque Qt C18 (fictives)
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c18-scolarite-produits-pieces-fictifs
+          path: artifacts/qt-c18/*
+          if-no-files-found: error
+          retention-days: 14

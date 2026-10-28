@@ -19,6 +19,7 @@ from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, C16_DOMAIN_CODES,
     C16_CATALOG_MODULE_CODES, C17_CATALOG_MODULES,
+    C17_DOMAIN_CODES, C17_MODULE_CODES,
     C17_ACTIVITY_DESTINATIONS, CatalogRepository, build_catalog_query,
 )
 from noethys_qt.consumptions_core import (
@@ -100,9 +101,9 @@ class ActivityOverviewSqlTests(unittest.TestCase):
         self.reader = CatalogRepository(self.fixture.repository.editor_repository)
 
     def test_one_new_closed_catalog_domain_and_module(self):
-        self.assertEqual(set(CATALOG_DOMAINS) - C16_DOMAIN_CODES, {"activity_overview"})
+        self.assertEqual(C17_DOMAIN_CODES - C16_DOMAIN_CODES, {"activity_overview"})
         self.assertEqual(
-            set(CATALOG_MODULES) - C16_CATALOG_MODULE_CODES, {"activity_overview"},
+            C17_MODULE_CODES - C16_CATALOG_MODULE_CODES, {"activity_overview"},
         )
         self.assertEqual(C17_CATALOG_MODULES["activity_overview"][1],
                          ("activity_overview",))

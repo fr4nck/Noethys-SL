@@ -1,5 +1,49 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## C18 — Écoles, produits et pièces dans la coque Qt (EN QUALIFICATION)
+
+C17 était déjà terminé au démarrage du présent lot : code Qt
+`e3f0f1e01203d2743c12c02fc79e8b4d644ff87f`,
+[CI 40691411571](https://github.com/fr4nck/Noethys-SL/actions/runs/40691411571),
+**409 tests Qt PASS**, et moteur commun d'états `main`
+`53052ed5075c9b8336f380f7db1a1ca2daa5b595`.
+La qualification wx de l'ancien calcul de consommation est distincte.
+
+**C18 développe cinq rubriques Qt** :
+Écoles/Classes/Niveaux, Parcours scolaires, Produits/Ressources,
+Référentiel des pièces, Pièces enregistrées.
+Soit huit listes SELECT-only supplémentaires ; la coque passe
+de 23 à **28 entrées** avec `c18_enabled=True`.
+Les tableaux de scolarité individuelle et de pièces enregistrées
+restent **désactivés dans le lancement normal** et dans
+`CatalogRepository.search` ; seul le démonstrateur sur
+`TemporaryDirectory` à marqueur C18 les ouvre.
+Aucun document binaire ni traitement de validité des pièces.
+
+Le lecteur générique supporte désormais un filtre
+`individual_id` par clé SQL exacte, indépendant des filtres
+famille/activité ; les critères combinés s'appliquent par
+**ET**, sans joindre les rattachements.
+Les liens individu et famille de la coque préservent
+la sélection et permettent un retour contextuel.
+
+**Prévol C18** :
+`main 53052ed5075c9b8336f380f7db1a1ca2daa5b595`,
+`wx 61130f7eecafce9469611d6de267f56f95fccdac`,
+`qt a0bfcfb985419bb1bb7d167a45322f3eb4dd927a`.
+Les trois branches restent canoniques et divergentes,
+sans merge ni réécriture ; conserver toutes les avancées
+indépendantes en cas de nouvelle publication concurrente.
+
+**Qualification C18 EN ATTENTE** : 30 tests supplémentaires,
+garde CI portée à **439 tests**, deux démonstrations Windows
+(clair 100 %/sombre 150 %) avec 18 captures chacune,
+`C18_REGISTRIES_PASS` et `sqlite_unchanged=true` à vérifier.
+La réussite C17/C16 n'est pas une qualification du C18.
+Pas de production, écritures, migration PostgreSQL ou droits
+réels prétendument validés.
+Rapport : [QT_MODULES_LOT18.md](QT_MODULES_LOT18.md).
+
 ## C17 — moteur commun et suivi transversal (VALIDÉ sur fixture)
 
 **Moteur partagé publié sur `main`** au SHA

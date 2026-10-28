@@ -94,6 +94,7 @@ class CatalogTablePage(QWidget):
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
     activityRequested = Signal(int)
+    individualRequested = Signal(int)
     relatedActivityRequested = Signal(str, int)
 
     def __init__(self, repository: CatalogRepository, kind: str, parent=None,
@@ -108,6 +109,7 @@ class CatalogTablePage(QWidget):
         self.model = CatalogTableModel(kind)
         self._family_id = None
         self._activity_id = None
+        self._individual_id = None
         self._token = 0
         self._queued = None
         self._worker = None
@@ -166,6 +168,8 @@ class CatalogTablePage(QWidget):
         buttons.addWidget(self.inscription_button)
         self.activity_button = QPushButton("Inscriptions de l'activité", self)
         buttons.addWidget(self.activity_button)
+        self.individual_button = QPushButton("Ouvrir la fiche individu", self)
+        buttons.addWidget(self.individual_button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
         self.related_buttons: dict[str, QPushButton] = {}
@@ -206,6 +210,7 @@ class CatalogTablePage(QWidget):
         self.family_button.clicked.connect(self._open_family)
         self.inscription_button.clicked.connect(self._open_inscriptions)
         self.activity_button.clicked.connect(self._open_activity)
+        self.individual_button.clicked.connect(self._open_individual)
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)
         self.table.doubleClicked.connect(lambda _index: self._open_family())
         self._selection_changed()
@@ -218,20 +223,25 @@ class CatalogTablePage(QWidget):
         return {
             "family_id": self._family_id,
             "activity_id": self.activity_spin.value() or None,
+            "individual_id": self._individual_id,
             "year": self.year_spin.value() or None,
             "text": self.search_edit.text().strip(),
         }
 
-    def set_context(self, *, family_id=None, activity_id=None):
+    def set_context(self, *, family_id=None, activity_id=None, individual_id=None):
         validate_finance_id(family_id, "famille")
         validate_finance_id(activity_id, "activité")
+        validate_finance_id(individual_id, "individu")
         if family_id is not None and self.spec.family_column is None:
             raise ValueError("Filtre famille non applicable à ce tableau")
         if activity_id is not None and self.spec.activity_column is None:
             raise ValueError("Filtre activité non applicable à ce tableau")
+        if individual_id is not None and self.spec.individual_column is None:
+            raise ValueError("Filtre individu non applicable à ce tableau")
         changed = (
             self._family_id != family_id
             or self._activity_id != activity_id
+            or self._individual_id != individual_id
             or bool(self.search_edit.text())
             or self.year_spin.value() != 0
         )
@@ -250,11 +260,14 @@ class CatalogTablePage(QWidget):
         self.timer.stop()
         self._family_id = family_id
         self._activity_id = activity_id
+        self._individual_id = individual_id
         scopes = []
         if family_id is not None:
             scopes.append(f"Famille #{family_id}")
         if activity_id is not None:
             scopes.append(f"Activité #{activity_id}")
+        if individual_id is not None:
+            scopes.append(f"Individu #{individual_id}")
         self.context_label.setText(
             (" · ".join(scopes) if scopes else "Tous les dossiers") + " · lecture seule"
         )
@@ -360,6 +373,12 @@ class CatalogTablePage(QWidget):
             and activity > 0
         )
         self.activity_button.setEnabled(activity_is_valid)
+        self.individual_button.setVisible(self.spec.individual_column is not None)
+        individual = row.value("individual") if row and "individual" in self.spec.keys else None
+        self.individual_button.setEnabled(
+            isinstance(individual, int) and not isinstance(individual, bool)
+            and individual > 0
+        )
         for button in self.related_buttons.values():
             button.setEnabled(activity_is_valid)
 
@@ -389,6 +408,14 @@ class CatalogTablePage(QWidget):
         ):
             self.relatedActivityRequested.emit(target, identity)
 
+    def _open_individual(self):
+        row = self.selected_row()
+        if row is None or self.spec.individual_column is None:
+            return
+        individual = row.value("individual")
+        if isinstance(individual, int) and not isinstance(individual, bool) and individual > 0:
+            self.individualRequested.emit(individual)
+
     def _open_family(self):
         row = self.selected_row()
         if row is None or "family" not in self.spec.keys:
@@ -414,6 +441,7 @@ class CatalogHubPage(QWidget):
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
     activityRequested = Signal(int)
+    individualRequested = Signal(int)
     relatedActivityRequested = Signal(str, int)
 
     def __init__(self, repository: CatalogRepository, module: str, parent=None,
@@ -424,6 +452,7 @@ class CatalogHubPage(QWidget):
         self.module = module
         self._family_id = None
         self._activity_id = None
+        self._individual_id = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 7, 10, 7)
         title = QLabel(CATALOG_MODULES[module][0] + " — consultation", self)
@@ -437,6 +466,7 @@ class CatalogHubPage(QWidget):
             page.familyRequested.connect(self.familyRequested.emit)
             page.inscriptionRequested.connect(self.inscriptionRequested.emit)
             page.activityRequested.connect(self.activityRequested.emit)
+            page.individualRequested.connect(self.individualRequested.emit)
             page.relatedActivityRequested.connect(self.relatedActivityRequested.emit)
             self.pages[kind] = page
             self.tabs.addTab(page, CATALOG_DOMAINS[kind].label)
@@ -463,6 +493,22 @@ class CatalogHubPage(QWidget):
         for page in self.pages.values():
             page.set_context(
                 family_id=family_id if page.spec.family_column is not None else None
+            )
+        self.tabs.setCurrentIndex(0)
+
+    def set_individual_context(self, individual_id=None):
+        """Filtre un parcours de scolarité ou des pièces par ID individu exact."""
+        validate_finance_id(individual_id, "individu")
+        if individual_id is not None and not any(
+            CATALOG_DOMAINS[kind].individual_column is not None
+            for kind in CATALOG_MODULES[self.module][1]
+        ):
+            raise ValueError("Ce module ne possède pas de filtre individu")
+        self._individual_id = individual_id
+        for page in self.pages.values():
+            page.set_context(
+                individual_id=individual_id
+                if page.spec.individual_column is not None else None
             )
         self.tabs.setCurrentIndex(0)
 

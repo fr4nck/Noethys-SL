@@ -45,10 +45,12 @@ from .catalog_readonly_core import (
     CATALOG_MODULES, C14_MODULE_CODES, C15_MODULE_CODES,
     C16_CATALOG_MODULES, C16_RESTRICTED_MODULES,
     C17_CATALOG_MODULES, C17_ACTIVITY_DESTINATIONS,
+    C18_CATALOG_MODULES, C18_RESTRICTED_MODULES, C18_PERSON_MODULES,
     FAMILY_CATALOG_MODULES, C15_ACTIVITY_MODULES, CatalogRepository,
 )
 from .consumptions_status_ui import ConsumptionStateReportPage
 from .catalog_readonly_ui import CatalogHubPage
+from .c18_sensitive_guard import require_c18_synthetic_source
 
 
 class _DetailSignals(QObject):
@@ -111,6 +113,13 @@ C16_NAVIGATION = (
 C17_NAVIGATION = (
     ("activity_overview", "Suivi transversal des activités", True),
 )
+C18_NAVIGATION = (
+    ("school_registry", "Écoles, classes et niveaux", True),
+    ("school_history", "Parcours de scolarité", True),
+    ("product_registry", "Produits et ressources", True),
+    ("document_type_registry", "Référentiel de pièces", True),
+    ("document_records", "Pièces enregistrées", True),
+)
 
 
 class NoethysQtWindow(QMainWindow):
@@ -131,6 +140,8 @@ class NoethysQtWindow(QMainWindow):
         c15_enabled: bool = False,
         c16_enabled: bool = False,
         c17_enabled: bool = False,
+        c18_enabled: bool = False,
+        c18_sensitive_enabled: bool = False,
         badge_logs_enabled: bool = False,
     ):
         super().__init__()
@@ -153,6 +164,14 @@ class NoethysQtWindow(QMainWindow):
         self.c15_enabled = c15_enabled
         self.c16_enabled = c16_enabled
         self.c17_enabled = c17_enabled
+        self.c18_enabled = c18_enabled
+        self.c18_sensitive_enabled = bool(c18_sensitive_enabled)
+        if self.c18_sensitive_enabled:
+            require_c18_synthetic_source(
+                editor_sqlite_path, read_only_demo=read_only_demo,
+                c18_enabled=c18_enabled,
+            )
+        self.catalog_repository.sensitive_allowed = self.c18_sensitive_enabled
         # Un journal nominatif ne peut être exposé par simple argument.
         # C16 ne l'ouvre que depuis la fixture éphémère C8->C16 dédiée,
         # jamais depuis un profil réseau/SQLite ou un dossier utilisateur.
@@ -187,6 +206,7 @@ class NoethysQtWindow(QMainWindow):
             + (C15_NAVIGATION if self.c15_enabled else ())
             + (C16_NAVIGATION if self.c16_enabled else ())
             + (C17_NAVIGATION if self.c17_enabled else ())
+            + (C18_NAVIGATION if self.c18_enabled else ())
         )
         self._context_navigation = False
         self._context_history: list[tuple] = []
@@ -252,6 +272,9 @@ class NoethysQtWindow(QMainWindow):
                         and (code not in C16_RESTRICTED_MODULES
                              or self.badge_logs_enabled))
                     or (code in C17_CATALOG_MODULES and self.c17_enabled)
+                    or (code in C18_CATALOG_MODULES and self.c18_enabled
+                        and (code not in C18_RESTRICTED_MODULES
+                             or self.c18_sensitive_enabled))
                 )
             )
             action.triggered.connect(
@@ -337,6 +360,8 @@ class NoethysQtWindow(QMainWindow):
                 or (code in C16_RESTRICTED_MODULES and not self.badge_logs_enabled)
                 or (code == "consumption_reports" and not self.c16_enabled)
                 or (code in C17_CATALOG_MODULES and not self.c17_enabled)
+                or (code in C18_CATALOG_MODULES and not self.c18_enabled)
+                or (code in C18_RESTRICTED_MODULES and not self.c18_sensitive_enabled)
             ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
@@ -379,6 +404,9 @@ class NoethysQtWindow(QMainWindow):
                         and (code not in C16_RESTRICTED_MODULES
                              or self.badge_logs_enabled))
                     or (code in C17_CATALOG_MODULES and self.c17_enabled)
+                    or (code in C18_CATALOG_MODULES and self.c18_enabled
+                        and (code not in C18_RESTRICTED_MODULES
+                             or self.c18_sensitive_enabled))
                 )
             )
         self.details_page.backRequested.connect(self._back_to_people)
@@ -400,6 +428,15 @@ class NoethysQtWindow(QMainWindow):
             lambda ident: self._family_finance_requested("payments", ident)
         )
         self.details_page.familyCatalogRequested.connect(self._family_catalog_requested)
+        self.details_page.individualCatalogRequested.connect(
+            self._individual_catalog_requested
+        )
+        for code, button in self.details_page.individual_catalog_buttons.items():
+            button.setEnabled(
+                self.catalog_enabled and self.c18_enabled
+                and self.c18_sensitive_enabled
+                and code in C18_PERSON_MODULES
+            )
         self.stack.addWidget(self.home_page)
         self.stack.addWidget(self.people_page)
         self.stack.addWidget(self.details_page)
@@ -446,7 +483,13 @@ class NoethysQtWindow(QMainWindow):
             self.stack.addWidget(self.report_page)
         self.catalog_pages = {}
         for code in CATALOG_MODULES:
-            if code in C17_CATALOG_MODULES:
+            if code in C18_CATALOG_MODULES:
+                if not self.c18_enabled or (
+                    code in C18_RESTRICTED_MODULES
+                    and not self.c18_sensitive_enabled
+                ):
+                    continue
+            elif code in C17_CATALOG_MODULES:
                 if not self.c17_enabled:
                     continue
             elif code in C16_CATALOG_MODULES:
@@ -463,6 +506,11 @@ class NoethysQtWindow(QMainWindow):
             )
             panel.familyRequested.connect(
                 lambda ident, origin=code: self._catalog_family_requested(origin, ident)
+            )
+            panel.individualRequested.connect(
+                lambda ident, origin=code: self._catalog_individual_requested(
+                    origin, ident
+                )
             )
             panel.inscriptionRequested.connect(
                 lambda ident, origin=code: self._catalog_inscription_requested(origin, ident)
@@ -590,6 +638,23 @@ class NoethysQtWindow(QMainWindow):
             follow.addWidget(cockpit)
             follow.addStretch(1)
             layout.addLayout(follow)
+
+        if self.c18_enabled:
+            extra = QHBoxLayout()
+            for code in C18_CATALOG_MODULES:
+                button = QPushButton(CATALOG_MODULES[code][0], page)
+                button.setEnabled(
+                    self.catalog_enabled and (
+                        code not in C18_RESTRICTED_MODULES
+                        or self.c18_sensitive_enabled
+                    )
+                )
+                button.clicked.connect(
+                    lambda _checked=False, target=code: self.navigate(target)
+                )
+                extra.addWidget(button)
+            extra.addStretch(1)
+            layout.addLayout(extra)
 
         migration = QLabel(
             "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
@@ -933,6 +998,27 @@ class NoethysQtWindow(QMainWindow):
         self._set_return_context(("catalog", origin))
         self._open_detail("family", family_id)
 
+    def _individual_catalog_requested(self, code: str, individual_id: int) -> None:
+        if (not self.c18_sensitive_enabled or code not in C18_PERSON_MODULES
+                or code not in self.catalog_pages):
+            raise PermissionError("Parcours individuel C18 non qualifié")
+        validate_finance_id(individual_id, "individu")
+        if individual_id is None:
+            raise ValueError("Individu obligatoire")
+        self.catalog_pages[code].set_individual_context(individual_id)
+        self._navigate_with_context(code)
+        self._set_return_context(("details", "individual", individual_id))
+
+    def _catalog_individual_requested(self, origin: str, individual_id: int) -> None:
+        if (not self.c18_sensitive_enabled or origin not in C18_PERSON_MODULES
+                or origin not in self.catalog_pages):
+            raise PermissionError("Lien individuel C18 non qualifié")
+        validate_finance_id(individual_id, "individu")
+        if individual_id is None:
+            raise ValueError("Individu obligatoire")
+        self._set_return_context(("catalog", origin))
+        self._open_detail("individual", individual_id)
+
     def _catalog_inscription_requested(self, origin: str, inscription_id: int) -> None:
         if origin != "contracts":
             raise ValueError("Lien inscription indisponible")
@@ -1099,6 +1185,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         c15_enabled=True,
         c16_enabled=True,
         c17_enabled=True,
+        c18_enabled=True,
+        c18_sensitive_enabled=False,
         badge_logs_enabled=False,
     )
     window.show()

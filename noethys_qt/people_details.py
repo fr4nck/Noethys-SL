@@ -133,6 +133,7 @@ class PeopleDetailsPage(QWidget):
     familyInvoicesRequested = Signal(int)
     familyPaymentsRequested = Signal(int)
     familyCatalogRequested = Signal(str, int)
+    individualCatalogRequested = Signal(str, int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -230,6 +231,28 @@ class PeopleDetailsPage(QWidget):
         c15_actions.addStretch(1)
         root.addLayout(c15_actions)
 
+        c18_actions = QHBoxLayout()
+        self.individual_catalog_buttons = {}
+        for code, label in (
+            ("school_history", "Parcours scolaire de cet individu"),
+            ("document_records", "Pièces de cet individu"),
+        ):
+            button = QPushButton(label, self)
+            button.clicked.connect(
+                lambda _checked=False, target=code:
+                self._request_individual_catalog(target)
+            )
+            self.individual_catalog_buttons[code] = button
+            c18_actions.addWidget(button)
+        family_pieces = QPushButton("Pièces enregistrées de cette famille", self)
+        family_pieces.clicked.connect(
+            lambda _checked=False: self._request_family_catalog("document_records")
+        )
+        self.catalog_buttons["document_records"] = family_pieces
+        c18_actions.addWidget(family_pieces)
+        c18_actions.addStretch(1)
+        root.addLayout(c18_actions)
+
         self.person_group = QGroupBox("Identité et coordonnées", self)
         person_form = QFormLayout(self.person_group)
         self.person_name = _plain_label()
@@ -283,7 +306,9 @@ class PeopleDetailsPage(QWidget):
         self.family_invoices_button.setVisible(family)
         self.family_payments_button.setVisible(family)
         for button in self.catalog_buttons.values():
-            button.setVisible(family)
+            button.setVisible(family and button.isEnabled())
+        for button in self.individual_catalog_buttons.values():
+            button.setVisible(individual and button.isEnabled())
 
     def _request_family_invoices(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:
@@ -297,6 +322,12 @@ class PeopleDetailsPage(QWidget):
         if self.loaded_kind == "family" and self.current_id is not None:
             if code in self.catalog_buttons:
                 self.familyCatalogRequested.emit(code, self.current_id)
+
+    def _request_individual_catalog(self, code: str) -> None:
+        if (self.loaded_kind == "individual" and self.current_id is not None
+                and code in self.individual_catalog_buttons
+                and self.individual_catalog_buttons[code].isEnabled()):
+            self.individualCatalogRequested.emit(code, self.current_id)
 
     def _request_family_inscriptions(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:
