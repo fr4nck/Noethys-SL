@@ -191,7 +191,13 @@ class C18SqlTests(unittest.TestCase):
         self.assertEqual(
             self.reader.search("schools", text="' OR 1=1 --").rows, ()
         )
-        self.assertEqual(self.reader.search("product_inventory", text="%_").rows, ())
+        # C14 contient intentionnellement un produit avec les caracteres
+        # litteraux %_ : la recherche doit le retrouver, sans wildcard SQL.
+        self.assertEqual(
+            {r.id for r in self.reader.search("product_inventory", text="%_").rows},
+            {1},
+        )
+        self.assertEqual(self.reader.search("product_inventory", text="absent%_").rows, ())
 
     def test_limit_plus_one_signals_truncation(self):
         result = self.reader.search("schools", limit=1)
