@@ -18,6 +18,7 @@ PREREQUIS = (
     "ouvertures",
     "evenements",
     "consommations",
+    "prestations",
 )
 
 

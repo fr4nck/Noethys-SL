@@ -132,11 +132,16 @@ def create_prerequisites(db):
         )"""
     )
     db.cursor.execute(
+        """CREATE TABLE prestations (
+            IDprestation INTEGER PRIMARY KEY, IDfacture INTEGER
+        )"""
+    )
+    db.cursor.execute(
         """CREATE TABLE consommations (
             IDconso INTEGER PRIMARY KEY AUTOINCREMENT,
             IDindividu INTEGER, IDactivite INTEGER, date TEXT,
             IDunite INTEGER, IDgroupe INTEGER, etat TEXT,
-            IDevenement INTEGER
+            IDevenement INTEGER, verrouillage INTEGER, IDprestation INTEGER
         )"""
     )
     db.connexion.commit()
@@ -168,13 +173,14 @@ def ready_db():
     add_session(db)
     db.cursor.executemany(
         """INSERT INTO consommations (
-            IDindividu,IDactivite,date,IDunite,IDgroupe,etat,IDevenement
-        ) VALUES (?,?,?,?,?,?,?)""",
+            IDindividu,IDactivite,date,IDunite,IDgroupe,etat,IDevenement,
+            verrouillage,IDprestation
+        ) VALUES (?,?,?,?,?,?,?,?,?)""",
         (
-            (42, 7, "2026-10-28", 5, 3, "reservation", None),
-            (43, 7, "2026-10-28", 5, 3, "reservation", None),
-            (44, 7, "2026-10-28", 5, 3, "absentj", None),
-            (42, 7, "2026-10-28", 6, 3, "reservation", None),
+            (42, 7, "2026-10-28", 5, 3, "reservation", None, 0, None),
+            (43, 7, "2026-10-28", 5, 3, "reservation", None, 0, None),
+            (44, 7, "2026-10-28", 5, 3, "absentj", None, 0, None),
+            (42, 7, "2026-10-28", 6, 3, "reservation", None, 0, None),
         ),
     )
     db.connexion.commit()
@@ -465,6 +471,74 @@ class InterdomainAttendanceTests(unittest.TestCase):
             self.assertEqual(0, db.cursor.fetchone()[0])
         finally:
             db.Close()
+
+    def test_locked_or_billed_consumption_is_rejected_before_inbox(self):
+        for case in ("locked", "billed"):
+            with self.subTest(case=case):
+                db = ready_db()
+                try:
+                    if case == "locked":
+                        db.cursor.execute(
+                            "UPDATE consommations SET verrouillage=1 "
+                            "WHERE IDindividu=42 AND IDunite=5"
+                        )
+                        expected = "verrouillée"
+                    else:
+                        db.cursor.execute(
+                            "INSERT INTO prestations (IDprestation,IDfacture) "
+                            "VALUES (100,200)"
+                        )
+                        db.cursor.execute(
+                            "UPDATE consommations SET IDprestation=100 "
+                            "WHERE IDindividu=42 AND IDunite=5"
+                        )
+                        expected = "déjà facturée"
+                    db.connexion.commit()
+                    with self.assertRaisesRegex(
+                        INBOX.AttendanceInboxError, expected
+                    ):
+                        INBOX.GestionnaireInboxAttendance(db).AppliquerMessage(
+                            payload(
+                                changes=[
+                                    {
+                                        "participant_uid": "42",
+                                        "status": "present",
+                                    }
+                                ]
+                            ),
+                            idempotence(),
+                            date_reception="2026-10-28 09:00:01",
+                        )
+                    db.cursor.execute(
+                        "SELECT etat FROM consommations "
+                        "WHERE IDindividu=42 AND IDunite=5"
+                    )
+                    self.assertEqual("reservation", db.cursor.fetchone()[0])
+                    db.cursor.execute(
+                        "SELECT COUNT(*) FROM interdomain_attendance_inbox"
+                    )
+                    self.assertEqual(0, db.cursor.fetchone()[0])
+                finally:
+                    db.Close()
+
+    def test_backup_restore_roundtrip_preserves_integration_schema_and_data(self):
+        source = ready_db()
+        restored = SQLiteDB()
+        try:
+            source.connexion.backup(restored.connexion)
+            restored.cursor.execute(
+                "SELECT session_uid,IDactivite,IDgroupe,IDunite,date,actif "
+                "FROM interdomain_attendance_sessions"
+            )
+            self.assertEqual(
+                [(SESSION_UID, 7, 3, 5, "2026-10-28", 1)],
+                restored.cursor.fetchall(),
+            )
+            restored.cursor.execute("SELECT COUNT(*) FROM consommations")
+            self.assertEqual(4, restored.cursor.fetchone()[0])
+        finally:
+            restored.Close()
+            source.Close()
 
     def test_schema_rollback_refuses_non_empty_integration_tables(self):
         db = ready_db()

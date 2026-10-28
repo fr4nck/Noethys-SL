@@ -201,6 +201,7 @@ class GestionnaireInboxAttendance(object):
             "ouvertures",
             "evenements",
             "consommations",
+            "prestations",
             TABLE_SESSIONS,
             TABLE_INBOX,
         )
@@ -330,23 +331,25 @@ WHERE session_uid='%s';
 
     def _lire_consommation(self, session, participant_id):
         filtres = [
-            "date='%s'" % _sql_texte(session["date"]),
-            "IDactivite=%d" % session["IDactivite"],
-            "IDindividu=%d" % int(participant_id),
-            "etat IN ('reservation','present','absenti','absentj')",
+            "c.date='%s'" % _sql_texte(session["date"]),
+            "c.IDactivite=%d" % session["IDactivite"],
+            "c.IDindividu=%d" % int(participant_id),
+            "c.etat IN ('reservation','present','absenti','absentj')",
         ]
         if session["IDgroupe"] is not None:
-            filtres.append("IDgroupe=%d" % session["IDgroupe"])
+            filtres.append("c.IDgroupe=%d" % session["IDgroupe"])
         if session["IDevenement"] is not None:
-            filtres.append("IDevenement=%d" % session["IDevenement"])
+            filtres.append("c.IDevenement=%d" % session["IDevenement"])
         else:
-            filtres.append("IDunite=%d" % session["IDunite"])
+            filtres.append("c.IDunite=%d" % session["IDunite"])
 
         req = """
-SELECT IDconso,IDindividu,etat
-FROM consommations
+SELECT c.IDconso,c.IDindividu,c.etat,c.verrouillage,c.IDprestation,
+       p.IDprestation,p.IDfacture
+FROM consommations c
+LEFT JOIN prestations p ON p.IDprestation=c.IDprestation
 WHERE %s
-ORDER BY IDconso;
+ORDER BY c.IDconso;
 """ % " AND ".join(filtres)
         if self.db.ExecuterReq(req) != 1:
             raise AttendanceInboxError("Impossible de lire les consommations")
@@ -357,7 +360,36 @@ ORDER BY IDconso;
             raise AttendanceInboxError(
                 "consommation de séance ambiguë pour le participant"
             )
-        return dict(zip(("IDconso", "IDindividu", "etat"), lignes[0]))
+        consommation = dict(
+            zip(
+                (
+                    "IDconso",
+                    "IDindividu",
+                    "etat",
+                    "verrouillage",
+                    "IDprestation",
+                    "prestation_join_id",
+                    "IDfacture",
+                ),
+                lignes[0],
+            )
+        )
+        if consommation["verrouillage"] not in (None, 0, False, "0", ""):
+            raise AttendanceInboxError(
+                "consommation verrouillée ; correction administrative requise"
+            )
+        if (
+            consommation["IDprestation"] is not None
+            and consommation["prestation_join_id"] is None
+        ):
+            raise AttendanceInboxError(
+                "prestation liée introuvable ; correction administrative requise"
+            )
+        if consommation["IDfacture"] is not None:
+            raise AttendanceInboxError(
+                "consommation déjà facturée ; correction administrative requise"
+            )
+        return consommation
 
     @staticmethod
     def _etat_cible(status, etat_actuel):
