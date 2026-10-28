@@ -1,0 +1,107 @@
+name: "Noethys SL - publication ponctuelle RC10.1 verifiee"
+
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - '.github/workflows/noethys-sl-rc101-publish-verified.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-release-rc101-exact-build
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    if: >-
+      github.repository == 'fr4nck/Noethys-SL' &&
+      github.ref == 'refs/heads/wx' &&
+      github.event_name == 'push' &&
+      github.event.head_commit.message == 'release: publier RC10.1 validee cfeccd49'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    env:
+      BUILD_SHA: 'cfeccd499927319583b263b5361d9abbedeb6963'
+      BUILD_RUN: '40762579762'
+      FAST_RUN: '40762579606'
+      TAG: 'noethys-sl-0.1.0-rc.10.1'
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Rassembler les notes du commit Windows qualifie
+        uses: actions/checkout@v4
+        with:
+          ref: 'cfeccd499927319583b263b5361d9abbedeb6963'
+          persist-credentials: false
+
+      - name: Controler la provenance et les deux CI reussies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "fr4nck/Noethys-SL"
+          test "$GITHUB_REF_NAME" = "wx"
+          test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+          for run in "$BUILD_RUN" "$FAST_RUN"; do
+            etat="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .conclusion)"
+            source="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .head_sha)"
+            test "$etat" = "success" || { echo "Run $run non valide : $etat"; exit 1; }
+            test "$source" = "$BUILD_SHA" || { echo "Run $run : mauvais commit $source"; exit 1; }
+          done
+          test -s docs/releases/noethys-sl-0.1.0-rc.10.1.md
+          grep -q "0.1.0-rc.10.1" noethys/Identite.py
+
+      - name: Recuperer les binaires du run EXACT valide (sans reconstruction)
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.1-Windows-candidat
+          repository: fr4nck/Noethys-SL
+          run-id: 40762579762
+          github-token: ${{ github.token }}
+          path: windows-output
+
+      - name: Verifier Setup, portable, empreintes et absence de release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s windows-output/Noethys-SL-0.1.0-rc.10.1-Setup.exe
+          test -s windows-output/Noethys-SL-0.1.0-rc.10.1-Windows-portable.zip
+          test -s windows-output/SHA256SUMS.txt
+          test "$(wc -l < windows-output/SHA256SUMS.txt)" -eq 2
+          (cd windows-output && sha256sum -c SHA256SUMS.txt)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "STOP : release RC10.1 preexistante, aucun ecrasement"
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "STOP : tag RC10.1 preexistant, aucun ecrasement"
+            exit 1
+          fi
+
+      - name: Publier uniquement la prerelease GitHub RC10.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "windows-output/Noethys-SL-0.1.0-rc.10.1-Setup.exe" \
+            "windows-output/Noethys-SL-0.1.0-rc.10.1-Windows-portable.zip" \
+            "windows-output/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$BUILD_SHA" \
+            --title 'Noethys SL 0.1.0 RC10.1' \
+            --notes-file docs/releases/noethys-sl-0.1.0-rc.10.1.md \
+            --prerelease
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "true"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$BUILD_SHA"
+          for nom in Noethys-SL-0.1.0-rc.10.1-Setup.exe Noethys-SL-0.1.0-rc.10.1-Windows-portable.zip SHA256SUMS.txt; do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$nom"
+          done
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
+
+# Publication demandee explicitement par l’utilisateur le 28/10/2026 ; apres qualification RC10.1.
+# Aucune installation automatique et aucun remplacement des versions publiees.
