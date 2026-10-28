@@ -1,6 +1,6 @@
 # Noethys SL Qt — Lot C13 : Facturation, Règlements et Comptabilité
 
-Date : 27 octobre 2026 — périmètre branche qt.
+Date : 27 octobre 2026 — périmètre branche qt. Qualification C13 mise à jour le 28 octobre 2026.
 Cette réalisation met les GROS MODULES À PORTÉE, avant le travail d'habillage.
 Ce n'est ni un moteur de comptabilisation, ni une mise en production.
 
@@ -121,15 +121,27 @@ Commits C13 :
 - d138a63f : 26 tests nouveaux de consultation ;
 - 17785466 : pilote et workflow de captures natifs Windows.
 
-CI Windows de référence, EN COURS à rédaction :
-https://github.com/fr4nck/Noethys-SL/actions/runs/40558968795
+Qualification Windows **VÉRIFIÉE le 28/10/2026**, sur `qt`
+à `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3` :
+https://github.com/fr4nck/Noethys-SL/actions/runs/40560772284
 
-Les essais des anciens lots C6-C12 doivent rester non régressés.
-Deux parcours C13 prévus (clair 100 % et sombre 150 %), neuf vues
-chacun : Accueil, Factures, Prestations, Règlements, Ventilation,
-Trésorerie, Dépôts, Règlements du dépôt, Factures globales.
-L'intégrité de la base fictive doit être vérifiée avant/après et la
-CI doit publier des PNG et JSON seulement si le parcours réussit.
+- État `completed/success`, job `Windows / PySide6 / smoke`
+  (`122388848085`), Windows/Python 3.11/PySide6 ;
+- **301 tests exécutés, 301 réussis, zéro échec** dans ce run ;
+- C12 : `C12_NATIVE_PASS` (clair 100 %, sombre 150 %),
+  9 vues par profil, liaison exacte et base fictive inchangée ;
+- C13 : `C13_FINANCE_PASS` aux deux profils,
+  **9 captures par profil**, six domaines, `sqlite_unchanged=true` ;
+- artefact `qt-c13-finances-fictives` ID **12761142180**,
+  227 838 octets, SHA-256
+  `b14446cb13ad5b72d31a0f5d244488176d4f67a6de4832eab26e1d08718e7b74`,
+  expiration annoncée au 10/11/2026 ;
+- les autres captures fictives C6–C12 sont aussi produites.
+
+L'ancien run 40558968795 indiqué « en cours » dans une version
+précédente de ce document **n'est plus la qualification de référence**.
+La CI automatique sur bases inventées n'établit ni parité des montants,
+ni conformité des factures, ni droits effectifs, ni aptitude à la production.
 
 ## 6. Restrictions et étapes ultérieures
 
