@@ -111,11 +111,33 @@ deux parcours C14 `--smoke` (clair 100 %, sombre 150 %), 14 vues
 chacun, PNG + JSON publiés seulement si les parcours réussissent,
 avec vérification de `dump()` de la base fictive.
 
-**Statut de CI C14 au moment de la première rédaction** :
-EN ATTENTE d'exécution et vérification sur commit publié.
-Ne jamais assimiler la compilation ou les tests sur données
-inventées à une qualification d'accès MySQL réel, de droits,
-d'écritures ou à une recette Windows manuelle.
+**Qualification C14 Windows vérifiée le 28/10/2026 :**
+[run 40638033811](https://github.com/fr4nck/Noethys-SL/actions/runs/40638033811)
+sur `qt 3fc6d793918c655cdaf5a8058b1208f9e65a7bc8` :
+`completed/success` ; `Windows / PySide6 / smoke` ; **328 tests
+PASS, 0 échec, 0 erreur** (`Ran 328 tests in 877.273s`, `OK`).
+Les deux parcours C12 (9 vues/profil) et C13 (9 vues/profil)
+restent PASS, `sqlite_unchanged=true`.
+
+**C14_CATALOG_PASS** sur les deux profils `light-100` et
+`dark-150` : 14 étapes/profil (28 PNG au total),
+9 domaines, `sqlite_unchanged=true` et 2 rapports JSON.
+Artefact `qt-c14-catalogues-fictifs` ID **12795210597**,
+361 976 octets, SHA-256
+`66cfe9a710ac02ca16a02b387f36b5ca031961a98bd8b060ebaa83ef7672ae6b`,
+rétention annoncée jusqu'au 11 novembre 2026.
+
+Premier run [40636308143](https://github.com/fr4nck/Noethys-SL/actions/runs/40636308143) :
+328 tests, 8 échecs liés à un import manquant dans les liaisons
+Familles et à une assertion historique attendant huit entrées de
+navigation. Correctif traçable
+[`3fc6d793`](https://github.com/fr4nck/Noethys-SL/commit/3fc6d793918c655cdaf5a8058b1208f9e65a7bc8),
+puis requalification intégrale réussie. Aucun test supprimé.
+
+Ces preuves établissent une **validation technique sur données
+fictives uniquement**, pas une qualification d'accès MySQL réel,
+de permissions, de règles métier historiques, d'écriture,
+de recette Windows manuelle ou de diffusion.
 
 ## 5. Référence des branches avant travaux
 
@@ -123,7 +145,15 @@ d'écritures ou à une recette Windows manuelle.
 | --- | --- | --- |
 | `main` | `f6f5ccdf6a491025db052b7759aa6facc01b2eca` | NON APPLICABLE — inchangée |
 | `wx` | `ba9271339ac14ac159e3ab62af70ddfcaa3ab721` | NON APPLICABLE — inchangée |
-| `qt` | `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3` | EN QUALIFICATION sur données fictives |
+| `qt` | `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3` | VALIDÉ TECHNIQUEMENT au code SHA `3fc6d793`, sur fixture uniquement |
+
+**SHA vérifiés après qualification C14** :
+`main 9807ce11a1416dbc35046b4a7589b72ff5894ea6`,
+`wx 70fa4a7ea44d053c0ec4b338643947b0ae05612b`,
+`qt 3fc6d793918c655cdaf5a8058b1208f9e65a7bc8`.
+`main` et `wx` ont avancé indépendamment pendant C14 ;
+aucun de ces commits n'a été copié dans `qt` ni perdu par un merge.
+Vérifier le travail local avant actualisation du worktree Qt.
 
 Les trois branches ont des historiques divergents : aucun merge
 global ou synchronisation de moteur n'a été engagé. Les changements

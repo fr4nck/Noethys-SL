@@ -1,6 +1,6 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
-## C14 — grands modules administratifs natifs Qt (développement et vérification en cours)
+## C14 — six grands modules administratifs natifs Qt (QUALIFIÉ sur fixture)
 
 C14 est exclusivement développé sur la branche canonique `qt`. Les six nouvelles entrées sont Cotisations (cotisations/types), Contrats, Quotients familiaux (quotients/types), Locations (locations/demandes), Commandes et Devis : neuf listes Qt en consultation. Le moteur de connexion Qt est réutilisé sans importer wx, sans calculer de droit, cotisation, montant, validité, solde ou commande. Recherche SQL paramétrée, filtre famille par ID exact si applicable, plage annuelle sur date source, limite 250 lignes, montants sans arrondi et navigation réversible.
 
@@ -11,9 +11,13 @@ La fixture C14 étend la fixture fictive C13 uniquement dans un répertoire temp
 - `wx` : `ba9271339ac14ac159e3ab62af70ddfcaa3ab721` ;
 - `qt` : `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3` ;
 - `main..qt` **diverged** (246 commits ahead/268 behind), `main..wx` **diverged** (363 ahead/268 behind), ascendance commune principale `44fd8096506f7362706bb95ef1fbee3dae790a59`.
-- Matrice des changements C14 : `main` NON APPLICABLE/INCHANGÉ ; `wx` NON APPLICABLE/INCHANGÉ ; `qt` EN QUALIFICATION technique sur seules données fictives. Les divergences de moteurs communs restent EN ATTENTE de qualification interbranches (pas de synchronisation implicite).
+- Matrice des changements C14 : `main` NON APPLICABLE/INCHANGÉ ; `wx` NON APPLICABLE/INCHANGÉ ; `qt` VALIDÉ TECHNIQUEMENT sur seules données fictives (CI 40638033811 / code 3fc6d793). Les divergences de moteurs communs restent EN ATTENTE de qualification interbranches (pas de synchronisation implicite).
 
-Les corrections de moteur commun de `main` et `wx` restent une obligation de qualification séparée : aucune déclaration de synchronisation, de stabilité ou d'aptitude production. Documentation de périmètre et preuves : [QT_CATALOGUES_LOT14.md](QT_CATALOGUES_LOT14.md). La CI Windows C14 doit être contrôlée sur son SHA exact avant de la classer VALIDÉE.
+Les corrections de moteur commun de `main` et `wx` restent une obligation de qualification séparée : aucune déclaration de synchronisation, de stabilité ou d'aptitude production. Documentation de périmètre et preuves : [QT_CATALOGUES_LOT14.md](QT_CATALOGUES_LOT14.md).
+
+**Qualification Windows C14 du 28/10/2026 :** premier run [40636308143](https://github.com/fr4nck/Noethys-SL/actions/runs/40636308143) : 328 tests, 8 échecs (import manquant `validate_finance_id` dans les actions Qt et assertion héritée de navigation à 8 entrées). Fix `3fc6d793918c655cdaf5a8058b1208f9e65a7bc8` : import rétabli, test historique adapté à 14 entrées, fixture ancienne désactivant les pages C14, aucun test supprimé. Run définitif [40638033811](https://github.com/fr4nck/Noethys-SL/actions/runs/40638033811) : `completed/success`, **328 tests PASS, zéro échec**, `C12_NATIVE_PASS`, `C13_FINANCE_PASS`, `C14_CATALOG_PASS` clair 100 % et sombre 150 % ; 14 vues C14 par profil, 28 captures PNG + 2 JSON, `sqlite_unchanged=true`. Artefact `qt-c14-catalogues-fictifs` ID 12795210597, 361 976 octets, SHA-256 `66cfe9a710ac02ca16a02b387f36b5ca031961a98bd8b060ebaa83ef7672ae6b`.
+
+SHA de clôture observés : `main 9807ce11a1416dbc35046b4a7589b72ff5894ea6`, `wx 70fa4a7ea44d053c0ec4b338643947b0ae05612b`, `qt 3fc6d793918c655cdaf5a8058b1208f9e65a7bc8` (avant le commit documentaire de clôture). `main` et `wx` ont avancé indépendamment sans modification ni fusion de notre part. Tous correctifs communs applicables restent à qualifier séparément. Aucun essai MySQL réel, droits effectifs, écriture, donnée familiale réelle, packaging ni recette physique Windows. **STOP-GATE PRODUCTION MAINTENU.**
 
 ## Qt C13 — trois grands modules financiers et 6 listes natives (27/10/2026)
 
