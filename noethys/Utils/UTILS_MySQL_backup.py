@@ -73,8 +73,11 @@ def ExporterSQL(programme, login, fichier, base, options="", progression=None,
         args = [os.fspath(programme), "--defaults-file=%s" % login, "--opt"]
         args += OptionsDump(options) + ["--databases", base]
         with open(fichier, "wb") as sortie, tempfile.TemporaryFile() as erreurs:
+            # Un exécutable console lancé par le binaire GUI Windows ouvre sinon
+            # une fenêtre Terminal, même si ses sorties sont redirigées.
+            creation = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
             proc = subprocess.Popen(args, shell=False, stdout=sortie, stderr=erreurs,
-                                    stdin=subprocess.DEVNULL)
+                                    stdin=subprocess.DEVNULL, creationflags=creation)
             try:
                 while True:
                     try:

@@ -136,7 +136,8 @@ jobs:
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_backup_dump_watchdog
           tests.test_noethys_sl_backup_complete
-          tests.test_noethys_sl_backup_destination_poste
+          tests.test_noethys_sl_backup_interface
+          tests.test_noethys_sl_backup_no_console
           tests.test_noethys_sl_mysql_returncode
           tests.test_noethys_sl_sql_manifest
           tests.test_noethys_sl_sql_analyse
