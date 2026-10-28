@@ -27,6 +27,52 @@ from Utils.UTILS_Divers import ConvertChaineEnListe, ConvertListeEnChaine
 from Utils import UTILS_Dates
 from Utils import UTILS_Identification
 from Utils import UTILS_Parametres
+from Utils import UTILS_Config
+
+
+def ChoisirRepertoirePoste(parent, procedure):
+    """Retourne (dossier, clé à mémoriser après succès), sans modifier la base.
+
+    Les procédures réseau sont partagées : le chemin propre à un poste doit
+    rester dans son profil local, sans déplacer le dossier des autres postes.
+    """
+    import hashlib
+    import json
+    repertoire = procedure["sauvegarde_repertoire"]
+    if repertoire is None:
+        return None, None
+    identite = [procedure.get(cle) for cle in (
+        "IDsauvegarde", "nom", "sauvegarde_fichiers_locaux", "sauvegarde_fichiers_reseau")]
+    cle = hashlib.sha256(json.dumps(identite, ensure_ascii=False).encode("utf-8")).hexdigest()
+    dossiers = UTILS_Config.GetParametre("sauvegarde_repertoires_poste", defaut={})
+    if not isinstance(dossiers, dict):
+        dossiers = {}
+    propre = dossiers.get(cle)
+    if isinstance(propre, str) and os.path.isdir(propre):
+        return propre, None
+    if os.path.isdir(repertoire):
+        return repertoire, None
+    dlg = wx.DirDialog(parent, _(u"Le dossier de sauvegarde '%s' est indisponible sur ce poste.\nChoisissez un dossier existant. Ce choix sera mémorisé pour ce poste après une sauvegarde réussie.") % repertoire,
+                       style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+    try:
+        if dlg.ShowModal() != wx.ID_OK:
+            return False, None
+        choisi = dlg.GetPath()
+        if not choisi or not os.path.isdir(choisi):
+            return False, None
+        return choisi, cle
+    finally:
+        dlg.Destroy()
+
+
+def MemoriserRepertoirePoste(cle, repertoire):
+    dossiers = UTILS_Config.GetParametre("sauvegarde_repertoires_poste", defaut={})
+    dossiers = dict(dossiers) if isinstance(dossiers, dict) else {}
+    dossiers[cle] = repertoire
+    UTILS_Config.SetParametre("sauvegarde_repertoires_poste", dossiers)
+    # La fermeture de Noethys écrit son profil AVANT la sauvegarde automatique.
+    # Persister aussi maintenant, sans attendre une autre fermeture du logiciel.
+    UTILS_Config.FichierConfig().SetItemConfig("sauvegarde_repertoires_poste", dossiers)
 
 
 class Sauvegarde_auto():
@@ -48,6 +94,7 @@ class Sauvegarde_auto():
         for dictSauvegarde in self.listeSauvegardes :
             valide = True
             resultat = False
+            cleRepertoirePoste = None
             
             # Création du nom de la sauvegarde
             prefixe = dictSauvegarde["sauvegarde_nom"]
@@ -72,12 +119,24 @@ class Sauvegarde_auto():
                 if reponse == wx.ID_CANCEL :
                     return wx.ID_CANCEL
 
+            # Un ancien chemin d'un autre poste ne doit plus bloquer la sauvegarde.
+            if valide:
+                repertoirePoste, cleRepertoirePoste = ChoisirRepertoirePoste(self.parent, dictSauvegarde)
+                if repertoirePoste is False:
+                    return wx.ID_CANCEL
+                dictSauvegarde["sauvegarde_repertoire"] = repertoirePoste
+
             # Afficher interface
             if valide == True and dictSauvegarde["option_afficher_interface"] == "1" :
                 from Dlg import DLG_Sauvegarde
                 dlg = DLG_Sauvegarde.Dialog(self.parent, dictDonnees=dictSauvegarde)
                 dlg.ShowModal() 
                 resultat = dlg.GetResultat()
+                if resultat and cleRepertoirePoste is not None:
+                    if dlg.ctrl_parametres.check_repertoire.GetValue():
+                        dictSauvegarde["sauvegarde_repertoire"] = dlg.ctrl_parametres.ctrl_repertoire.GetValue()
+                    else:
+                        cleRepertoirePoste = None
                 dlg.Destroy()
             
             # Sauvegarde
@@ -97,6 +156,13 @@ class Sauvegarde_auto():
 
             # Sauvegarde de la date de la sauvegarde
             if resultat == True :
+                if cleRepertoirePoste is not None:
+                    try:
+                        MemoriserRepertoirePoste(cleRepertoirePoste, dictSauvegarde["sauvegarde_repertoire"])
+                    except Exception:
+                        dlg = wx.MessageDialog(self.parent, _(u"La sauvegarde a été créée, mais le choix du dossier n'a pas pu être mémorisé dans le profil de ce poste."), _(u"Sauvegarde"), wx.OK | wx.ICON_EXCLAMATION)
+                        dlg.ShowModal()
+                        dlg.Destroy()
                 DB = GestionDB.DB()
                 DB.ReqMAJ("sauvegardes_auto", [("date_derniere", str(datetime.date.today())),], "IDsauvegarde", dictSauvegarde["IDsauvegarde"])
                 DB.Close()
