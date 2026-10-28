@@ -65,7 +65,7 @@ jobs:
         run: python -m compileall -q -x 'C866CA3A' noethys tests scripts tools
 
       - name: Qualifier le consommateur session-attendance/1 isolé
-        run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery
+        run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery tests.test_noethys_sl_interdomain_secrets tests.test_noethys_sl_interdomain_mailbox_client
 
   tests-windows:
     name: Contrats metier et wxPython - Windows
