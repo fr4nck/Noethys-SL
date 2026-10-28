@@ -1,8 +1,10 @@
 # Noethys SL Qt — C16 : planning, tarifs, états sélectionnables et journal protégé
 
 28 octobre 2026 — branche canonique `qt`.
-Statut au développement : **EN QUALIFICATION** jusqu'à preuve de CI
-Windows réussie sur le SHA C16. Aucune aptitude à la production.
+**Statut final : VALIDÉ TECHNIQUEMENT sur données fictives uniquement.**
+Code testé : `b8fd944327878590076032bfaa797a14a677e470`.
+CI Windows [40664569734](https://github.com/fr4nck/Noethys-SL/actions/runs/40664569734)
+`completed/success`, aucune aptitude à la production.
 
 ## Origine et non-régression entre branches
 
@@ -120,9 +122,35 @@ clair 100 % et sombre 150 % :
 plus tous les parcours C6–C15 inchangés. Vérification
 du dump de la fixture avant/après la navigation.
 
-**RUN C16 : EN ATTENTE**, à renseigner
-après contrôle des quatre jobs Windows, des 382 tests,
-des 2 parcours C16 et des SHA réels de la branche.
+**CI C16 vérifiée le 28/10/2026** sur le code SHA
+`b8fd944327878590076032bfaa797a14a677e470` :
+[run Windows 40664569734](https://github.com/fr4nck/Noethys-SL/actions/runs/40664569734)
+`completed/success`, **382 tests réussis, 0 erreur, 0 échec**
+sur les trois shards (193 tests en 343,42 s ; 75 tests
+en 141,32 s ; 114 tests en 425,21 s). Quatre jobs
+Windows conclus `success`, dont les captures C6–C16.
+
+**C16_MODULES_PASS** sur les profils clair 100 % et sombre
+150 % : **18 étapes chacun**, 36 PNG + 2 JSON,
+sept cases de statut testées par clic, Tout/Aucun,
+`sqlite_unchanged=true`, cinq tables C16 et aperçu
+`COUNT(*)` par états. Les parcours graphiques
+C12/C13/C14/C15 restent PASS sur leurs fixtures fictives.
+Artefact `qt-c16-planning-etats-fictifs`, ID **12805421531**,
+523 363 octets, SHA-256
+`57c77b491c879e6ba7f9ae2f41a7965d538afaac500f2c0483fa5ecf141d638c`,
+expiration GitHub annoncée le 11 novembre 2026.
+
+**SHA observés après CI** :
+`main 1179e5799cc1ac6a9a7557896751069bfc7feb7f`,
+`wx 82cc9a641af40f9ca6ef7831f988a631ace33a14`,
+`qt b8fd944327878590076032bfaa797a14a677e470`
+(avant publication documentaire finale).
+Les changements communs sur `main` et `wx` ont avancé
+indépendamment. Toute parité interbranches métier,
+permissions, MySQL réel et statut prêt à publier
+demeurent **EN ATTENTE**. Le journal sensible n'est
+pas activé hors fixture.
 
 ## STOP-GATE
 

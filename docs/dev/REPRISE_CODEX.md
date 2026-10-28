@@ -1,6 +1,6 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
-## C16 — planning, tarifs et aperçu des états de consommation (EN QUALIFICATION)
+## C16 — planning, tarifs et aperçu des états de consommation (VALIDÉ sur fixture)
 
 **Quatre rubriques Qt C16**, dont trois ensembles de listes
 (Planning/Événements, Tarification enregistrée, Journal de badgeage
@@ -30,9 +30,30 @@ et parcours graphiques historiques C6–C15 maintenus.
 La nouvelle démonstration C16 est intégralement fictive,
 deux profils clair 100 %/sombre 150 %, 18 PNG/profil et
 deux rapports JSON, avec contrôle `sqlite_unchanged=true`.
-**Qualification Windows C16 EN ATTENTE** : ne pas annoncer de
-validation sans run `completed/success` sur SHA exact,
-382 PASS et `C16_MODULES_PASS` deux profils.
+**Qualification Windows C16 VALIDÉE techniquement sur fixtures** :
+[run 40664569734](https://github.com/fr4nck/Noethys-SL/actions/runs/40664569734)
+sur code `b8fd944327878590076032bfaa797a14a677e470`,
+`completed/success` ; **382 PASS, 0 erreur, 0 échec** :
+shard 0 193 tests (343,42 s), shard 1 75 (141,32 s),
+shard 2 114 (425,21 s). Job graphique PASS :
+`C16_MODULES_PASS` clair 100 % et sombre 150 %
+avec 18 étapes/profil, 36 PNG + 2 JSON, sélection des
+sept états par clic, `sqlite_unchanged=true`.
+Parcours C12/C13/C14/C15 également PASS.
+Artefact `qt-c16-planning-etats-fictifs` ID 12805421531,
+523 363 octets, SHA-256
+`57c77b491c879e6ba7f9ae2f41a7965d538afaac500f2c0483fa5ecf141d638c`,
+expiration annoncée au 11 novembre 2026.
+
+**SHA après CI C16** :
+`main 1179e5799cc1ac6a9a7557896751069bfc7feb7f`,
+`wx 82cc9a641af40f9ca6ef7831f988a631ace33a14`,
+`qt b8fd944327878590076032bfaa797a14a677e470`
+(avant clôture documentaire). Les historiques ont des
+différences non qualifiées entre les trois branches ;
+aucune fusion, force-push ni perte de travail n'a été
+réalisé pendant C16. Statut de publication : **STOP-GATE**,
+même avec une CI fictive verte.
 
 Le moteur `consumptions_status_core.py` est pur Python,
 sans wx/Qt ; il reste cependant logé dans `noethys_qt`.
