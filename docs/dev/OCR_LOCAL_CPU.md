@@ -18,6 +18,16 @@ modèle français précis ni sa licence n'est encore qualifié par ce lot. L'op�
 doit choisir et provisionner un modèle adapté, conserver sa révision et sa licence,
 puis qualifier ses résultats sur des exemples fictifs représentatifs.
 
+Candidat concret à cette recette, **sans téléchargement ni validation dans ce
+lot** : [`dj0w/trocr-french-handwriting-v5`, révision
+`6047032cbe5f3c7f17244a4c3dd21d9356f15480`](https://huggingface.co/dj0w/trocr-french-handwriting-v5/tree/6047032cbe5f3c7f17244a4c3dd21d9356f15480).
+La fiche de l'auteur le déclare adapté aux lignes françaises, entraîné sur RIMES
+et sous licence MIT ; le dépôt propose `model.safetensors`. Cette provenance
+documentaire ne démontre ni sa précision ni son fonctionnement sur les postes
+i5-10400. Si retenu, exporter uniquement poids et fichiers d'inférence, conserver
+la fiche/licence et exclure `training_args.bin`, inutile à l'inférence. Ne pas
+reprendre les exemples de chargement Hub de sa fiche dans l'application.
+
 Pas de détection automatique des lignes manuscrites, de routage imprimé/manuscrit,
 d'interprétation des cases, d'extraction de champs métier, de PDF multipage ou de
 rasterisation implicite. Le résultat vide reste vide. Les erreurs de moteur ou de
