@@ -1,6 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+
+### #436 B2 - audit de l'existant et controle de dates AEEH (28/10/2026)
+
+- **Audit avant code** : `DLG_Individu_medical` contient deja les vaccins (`OL_Vaccins`, `OL_Vaccins_obligatoires`), traitements et informations de sante (`OL_Pb_sante`). `DLG_Saisie_pb_sante` sait modifier dates, traitements et consignes, sous les permissions existantes. Pas de refonte de la vaccination ni de deuxieme dossier medical. La validite calculee du vaccin est differente de la verification parentale d'un justificatif. Aucun flux PAI valide et distinct n'a ete prouve. `UTILS_AEEH_Periodes` lit et valide les periodes, mais aucun editeur wx specifique de ces periodes n'a ete qualifie dans l'audit.
+- **Lacune precise corrigee** : le dialogue wx `DLG_Reception_fiche_enfant` affichait seulement le nombre de periodes AEEH. Il affiche desormais leurs dates en lecture seule ; l'agent peut comparer des dates facultatives depuis la fiche recue avec les periodes deja stockees (controles `CTRL_Saisie_date.Date` existants et `ComparerPeriodeAEEH` partage). En cas de chevauchement/nouvelle periode, avertissement et arbitrage manuel, **aucune ecriture des periodes**. Un bouton ouvre directement l'onglet Medical de la fiche individuelle ; aucune validation des vaccins/PAI n'est realisee par ce bouton.
+- **Protection de la saisie** : dates partielles et fin sans debut refusees ; relecture explicite exigee pour dates communiquees ; aucune alteration par defaut de l'AEEH si la question parentale est vide. La reponse AEEH explicite reste reportee dans le controle Identite et sauvegardee uniquement avec le bouton Ok existant.
+- **Modification limitee a wx** : `noethys/Dlg/DLG_Reception_fiche_enfant.py`, `noethys/Dlg/DLG_Individu.py`, `tests/test_noethys_sl_reception_fiches_wx_periods.py` (12 tests sans wx.App), workflow rapide wx et `docs/metier/RECEPTION_FICHES_PARENTS_436.md`. Aucun changement des moteurs, de main/qt, des schemas, de Connecthys tiers, de la base PMSL ou du profil Portable.
+- **CI avant ce sous-lot** : [main 40644787561](https://github.com/fr4nck/Noethys-SL/actions/runs/40644787561) **SUCCESS** ; [wx 40645096216](https://github.com/fr4nck/Noethys-SL/actions/runs/40645096216) **SUCCESS**. **CI de ce nouveau commit B2 et recette graphique Windows a confirmer**, aucune version publique annoncee.
+- **Matrice de diffusion** : main = moteur B1, B2 non applicable (carrosserie wx) ; wx = B1 valide CI, B2 en qualification ; qt = raccordement absent et non touche.
+
+
 ### #436 - reception des fiches enfants, controle wx (28/10/2026)
 
 - **Branche wx** initiale `70fa4a7ea44d053c0ec4b338643947b0ae05612b`. **Main** contient le noyau commun `cf447a6b221b357284b84d27ffcf11e1366f134b`. Pas de merge global, pas de nouvelle branche. Propagation ciblée sur wx du moteur d'accueil commun du premier lot #436 et de son test (33 cas), du moteur de contrôle de réception (18 cas) et de son test. Changements wx propres dans `noethys/Dlg/DLG_Individu.py` et `noethys/Dlg/DLG_Reception_fiche_enfant.py` avec 6 garde-fous statiques.

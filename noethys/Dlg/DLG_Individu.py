@@ -405,11 +405,41 @@ class Dialog(wx.Dialog):
             aeeh_actuelle=courant, periodes=periodes,
         )
         try:
-            if dlg.ShowModal() != wx.ID_OK:
+            resultat_dialogue = dlg.ShowModal()
+            if resultat_dialogue not in (wx.ID_OK, wx.ID_APPLY):
                 return
-            proposition = dlg.GetValeurProposee()
+            if resultat_dialogue == wx.ID_OK:
+                proposition = dlg.GetValeurProposee()
+                controle_periode = dlg.GetControlePeriode()
         finally:
             dlg.Destroy()
+
+        if resultat_dialogue == wx.ID_APPLY:
+            # Reutilise l'onglet medical existant ; aucune nouvelle saisie.
+            if self.ctrl_notebook.GetPageAvecCode("medical") is not None:
+                self.ctrl_notebook.AffichePage("medical")
+            else:
+                wx.MessageBox(_(u"L'onglet Médical est masqué dans les options "
+                                  u"de la fiche. Réactivez-le pour poursuivre."),
+                              _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
+            return
+
+        if controle_periode is not None:
+            action_periode = controle_periode["action"]
+            if action_periode == "periode_a_arbitrer":
+                wx.MessageBox(
+                    _(u"Les dates déclarées chevauchent une période AEEH déjà "
+                      u"connue sans lui être identiques. Vérifiez le justificatif "
+                      u"avant toute modification des périodes. Aucune date "
+                      u"n'est enregistrée depuis ce contrôle."),
+                    _(u"Période AEEH à arbitrer"), wx.OK | wx.ICON_WARNING, self)
+            elif action_periode == "periode_a_verifier":
+                wx.MessageBox(
+                    _(u"Les dates déclarées ne figurent pas dans l'historique "
+                      u"AEEH. Vérifiez le justificatif avant de les reporter "
+                      u"par un traitement distinct. Aucune date n'est "
+                      u"enregistrée automatiquement."),
+                    _(u"Période AEEH à vérifier"), wx.OK | wx.ICON_INFORMATION, self)
 
         if proposition is None:
             wx.MessageBox(_(u"Aucune réponse AEEH reportée. Vérifiez séparément "
