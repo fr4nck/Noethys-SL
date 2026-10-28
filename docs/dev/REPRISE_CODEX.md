@@ -2544,3 +2544,35 @@ Après synchronisation, `wx` a avancé par commit descendant vers le candidat RC
 **Limites / production.** Ce jalon ne crée aucun client réseau actif et ne stocke aucun secret. La corrélation de séance doit encore être alimentée par un mécanisme qualifié ; le lecteur de participants côté Portail reste à raccorder au domaine activité/usagers ; la migration doit encore être éprouvée sur une copie MySQL représentative avant exploitation. `PORTAIL_SESSION_ATTENDANCE_API_ENABLED` reste désactivé. Le sous-chantier #355 (`SecretProvider` Windows + client mailbox sortant) reste séparé et non intégré ; l'issue #424 reste donc ouverte.
 
 **Finition Portails.** Le commit de nettoyage `4582f61bbacf74853422b0962a06fa336f8dafe2` a remis le harnais transverse en `workflow_dispatch` uniquement. Sa CI minimale a rencontré un échec Docker MySQL 5.7 transitoire (`ERROR 2002`, socket indisponible) sur le job `heterogeneous-databases`; le rerun isolé du même job a réussi et le run `40661771310` est finalement **SUCCESS** sans modification de code.
+
+
+## 35. Reprise #424 — #355 coffre Windows et client mailbox sortant inactif — 28/10/2026
+
+Le sous-chantier #355 a été repris séparément du consommateur pointage. Aucun appel réseau n'est raccordé au démarrage de Noethys : les nouveaux modules restent dormants tant qu'un appelant ne construit pas explicitement le transport et n'appelle pas `SynchroniserMailbox`.
+
+**Code canonique.**
+- `cd15143e2c0092d45e25c48e8ff4cd2f6f0f1f99` : `SecretProvider`, backend Windows Credential Manager via `ctypes`, client pull HTTPS et tests ;
+- aucun fallback vers `Config.json` ou secret vide ;
+- bearer et clés HMAC chargés séparément depuis le coffre ;
+- URL HTTPS obligatoire, credentials intégrés à l'URL refusés, redirections refusées ;
+- `delivery_id` et `correlation_id` validés comme UUID avant usage ;
+- une panne locale devient `retryable`, un poison message déterministe `rejected`, un ACK perdu est rejouable grâce à l'idempotence du consommateur.
+
+**Qualifications.**
+- run `40663326876` « Secrets inter-domaines Windows » : **SUCCESS** ;
+- 18 tests sur Windows réel, dont création/lecture/suppression d'un credential éphémère Credential Manager et orchestration mailbox accepted/replayed sans réseau réel ;
+- étape Linux ciblée du run `40664204919` : **39 PASS** sur consommateur + HMAC + coffre + client (le test Credential Manager réel est normalement skipped hors Windows) ;
+- `wx` : `82cc9a641af40f9ca6ef7831f988a631ace33a14`, workflow coffre Windows `40663685790` **SUCCESS** ;
+- `qt` : `05ddada394293af99b1bc2bf2b36fea414a2fdde`.
+Les quatre blobs coffre/client/tests sont identiques sur `main`, `wx` et `qt`.
+
+**Qualification MySQL du pointage.**
+- `d07a8abb7ec3c6da75c6f29ab642f06315bda713` ajoute une recette MySQL 5.7.44 locale et jetable utilisant les vraies définitions `DATA_Tables` et le vrai `GestionDB` réseau autorisé uniquement sur `127.0.0.1` ;
+- run `40664204933` : **SUCCESS** ; serveur annoncé `MySQL 5.7.44` ;
+- 2 tests PASS : schéma + pointage + replay exact, puis refus fail-closed des consommations verrouillées/facturées ;
+- chaque test crée une base `zz_test_attendance_*` inexistante et la supprime en fin de test ;
+- `21ae3e28fb07d143facc77bf0097d804e165e6dc` retire le trigger push temporaire : la recette redevient manuelle.
+
+**Ce qui n'est toujours pas activé.** Aucun scheduler/polling n'est branché, aucune URL d'exploitation n'est commitée, aucun bearer ni secret HMAC réel n'est présent dans Git/Config, et aucune base PMSL réelle n'a été ouverte. Le test MySQL réduit le risque dialecte mais ne remplace pas une recette sur copie représentative anonymisée avant exploitation.
+
+**État #424.** Les deux archives #369 et #355 ont maintenant une reprise technique qualifiée sur le moteur courant. L'issue reste ouverte pour les gates d'exploitation : alimentation réelle de la corrélation `session_uid`, raccord du lecteur participants Portail, recette sur copie MySQL représentative, politique/installation des credentials réels et décision explicite d'activation réseau/pointage.

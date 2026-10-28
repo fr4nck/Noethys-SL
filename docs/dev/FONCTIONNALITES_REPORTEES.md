@@ -47,6 +47,8 @@ La liste complète des branches archivées, avec SHA et empreintes, est dans
 |---|---|---|---|
 | Consommateur `session-attendance/1` (ancienne #369) | `feature/session-attendance-consumer-2026-09-19` @ `74410a3e` | repris sans Noe-062 E14 : `main` `4a663fc`, `wx` `883bf00`, `qt` `ffa1657` ; E2E Portails/Noethys-SL run `40661602931` SUCCESS | non activé en production ; corrélation de séance à alimenter ; lecteur participants à raccorder ; copie MySQL réelle à qualifier ; #355 secrets/client réseau toujours reporté |
 
+| Coffre Windows + client mailbox #355 | `04f7886c` archive | repris sur moteur courant : `main cd15143e`, `wx 82cc9a6`, `qt 05ddada`; Windows Credential Manager run `40663326876` SUCCESS | aucun polling/URL/secret réel activé ; installation credentials et activation exploitation restent à décider |
+
 ## Packaging
 
 | Sujet | Archive | Motif du report |
