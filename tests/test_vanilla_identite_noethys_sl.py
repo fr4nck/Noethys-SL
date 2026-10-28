@@ -41,17 +41,17 @@ import Noethys  # noqa: E402
 class IdentitePubliqueTests(unittest.TestCase):
     def test_identite_publique_attendue(self):
         self.assertEqual(Identite.PRODUCT_NAME, u"Noethys SL")
-        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.10")
-        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC10")
+        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.10.1")
+        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC10.1")
 
     def test_titre_fenetre_affiche_identite_publique(self):
         frame = Noethys.MainFrame.__new__(Noethys.MainFrame)
         wx.Frame.__init__(frame, None, id=-1)
         try:
             frame.SetTitleFrame()
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10")
+            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10.1")
             frame.SetTitleFrame(nomFichier="exemple.ndb")
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10 - [exemple.ndb]")
+            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10.1 - [exemple.ndb]")
         finally:
             frame.Destroy()
 

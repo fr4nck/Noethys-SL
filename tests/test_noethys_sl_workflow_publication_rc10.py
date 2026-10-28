@@ -79,7 +79,7 @@ class LecteurYAML(object):
         # Repliement YAML : saut de ligne conservé autour des lignes plus indentées.
         texte = morceaux[0] if morceaux else ""
         for precedent, ligne in zip(morceaux, morceaux[1:]):
-            separateur = "\n" if (ligne.startswith(" ") or precedent.startswith(" ") or not ligne) else " "
+            separateur = "\n" if (ligne.startswith(" ") or precedent.startswith(" ") or not ligne) else ("" if not precedent else " ")
             texte += separateur + ligne
         return texte
 
@@ -249,6 +249,9 @@ SCENARIOS_SANS_PUBLICATION = {
 
 
 class LecteurTests(unittest.TestCase):
+    def test_bloc_plie_conserve_un_seul_retour_entre_paragraphes(self):
+        self.assertEqual(LireWorkflow("run: >-\n  commande\n\n  # commentaire\n")["run"], "commande\n# commentaire")
+
     def test_lecteur_conforme_a_pyyaml(self):
         try:
             import yaml

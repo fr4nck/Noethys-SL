@@ -145,6 +145,7 @@ jobs:
           tests.test_noethys_sl_backup_missing_file
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_backup_complete
+          tests.test_noethys_sl_backup_destination_poste
           tests.test_noethys_sl_mysql_returncode
           tests.test_noethys_sl_backup_dump_watchdog
           tests.test_noethys_sl_sql_manifest
@@ -211,6 +212,7 @@ jobs:
           tests.test_noethys_sl_ouverture_individu_directe
           tests.test_noethys_sl_workflow_publication_rc9
           tests.test_noethys_sl_workflow_publication_rc10
+          tests.test_noethys_sl_workflow_publication_rc101
           tests.test_noethys_sl_diagnostic_demarrage
           tests.test_noethys_sl_dependances_demarrage
           tests.test_connecthys_mailjet_lot_asynchrone

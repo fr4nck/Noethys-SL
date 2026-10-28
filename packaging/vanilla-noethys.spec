@@ -17,6 +17,7 @@ def collect_runtime_submodules(package):
 
 
 hiddenimports = [
+    "concurrent.futures.thread",
     "wx._xml",
     "wx.richtext",
     "matplotlib.backends.backend_agg",

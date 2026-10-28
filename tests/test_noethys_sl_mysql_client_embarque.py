@@ -268,6 +268,29 @@ class AllerRetourReelTests(unittest.TestCase):
         self.assertIn("1045", _FauxWx.messages[-1])
         self.assertEqual(self._fichiers_identifiants_restants(), [])
 
+    def test_sauvegarde_avec_vraie_progression_wx(self):
+        """Un vrai wx.ProgressDialog, le vrai moteur et les clients livrés."""
+        import wx as wx_reel
+        app = wx_reel.GetApp() or wx_reel.App(False)
+        self._creer_base_fictive()
+        dossier = tempfile.mkdtemp(prefix="noethys-rc101-wx-")
+        self.addCleanup(shutil.rmtree, dossier, True)
+        class WxRecette:
+            def __getattr__(self, nom):
+                return getattr(wx_reel, nom)
+            def MessageDialog(self, *args, **kwargs):
+                # Une erreur doit faire échouer le test, sans bloquer un runner
+                # derrière une boîte modale attendant un opérateur.
+                raise AssertionError("Dialogue d'erreur inattendu pendant la recette wx")
+        with mock.patch.object(UTILS_Sauvegarde, "wx", WxRecette()):
+            self.assertTrue(UTILS_Sauvegarde.Sauvegarde(
+                listeFichiersReseau=[BASE], nom="recette_wx", repertoire=dossier,
+                dictConnexion=self.dictConnexion))
+        with zipfile.ZipFile(os.path.join(dossier, "recette_wx.nod")) as z:
+            self.assertIsNone(z.testzip())
+            self.assertIn(b"-- Dump completed", z.read(BASE + ".sql"))
+        self.assertEqual(self._fichiers_identifiants_restants(), [])
+
     def test_archive_alteree_refusee_sans_modifier_la_base(self):
         self._creer_base_fictive()
         attendu = self._contenu()

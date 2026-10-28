@@ -1,3 +1,11 @@
+Version Noethys SL 0.1.0 RC10.1 (28/10/2026) :
+
+- Sauvegardes réseau : export MySQL surveillé, progression visible, prise en charge des gros documents et diagnostic exploitable en cas de blocage.
+- Sauvegardes automatiques : choix d'un nouveau dossier si celui d'un autre poste est introuvable, mémorisé localement après réussite sans changer les autres ordinateurs.
+- Sauvegardes : vérification de la fin des dumps avant archivage, préservation des fichiers précédents lors d'une copie interrompue et aucune purge après échec ou annulation.
+- Vérification des gros dumps : maintien de la progression et de la réactivité de la fenêtre.
+- Conservation des fonctions de RC10 et de la version interne 1.3.4.4 ; aucune migration de données.
+
 Version Noethys SL 0.1.0 RC10 (28/10/2026) :
 
 - Préversion cumulative de recette depuis RC9.1 : correctifs Connecthys de réservations, créneaux Journée/Matin/Après-midi, quantités et reprises contrôlées, sans écraser les demandes ambiguës.

@@ -1,5 +1,15 @@
 # Sauvegarde réseau après RC10 — incident #437
 
+## Complément RC10.1
+
+La sauvegarde automatique propose un dossier existant lorsque le chemin hérité
+est introuvable. Cette préférence est enregistrée dans le profil local après
+réussite, y compris à la fermeture du logiciel ; le chemin SQL partagé des autres
+postes reste inchangé. Une annulation ne lance aucun export ni purge. Le message
+d'erreur contient aussi le code MySQL (par exemple 1045), en plus du rapport JSON.
+La chaîne Windows RC10.1 contrôle la présence du moteur et de son exécuteur dans
+le paquet et effectue la recette MySQL avec une vraie progression wx.
+
 ## Défauts et correction du 28 octobre 2026
 
 La RC10 (`d01566118f66775620d3df5e888bc50abfd4ecef`) attend sans limite un

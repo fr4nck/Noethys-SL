@@ -109,7 +109,7 @@ def ExporterSQL(programme, login, fichier, base, options="", progression=None,
             erreurs.seek(max(0, erreurs.tell() - 4096))
             diagnostic = NettoyerDiagnostic(erreurs.read().decode("utf-8", "replace"), secrets)
             if erreur is None and code != 0:
-                erreur = "mysqldump a echoue (code %s)." % code
+                erreur = "mysqldump a echoue (code %s).\n%s" % (code, diagnostic[-2048:])
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         erreur = "Impossible de terminer l'export SQL : %s" % exc
     taille = os.path.getsize(fichier) if os.path.isfile(fichier) else 0
