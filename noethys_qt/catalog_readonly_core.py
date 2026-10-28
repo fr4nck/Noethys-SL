@@ -152,7 +152,19 @@ from .catalog_c16_specs import (  # noqa: E402
 )
 CATALOG_DOMAINS.update(build_c16_domains(CatalogSpec))
 CATALOG_MODULES.update(C16_CATALOG_MODULES)
-ACTIVITY_LINK_DOMAINS = C15_ACTIVITY_LINK_DOMAINS | C16_ACTIVITY_LINK_DOMAINS
+C16_DOMAIN_CODES = frozenset(CATALOG_DOMAINS)
+C16_CATALOG_MODULE_CODES = frozenset(CATALOG_MODULES)
+
+from .catalog_c17_specs import (  # noqa: E402
+    build_c17_domains, C17_CATALOG_MODULES,
+    C17_ACTIVITY_DESTINATIONS, C17_ACTIVITY_LINK_DOMAINS,
+)
+CATALOG_DOMAINS.update(build_c17_domains(CatalogSpec))
+CATALOG_MODULES.update(C17_CATALOG_MODULES)
+ACTIVITY_LINK_DOMAINS = (
+    C15_ACTIVITY_LINK_DOMAINS | C16_ACTIVITY_LINK_DOMAINS
+    | C17_ACTIVITY_LINK_DOMAINS
+)
 FAMILY_CATALOG_MODULES = frozenset(
     ("memberships", "contracts", "quotients", "rentals", "quotes")
 ) | C15_FAMILY_MODULES

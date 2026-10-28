@@ -1,5 +1,46 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## C17 — moteur commun et suivi transversal (EN QUALIFICATION Qt)
+
+**Moteur partagé publié sur `main`** au SHA
+`53052ed5075c9b8336f380f7db1a1ca2daa5b595` :
+`noethys/Utils/UTILS_Consumption_StateCounts.py` définit les sept
+états, le SQL paramétré, les validations et le résultat normalisé.
+12 tests sur SQLite fictif passent dans la CI
+[40689720991](https://github.com/fr4nck/Noethys-SL/actions/runs/40689720991)
+(`completed/success` Linux + Windows).
+Le lecteur Qt C16 devient un simple adaptateur de connexion ;
+`consumptions_core.STATES` est un réexport de ce service commun.
+Aucune dépendance wx/Qt, aucune écriture ou preuve CAF/AFAS.
+La consommation wx du nouveau contrat reste **EN ATTENTE**
+de la qualification du calcul historique.
+
+**Nouvelle 23e rubrique Qt : Suivi transversal des activités.**
+Comptage brut (toutes périodes) des lignes d'inscription et
+de consommation, événements, ouvertures, tarifs par ID d'activité,
+avec liens contextualisés exacts vers Planning, Tarifs, Inscriptions
+et États, navigation retour et annulation des filtres globaux.
+Aucune somme financière, aucun effectif officiel ou état de présence
+validé. `badge_journal` demeure désactivé hors fixture.
+
+**Prévol branches** :
+`main 647483e55914d845dd83ed89dc4dba5c7686c421`,
+`wx d01566118f66775620d3df5e888bc50abfd4ecef`,
+`qt fe827e8771de116eac7ca34efd845b7ddd0b039d`.
+`main` est mis à jour par commit ciblé C17, `wx` n'est
+pas modifié ; `qt` doit recevoir le même blob et ses adaptateurs,
+sans fusion globale ni écrasement du travail concurrent.
+L'inspection d'éventuels WIP locaux non publiés reste
+impossible depuis les seules références GitHub.
+
+**CI Qt C17 EN ATTENTE** : 27 tests nouveaux (garde 409 tests
+Qt au total), 12 tests de moteur pur exécutés séparément,
+deux parcours fictifs de 15 vues (30 PNG + 2 JSON attendus),
+C6–C16 conservés sans régression, aucune écriture SQLite.
+La réussite de la recette fictive n'est pas une qualification
+de production ni une validation d'aptitude wx/Qt réelle.
+Voir [QT_MODULES_LOT17.md](QT_MODULES_LOT17.md).
+
 ## C16 — planning, tarifs et aperçu des états de consommation (VALIDÉ sur fixture)
 
 **Quatre rubriques Qt C16**, dont trois ensembles de listes

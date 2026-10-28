@@ -44,6 +44,7 @@ from .finance_readonly_ui import FinanceHubPage, MODULES
 from .catalog_readonly_core import (
     CATALOG_MODULES, C14_MODULE_CODES, C15_MODULE_CODES,
     C16_CATALOG_MODULES, C16_RESTRICTED_MODULES,
+    C17_CATALOG_MODULES, C17_ACTIVITY_DESTINATIONS,
     FAMILY_CATALOG_MODULES, C15_ACTIVITY_MODULES, CatalogRepository,
 )
 from .consumptions_status_ui import ConsumptionStateReportPage
@@ -107,6 +108,9 @@ C16_NAVIGATION = (
     ("consumption_reports", "États des consommations", True),
     ("badge_journal", "Journal de badgeage", True),
 )
+C17_NAVIGATION = (
+    ("activity_overview", "Suivi transversal des activités", True),
+)
 
 
 class NoethysQtWindow(QMainWindow):
@@ -126,6 +130,7 @@ class NoethysQtWindow(QMainWindow):
         catalog_enabled: bool = True,
         c15_enabled: bool = False,
         c16_enabled: bool = False,
+        c17_enabled: bool = False,
         badge_logs_enabled: bool = False,
     ):
         super().__init__()
@@ -147,6 +152,7 @@ class NoethysQtWindow(QMainWindow):
         # Les fixtures C12/C13/C14 n'ont pas les tables du lot C15.
         self.c15_enabled = c15_enabled
         self.c16_enabled = c16_enabled
+        self.c17_enabled = c17_enabled
         # Un journal nominatif ne peut être exposé par simple argument.
         # C16 ne l'ouvre que depuis la fixture éphémère C8->C16 dédiée,
         # jamais depuis un profil réseau/SQLite ou un dossier utilisateur.
@@ -180,6 +186,7 @@ class NoethysQtWindow(QMainWindow):
             NAVIGATION
             + (C15_NAVIGATION if self.c15_enabled else ())
             + (C16_NAVIGATION if self.c16_enabled else ())
+            + (C17_NAVIGATION if self.c17_enabled else ())
         )
         self._context_navigation = False
         self._context_history: list[tuple] = []
@@ -244,6 +251,7 @@ class NoethysQtWindow(QMainWindow):
                     or (code in C16_CATALOG_MODULES and self.c16_enabled
                         and (code not in C16_RESTRICTED_MODULES
                              or self.badge_logs_enabled))
+                    or (code in C17_CATALOG_MODULES and self.c17_enabled)
                 )
             )
             action.triggered.connect(
@@ -328,6 +336,7 @@ class NoethysQtWindow(QMainWindow):
                 or (code in C16_CATALOG_MODULES and not self.c16_enabled)
                 or (code in C16_RESTRICTED_MODULES and not self.badge_logs_enabled)
                 or (code == "consumption_reports" and not self.c16_enabled)
+                or (code in C17_CATALOG_MODULES and not self.c17_enabled)
             ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
@@ -369,6 +378,7 @@ class NoethysQtWindow(QMainWindow):
                     or (code in C16_CATALOG_MODULES and self.c16_enabled
                         and (code not in C16_RESTRICTED_MODULES
                              or self.badge_logs_enabled))
+                    or (code in C17_CATALOG_MODULES and self.c17_enabled)
                 )
             )
         self.details_page.backRequested.connect(self._back_to_people)
@@ -436,7 +446,10 @@ class NoethysQtWindow(QMainWindow):
             self.stack.addWidget(self.report_page)
         self.catalog_pages = {}
         for code in CATALOG_MODULES:
-            if code in C16_CATALOG_MODULES:
+            if code in C17_CATALOG_MODULES:
+                if not self.c17_enabled:
+                    continue
+            elif code in C16_CATALOG_MODULES:
                 if not self.c16_enabled or (
                     code in C16_RESTRICTED_MODULES
                     and not self.badge_logs_enabled
@@ -456,6 +469,10 @@ class NoethysQtWindow(QMainWindow):
             )
             panel.activityRequested.connect(
                 lambda ident, origin=code: self._catalog_activity_requested(origin, ident)
+            )
+            panel.relatedActivityRequested.connect(
+                lambda destination, ident, origin=code:
+                self._catalog_related_activity_requested(origin, destination, ident)
             )
             self.catalog_pages[code] = panel
             self.stack.addWidget(panel)
@@ -564,6 +581,15 @@ class NoethysQtWindow(QMainWindow):
                 extras.addWidget(button)
             extras.addStretch(1)
             layout.addLayout(extras)
+
+        if self.c17_enabled:
+            follow = QHBoxLayout()
+            cockpit = QPushButton("Suivi transversal des activités", page)
+            cockpit.setEnabled(self.catalog_enabled)
+            cockpit.clicked.connect(lambda: self.navigate("activity_overview"))
+            follow.addWidget(cockpit)
+            follow.addStretch(1)
+            layout.addLayout(follow)
 
         migration = QLabel(
             "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
@@ -923,12 +949,36 @@ class NoethysQtWindow(QMainWindow):
 
     def _catalog_activity_requested(self, origin: str, activity_id: int) -> None:
         if origin not in C15_ACTIVITY_MODULES and origin not in (
-            "planning", "tariff_records"
+            "planning", "tariff_records", "activity_overview"
         ):
             raise ValueError("Ce lien vers les inscriptions est indisponible")
         validate_finance_id(activity_id, "activité")
         self.inscriptions_page.set_context(activity_id=activity_id)
         self._navigate_with_context("inscriptions")
+        self._set_return_context(("catalog", origin))
+
+    def _catalog_related_activity_requested(
+        self, origin: str, destination: str, activity_id: int,
+    ) -> None:
+        """C17 : navigation contextuelle sur ID d'activité enregistré."""
+        if (
+            not self.c17_enabled or not self.catalog_enabled
+            or origin != "activity_overview"
+            or destination not in C17_ACTIVITY_DESTINATIONS
+        ):
+            raise ValueError("Lien transversal C17 non qualifié")
+        validate_finance_id(activity_id, "activité")
+        if activity_id is None:
+            raise ValueError("Activité obligatoire")
+        if destination == "consumption_reports":
+            if self.report_page is None:
+                raise ValueError("Les états de consommation sont indisponibles")
+            self.report_page.focus_activity(activity_id)
+        else:
+            if destination not in self.catalog_pages:
+                raise ValueError("Module activité indisponible")
+            self.catalog_pages[destination].set_activity_context(activity_id)
+        self._navigate_with_context(destination)
         self._set_return_context(("catalog", origin))
 
     def _family_inscriptions_requested(self, family_id: int) -> None:
@@ -1048,6 +1098,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_label=_configured_source_label(args.sqlite),
         c15_enabled=True,
         c16_enabled=True,
+        c17_enabled=True,
         badge_logs_enabled=False,
     )
     window.show()

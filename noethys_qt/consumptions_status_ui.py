@@ -204,6 +204,24 @@ class ConsumptionStateReportPage(QWidget):
         if self._loaded:
             self.refresh()
 
+    def focus_activity(self, activity_id: int):
+        """C17 : navigation par ID exact, un seul rechargement d'état."""
+        if (
+            not isinstance(activity_id, int) or isinstance(activity_id, bool)
+            or not 1 <= activity_id <= self.activity_spin.maximum()
+        ):
+            raise ValueError("ID d'activité de suivi invalide")
+        validate_state_selection(
+            year=self.year_spin.value(),
+            activity_id=activity_id,
+            states=self.selected_states,
+        )
+        if self.activity_spin.value() != activity_id:
+            with QSignalBlocker(self.activity_spin):
+                self.activity_spin.setValue(activity_id)
+            if self._loaded:
+                self.refresh()
+
     def refresh(self, *_args):
         if self._batch:
             return

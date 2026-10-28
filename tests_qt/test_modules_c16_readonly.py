@@ -18,6 +18,7 @@ from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, C15_DOMAIN_CODES,
     C15_MODULE_CODES, C16_CATALOG_MODULES, C16_ACTIVITY_LINK_DOMAINS,
+    C16_DOMAIN_CODES, C16_CATALOG_MODULE_CODES,
     C16_RESTRICTED_MODULES, CatalogRepository, build_catalog_query,
 )
 from noethys_qt.catalog_readonly_ui import CatalogTableModel
@@ -49,10 +50,10 @@ class C16SqlTests(unittest.TestCase):
 
     def test_closed_domain_contract_and_source_scopes(self):
         self.assertEqual(
-            set(CATALOG_DOMAINS) - C15_DOMAIN_CODES, set(EXPECTED)
+            C16_DOMAIN_CODES - C15_DOMAIN_CODES, set(EXPECTED)
         )
         self.assertEqual(
-            set(CATALOG_MODULES) - C15_MODULE_CODES,
+            C16_CATALOG_MODULE_CODES - C15_MODULE_CODES,
             set(C16_CATALOG_MODULES),
         )
         self.assertEqual(set(C16_CATALOG_MODULES), {
@@ -252,7 +253,7 @@ class C16SqlTests(unittest.TestCase):
 
     def test_preserves_temporary_database_after_all_readers(self):
         before = self.fixture.dump()
-        for code in CATALOG_DOMAINS:
+        for code in C16_DOMAIN_CODES:
             self.catalog.search(code)
         for year in (2026, 2027):
             self.summary.summary(year=year)

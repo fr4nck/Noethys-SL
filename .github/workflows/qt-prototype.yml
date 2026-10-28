@@ -312,3 +312,31 @@ jobs:
           path: artifacts/qt-c16/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C17 - moteur commun sans dependances UI (12 tests)
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest -v tests.test_noethys_sl_consumption_states_shared
+
+      - name: C17 cockpit activites fictives - clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c17_native_demo.py --smoke --theme light --profile 100
+
+      - name: C17 cockpit activites fictives - sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c17_native_demo.py --smoke --theme dark --profile 150
+
+      - name: Publier les captures fictives de suivi Qt C17
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c17-suivi-activites-fictifs
+          path: artifacts/qt-c17/*
+          if-no-files-found: error
+          retention-days: 14

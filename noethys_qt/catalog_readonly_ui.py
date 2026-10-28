@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from .catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, ACTIVITY_LINK_DOMAINS,
     CatalogRepository, CatalogResult, validate_catalog_query,
+    C17_ACTIVITY_DESTINATIONS,
 )
 from .finance_readonly_core import display_finance_value, validate_finance_id
 
@@ -93,6 +94,7 @@ class CatalogTablePage(QWidget):
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
     activityRequested = Signal(int)
+    relatedActivityRequested = Signal(str, int)
 
     def __init__(self, repository: CatalogRepository, kind: str, parent=None,
                  *, background=True):
@@ -166,6 +168,24 @@ class CatalogTablePage(QWidget):
         buttons.addWidget(self.activity_button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
+        self.related_buttons: dict[str, QPushButton] = {}
+        if self.kind == "activity_overview":
+            related = QHBoxLayout()
+            for destination, label in (
+                ("planning", "Ouvrir le planning de l'activité"),
+                ("tariff_records", "Ouvrir les tarifs de l'activité"),
+                ("consumption_reports", "Ouvrir les états de l'activité"),
+            ):
+                button = QPushButton(label, self)
+                button.setAccessibleName(label + " sélectionnée")
+                button.clicked.connect(
+                    lambda _checked=False, target=destination:
+                    self._open_related_activity(target)
+                )
+                self.related_buttons[destination] = button
+                related.addWidget(button)
+            related.addStretch(1)
+            layout.addLayout(related)
 
         self.notice = QLabel(
             "Aucune écriture ni recalcul métier. Liste limitée à 250 enregistrements ; "
@@ -335,9 +355,13 @@ class CatalogTablePage(QWidget):
         )
         self.activity_button.setVisible(self.kind in ACTIVITY_LINK_DOMAINS)
         activity = self._selected_activity_id(row)
-        self.activity_button.setEnabled(
-            isinstance(activity, int) and not isinstance(activity, bool) and activity > 0
+        activity_is_valid = (
+            isinstance(activity, int) and not isinstance(activity, bool)
+            and activity > 0
         )
+        self.activity_button.setEnabled(activity_is_valid)
+        for button in self.related_buttons.values():
+            button.setEnabled(activity_is_valid)
 
     def _selected_activity_id(self, row):
         if row is None or self.kind not in ACTIVITY_LINK_DOMAINS:
@@ -351,6 +375,19 @@ class CatalogTablePage(QWidget):
         activity = self._selected_activity_id(self.selected_row())
         if isinstance(activity, int) and not isinstance(activity, bool) and activity > 0:
             self.activityRequested.emit(activity)
+
+    def _open_related_activity(self, target: str):
+        if (
+            self.kind != "activity_overview"
+            or target not in C17_ACTIVITY_DESTINATIONS
+        ):
+            raise ValueError("Lien d'activité non autorisé")
+        identity = self._selected_activity_id(self.selected_row())
+        if (
+            isinstance(identity, int) and not isinstance(identity, bool)
+            and identity > 0
+        ):
+            self.relatedActivityRequested.emit(target, identity)
 
     def _open_family(self):
         row = self.selected_row()
@@ -377,6 +414,7 @@ class CatalogHubPage(QWidget):
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
     activityRequested = Signal(int)
+    relatedActivityRequested = Signal(str, int)
 
     def __init__(self, repository: CatalogRepository, module: str, parent=None,
                  *, background=True):
@@ -399,6 +437,7 @@ class CatalogHubPage(QWidget):
             page.familyRequested.connect(self.familyRequested.emit)
             page.inscriptionRequested.connect(self.inscriptionRequested.emit)
             page.activityRequested.connect(self.activityRequested.emit)
+            page.relatedActivityRequested.connect(self.relatedActivityRequested.emit)
             self.pages[kind] = page
             self.tabs.addTab(page, CATALOG_DOMAINS[kind].label)
         self.tabs.currentChanged.connect(self._tab_changed)

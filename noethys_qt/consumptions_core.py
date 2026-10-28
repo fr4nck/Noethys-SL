@@ -11,16 +11,11 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Iterable
 
-STATES = (
-    ("reservation", "Réservation"),
-    ("attente", "Attente"),
-    ("refus", "Refus"),
-    ("present", "Présent"),
-    ("absentj", "Absence justifiée"),
-    ("absenti", "Absence injustifiée"),
+# C17 : référentiel unique dans le moteur partagé ; le module Qt
+# ré-exporte les trois constantes pour les consommateurs existants.
+from noethys.Utils.UTILS_Consumption_StateCounts import (
+    STATES, OTHER, ALL_STATES,
 )
-OTHER = "__autres__"
-ALL_STATES = frozenset(code for code, _label in STATES) | {OTHER}
 LABEL_BY_STATE = dict(STATES)
 MAX_RESULTS = 300
 
