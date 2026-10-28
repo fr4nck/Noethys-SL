@@ -50,7 +50,7 @@ class C12NativeShellTests(unittest.TestCase):
                 editor_sqlite_path=self.db.path,
                 source_label="BASE 100% FICTIVE — C12",
                 requested_theme="light",
-                background_queries=False,
+                background_queries=False, catalog_enabled=False,
             )
         self.addCleanup(self.window.close)
         self.addCleanup(lambda: QThreadPool.globalInstance().waitForDone(10000))
@@ -116,9 +116,11 @@ class C12NativeShellTests(unittest.TestCase):
         names = [item[0] for item in NAVIGATION]
         self.assertEqual(names, (
             ["home", "people", "activities", "inscriptions", "consumptions",
-             "billing", "payments", "accounting"]
+             "billing", "payments", "accounting", "memberships",
+             "contracts", "quotients", "rentals", "orders", "quotes"]
         ))
-        self.assertEqual(self.window.navigation.count(), 8)
+        self.assertEqual(self.window.navigation.count(), 14)
+        self.assertFalse(self.window.catalog_actions["memberships"].isEnabled())
         self.window.navigate("inscriptions")
         self.assertIs(self.window.stack.currentWidget(), self.window.inscriptions_page)
         self.assertEqual(self.window.inscriptions_page.model.rowCount(), 4)

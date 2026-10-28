@@ -132,6 +132,7 @@ class PeopleDetailsPage(QWidget):
     individualConsumptionsRequested = Signal(int)
     familyInvoicesRequested = Signal(int)
     familyPaymentsRequested = Signal(int)
+    familyCatalogRequested = Signal(str, int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -198,6 +199,24 @@ class PeopleDetailsPage(QWidget):
             self._request_family_payments
         )
 
+        # C14 : deuxième rangée compacte, sans ajouter cinq boutons
+        # dans l'ancienne rangée des accès Familles/Consommations.
+        catalog_actions = QHBoxLayout()
+        self.catalog_buttons = {}
+        for code, title in (
+            ("memberships", "Cotisations"), ("contracts", "Contrats"),
+            ("quotients", "Quotients"), ("rentals", "Locations"),
+            ("quotes", "Devis"),
+        ):
+            button = QPushButton(title + " de cette famille", self)
+            button.clicked.connect(
+                lambda _checked=False, target=code: self._request_family_catalog(target)
+            )
+            self.catalog_buttons[code] = button
+            catalog_actions.addWidget(button)
+        catalog_actions.addStretch(1)
+        root.addLayout(catalog_actions)
+
         self.person_group = QGroupBox("Identité et coordonnées", self)
         person_form = QFormLayout(self.person_group)
         self.person_name = _plain_label()
@@ -250,6 +269,8 @@ class PeopleDetailsPage(QWidget):
         self.individual_consumptions_button.setVisible(individual)
         self.family_invoices_button.setVisible(family)
         self.family_payments_button.setVisible(family)
+        for button in self.catalog_buttons.values():
+            button.setVisible(family)
 
     def _request_family_invoices(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:
@@ -258,6 +279,11 @@ class PeopleDetailsPage(QWidget):
     def _request_family_payments(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:
             self.familyPaymentsRequested.emit(self.current_id)
+
+    def _request_family_catalog(self, code: str) -> None:
+        if self.loaded_kind == "family" and self.current_id is not None:
+            if code in self.catalog_buttons:
+                self.familyCatalogRequested.emit(code, self.current_id)
 
     def _request_family_inscriptions(self) -> None:
         if self.loaded_kind == "family" and self.current_id is not None:

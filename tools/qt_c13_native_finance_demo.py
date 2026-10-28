@@ -181,7 +181,7 @@ def main():
                 SqliteActivityRepository(db.path),
                 editor_sqlite_path=db.path,
                 source_label="DONNÉES FICTIVES C13 — AUCUNE COMPTABILISATION",
-                requested_theme=args.theme, read_only_demo=True,
+                requested_theme=args.theme, read_only_demo=True, catalog_enabled=False,
                 background_queries=False if args.smoke else True,
             )
         window.setWindowTitle("Noethys Qt C13 — modules FICTIFS / lecture seule")

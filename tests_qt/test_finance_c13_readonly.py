@@ -215,7 +215,7 @@ class C13NativeFinancialPagesTests(unittest.TestCase):
                 editor_sqlite_path=self.db.path,
                 source_label="C13 - DONNÉES FICTIVES",
                 background_queries=False, read_only_demo=True,
-                requested_theme="light",
+                requested_theme="light", catalog_enabled=False,
             )
         self.addCleanup(self.window.close)
         self.window.show()
@@ -237,7 +237,8 @@ class C13NativeFinancialPagesTests(unittest.TestCase):
         return self.window.details_page
 
     def test_three_finance_modules_are_enabled_in_main_menu(self):
-        self.assertEqual(self.window.navigation.count(), 8)
+        self.assertEqual(self.window.navigation.count(), 14)
+        self.assertFalse(self.window.catalog_actions["memberships"].isEnabled())
         for code in ("billing", "payments", "accounting"):
             row = next(i for i in range(8) if
                        self.window.navigation.item(i).data(
