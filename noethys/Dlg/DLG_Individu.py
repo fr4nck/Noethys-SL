@@ -362,9 +362,69 @@ class Dialog(wx.Dialog):
         item.SetBitmap(bmp)
         menuPop.AppendItem(item)
         self.Bind(wx.EVT_MENU, self.MenuChronologie, id=20)
-                
+
+        # #436 : contrôle manuel de la fiche Pêle-Mêle reçue.
+        # Aucun doublon de champ AEEH et aucune lecture automatique du PDF.
+        page_identite = self.ctrl_notebook.GetPageAvecCode("identite")
+        if (not self.nouvelleFiche and page_identite is not None and
+                page_identite.ctrl_civilite.GetID() in (4, 5)):
+            menuPop.AppendSeparator()
+            item = wx.MenuItem(menuPop, 60, _(u"Contrôler une fiche enfant reçue"))
+            menuPop.AppendItem(item)
+            self.Bind(wx.EVT_MENU, self.MenuControlerFicheEnfant, id=60)
+
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def MenuControlerFicheEnfant(self, event):
+        """Préparer, sans écrire en base, le report manuel de la réponse AEEH."""
+        page = self.ctrl_notebook.GetPageAvecCode("identite")
+        if (self.nouvelleFiche or page is None or
+                page.ctrl_civilite.GetID() not in (4, 5)):
+            wx.MessageBox(_(u"Ce contrôle concerne une fiche enfant existante."),
+                          _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
+            return
+        if not page.ctrl_aeeh.IsEnabled():
+            wx.MessageBox(_(u"La modification de l'identité n'est pas disponible."),
+                          _(u"Fiche enfant"), wx.OK | wx.ICON_WARNING, self)
+            return
+
+        from Utils import UTILS_Aeeh, UTILS_AEEH_Periodes
+        from Dlg import DLG_Reception_fiche_enfant
+        try:
+            periodes = UTILS_AEEH_Periodes.GetPeriodes(self.IDindividu)
+        except Exception:
+            wx.MessageBox(_(u"Les périodes AEEH ne peuvent pas être consultées. "
+                              u"Aucun report n'a été effectué."),
+                          _(u"Fiche enfant"), wx.OK | wx.ICON_WARNING, self)
+            return
+
+        courant = UTILS_Aeeh.IndexVersValeur(page.ctrl_aeeh.GetSelection())
+        dlg = DLG_Reception_fiche_enfant.Dialog(
+            self, IDindividu=self.IDindividu,
+            aeeh_actuelle=courant, periodes=periodes,
+        )
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return
+            proposition = dlg.GetValeurProposee()
+        finally:
+            dlg.Destroy()
+
+        if proposition is None:
+            wx.MessageBox(_(u"Aucune réponse AEEH reportée. Vérifiez séparément "
+                              u"les informations de l'onglet Médical."),
+                          _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
+            return
+
+        # Mise à jour du contrôle déjà utilisé par Noethys, NON de la base.
+        page.ctrl_aeeh.SetSelection(UTILS_Aeeh.ValeurVersIndex(proposition))
+        self.ctrl_notebook.AffichePage("identite")
+        wx.MessageBox(_(u"Réponse AEEH reportée dans l'onglet Identité. "
+                          u"Vérifiez puis cliquez sur Ok pour enregistrer "
+                          u"la fiche individuelle. Les périodes et les "
+                          u"informations médicales restent à contrôler."),
+                      _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
 
     def OnClose(self, event):
         self.Annuler()

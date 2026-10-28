@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+
+### #436 - reception des fiches enfants, controle wx (28/10/2026)
+
+- **Branche wx** initiale `70fa4a7ea44d053c0ec4b338643947b0ae05612b`. **Main** contient le noyau commun `cf447a6b221b357284b84d27ffcf11e1366f134b`. Pas de merge global, pas de nouvelle branche. Propagation ciblée sur wx du moteur d'accueil commun du premier lot #436 et de son test (33 cas), du moteur de contrôle de réception (18 cas) et de son test. Changements wx propres dans `noethys/Dlg/DLG_Individu.py` et `noethys/Dlg/DLG_Reception_fiche_enfant.py` avec 6 garde-fous statiques.
+- **Audit réel** : Connecthys d'Ivan Lucas hébergé par un tiers reçoit déjà PDF/JPG/PNG dans « Pièces » ; `DLG_Saisie_portail_demande.Traitement_pieces` télécharge, déchiffre puis enregistre la pièce. Cela n'actualise pas les informations médicales ou AEEH de la fiche.
+- **Raccordement wx de première étape** : depuis la fiche individuelle d'un enfant existant, `Outils → Contrôler une fiche enfant reçue`. L'opérateur doit consulter le PDF papier/portail dans l'onglet Pièces, confirmer l'enfant concerné et recopier explicitement Oui/Non/Non renseigné. Le dialogue compare à `individus.aeeh` via le contrôle Identité existant ; il ne fait AUCUN write SQL. C'est le bouton Ok habituel de la fiche individuelle qui enregistre. Les périodes AEEH sont lues comme référence et jamais modifiées ici ; les vaccins, allergies, traitements, PAI et consignes sont rappelés comme **à vérifier dans Médical**.
+- **Tests locaux** : 18 PASS Python 3.13, compilation du dialogue wx PASS ; les 6 tests statiques wx compilent. Sur CI wx, exécuter les 33 + 18 + 6 tests et toute la recette rapide existante ; **résultat du nouveau run à vérifier séparément**. La fenêtre graphique n'a PAS été ouverte en local et une recette visuelle Windows demeure requise avant diffusion.
+- **Non touchés** : bases réelles PMSL, profil Portable, portail Connecthys hébergé, synchronisation, tables, migrations, documents Pêle-Mêle originaux, réservations #435, facturation. Aucune promesse de classification automatique des PDF ni d'actualisation des périodes.
+- **Matrice** : main = contrat commun en place ; wx = contrat commun ciblé + interface wx en qualification ; qt = interface Qt ABSENTE, contrat partagé à propager avant recette. Ne déclarer aucune release prête tant que la CI/recette de la version utilisée ne sont pas qualifiées.
+
+
 ## UI-432G — finalisation du lanceur de recette (27/10/2026)
 
 - **Branche `wx`**, base `a24e1dd5` ; commit `6514740a` (lanceur + tests + CI). `main`/`qt` non modifiees. Moteur de synchro et correctif `dff8a13f` **non modifies** ; aucun benchmark relance ; aucune execution de Noethys, aucune base PMSL, aucun Connecthys.

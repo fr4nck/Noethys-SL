@@ -106,6 +106,9 @@ jobs:
           tests.test_noethys_sl_repas_regimes_mysql
           tests.test_noethys_sl_repas_regimes_2b
           tests.test_noethys_sl_repas_2c
+          tests.test_noethys_sl_fiche_accueil_enfant
+          tests.test_noethys_sl_reception_fiches
+          tests.test_noethys_sl_reception_fiches_wx
           tests.test_noethys_sl_repas_tarification_2c
           tests.test_noethys_sl_repas_tarifs_audit_2c
           tests.test_noethys_sl_repas_2c_wx_integration
