@@ -150,6 +150,20 @@ class AutorisationsTracables(unittest.TestCase):
         self.assertEqual(source[0]["valeur"], 1)
         self.assertEqual(len(source), 2)
 
+    def test_refus_expire_ne_reactive_pas_un_ancien_oui(self):
+        ancien_oui = preuve(date_fin="2028-12-31")
+        nouveau_non = preuve(valeur=0, date_fin="2026-10-20",
+                            repondu_le="2026-10-01T10:00:00+02:00")
+        self.assertEqual(F.EtatAutorisation([ancien_oui, nouveau_non], 11,
+                         "piscine_baignade", JOUR)["etat"], "expire")
+
+    def test_oui_expire_ne_reactive_pas_un_ancien_oui(self):
+        ancien_oui = preuve(date_fin="2028-12-31")
+        nouveau_oui = preuve(valeur=1, date_fin="2026-10-20",
+                            repondu_le="2026-10-01T10:00:00+02:00")
+        self.assertEqual(F.EtatAutorisation([ancien_oui, nouveau_oui], 11,
+                         "piscine_baignade", JOUR)["etat"], "expire")
+
     def test_date_limite_incluse_puis_expiration(self):
         p = preuve(date_fin=JOUR)
         self.assertEqual(F.EtatAutorisation([p], 11, "piscine_baignade", JOUR)["etat"], "oui")

@@ -137,7 +137,7 @@ def EtatAutorisation(historique, IDindividu, type_autorisation, au, perimetre="g
         raise FicheAccueilInvalide("Historique d'autorisations invalide")
     if not isinstance(perimetre, str) or not perimetre.strip():
         raise FicheAccueilInvalide("Perimetre requis")
-    candidats, expires = [], []
+    candidats = []
     for preuve in historique:
         if not isinstance(preuve, dict):
             raise FicheAccueilInvalide("Preuve d'autorisation invalide")
@@ -161,17 +161,19 @@ def EtatAutorisation(historique, IDindividu, type_autorisation, au, perimetre="g
                   preuve["signataire"] if valide else None,
                   preuve["texte_version"] if valide else None,
                   preuve["preuve"] if valide else None)
-        if debut <= reference and (fin is None or reference <= fin):
+        # Une decision plus recente expiree neutralise aussi une ancienne
+        # autorisation : ne jamais ressusciter un OUI par repli historique.
+        if debut <= reference:
             candidats.append(entree)
-        elif fin is not None and fin < reference:
-            expires.append(entree)
     if not candidats:
-        return {"etat": "expire" if expires else "non_renseigne"}
+        return {"etat": "non_renseigne"}
     instant = max(item[0] for item in candidats)
     dernieres = [item[1:] for item in candidats if item[0] == instant]
     if len(set(dernieres)) != 1 or not dernieres[0][1]:
         return {"etat": "a_verifier"}
     _valeur, _preuve_valide, debut, fin, _signataire, _version, _ref_preuve = dernieres[0]
+    if fin is not None and fin < reference:
+        return {"etat": "expire"}
     return {"etat": _valeur, "date_debut": debut.isoformat(),
             "date_fin": fin.isoformat() if fin else None}
 
