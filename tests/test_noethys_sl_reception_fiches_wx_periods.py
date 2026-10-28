@@ -36,7 +36,17 @@ def _charger_methodes():
         ID_OK=5100, ID_APPLY=5103, OK=1, ICON_WARNING=2,
         MessageBox=lambda *args: messages.append(args),
     )
-    contexte = {"reception": reception, "date_calendrier": date, "wx": wx}
+    # Les méthodes AST extraites conservent leur namespace de module :
+    # résoudre la constante réelle du dialogue plutôt que dupliquer sa valeur.
+    valeur_aeeh = next(
+        n.value for n in arbre.body
+        if isinstance(n, ast.Assign) and any(
+            isinstance(cible, ast.Name) and cible.id == "VALEURS_AEEH"
+            for cible in n.targets
+        )
+    )
+    contexte = {"reception": reception, "date_calendrier": date, "wx": wx,
+                "VALEURS_AEEH": ast.literal_eval(valeur_aeeh)}
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=[utilitaire] + fonctions, type_ignores=[])),
         str(FICHIER_DIALOGUE), "exec"), contexte)
