@@ -12,6 +12,7 @@ if str(NOETHYS) not in sys.path:
 
 from Utils import UTILS_Interdomain_Attendance as INBOX
 from Utils import UTILS_Interdomain_Attendance_Schema as SCHEMA
+from Utils import UTILS_Interdomain_Attendance_Correlation as CORRELATION
 
 
 SESSION_UID = "PORTAIL-SESSION-001"
@@ -550,6 +551,94 @@ class InterdomainAttendanceTests(unittest.TestCase):
                 rollback["tables_non_vides"],
             )
             self.assertTrue(db.IsTableExists("interdomain_attendance_sessions"))
+        finally:
+            db.Close()
+
+
+class AttendanceCorrelationAdministrationTests(unittest.TestCase):
+    UID = "PORTAIL-SESSION-ADMIN-001"
+
+    def test_correlation_requires_explicit_schema(self):
+        db = SQLiteDB()
+        try:
+            service = CORRELATION.GestionnaireCorrelationsAttendance(db)
+            with self.assertRaisesRegex(
+                CORRELATION.AttendanceCorrelationError,
+                "schéma pointage absent",
+            ):
+                service.Configurer(
+                    self.UID, 7, "2026-10-28", IDgroupe=3, IDunite=5
+                )
+            self.assertFalse(db.IsTableExists("interdomain_attendance_sessions"))
+        finally:
+            db.Close()
+
+    def test_create_read_update_and_deactivate_correlation(self):
+        db = ready_db()
+        try:
+            service = CORRELATION.GestionnaireCorrelationsAttendance(db)
+            created = service.Configurer(
+                self.UID,
+                7,
+                "2026-10-28",
+                IDgroupe=3,
+                IDunite=5,
+                date_creation="2026-10-28 10:00:00",
+            )
+            self.assertTrue(created["created"])
+            self.assertEqual(5, service.Lire(self.UID)["IDunite"])
+
+            updated = service.Configurer(
+                self.UID, 7, "2026-10-28", IDgroupe=3, IDunite=6
+            )
+            self.assertFalse(updated["created"])
+            self.assertEqual(6, service.Lire(self.UID)["IDunite"])
+
+            self.assertTrue(service.Desactiver(self.UID))
+            self.assertFalse(service.Desactiver(self.UID))
+            self.assertEqual(0, service.Lire(self.UID)["actif"])
+        finally:
+            db.Close()
+
+    def test_invalid_scope_is_rejected_before_insert(self):
+        db = ready_db()
+        try:
+            service = CORRELATION.GestionnaireCorrelationsAttendance(db)
+            with self.assertRaises(CORRELATION.AttendanceCorrelationError):
+                service.Configurer(
+                    self.UID, 99, "2026-10-28", IDgroupe=3, IDunite=5
+                )
+            with self.assertRaisesRegex(
+                CORRELATION.AttendanceCorrelationError,
+                "unité ou événement requis",
+            ):
+                service.Configurer(
+                    self.UID, 7, "2026-10-28", IDgroupe=3
+                )
+            self.assertIsNone(service.Lire(self.UID))
+        finally:
+            db.Close()
+
+    def test_used_correlation_cannot_be_remapped(self):
+        db = ready_db()
+        try:
+            service = CORRELATION.GestionnaireCorrelationsAttendance(db)
+            service.Configurer(
+                self.UID, 7, "2026-10-28", IDgroupe=3, IDunite=5
+            )
+            INBOX.GestionnaireInboxAttendance(db).AppliquerMessage(
+                payload(session_uid=self.UID),
+                idempotence(),
+                date_reception="2026-10-28 10:01:00",
+            )
+            with self.assertRaisesRegex(
+                CORRELATION.AttendanceCorrelationError,
+                "remappage interdit",
+            ):
+                service.Configurer(
+                    self.UID, 7, "2026-10-28", IDgroupe=3, IDunite=6
+                )
+            self.assertEqual(5, service.Lire(self.UID)["IDunite"])
         finally:
             db.Close()
 
