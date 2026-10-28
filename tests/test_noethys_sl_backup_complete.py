@@ -49,7 +49,8 @@ class BackupCompletTests(unittest.TestCase):
         classe = next(n for n in arbre.body if isinstance(n, ast.ClassDef) and n.name == "Sauvegarde_auto")
         fonction = next(n for n in classe.body if isinstance(n, ast.FunctionDef) and n.name == "Start")
         env = dict(datetime=datetime, os=os, glob=types.SimpleNamespace(glob=mock.Mock()),
-                   wx=types.SimpleNamespace(ID_CANCEL=5101))
+                   wx=types.SimpleNamespace(ID_CANCEL=5101),
+                   ChoisirRepertoirePoste=lambda parent, procedure: (procedure["sauvegarde_repertoire"], None))
         exec(compile(ast.Module(body=[fonction], type_ignores=[]), str(source), "exec"), env)
         dialogue = types.SimpleNamespace(ShowModal=lambda: None, GetResultat=lambda: False, Destroy=lambda: None)
         package = types.ModuleType("Dlg")
