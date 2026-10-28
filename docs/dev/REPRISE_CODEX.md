@@ -1868,3 +1868,47 @@ Aucune installation, tag, release, migration ni modification du profil
 Portable ; `main` et `qt` inchangés. Reprise sur code `130324ca`,
 puis contre-épreuve de deux opérateurs et recette terrain avant décision
 de publication/installation.
+
+## 2026-10-28 — Questionnaire repas : preparation visible et idempotente #433
+
+**Mission utilisateur :** ne plus laisser d'incertitude sur l'existence
+du questionnaire « Type de repas ». Le code ne peut pas prouver
+l'existence de cette question dans la base PMSL sans installer et ouvrir
+une application sur cette base ; il fournit désormais un diagnostic
+explicite et une creation idempotente sous confirmation.
+
+- `wx` : code et tests du sous-lot en HEAD
+  `f12c207a7f22cc3bace254de7febaddf58519639`.
+  Commit documentaire suivant `ac714c09` sans modification de sources.
+- `noethys/Utils/UTILS_Repas_questionnaire.py` : diagnostique les
+  questionnaires individuels « Type de repas » / « Régime repas », valide
+  les 4 réponses visibles à choix unique, ne convertit aucun historique ;
+  écrit uniquement sur confirmation via l'UI ; transactions SQLite
+  `BEGIN IMMEDIATE` et MySQL `GET_LOCK` pour les appels homologues.
+- `noethys/Dlg/DLG_Questionnaires.py` : état PRÊT / ABSENT / À CORRIGER
+  en lecture seule, action « Préparer Type de repas » uniquement pour
+  le type Individu.
+- `noethys/Dlg/DLG_Saisie_commandes_colonne.py` : même vérification
+  et remplissage automatique des quatre IDs dans le modèle de
+  commande de repas, à enregistrer normalement.
+- **Tests nouveaux** : 14 SQLite, 8 sur le menu Questionnaires, 5 sur
+  le bouton de modèle, intégrés à la CI rapide. Compilation Python
+  sur `f12c207a` PASS ; tests Windows
+  [run 40634463963](https://github.com/fr4nck/Noethys-SL/actions/runs/40634463963)
+  **en cours au dernier relevé**. Ne pas écrire SUCCESS sans conclusion.
+- Notice : `docs/metier/REPAS_QUESTIONNAIRE_PREPARATION.md`.
+  Issue : [#433](https://github.com/fr4nck/Noethys-SL/issues/433).
+
+**Matrice branches** : `wx` = PREPARATION CODEE / CI WINDOWS EN
+ATTENTE ; `main` = NON PORTE pour ce sous-lot ;
+`qt` = NON PORTE pour ce sous-lot. Pas de merge global ni de
+nouvelle branche. Aucun dossier `Portable`, base PMSL, données
+des familles, modèle historique, facture, installateur, tag/release ou
+portail web n'a été modifié.
+
+**STOP-GATE** : une CI verte ne crée pas la question dans la base,
+ni ne prouve sa visibilité sur un portail parent. Le volet panier
+familial à 0 EUR de facturation reste explicitement bloqué
+tant que la tarification 2C-3 n'est pas raccordée et qualifiée.
+Recette graphique Windows sur base fictive et contrôle MySQL jetable
+à effectuer avant installation terrain.
