@@ -20,6 +20,8 @@ import GestionDB
 import subprocess
 import shutil
 import time
+import shlex
+import tempfile
 
 import GestionDB
 from Utils import UTILS_Fichiers
@@ -142,26 +144,78 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 fichierSave = u"%s/%s.sql" % (repTemp, nomFichier)
                 options = UTILS_Customize.GetValeur("sauvegarde", "options", "", ajouter_si_manquant=False)
 
-                # --opt re-active --lock-tables ; placer les options transactionnelles ensuite.
-                args = u""""%sbin/mysqldump" --defaults-extra-file="%s" --opt --single-transaction --skip-lock-tables %s --databases %s > "%s" """ % (repMySQL, nomFichierLoginTemp, options or "", nomFichier, fichierSave)
-                print(("Chemin mysqldump =", args))
-                if six.PY2:
-                    args = args.encode('utf8')
-                proc = subprocess.Popen(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-                out, temp = proc.communicate()
+                # Export direct : mysqldump devient l'enfant surveille de Noethys.
+                # --opt re-active --lock-tables : conserver l'ordre historique.
+                programme = os.path.join(repMySQL, "bin",
+                                         "mysqldump.exe" if os.name == "nt" else "mysqldump")
+                args = [
+                    programme,
+                    "--defaults-extra-file=%s" % nomFichierLoginTemp,
+                    "--opt", "--single-transaction", "--skip-lock-tables",
+                ] + shlex.split(options or "") + ["--databases", nomFichier]
+                print(("Export SQL MySQL =", nomFichier))
+                erreurDump = None
+                instantDebut = time.monotonic()
+                instantProgression = instantDebut
+                taillePrecedente = 0
+                try:
+                    with open(fichierSave, "wb") as sortieSQL, tempfile.TemporaryFile() as erreursSQL:
+                        proc = subprocess.Popen(
+                            args, shell=False, stdout=sortieSQL, stderr=erreursSQL,
+                            stdin=subprocess.DEVNULL)
+                        try:
+                            while True:
+                                try:
+                                    proc.wait(timeout=2)
+                                    break
+                                except subprocess.TimeoutExpired:
+                                    maintenant = time.monotonic()
+                                    try:
+                                        taille = os.path.getsize(fichierSave)
+                                    except OSError:
+                                        taille = 0
+                                    if taille > taillePrecedente:
+                                        instantProgression = maintenant
+                                    taillePrecedente = taille
+                                    if maintenant - instantProgression >= 600:
+                                        erreurDump = u"Export MySQL sans progression depuis 10 minutes (%s)." % nomFichier
+                                        break
+                                    if maintenant - instantDebut >= 7200:
+                                        erreurDump = u"Export MySQL au-dela de 2 heures (%s)." % nomFichier
+                                        break
+                                    dlgprogress.Update(
+                                        numEtape - 1,
+                                        _(u"Export MySQL %s : %.1f Mo produits (surveillance active)...")
+                                        % (nomFichier, taille / 1048576.0))
+                        finally:
+                            # Retirer l'enfant avant les fichiers temporaires et identifiants.
+                            if proc.poll() is None:
+                                proc.terminate()
+                                try:
+                                    proc.wait(timeout=5)
+                                except subprocess.TimeoutExpired:
+                                    proc.kill()
+                                    proc.wait(timeout=5)
+                        if erreurDump is None and proc.returncode != 0:
+                            erreursSQL.seek(0)
+                            diagnostic = erreursSQL.read(2048)
+                            if isinstance(diagnostic, bytes):
+                                diagnostic = diagnostic.decode("utf8", "replace")
+                            erreurDump = u"mysqldump a echoue (code %s). %s" % (
+                                proc.returncode, diagnostic.strip())
+                except (OSError, ValueError, subprocess.TimeoutExpired) as err:
+                    erreurDump = u"Impossible de terminer l'export SQL : %s" % err
 
-                # La sortie texte n'est pas un indicateur fiable du succes MySQL.
-                if proc.returncode != 0:
-                    if isinstance(out, bytes):
-                        out = out.decode("utf8", "replace")
-                    if not out:
-                        out = u"mysqldump a echoue avec le code %s, sans diagnostic." % proc.returncode
-                    print((out,))
+                if erreurDump is not None:
+                    # Aucun ZIP partiel ne doit etre considere comme une sauvegarde.
+                    print(("Echec export MySQL :", nomFichier, erreurDump))
                     dlgprogress.Destroy()
-                    dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                    dlgErreur = wx.MessageDialog(
+                        None,
+                        _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s")
+                        % erreurDump, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                     dlgErreur.ShowModal()
                     dlgErreur.Destroy()
-                    # Ne laisser ni ZIP partiel ni sauvegarde trompeusement valide.
                     fichierZip.close()
                     fichierTemp = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
                     if os.path.isfile(fichierTemp):

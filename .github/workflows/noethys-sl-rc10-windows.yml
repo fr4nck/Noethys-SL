@@ -104,6 +104,7 @@ jobs:
           tests.test_000_garde_reseau
           tests.test_noethys_sl_backup_network_config
           tests.test_noethys_sl_mysql_returncode
+          tests.test_noethys_sl_backup_dump_watchdog
           tests.test_noethys_sl_sql_integration
           tests.test_noethys_sl_sql_manifest
           tests.test_noethys_sl_mysql_client_embarque

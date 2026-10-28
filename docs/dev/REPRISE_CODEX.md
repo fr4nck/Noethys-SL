@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## 28 octobre 2026 — mysqldump immobile pendant une sauvegarde de fermeture
+
+- Incident terrain (5700X) : export de la base des documents interrompu ; SQL partiel d'environ 70 Mo, sans modification durant plus de 100 minutes. Les trois processus observes ont disparu. Aucune archive interrompue ne vaut sauvegarde restauree.
+- Defaut confirme dans le code RC10 : lancement via cmd.exe, attente sans limite sur subprocess.communicate(). L'origine MySQL/reseau du blocage reste INCONNUE.
+- Correctif candidat apres RC10 sur wx : invocation directe mysqldump avec les options historiques, suivi toutes les 2 secondes, abandon apres 600 secondes sans octets nouveaux ou 7200 secondes au total, arret du client avant nettoyage, suppression du ZIP partiel et des identifiants temporaires. Pas de changement SQL, de schema, de base PMSL ou de release RC10 deja publiee.
+- Quatre tests AST fictifs : succes du ZIP, progression longue, processus immobilise, limite totale. CI rapide wx et candidat Windows verifies separement. Propagation vers main/qt reste a qualifier sur source et tests, sans merge global. Tests reel MySQL sur serveur jetable et recette Windows restent indispensables avant nouvelle publication.
+
+
 
 ## 2026-10-28 — Candidat cumulatif RC10 Windows wx (en attente de build)
 
