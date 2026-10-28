@@ -19,6 +19,7 @@ import GestionDB
 from Ctrl import CTRL_Bandeau
 
 from Ctrl import CTRL_Questionnaire
+from Utils import UTILS_Repas_questionnaire
 
 
 LISTE_CATEGORIES = [
@@ -75,6 +76,10 @@ class Dialog(wx.Dialog):
         self.label_type = wx.StaticText(self, -1, _(u"Type de fiche :"))
         self.ctrl_type = CTRL_Type(self)
         self.ctrl_type.SetID(self.type)
+        self.bouton_repas = wx.Button(
+            self, -1, _(u"Préparer « Type de repas »"))
+        self.label_repas = wx.StaticText(
+            self, -1, _(u"Questionnaire repas : non vérifié"))
 
         # Questionnaire
         self.ctrl_questionnaire = CTRL_Questionnaire.CTRL(self, type=type, menuActif=True, afficherInvisibles=True)
@@ -93,6 +98,7 @@ class Dialog(wx.Dialog):
         self.__do_layout()
 
         self.Bind(wx.EVT_CHOICE, self.OnChoixType, self.ctrl_type)
+        self.Bind(wx.EVT_BUTTON, self.OnPreparerQuestionnaireRepas, self.bouton_repas)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAjouter, self.bouton_ajouter)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonModifier, self.bouton_modifier)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonSupprimer, self.bouton_supprimer)
@@ -102,11 +108,16 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
         
         # Init contrôles
-        self.ctrl_questionnaire.MAJ() 
+        self.ctrl_questionnaire.MAJ()
+        self.bouton_repas.Enable(self.type == "individu")
+        if self.type == "individu":
+            self.ActualiserEtatRepas()
         
 
     def __set_properties(self):
         self.ctrl_type.SetToolTip(wx.ToolTip(_(u"Sélectionnez ici le type")))
+        self.bouton_repas.SetToolTip(wx.ToolTip(
+            _(u"Vérifier la question individuelle et proposer sa création sans doublon")))
         self.bouton_ajouter.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour ajouter une catégorie ou une question")))
         self.bouton_modifier.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour modifier la catégorie ou la question sélectionnée")))
         self.bouton_supprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour supprimer la catégorie ou la question sélectionnée")))
@@ -127,8 +138,10 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(self.ctrl_bandeau, 0, wx.EXPAND, 0)
         grid_sizer_type.Add(self.label_type, 0, wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_type.Add(self.ctrl_type, 0, wx.EXPAND, 0)
+        grid_sizer_type.Add(self.bouton_repas, 0, wx.EXPAND, 0)
         grid_sizer_type.AddGrowableCol(1)
-        box_type.Add(grid_sizer_type, 1, wx.ALL|wx.EXPAND, 5)
+        box_type.Add(grid_sizer_type, 0, wx.ALL|wx.EXPAND, 5)
+        box_type.Add(self.label_repas, 0, wx.LEFT|wx.RIGHT|wx.BOTTOM, 5)
         grid_sizer_base.Add(box_type, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
         grid_sizer_questionnaire.Add(self.ctrl_questionnaire, 1, wx.EXPAND, 0)
         grid_sizer_boutons_questionnaire.Add(self.bouton_ajouter, 0, 0, 0)
@@ -154,9 +167,62 @@ class Dialog(wx.Dialog):
         self.Layout()
         self.CenterOnScreen() 
 
-    def OnChoixType(self, event): 
+    def OnChoixType(self, event):
         self.type = self.ctrl_type.GetID()
         self.ctrl_questionnaire.SetType(self.type)
+        self.bouton_repas.Enable(self.type == "individu")
+        if self.type == "individu":
+            self.ActualiserEtatRepas()
+        else:
+            self.label_repas.SetLabel(_(u"Le type de repas est une question individuelle."))
+
+    def ActualiserEtatRepas(self):
+        """État de la base active, vérifié sans la modifier."""
+        try:
+            etat = UTILS_Repas_questionnaire.ExaminerQuestionnaire()
+            textes = {
+                "pret": _(u"Questionnaire repas : PRÊT (4 réponses, choix unique)"),
+                "absent": _(u"Questionnaire repas : ABSENT — préparation disponible"),
+                "conflit": _(u"Questionnaire repas : À CORRIGER — %s") % etat["detail"],
+            }
+            self.label_repas.SetLabel(textes[etat["etat"]])
+            return etat
+        except Exception:
+            self.label_repas.SetLabel(_(u"Questionnaire repas : vérification impossible"))
+            return None
+
+    def OnPreparerQuestionnaireRepas(self, event=None):
+        if self.type != "individu":
+            return False
+        etat = self.ActualiserEtatRepas()
+        if not etat:
+            wx.MessageBox(_(u"Impossible de vérifier le questionnaire. Aucune modification."),
+                          _(u"Questionnaire repas"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        if etat["etat"] == "conflit":
+            wx.MessageBox(etat["detail"], _(u"Questionnaire repas à corriger"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        if etat["etat"] == "pret":
+            return True
+        accord = wx.MessageBox(
+            _(u"Créer la question individuelle « Type de repas » avec quatre choix "
+              u"exclusifs : Standard, Sans porc, Végétarien et Repas apporté par "
+              u"la famille ?\n\nAucune réponse existante ni facture n'est modifiée."),
+            _(u"Préparer le questionnaire repas"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+        if accord != wx.YES:
+            return False
+        try:
+            resultat = UTILS_Repas_questionnaire.PreparerQuestionnaire()
+            self.ctrl_questionnaire.MAJ()
+            self.ActualiserEtatRepas()
+            return resultat["etat"] == "pret"
+        except Exception as exc:
+            self.label_repas.SetLabel(_(u"Questionnaire repas : préparation refusée"))
+            wx.MessageBox(_(u"Aucune création terminée : %s") % exc,
+                          _(u"Questionnaire repas"), wx.OK | wx.ICON_WARNING, self)
+            return False
 
     def OnBoutonAjouter(self, event): 
         self.ctrl_questionnaire.Ajouter()
