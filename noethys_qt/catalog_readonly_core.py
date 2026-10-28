@@ -144,6 +144,15 @@ from .catalog_c15_specs import (  # noqa: E402
 )
 CATALOG_DOMAINS.update(build_c15_domains(CatalogSpec))
 CATALOG_MODULES.update(C15_MODULES)
+C15_DOMAIN_CODES = frozenset(CATALOG_DOMAINS)
+C15_MODULE_CODES = frozenset(CATALOG_MODULES)
+from .catalog_c16_specs import (  # noqa: E402
+    build_c16_domains, C16_CATALOG_MODULES, C16_MODULE_CODES,
+    C16_ACTIVITY_LINK_DOMAINS, C16_RESTRICTED_MODULES,
+)
+CATALOG_DOMAINS.update(build_c16_domains(CatalogSpec))
+CATALOG_MODULES.update(C16_CATALOG_MODULES)
+ACTIVITY_LINK_DOMAINS = C15_ACTIVITY_LINK_DOMAINS | C16_ACTIVITY_LINK_DOMAINS
 FAMILY_CATALOG_MODULES = frozenset(
     ("memberships", "contracts", "quotients", "rentals", "quotes")
 ) | C15_FAMILY_MODULES

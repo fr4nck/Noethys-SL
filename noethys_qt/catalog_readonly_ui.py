@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from .catalog_readonly_core import (
-    CATALOG_DOMAINS, CATALOG_MODULES, C15_ACTIVITY_LINK_DOMAINS,
+    CATALOG_DOMAINS, CATALOG_MODULES, ACTIVITY_LINK_DOMAINS,
     CatalogRepository, CatalogResult, validate_catalog_query,
 )
 from .finance_readonly_core import display_finance_value, validate_finance_id
@@ -333,14 +333,14 @@ class CatalogTablePage(QWidget):
             and isinstance(row.value("inscription"), int)
             and row.value("inscription") > 0
         )
-        self.activity_button.setVisible(self.kind in C15_ACTIVITY_LINK_DOMAINS)
+        self.activity_button.setVisible(self.kind in ACTIVITY_LINK_DOMAINS)
         activity = self._selected_activity_id(row)
         self.activity_button.setEnabled(
             isinstance(activity, int) and not isinstance(activity, bool) and activity > 0
         )
 
     def _selected_activity_id(self, row):
-        if row is None or self.kind not in C15_ACTIVITY_LINK_DOMAINS:
+        if row is None or self.kind not in ACTIVITY_LINK_DOMAINS:
             return None
         return (
             row.value("activity_id")

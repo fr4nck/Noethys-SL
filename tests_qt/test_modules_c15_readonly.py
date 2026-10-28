@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication, QAbstractItemView
 from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, C14_DOMAIN_CODES, C14_MODULE_CODES,
+    C15_DOMAIN_CODES, C15_MODULE_CODES,
     C15_ACTIVITY_MODULES, C15_ACTIVITY_LINK_DOMAINS, CatalogRepository,
     build_catalog_query,
 )
@@ -52,9 +53,9 @@ class C15SqlModuleTests(unittest.TestCase):
         self.reader = CatalogRepository(self.fixture.repository.editor_repository)
 
     def test_c15_declares_exactly_eight_new_domains(self):
-        self.assertEqual(set(CATALOG_DOMAINS) - C14_DOMAIN_CODES, set(C15_EXPECTED))
-        self.assertEqual(set(CATALOG_MODULES) - C14_MODULE_CODES, C15_MODULES_EXPECTED)
-        self.assertEqual(len(CATALOG_MODULES), 10)
+        self.assertEqual(C15_DOMAIN_CODES - C14_DOMAIN_CODES, set(C15_EXPECTED))
+        self.assertEqual(C15_MODULE_CODES - C14_MODULE_CODES, C15_MODULES_EXPECTED)
+        self.assertEqual(len(C15_MODULE_CODES), 10)
 
     def test_read_all_new_tables_using_existing_reader(self):
         for code, expected in C15_EXPECTED.items():
@@ -212,7 +213,7 @@ class C15SqlModuleTests(unittest.TestCase):
 
     def test_read_only_source_unchanged_after_all_new_and_old_domains(self):
         before = self.fixture.dump()
-        for code in CATALOG_DOMAINS:
+        for code in C15_DOMAIN_CODES:
             with self.subTest(code=code):
                 self.reader.search(code)
         self.assertEqual(before, self.fixture.dump())

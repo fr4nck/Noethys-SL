@@ -42,9 +42,11 @@ from .inscriptions_readonly import InscriptionPage, InscriptionRepository
 from .finance_readonly_core import FinanceRepository, validate_finance_id
 from .finance_readonly_ui import FinanceHubPage, MODULES
 from .catalog_readonly_core import (
-    CATALOG_MODULES, C14_MODULE_CODES, FAMILY_CATALOG_MODULES,
-    C15_ACTIVITY_MODULES, CatalogRepository,
+    CATALOG_MODULES, C14_MODULE_CODES, C15_MODULE_CODES,
+    C16_CATALOG_MODULES, C16_RESTRICTED_MODULES,
+    FAMILY_CATALOG_MODULES, C15_ACTIVITY_MODULES, CatalogRepository,
 )
+from .consumptions_status_ui import ConsumptionStateReportPage
 from .catalog_readonly_ui import CatalogHubPage
 
 
@@ -99,6 +101,12 @@ C15_NAVIGATION = (
     ("activity_settings", "Paramètres d'activités", True),
     ("headcounts", "Effectifs bruts", True),
 )
+C16_NAVIGATION = (
+    ("planning", "Planning / événements", True),
+    ("tariff_records", "Tarification enregistrée", True),
+    ("consumption_reports", "États des consommations", True),
+    ("badge_journal", "Journal de badgeage", True),
+)
 
 
 class NoethysQtWindow(QMainWindow):
@@ -117,6 +125,8 @@ class NoethysQtWindow(QMainWindow):
         finance_enabled: bool = True,
         catalog_enabled: bool = True,
         c15_enabled: bool = False,
+        c16_enabled: bool = False,
+        badge_logs_enabled: bool = False,
     ):
         super().__init__()
         self.people_repository = people_repository
@@ -136,8 +146,40 @@ class NoethysQtWindow(QMainWindow):
         self.catalog_enabled = catalog_enabled
         # Les fixtures C12/C13/C14 n'ont pas les tables du lot C15.
         self.c15_enabled = c15_enabled
-        self._navigation_entries = NAVIGATION + (
-            C15_NAVIGATION if self.c15_enabled else ()
+        self.c16_enabled = c16_enabled
+        # Un journal nominatif ne peut être exposé par simple argument.
+        # C16 ne l'ouvre que depuis la fixture éphémère C8->C16 dédiée,
+        # jamais depuis un profil réseau/SQLite ou un dossier utilisateur.
+        if badge_logs_enabled:
+            source = Path(editor_sqlite_path) if editor_sqlite_path is not None else None
+            if (
+                not c16_enabled or not read_only_demo or source is None
+                or source.is_symlink()
+                or source.name != "C8_DEMONSTRATION_FICTIVE.sqlite"
+                or not source.parent.name.startswith("noethys-qt-c8-fictif-")
+                or not source.is_file()
+            ):
+                raise ValueError(
+                    "Journal de badgeage C16 réservé à une fixture temporaire fictive"
+                )
+            import sqlite3
+            from contextlib import closing
+            with closing(sqlite3.connect(
+                "file:" + source.resolve().as_posix() + "?mode=ro",
+                uri=True,
+            )) as sqlite:
+                marker = sqlite.execute(
+                    "SELECT token FROM c16_marker"
+                ).fetchone()
+            if marker != ("C16_ALL_FAKE_NOETHYS_ONLY",):
+                raise ValueError(
+                    "Marqueur C16 fictif absent : journal de badgeage interdit"
+                )
+        self.badge_logs_enabled = bool(c16_enabled and badge_logs_enabled)
+        self._navigation_entries = (
+            NAVIGATION
+            + (C15_NAVIGATION if self.c15_enabled else ())
+            + (C16_NAVIGATION if self.c16_enabled else ())
         )
         self._context_navigation = False
         self._context_history: list[tuple] = []
@@ -177,6 +219,7 @@ class NoethysQtWindow(QMainWindow):
         self.catalog_actions = {
             code: QAction(label, self) for code, (label, _domains) in CATALOG_MODULES.items()
         }
+        self.report_action = QAction("États des consommations", self)
         self.back_context_action = QAction("Retour au dossier précédent", self)
         self.refresh_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "Actualiser", self)
         self.quit_action = QAction("Quitter", self)
@@ -195,12 +238,21 @@ class NoethysQtWindow(QMainWindow):
             )
         for code, action in self.catalog_actions.items():
             action.setEnabled(
-                self.catalog_enabled
-                and (code in C14_MODULE_CODES or self.c15_enabled)
+                self.catalog_enabled and (
+                    code in C14_MODULE_CODES
+                    or (code in C15_MODULE_CODES and self.c15_enabled)
+                    or (code in C16_CATALOG_MODULES and self.c16_enabled
+                        and (code not in C16_RESTRICTED_MODULES
+                             or self.badge_logs_enabled))
+                )
             )
             action.triggered.connect(
                 lambda _checked=False, destination=code: self.navigate(destination)
             )
+        self.report_action.setEnabled(self.c16_enabled)
+        self.report_action.triggered.connect(
+            lambda: self.navigate("consumption_reports")
+        )
         self.back_context_action.setShortcut(QKeySequence("Alt+Left"))
         self.back_context_action.setEnabled(False)
         self.refresh_action.setShortcut(QKeySequence.Refresh)
@@ -273,6 +325,9 @@ class NoethysQtWindow(QMainWindow):
                 or (not self.catalog_enabled and code in CATALOG_MODULES)
                 or (code in C15_ACTIVITY_MODULES and not self.c15_enabled)
                 or (code in ("renewals", "certificates") and not self.c15_enabled)
+                or (code in C16_CATALOG_MODULES and not self.c16_enabled)
+                or (code in C16_RESTRICTED_MODULES and not self.badge_logs_enabled)
+                or (code == "consumption_reports" and not self.c16_enabled)
             ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
@@ -308,8 +363,13 @@ class NoethysQtWindow(QMainWindow):
         self.details_page.family_payments_button.setEnabled(self.finance_enabled)
         for code, button in self.details_page.catalog_buttons.items():
             button.setEnabled(
-                self.catalog_enabled
-                and (code in C14_MODULE_CODES or self.c15_enabled)
+                self.catalog_enabled and (
+                    code in C14_MODULE_CODES
+                    or (code in C15_MODULE_CODES and self.c15_enabled)
+                    or (code in C16_CATALOG_MODULES and self.c16_enabled
+                        and (code not in C16_RESTRICTED_MODULES
+                             or self.badge_logs_enabled))
+                )
             )
         self.details_page.backRequested.connect(self._back_to_people)
         self.details_page.familyRequested.connect(self._family_requested)
@@ -366,9 +426,23 @@ class NoethysQtWindow(QMainWindow):
             )
             self.finance_pages[code] = panel
             self.stack.addWidget(panel)
+        self.report_page = (
+            ConsumptionStateReportPage(
+                self.consumptions_repository, self.stack,
+                background=self.background_queries,
+            ) if self.c16_enabled else None
+        )
+        if self.report_page is not None:
+            self.stack.addWidget(self.report_page)
         self.catalog_pages = {}
         for code in CATALOG_MODULES:
-            if code not in C14_MODULE_CODES and not self.c15_enabled:
+            if code in C16_CATALOG_MODULES:
+                if not self.c16_enabled or (
+                    code in C16_RESTRICTED_MODULES
+                    and not self.badge_logs_enabled
+                ):
+                    continue
+            elif code not in C14_MODULE_CODES and not self.c15_enabled:
                 continue
             panel = CatalogHubPage(
                 self.catalog_repository, code, self.stack,
@@ -469,6 +543,28 @@ class NoethysQtWindow(QMainWindow):
             extra.addStretch(1)
             layout.addLayout(extra)
 
+        if self.c16_enabled:
+            extras = QHBoxLayout()
+            for code, label in (
+                ("planning", "Planning / événements"),
+                ("tariff_records", "Tarification enregistrée"),
+                ("consumption_reports", "États des consommations"),
+                ("badge_journal", "Journal de badgeage"),
+            ):
+                button = QPushButton(label, page)
+                button.setEnabled(
+                    self.catalog_enabled and (
+                        code not in C16_RESTRICTED_MODULES
+                        or self.badge_logs_enabled
+                    )
+                )
+                button.clicked.connect(
+                    lambda _checked=False, target=code: self.navigate(target)
+                )
+                extras.addWidget(button)
+            extras.addStretch(1)
+            layout.addLayout(extras)
+
         migration = QLabel(
             "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
             "Consommations, Facturation, Règlements, Comptabilité, Cotisations, "
@@ -494,6 +590,7 @@ class NoethysQtWindow(QMainWindow):
             navigation_menu.addAction(self.finance_actions[code])
         for code in CATALOG_MODULES:
             navigation_menu.addAction(self.catalog_actions[code])
+        navigation_menu.addAction(self.report_action)
         navigation_menu.addAction(self.back_context_action)
         navigation_menu.addSeparator()
         navigation_menu.addAction(self.search_action)
@@ -538,6 +635,12 @@ class NoethysQtWindow(QMainWindow):
                     self.consumptions_page.clear_record_context()
             self.stack.setCurrentWidget(self.consumptions_page)
             self.consumptions_page.activate()
+        elif code == "consumption_reports" and self.report_page is not None:
+            if not self._context_navigation:
+                self._set_return_context(None)
+                self.report_page.clear_context()
+            self.stack.setCurrentWidget(self.report_page)
+            self.report_page.activate()
         elif code in self.finance_pages:
             panel = self.finance_pages[code]
             if not self._context_navigation:
@@ -588,6 +691,12 @@ class NoethysQtWindow(QMainWindow):
                         self.consumptions_page.clear_record_context()
                 self.stack.setCurrentWidget(self.consumptions_page)
                 self.consumptions_page.activate()
+            elif code == "consumption_reports" and self.report_page is not None:
+                if not self._context_navigation:
+                    self._set_return_context(None)
+                    self.report_page.clear_context()
+                self.stack.setCurrentWidget(self.report_page)
+                self.report_page.activate()
             elif code in self.finance_pages:
                 panel = self.finance_pages[code]
                 if not self._context_navigation:
@@ -618,6 +727,8 @@ class NoethysQtWindow(QMainWindow):
                 Qt.FocusReason.ShortcutFocusReason
             )
             current.current_page.search_edit.selectAll()
+        elif current is self.report_page and self.report_page is not None:
+            self.report_page.activity_spin.setFocus(Qt.FocusReason.ShortcutFocusReason)
         elif current is self.inscriptions_page:
             self.inscriptions_page.search_edit.setFocus(
                 Qt.FocusReason.ShortcutFocusReason
@@ -643,6 +754,8 @@ class NoethysQtWindow(QMainWindow):
             self.consumptions_page.refresh()
         elif self.stack.currentWidget() is self.inscriptions_page:
             self.inscriptions_page.refresh()
+        elif self.report_page is not None and self.stack.currentWidget() is self.report_page:
+            self.report_page.refresh()
         elif self.stack.currentWidget() in self.finance_pages.values():
             self.stack.currentWidget().current_page.refresh()
         elif self.stack.currentWidget() in self.catalog_pages.values():
@@ -809,7 +922,9 @@ class NoethysQtWindow(QMainWindow):
         self._set_return_context(("catalog", origin))
 
     def _catalog_activity_requested(self, origin: str, activity_id: int) -> None:
-        if origin not in C15_ACTIVITY_MODULES:
+        if origin not in C15_ACTIVITY_MODULES and origin not in (
+            "planning", "tariff_records"
+        ):
             raise ValueError("Ce lien vers les inscriptions est indisponible")
         validate_finance_id(activity_id, "activité")
         self.inscriptions_page.set_context(activity_id=activity_id)
@@ -932,6 +1047,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         requested_theme=args.theme,
         source_label=_configured_source_label(args.sqlite),
         c15_enabled=True,
+        c16_enabled=True,
+        badge_logs_enabled=False,
     )
     window.show()
     return app.exec()

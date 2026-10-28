@@ -1,5 +1,46 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## C16 — planning, tarifs et aperçu des états de consommation (EN QUALIFICATION)
+
+**Quatre rubriques Qt C16**, dont trois ensembles de listes
+(Planning/Événements, Tarification enregistrée, Journal de badgeage
+protégé) et un aperçu interactif des états de consommations. Cinq
+listes SELECT-only nouvelles + un regroupement SQL par les sept
+états stockés, toutes cases sélectionnables par clic, Tout/Aucun,
+année et activité exactes. Pas de calcul CAF/AFAS, de tarification,
+de droit ni d'écriture.
+
+**Garde de confidentialité renforcée** : le journal nominatif de
+badgeage est **désactivé dans le lancement Qt normal**, même si C16
+est activé. Le démonstrateur l'active uniquement après vérification
+d'un chemin temporaire attendu et du marqueur fictif `c16_marker`
+par connexion SQLite readonly.
+
+**Branches observées au démarrage C16** :
+`main 4a663fc4f1a0c07da6882e764a85cfb28bd4e2ec`,
+`wx 883bf008119bd729fdb238849344fbe6663e68d7`,
+`qt ffa1657d770db035ffa26b97c226b57734533eda`.
+L'intégration du moteur interdomain de pointage déjà publiée
+sur `qt` au SHA `ffa1657d` est préservée, non modifiée par C16.
+Les branches restent divergentes et leur parité est EN ATTENTE.
+
+**Tests** : 27 cas C16 nouveaux, protection CI de 355 à
+**382 tests** découverts ; trois shards équilibrés sans suppression,
+et parcours graphiques historiques C6–C15 maintenus.
+La nouvelle démonstration C16 est intégralement fictive,
+deux profils clair 100 %/sombre 150 %, 18 PNG/profil et
+deux rapports JSON, avec contrôle `sqlite_unchanged=true`.
+**Qualification Windows C16 EN ATTENTE** : ne pas annoncer de
+validation sans run `completed/success` sur SHA exact,
+382 PASS et `C16_MODULES_PASS` deux profils.
+
+Le moteur `consumptions_status_core.py` est pur Python,
+sans wx/Qt ; il reste cependant logé dans `noethys_qt`.
+Le transfert vers `main` et les contrats métier communs sont
+à qualifier par tests de parité sur des scénarios fictifs,
+avant toute redirection wx. Aucun basculement PostgreSQL.
+Voir [QT_MODULES_LOT16.md](QT_MODULES_LOT16.md).
+
 ## C15 — 4 nouveaux grands modules Qt, 8 listes (28/10/2026)
 
 **Développement VALIDÉ TECHNIQUEMENT sur données fictives uniquement** sur la seule branche canonique `qt`.

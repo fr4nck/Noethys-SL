@@ -290,3 +290,25 @@ jobs:
           path: artifacts/qt-c15/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: C16 planning et etats fictifs sur coque native - clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c16_native_demo.py --smoke --theme light --profile 100
+
+      - name: C16 planning et etats fictifs sur coque native - sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c16_native_demo.py --smoke --theme dark --profile 150
+
+      - name: Publier les captures fictives des modules Qt C16
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c16-planning-etats-fictifs
+          path: artifacts/qt-c16/*
+          if-no-files-found: error
+          retention-days: 14
