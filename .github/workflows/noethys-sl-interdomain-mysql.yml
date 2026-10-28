@@ -1,0 +1,78 @@
+name: Noethys SL - pointage inter-domaines MySQL fictif
+
+# Déclencheur push temporaire pour la qualification initiale de #424.
+# Il sera retiré après preuve MySQL 5.7 réussie.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'noethys/Data/DATA_Interdomain_Attendance.py'
+      - 'noethys/Utils/UTILS_Interdomain_Attendance.py'
+      - 'noethys/Utils/UTILS_Interdomain_Attendance_Schema.py'
+      - 'tests/test_noethys_sl_interdomain_attendance_mysql.py'
+      - '.github/workflows/noethys-sl-interdomain-mysql.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Installer les dépendances de test
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+
+      - name: Télécharger MySQL 5.7.44 officiel
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $zip
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Empreinte inattendue de l'archive MySQL : $hash"
+          }
+
+      - name: Qualifier pointage sur MySQL 5.7.44 local jetable
+        shell: pwsh
+        env:
+          NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
+          NOETHYS_TEST_MYSQL_PORT: '3401'
+          NOETHYS_TEST_MYSQL_USER: recette
+          NOETHYS_TEST_MYSQL_PASSWORD: 'P#w;d "x\y''z é '
+          NOETHYS_TEST_MYSQL_EXIGER: '1'
+          PYTHONIOENCODING: utf-8
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP 'mysql57-attendance'
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m in ['mysql-5.7.44-winx64/bin/mysqld.exe','mysql-5.7.44-winx64/bin/mysql.exe','mysql-5.7.44-winx64/bin/mysqldump.exe'] or (m.startswith('mysql-5.7.44-winx64/bin/') and m.lower().endswith('.dll'))]" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
+          $root = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'data'
+          $env:NOETHYS_TEST_MYSQL_BIN = Join-Path $root 'bin'
+          & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation MySQL jetable en échec' }
+          $server = Start-Process -WindowStyle Hidden -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root", "--datadir=$data", '--port=3401',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8')
+          try {
+            python tests/recette_mysql_jetable_preparer.py
+            if ($LASTEXITCODE -ne 0) { throw 'Préparation MySQL jetable en échec' }
+            python -m unittest -v tests.test_noethys_sl_interdomain_attendance_mysql
+            if ($LASTEXITCODE -ne 0) { throw 'Qualification pointage MySQL en échec' }
+          }
+          finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+          }
