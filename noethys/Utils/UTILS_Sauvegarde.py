@@ -29,6 +29,7 @@ from Utils import UTILS_Fichiers
 from Utils import UTILS_Envoi_email
 from Utils import UTILS_Customize
 from Utils import UTILS_SQL_Integrite
+from Utils import UTILS_MySQL_backup
 
 LISTE_CATEGORIES = [
     (_(u"Données de base"), "DATA"),
@@ -78,6 +79,18 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             dlg.Destroy()
             if reponse != wx.ID_YES :
                 return False
+        # Valider le répertoire avant un long export réseau. Une procédure copiée
+        # d'un autre poste peut désigner un chemin inexistant ici.
+        try:
+            import tempfile
+            fd, essaiEcriture = tempfile.mkstemp(prefix=".noethys-writecheck-", dir=repertoire)
+            os.close(fd)
+            os.remove(essaiEcriture)
+        except OSError as err:
+            dlgErreur = wx.MessageDialog(None, _(u"Le répertoire de sauvegarde est introuvable ou inaccessible : %s\n\nVérifiez le répertoire choisi dans la procédure de sauvegarde.\n\nErreur : %s") % (repertoire, err), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
+            return False
 
     # Récupération des paramètres de l'adresse d'expéditeur par défaut
     if listeEmails != None :
@@ -116,11 +129,9 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
     if len(listeFichiersReseau) > 0 and dictConnexion != None :
         
         # Création du répertoire temporaire
-        repTemp = UTILS_Fichiers.GetRepTemp(fichier="savetemp")
-        if os.path.isdir(repTemp) == True :
-            shutil.rmtree(repTemp)
-        os.mkdir(repTemp)
-
+        import tempfile
+        repTemp = tempfile.mkdtemp(prefix="savetemp-", dir=UTILS_Fichiers.GetRepTemp(fichier=""))
+        reseauTermine = False
         try:
         
             # Recherche du répertoire d'installation de MySQL
@@ -138,30 +149,43 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
         
             # Création du backup pour chaque fichier MySQL
             for nomFichier in listeFichiersReseau :
-                dlgprogress.Update(numEtape, _(u"Compression du fichier %s...") % nomFichier);numEtape += 1
+                dlgprogress.Update(numEtape, _(u"Export MySQL %s...") % nomFichier);numEtape += 1
                 fichierSave = u"%s/%s.sql" % (repTemp, nomFichier)
                 options = UTILS_Customize.GetValeur("sauvegarde", "options", "", ajouter_si_manquant=False)
 
-                # --opt re-active --lock-tables ; placer les options transactionnelles ensuite.
-                args = u""""%sbin/mysqldump" --defaults-extra-file="%s" --opt --single-transaction --skip-lock-tables %s --databases %s > "%s" """ % (repMySQL, nomFichierLoginTemp, options or "", nomFichier, fichierSave)
-                print(("Chemin mysqldump =", args))
-                if six.PY2:
-                    args = args.encode('utf8')
-                proc = subprocess.Popen(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-                out, temp = proc.communicate()
+                # Export direct : mysqldump devient l'enfant surveille de Noethys.
+                # --opt re-active --lock-tables : conserver l'ordre historique.
+                programme = os.path.join(repMySQL, "bin",
+                                         "mysqldump.exe" if os.name == "nt" else "mysqldump")
+                def progressionDump(taille):
+                    dlgprogress.Update(
+                        numEtape - 1,
+                        _(u"Export MySQL %s : %.1f Mo produits (surveillance active)...")
+                        % (nomFichier, taille / 1048576.0))
 
-                # La sortie texte n'est pas un indicateur fiable du succes MySQL.
-                if proc.returncode != 0:
-                    if isinstance(out, bytes):
-                        out = out.decode("utf8", "replace")
-                    if not out:
-                        out = u"mysqldump a echoue avec le code %s, sans diagnostic." % proc.returncode
-                    print((out,))
+                resultatDump = UTILS_MySQL_backup.ExporterSQL(
+                    programme, nomFichierLoginTemp, fichierSave, nomFichier,
+                    options=options, progression=progressionDump,
+                    secrets=(dictConnexion.get("user"), dictConnexion.get("password")))
+                erreurDump = resultatDump["erreur"]
+                if erreurDump is not None:
+                    import json
+                    rapport = UTILS_Fichiers.GetRepTemp(fichier="sauvegarde-diagnostic.json")
+                    try:
+                        with open(rapport, "w", encoding="utf-8") as fichierRapport:
+                            json.dump(resultatDump, fichierRapport, ensure_ascii=False, indent=2)
+                        erreurDump += u"\nDiagnostic : %s" % rapport
+                    except OSError:
+                        pass
+                    # Aucun ZIP partiel ne doit etre considere comme une sauvegarde.
+                    print(("Echec export MySQL :", nomFichier, erreurDump))
                     dlgprogress.Destroy()
-                    dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                    dlgErreur = wx.MessageDialog(
+                        None,
+                        _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s")
+                        % erreurDump, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                     dlgErreur.ShowModal()
                     dlgErreur.Destroy()
-                    # Ne laisser ni ZIP partiel ni sauvegarde trompeusement valide.
                     fichierZip.close()
                     fichierTemp = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
                     if os.path.isfile(fichierTemp):
@@ -171,6 +195,21 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 # Ajout compatible avec les restaurations historiques : deux commentaires SQL.
                 # En cas d'echec, aucun ZIP partiel ne doit etre publie.
                 try:
+                    # Meme analyse qu'a la restauration : ne pas archiver un dump qui y serait refuse.
+                    dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
+                    # L'analyse des gros dumps travaille hors du fil wx.
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as DelaiVerification
+                    with ThreadPoolExecutor(max_workers=1) as verification:
+                        travail = verification.submit(UTILS_SQL_Integrite.AnalyserDumpSQL,
+                                                      fichierSave, exiger_fin_mysqldump=True)
+                        while True:
+                            try:
+                                analyseSQL, erreurSQL = travail.result(timeout=0.2)
+                                break
+                            except DelaiVerification:
+                                dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
+                    if erreurSQL is not None:
+                        raise ValueError(erreurSQL)
                     UTILS_SQL_Integrite.AjouterManifesteIntegriteSQL(fichierSave)
                 except Exception as err:
                     dlgprogress.Destroy()
@@ -199,7 +238,23 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                     dlgErreur.Destroy()
                     return False
 
+            reseauTermine = True
+        except Exception as err:
+            erreur = UTILS_MySQL_backup.NettoyerDiagnostic(str(err), (
+                dictConnexion.get("user"), dictConnexion.get("password")))
+            dlgprogress.Destroy()
+            dlgErreur = wx.MessageDialog(None, _(u"La sauvegarde réseau a échoué : %s") % erreur,
+                                        _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
+            return False
         finally:
+            # Couvre aussi client absent, erreur de login ou insertion ZIP échouée.
+            if not reseauTermine:
+                fichierZip.close()
+                fichierPartiel = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
+                if os.path.isfile(fichierPartiel):
+                    os.remove(fichierPartiel)
             if os.path.isdir(repTemp):
                 shutil.rmtree(repTemp)
 
@@ -223,12 +278,24 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
     # Copie le fichier obtenu dans le répertoire donné
     if repertoire != None :
         dlgprogress.Update(numEtape, _(u"Création du fichier dans le répertoire cible..."));numEtape += 1
+        copieTemp = None
         try :
-            shutil.copy2(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp), fichierDest)
+            # Une copie interrompue ne doit jamais écraser l'ancienne sauvegarde.
+            import tempfile
+            descripteur, copieTemp = tempfile.mkstemp(prefix=".noethys-save-", dir=repertoire)
+            os.close(descripteur)
+            shutil.copy2(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp), copieTemp)
+            os.replace(copieTemp, fichierDest)
         except Exception as err:
             print("Le repertoire de destination de sauvegarde n'existe pas : %s" % err)
             dlgprogress.Destroy()
+            dlgErreur = wx.MessageDialog(None, _(u"Impossible d'enregistrer la sauvegarde dans le répertoire cible.\n\nErreur : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
             return False
+        finally:
+            if copieTemp is not None and os.path.isfile(copieTemp):
+                os.remove(copieTemp)
 
     # Préparation du message
     message = UTILS_Envoi_email.Message(destinataires=listeEmails, sujet=_(u"Sauvegarde Noethys : %s") % nom,
@@ -567,6 +634,16 @@ def GetListeFichiersReseau(dictValeurs={}):
     
     return listeDatabases
 
+REP_CLIENT_MYSQL_EMBARQUE = "mysql-client"
+
+def GetRepertoireMySQLEmbarque():
+    """ Répertoire des clients mysql/mysqldump livrés avec Noethys (bin/), ou None. """
+    chemin = Chemins.GetMainPath(REP_CLIENT_MYSQL_EMBARQUE)
+    for programme in ("mysql.exe", "mysqldump.exe") :
+        if not os.path.isfile(os.path.join(chemin, "bin", programme)) :
+            return None
+    return chemin.replace("\\", "/").rstrip("/") + "/"
+
 def GetRepertoireMySQL(dictValeurs={}):
     """ Récupère le répertoire d'installation MySQL 
          dictValeurs = valeurs de connexion
@@ -578,7 +655,13 @@ def GetRepertoireMySQL(dictValeurs={}):
         if os.path.isfile(u"/usr/bin/mysqldump") and os.path.isfile(u"/usr/bin/mysql") :
             return u"/usr/"
     else :
-        
+
+        # Clients MySQL 5.7 fournis avec le paquet Windows : prioritaires, un client
+        # installé plus récent (8.x) n'étant pas compatible avec un serveur 5.7.
+        chemin = GetRepertoireMySQLEmbarque()
+        if chemin is not None :
+            return chemin
+
         # Vérifie le chemin Canon (x86)
         chemin = "C:/Program Files (x86)/Canon/Easy-WebPrint EX/"
         if os.path.isfile(chemin + "bin/mysql.exe") :
@@ -642,13 +725,24 @@ def GetRepertoireMySQL(dictValeurs={}):
         
     return None
 
+def _ValeurOptionMySQL(valeur):
+    """ Valeur entre guillemets d'un fichier d'options MySQL : sans cela, '#' ouvre
+        un commentaire et les espaces de bord sont retires (mot de passe tronque). """
+    valeur = u"%s" % valeur
+    for avant, apres in ((u"\\", u"\\\\"), (u'"', u'\\"'), (u"\n", u"\\n"), (u"\r", u"\\r"), (u"\t", u"\\t")):
+        valeur = valeur.replace(avant, apres)
+    return u'"%s"' % valeur
+
 def CreationFichierLoginTemp(host="", user="", port="3306", password="", nomFichier=""):
     password = GestionDB.DecodeMdpReseau(password)
     if os.path.isfile(nomFichier) == True :
         os.remove(nomFichier)
-    fichier = open(nomFichier, "w")
-    fichier.write(u"[client]\nhost=%s\nuser=%s\nport=%s\npassword=%s" % (host, user, port, password))
-    fichier.close()
+    contenu = u"[client]\nhost=%s\nuser=%s\nport=%s\npassword=%s\n" % tuple(
+        _ValeurOptionMySQL(valeur) for valeur in (host, user, port, password))
+    # UTF-8 comme la connexion GestionDB ; fichier lisible du seul utilisateur (POSIX).
+    descripteur = os.open(nomFichier, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+    with os.fdopen(descripteur, "wb") as fichier:
+        fichier.write(contenu.encode("utf-8"))
 
 
 if __name__ == u"__main__":
