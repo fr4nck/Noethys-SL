@@ -60,7 +60,7 @@ def test_module(test: unittest.TestCase) -> str:
         return module
     # unittest.loader._FailedTest : importer le module en erreur doit faire
     # échouer son shard, jamais disparaître de la découverte.
-    failed_module = test.id().split(".", 1)[0]
+    failed_module = test.id().rsplit(".", 1)[-1]
     if failed_module.startswith("test_"):
         return failed_module
     raise RuntimeError("Test découvert sans module test_* : " + test.id())
