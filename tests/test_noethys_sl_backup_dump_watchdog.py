@@ -10,6 +10,7 @@ import types
 import unittest
 import zipfile
 from pathlib import Path
+from tests._mysql_backup_test_support import moteur, horloge_repetable
 
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Sauvegarde.py"
 
@@ -34,7 +35,7 @@ def isoler(dossier, lancer, horloge):
     env = {
         "_": lambda x: x, "os": os, "shutil": shutil, "zipfile": zipfile,
         "shlex": shlex, "tempfile": tempfile,
-        "time": types.SimpleNamespace(monotonic=lambda: next(horloge)),
+        "time": horloge_repetable(horloge),
         "subprocess": types.SimpleNamespace(
             Popen=lancer, DEVNULL=subprocess.DEVNULL,
             TimeoutExpired=subprocess.TimeoutExpired),
@@ -54,6 +55,7 @@ def isoler(dossier, lancer, horloge):
         "UTILS_Envoi_email": types.SimpleNamespace(
             Message=lambda **kwargs: kwargs),
     }
+    env["UTILS_MySQL_backup"] = moteur(env)
     exec(compile(ast.Module(body=[methode], type_ignores=[]), str(SOURCE), "exec"), env)
     return env["Sauvegarde"]
 
@@ -124,7 +126,7 @@ class TestsWatchdogDump(unittest.TestCase):
             fn = isoler(dossier, lancer, iter((0.0,)))
             self.assertTrue(essai(fn, str(destination)))
             argv = journal[0][0]
-            self.assertEqual(argv[1].split("=", 1)[0], "--defaults-extra-file")
+            self.assertEqual(argv[1].split("=", 1)[0], "--defaults-file")
             self.assertEqual(argv[2:5], ["--opt", "--single-transaction", "--skip-lock-tables"])
             self.assertEqual(argv[-2:], ["--databases", "base_fictive"])
             with zipfile.ZipFile(destination / "testdump.nod") as archive:

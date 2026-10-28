@@ -15,6 +15,7 @@ import types
 import unittest
 import zipfile
 from pathlib import Path
+from tests._mysql_backup_test_support import moteur
 
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Sauvegarde.py"
 HELPER = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_SQL_Integrite.py"
@@ -338,7 +339,7 @@ class RestaurationManifesteTests(unittest.TestCase):
                 self.assertIs(kwargs["shell"], False)
                 self.assertIs(kwargs["stderr"] is None, False)
                 sortie = kwargs["stdout"]
-                sortie.write(b"CREATE TABLE test_synth (id INT);\n")
+                sortie.write(b"CREATE TABLE test_synth (id INT);\n" + FIN)
                 sortie.flush()
                 return Processus()
 
@@ -366,6 +367,7 @@ class RestaurationManifesteTests(unittest.TestCase):
             arbre = ast.parse(SOURCE.read_text(encoding="utf-8"), filename=str(SOURCE))
             fonction = next(noeud for noeud in arbre.body
                             if isinstance(noeud, ast.FunctionDef) and noeud.name == "Sauvegarde")
+            deps["UTILS_MySQL_backup"] = moteur(deps)
             exec(compile(ast.fix_missing_locations(ast.Module(body=[fonction], type_ignores=[])),
                          str(SOURCE), "exec"), deps)
             resultat = deps["Sauvegarde"](

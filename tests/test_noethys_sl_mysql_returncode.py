@@ -16,6 +16,7 @@ import types
 import unittest
 import zipfile
 from pathlib import Path
+from tests._mysql_backup_test_support import moteur
 
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Sauvegarde.py"
 MANIFESTE = SOURCE.with_name("UTILS_SQL_Integrite.py")
@@ -50,6 +51,7 @@ def _charger_sauvegarde(dependances):
         if isinstance(noeud, ast.FunctionDef) and noeud.name == "Sauvegarde"
     )
     namespace = dict(dependances)
+    namespace["UTILS_MySQL_backup"] = moteur(namespace)
     exec(compile(ast.fix_missing_locations(ast.Module(body=[fonction], type_ignores=[])),
                  str(SOURCE), "exec"), namespace)
     return namespace["Sauvegarde"]

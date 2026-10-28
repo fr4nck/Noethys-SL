@@ -20,8 +20,6 @@ import GestionDB
 import subprocess
 import shutil
 import time
-import shlex
-import tempfile
 
 import GestionDB
 from Utils import UTILS_Fichiers
@@ -31,6 +29,7 @@ from Utils import UTILS_Fichiers
 from Utils import UTILS_Envoi_email
 from Utils import UTILS_Customize
 from Utils import UTILS_SQL_Integrite
+from Utils import UTILS_MySQL_backup
 
 LISTE_CATEGORIES = [
     (_(u"Données de base"), "DATA"),
@@ -80,6 +79,18 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             dlg.Destroy()
             if reponse != wx.ID_YES :
                 return False
+        # Valider le répertoire avant un long export réseau. Une procédure copiée
+        # d'un autre poste peut désigner un chemin inexistant ici.
+        try:
+            import tempfile
+            fd, essaiEcriture = tempfile.mkstemp(prefix=".noethys-writecheck-", dir=repertoire)
+            os.close(fd)
+            os.remove(essaiEcriture)
+        except OSError as err:
+            dlgErreur = wx.MessageDialog(None, _(u"Le répertoire de sauvegarde est introuvable ou inaccessible : %s\n\nVérifiez le répertoire choisi dans la procédure de sauvegarde.\n\nErreur : %s") % (repertoire, err), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
+            return False
 
     # Récupération des paramètres de l'adresse d'expéditeur par défaut
     if listeEmails != None :
@@ -118,11 +129,9 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
     if len(listeFichiersReseau) > 0 and dictConnexion != None :
         
         # Création du répertoire temporaire
-        repTemp = UTILS_Fichiers.GetRepTemp(fichier="savetemp")
-        if os.path.isdir(repTemp) == True :
-            shutil.rmtree(repTemp)
-        os.mkdir(repTemp)
-
+        import tempfile
+        repTemp = tempfile.mkdtemp(prefix="savetemp-", dir=UTILS_Fichiers.GetRepTemp(fichier=""))
+        reseauTermine = False
         try:
         
             # Recherche du répertoire d'installation de MySQL
@@ -140,7 +149,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
         
             # Création du backup pour chaque fichier MySQL
             for nomFichier in listeFichiersReseau :
-                dlgprogress.Update(numEtape, _(u"Compression du fichier %s...") % nomFichier);numEtape += 1
+                dlgprogress.Update(numEtape, _(u"Export MySQL %s...") % nomFichier);numEtape += 1
                 fichierSave = u"%s/%s.sql" % (repTemp, nomFichier)
                 options = UTILS_Customize.GetValeur("sauvegarde", "options", "", ajouter_si_manquant=False)
 
@@ -148,65 +157,26 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 # --opt re-active --lock-tables : conserver l'ordre historique.
                 programme = os.path.join(repMySQL, "bin",
                                          "mysqldump.exe" if os.name == "nt" else "mysqldump")
-                args = [
-                    programme,
-                    "--defaults-extra-file=%s" % nomFichierLoginTemp,
-                    "--opt", "--single-transaction", "--skip-lock-tables",
-                ] + shlex.split(options or "") + ["--databases", nomFichier]
-                print(("Export SQL MySQL =", nomFichier))
-                erreurDump = None
-                instantDebut = time.monotonic()
-                instantProgression = instantDebut
-                taillePrecedente = 0
-                try:
-                    with open(fichierSave, "wb") as sortieSQL, tempfile.TemporaryFile() as erreursSQL:
-                        proc = subprocess.Popen(
-                            args, shell=False, stdout=sortieSQL, stderr=erreursSQL,
-                            stdin=subprocess.DEVNULL)
-                        try:
-                            while True:
-                                try:
-                                    proc.wait(timeout=2)
-                                    break
-                                except subprocess.TimeoutExpired:
-                                    maintenant = time.monotonic()
-                                    try:
-                                        taille = os.path.getsize(fichierSave)
-                                    except OSError:
-                                        taille = 0
-                                    if taille > taillePrecedente:
-                                        instantProgression = maintenant
-                                    taillePrecedente = taille
-                                    if maintenant - instantProgression >= 600:
-                                        erreurDump = u"Export MySQL sans progression depuis 10 minutes (%s)." % nomFichier
-                                        break
-                                    if maintenant - instantDebut >= 7200:
-                                        erreurDump = u"Export MySQL au-dela de 2 heures (%s)." % nomFichier
-                                        break
-                                    dlgprogress.Update(
-                                        numEtape - 1,
-                                        _(u"Export MySQL %s : %.1f Mo produits (surveillance active)...")
-                                        % (nomFichier, taille / 1048576.0))
-                        finally:
-                            # Retirer l'enfant avant les fichiers temporaires et identifiants.
-                            if proc.poll() is None:
-                                proc.terminate()
-                                try:
-                                    proc.wait(timeout=5)
-                                except subprocess.TimeoutExpired:
-                                    proc.kill()
-                                    proc.wait(timeout=5)
-                        if erreurDump is None and proc.returncode != 0:
-                            erreursSQL.seek(0)
-                            diagnostic = erreursSQL.read(2048)
-                            if isinstance(diagnostic, bytes):
-                                diagnostic = diagnostic.decode("utf8", "replace")
-                            erreurDump = u"mysqldump a echoue (code %s). %s" % (
-                                proc.returncode, diagnostic.strip())
-                except (OSError, ValueError, subprocess.TimeoutExpired) as err:
-                    erreurDump = u"Impossible de terminer l'export SQL : %s" % err
+                def progressionDump(taille):
+                    dlgprogress.Update(
+                        numEtape - 1,
+                        _(u"Export MySQL %s : %.1f Mo produits (surveillance active)...")
+                        % (nomFichier, taille / 1048576.0))
 
+                resultatDump = UTILS_MySQL_backup.ExporterSQL(
+                    programme, nomFichierLoginTemp, fichierSave, nomFichier,
+                    options=options, progression=progressionDump,
+                    secrets=(dictConnexion.get("user"), dictConnexion.get("password")))
+                erreurDump = resultatDump["erreur"]
                 if erreurDump is not None:
+                    import json
+                    rapport = UTILS_Fichiers.GetRepTemp(fichier="sauvegarde-diagnostic.json")
+                    try:
+                        with open(rapport, "w", encoding="utf-8") as fichierRapport:
+                            json.dump(resultatDump, fichierRapport, ensure_ascii=False, indent=2)
+                        erreurDump += u"\nDiagnostic : %s" % rapport
+                    except OSError:
+                        pass
                     # Aucun ZIP partiel ne doit etre considere comme une sauvegarde.
                     print(("Echec export MySQL :", nomFichier, erreurDump))
                     dlgprogress.Destroy()
@@ -226,7 +196,18 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 # En cas d'echec, aucun ZIP partiel ne doit etre publie.
                 try:
                     # Meme analyse qu'a la restauration : ne pas archiver un dump qui y serait refuse.
-                    analyseSQL, erreurSQL = UTILS_SQL_Integrite.AnalyserDumpSQL(fichierSave, exiger_fin_mysqldump=False)
+                    dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
+                    # L'analyse des gros dumps travaille hors du fil wx.
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as DelaiVerification
+                    with ThreadPoolExecutor(max_workers=1) as verification:
+                        travail = verification.submit(UTILS_SQL_Integrite.AnalyserDumpSQL,
+                                                      fichierSave, exiger_fin_mysqldump=True)
+                        while True:
+                            try:
+                                analyseSQL, erreurSQL = travail.result(timeout=0.2)
+                                break
+                            except DelaiVerification:
+                                dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
                     if erreurSQL is not None:
                         raise ValueError(erreurSQL)
                     UTILS_SQL_Integrite.AjouterManifesteIntegriteSQL(fichierSave)
@@ -257,7 +238,23 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                     dlgErreur.Destroy()
                     return False
 
+            reseauTermine = True
+        except Exception as err:
+            erreur = UTILS_MySQL_backup.NettoyerDiagnostic(str(err), (
+                dictConnexion.get("user"), dictConnexion.get("password")))
+            dlgprogress.Destroy()
+            dlgErreur = wx.MessageDialog(None, _(u"La sauvegarde réseau a échoué : %s") % erreur,
+                                        _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
+            return False
         finally:
+            # Couvre aussi client absent, erreur de login ou insertion ZIP échouée.
+            if not reseauTermine:
+                fichierZip.close()
+                fichierPartiel = UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp)
+                if os.path.isfile(fichierPartiel):
+                    os.remove(fichierPartiel)
             if os.path.isdir(repTemp):
                 shutil.rmtree(repTemp)
 
@@ -281,12 +278,24 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
     # Copie le fichier obtenu dans le répertoire donné
     if repertoire != None :
         dlgprogress.Update(numEtape, _(u"Création du fichier dans le répertoire cible..."));numEtape += 1
+        copieTemp = None
         try :
-            shutil.copy2(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp), fichierDest)
+            # Une copie interrompue ne doit jamais écraser l'ancienne sauvegarde.
+            import tempfile
+            descripteur, copieTemp = tempfile.mkstemp(prefix=".noethys-save-", dir=repertoire)
+            os.close(descripteur)
+            shutil.copy2(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp), copieTemp)
+            os.replace(copieTemp, fichierDest)
         except Exception as err:
             print("Le repertoire de destination de sauvegarde n'existe pas : %s" % err)
             dlgprogress.Destroy()
+            dlgErreur = wx.MessageDialog(None, _(u"Impossible d'enregistrer la sauvegarde dans le répertoire cible.\n\nErreur : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
             return False
+        finally:
+            if copieTemp is not None and os.path.isfile(copieTemp):
+                os.remove(copieTemp)
 
     # Préparation du message
     message = UTILS_Envoi_email.Message(destinataires=listeEmails, sujet=_(u"Sauvegarde Noethys : %s") % nom,

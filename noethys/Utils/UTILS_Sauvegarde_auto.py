@@ -102,7 +102,7 @@ class Sauvegarde_auto():
                 DB.Close()
                 
             # Suppression des sauvegardes obsolètes
-            if dictSauvegarde["option_suppression"] != None and dictSauvegarde["sauvegarde_repertoire"] != None and os.path.isdir(dictSauvegarde["sauvegarde_repertoire"]) == True :
+            if resultat == True and dictSauvegarde["option_suppression"] != None and dictSauvegarde["sauvegarde_repertoire"] != None and os.path.isdir(dictSauvegarde["sauvegarde_repertoire"]) == True :
                 nbreJours = int(dictSauvegarde["option_suppression"])
                 repertoire = dictSauvegarde["sauvegarde_repertoire"]
                 listeFichiersPresents = glob.glob(repertoire + "/*")

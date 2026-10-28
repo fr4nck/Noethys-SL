@@ -1,5 +1,22 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## #437 — sauvegarde complète après RC10 (28/10/2026)
+
+- Prévol distant relu : main `7e874cba1f598621d82e5036b98519de87996b5c`, wx `2fb74017a9677540ecad72e434becf1762539ea1`, qt `6a70d59ba0b0ea071f8a2056920975e64485772a`, RC10 `d01566118f66775620d3df5e888bc50abfd4ecef`. Comparaison des fichiers : sauvegarde main/qt identique ; wx possède le watchdog `21ec1447` et les clients embarqués/identifiants quotés. `UTILS_Sauvegarde_auto` et `UTILS_SQL_Integrite` ont les mêmes blobs sur les trois. Portages ciblés, aucun merge global, aucune autre ligne de développement ni release remplacée.
+- Moteur commun extrait de wx et renforcé : export direct borné, fichier de connexion explicite, gros 337eada3c3f51d087150d8fcf01e34fa68c4c10d en hexadécimal, options de filtrage refusées, fin de dump exigée, diagnostic exploitable sans secrets, dossier temporaire unique. Contrôle du dossier cible avant export, copie atomique et aucune purge après échec/annulation. Analyse longue hors du fil wx avec progression. Les méthodes de restauration de l'application restent inchangées.
+- Blob commun `UTILS_MySQL_backup.py` : `337eada3c3f51d087150d8fcf01e34fa68c4c10d`. Tests Windows/Python 3.10.11 : main **84 PASS / 0 FAIL / 0 SKIP**, dont MySQL 5.7.44 réel local ; wx **83 PASS / 0 FAIL / 0 SKIP** ; qt **83 PASS / 0 FAIL / 0 SKIP**. Le moteur et ses tests communs sont byte-identiques sur les trois copies. Compilation ciblée et espaces contrôlés. CI distante à consulter séparément après enregistrement du lot ; aucun résultat de CI n'est présumé.
+- Recette MySQL jetable : 337eada3c3f51d087150d8fcf01e34fa68c4c10d binaire de 27 262 974 octets, ancienne commande code 3/erreur 2020 ; nouvel export complet puis restauration avec même SHA-256. Garde hôte local/port 3407/datadir avant toute écriture SQL. Un vrai enfant Python bloqué est aussi arrêté et attendu sans réseau.
+- Diagnostic opérationnel en lecture seule : dossier de la procédure absent du poste courant, attente illimitée RC10 confirmée. Le dossier absent explique un échec de copie, pas le blocage ancien d'un export. Les limites client/serveur ne démontrent pas la cause de l'ancien arrêt réseau. Les quatre éléments demandés ont été exportés, CRC/manifeste vérifiés puis restaurés uniquement sur le serveur jetable ; tailles, quantités et empreintes des documents comparées à la source et identiques. Aucune donnée, archive, connexion ou rapport privé dans Git.
+
+| Correctif commun | main (prévol 7e874cba) | wx (prévol 2fb74017) | qt (prévol 6a70d59b) |
+|---|---|---|---|
+| Export, diagnostic, fin SQL et préservation des archives | VALIDÉ : 84 tests | VALIDÉ : 83 tests, même blob | VALIDÉ : 83 tests, même blob |
+| Aller-retour du moteur sur MySQL 5.7.44 | VALIDÉ localement sur main | Même moteur ; import applicatif wx à qualifier | Même moteur ; UI Qt à qualifier |
+| Nouveau paquet / déploiement d'une version Windows | EN ATTENTE | EN ATTENTE | NON APPLICABLE au lot |
+
+- Sources et commandes : [guide sauvegarde #437](../diagnostics/SAUVEGARDE_MYSQL_437.md). Les fichiers opérationnels, preuves et runtime MySQL sont hors Git dans `sauvegarde-runtime-20261028`, à côté des copies de travail. Le serveur jetable est arrêté après recette, ses bases de restauration sont supprimées. Aucune modification de production, de profil ni de la procédure stockée, aucune restauration sur production, aucune migration, aucun tag/release/build. L'ancienne RC10 installée reste inchangée et son dossier de destination devra être choisi volontairement dans l'application. Issue #437 non fermée : la qualification graphique/packaging et l'attribution du blocage ancien sont distinctes de la sauvegarde obtenue.
+
+
 ## 28 octobre 2026 — mysqldump immobile pendant une sauvegarde de fermeture
 
 - Incident terrain (5700X) : export de la base des documents interrompu ; SQL partiel d'environ 70 Mo, sans modification durant plus de 100 minutes. Les trois processus observes ont disparu. Aucune archive interrompue ne vaut sauvegarde restauree.
