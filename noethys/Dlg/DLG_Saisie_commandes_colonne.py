@@ -17,6 +17,7 @@ from Utils import UTILS_Dates
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 from Utils import UTILS_Repas_regimes
+from Utils import UTILS_Repas_questionnaire
 from Utils import UTILS_Repas_source
 from Utils import UTILS_Repas_validation
 import wx.lib.agw.hypertreelist as HTL
@@ -351,6 +352,10 @@ class PAGE_Unites(wx.Panel):
         # Les identifiants restent stockes tels quels (compatibilite).
         self.label_question_regime = wx.StaticText(self, -1, _(u"Question du régime alimentaire :"))
         self.ctrl_question_regime = wx.Choice(self, -1)
+        self.bouton_preparer_questionnaire = wx.Button(
+            self, -1, _(u"Préparer / vérifier « Type de repas »"))
+        self.label_etat_questionnaire = wx.StaticText(
+            self, -1, _(u"Questionnaire repas : non vérifié"))
         self.ctrls_choix_regime = {}
         self.labels_choix_regime = {}
         for regime, label in (("standard", _(u"Réponse « repas standard » :")),
@@ -393,6 +398,8 @@ class PAGE_Unites(wx.Panel):
         champs_directeur.Add(self.ctrl_choix_sans_porc, 1, wx.EXPAND, 0)
         champs_directeur.Add(self.label_question_regime, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         champs_directeur.Add(self.ctrl_question_regime, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.bouton_preparer_questionnaire, 1, wx.EXPAND, 0)
+        champs_directeur.Add(self.label_etat_questionnaire, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         for regime in ("standard", "sans_porc", "vegetarien", "sans_repas_pmsl"):
             champs_directeur.Add(self.labels_choix_regime[regime], 0, wx.ALIGN_CENTER_VERTICAL, 0)
             champs_directeur.Add(self.ctrls_choix_regime[regime], 1, wx.EXPAND, 0)
@@ -415,6 +422,8 @@ class PAGE_Unites(wx.Panel):
         self.Bind(wx.EVT_CHECKBOX, self.OnCheckRepas, self.check_repas)
         self.Bind(wx.EVT_CHOICE, self.OnChoixRole, self.ctrl_role_repas)
         self.Bind(wx.EVT_CHOICE, self.OnChoixQuestionRegime, self.ctrl_question_regime)
+        self.Bind(wx.EVT_BUTTON, self.OnPreparerQuestionnaireRepas,
+                  self.bouton_preparer_questionnaire)
 
         # Init
         self.ctrl_unites.MAJ()
@@ -468,8 +477,42 @@ class PAGE_Unites(wx.Panel):
     def OnChoixQuestionRegime(self, event=None):
         self.ChargerChoixRegime()
 
+    def OnPreparerQuestionnaireRepas(self, event=None):
+        """Action explicite : reutiliser ou creer, sans toucher aux reponses."""
+        try:
+            resultat = UTILS_Repas_questionnaire.ExaminerQuestionnaire()
+            if resultat["etat"] == "conflit":
+                raise UTILS_Repas_questionnaire.QuestionnaireRepasIncompatible(
+                    resultat["detail"])
+            if resultat["etat"] == "absent":
+                choix = wx.MessageBox(
+                    _(u"Aucune question « Type de repas » compatible n'existe.\n\n"
+                      u"Créer une seule question individuelle avec les réponses "
+                      u"Standard, Sans porc, Végétarien et Repas apporté par la famille ?\n\n"
+                      u"Les réponses des familles, anciens modèles, tarifs et factures "
+                      u"ne seront pas modifiés."),
+                    _(u"Préparer le questionnaire repas"),
+                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+                if choix != wx.YES:
+                    return False
+                resultat = UTILS_Repas_questionnaire.PreparerQuestionnaire()
+            self.ChargerQuestionsRegime(resultat["question"])
+            self.ChargerChoixRegime(resultat["choix"])
+            self.label_etat_questionnaire.SetLabel(
+                _(u"Questionnaire prêt : enregistrez le modèle pour l'utiliser."))
+            return True
+        except Exception as exc:
+            self.label_etat_questionnaire.SetLabel(
+                _(u"Questionnaire à vérifier manuellement"))
+            wx.MessageBox(
+                _(u"Le questionnaire repas n'a pas été modifié : %s") % exc,
+                _(u"Configuration du questionnaire"), wx.OK | wx.ICON_WARNING,
+                self)
+            return False
+
     def OnChoixRole(self, event=None):
         actif = UTILS_Repas_regimes.EstRoleRegime(self.roles_repas[self.ctrl_role_repas.GetSelection()][0])
+        self.bouton_preparer_questionnaire.Enable(actif)
         for ctrl in ([self.ctrl_question_regime, self.label_question_regime,
                       self.label_midi_debut, self.ctrl_midi_debut,
                       self.label_midi_fin, self.ctrl_midi_fin, self.check_offre_pmsl]
