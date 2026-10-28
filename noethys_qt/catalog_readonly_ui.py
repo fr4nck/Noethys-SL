@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 )
 
 from .catalog_readonly_core import (
-    CATALOG_DOMAINS, CATALOG_MODULES, CatalogRepository, CatalogResult,
-    validate_catalog_query,
+    CATALOG_DOMAINS, CATALOG_MODULES, C15_ACTIVITY_LINK_DOMAINS,
+    CatalogRepository, CatalogResult, validate_catalog_query,
 )
 from .finance_readonly_core import display_finance_value, validate_finance_id
 
@@ -92,6 +92,7 @@ class CatalogTablePage(QWidget):
 
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
+    activityRequested = Signal(int)
 
     def __init__(self, repository: CatalogRepository, kind: str, parent=None,
                  *, background=True):
@@ -104,6 +105,7 @@ class CatalogTablePage(QWidget):
         self.background = background
         self.model = CatalogTableModel(kind)
         self._family_id = None
+        self._activity_id = None
         self._token = 0
         self._queued = None
         self._worker = None
@@ -125,6 +127,13 @@ class CatalogTablePage(QWidget):
         self.year_spin.setValue(0)
         self.year_spin.setVisible(self.spec.date_column is not None)
         header.addWidget(self.year_spin)
+        self.activity_spin = QSpinBox(self)
+        self.activity_spin.setRange(0, 9999999)
+        self.activity_spin.setSpecialValueText("Toutes activités")
+        self.activity_spin.setAccessibleName("Filtre ID activité de " + self.spec.label)
+        self.activity_spin.setValue(0)
+        self.activity_spin.setVisible(self.spec.activity_column is not None)
+        header.addWidget(self.activity_spin)
         self.clear_button = QPushButton("Tous les dossiers", self)
         header.addWidget(self.clear_button)
         self.reload_button = QPushButton("Actualiser", self)
@@ -153,6 +162,8 @@ class CatalogTablePage(QWidget):
         self.inscription_button = QPushButton("Voir les inscriptions de la famille", self)
         buttons.addWidget(self.family_button)
         buttons.addWidget(self.inscription_button)
+        self.activity_button = QPushButton("Inscriptions de l'activité", self)
+        buttons.addWidget(self.activity_button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
 
@@ -169,10 +180,12 @@ class CatalogTablePage(QWidget):
         self.timer.timeout.connect(self.refresh)
         self.search_edit.textChanged.connect(lambda _text: self.timer.start())
         self.year_spin.valueChanged.connect(lambda _value: self.refresh())
+        self.activity_spin.valueChanged.connect(lambda _value: self.refresh())
         self.clear_button.clicked.connect(self.clear_context)
         self.reload_button.clicked.connect(self.refresh)
         self.family_button.clicked.connect(self._open_family)
         self.inscription_button.clicked.connect(self._open_inscriptions)
+        self.activity_button.clicked.connect(self._open_activity)
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)
         self.table.doubleClicked.connect(lambda _index: self._open_family())
         self._selection_changed()
@@ -184,30 +197,46 @@ class CatalogTablePage(QWidget):
     def _filters(self):
         return {
             "family_id": self._family_id,
+            "activity_id": self.activity_spin.value() or None,
             "year": self.year_spin.value() or None,
             "text": self.search_edit.text().strip(),
         }
 
-    def set_context(self, *, family_id=None):
+    def set_context(self, *, family_id=None, activity_id=None):
         validate_finance_id(family_id, "famille")
+        validate_finance_id(activity_id, "activité")
         if family_id is not None and self.spec.family_column is None:
             raise ValueError("Filtre famille non applicable à ce tableau")
+        if activity_id is not None and self.spec.activity_column is None:
+            raise ValueError("Filtre activité non applicable à ce tableau")
         changed = (
-            self._family_id != family_id or bool(self.search_edit.text())
+            self._family_id != family_id
+            or self._activity_id != activity_id
+            or bool(self.search_edit.text())
             or self.year_spin.value() != 0
         )
-        blockers = [QSignalBlocker(self.search_edit), QSignalBlocker(self.year_spin)]
+        blockers = [
+            QSignalBlocker(self.search_edit),
+            QSignalBlocker(self.year_spin),
+            QSignalBlocker(self.activity_spin),
+        ]
         try:
             self.search_edit.clear()
             self.year_spin.setValue(0)
+            self.activity_spin.setValue(activity_id or 0)
         finally:
             for blocker in blockers:
                 blocker.unblock()
         self.timer.stop()
         self._family_id = family_id
+        self._activity_id = activity_id
+        scopes = []
+        if family_id is not None:
+            scopes.append(f"Famille #{family_id}")
+        if activity_id is not None:
+            scopes.append(f"Activité #{activity_id}")
         self.context_label.setText(
-            f"Famille #{family_id} · lecture seule" if family_id is not None
-            else "Tous les dossiers · lecture seule"
+            (" · ".join(scopes) if scopes else "Tous les dossiers") + " · lecture seule"
         )
         if self._loaded and changed:
             self.refresh()
@@ -304,6 +333,24 @@ class CatalogTablePage(QWidget):
             and isinstance(row.value("inscription"), int)
             and row.value("inscription") > 0
         )
+        self.activity_button.setVisible(self.kind in C15_ACTIVITY_LINK_DOMAINS)
+        activity = self._selected_activity_id(row)
+        self.activity_button.setEnabled(
+            isinstance(activity, int) and not isinstance(activity, bool) and activity > 0
+        )
+
+    def _selected_activity_id(self, row):
+        if row is None or self.kind not in C15_ACTIVITY_LINK_DOMAINS:
+            return None
+        return (
+            row.value("activity_id")
+            if "activity_id" in self.spec.keys else row.id
+        )
+
+    def _open_activity(self):
+        activity = self._selected_activity_id(self.selected_row())
+        if isinstance(activity, int) and not isinstance(activity, bool) and activity > 0:
+            self.activityRequested.emit(activity)
 
     def _open_family(self):
         row = self.selected_row()
@@ -329,6 +376,7 @@ class CatalogHubPage(QWidget):
 
     familyRequested = Signal(int)
     inscriptionRequested = Signal(int)
+    activityRequested = Signal(int)
 
     def __init__(self, repository: CatalogRepository, module: str, parent=None,
                  *, background=True):
@@ -337,6 +385,7 @@ class CatalogHubPage(QWidget):
             raise ValueError("Module métier Qt inconnu")
         self.module = module
         self._family_id = None
+        self._activity_id = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 7, 10, 7)
         title = QLabel(CATALOG_MODULES[module][0] + " — consultation", self)
@@ -349,6 +398,7 @@ class CatalogHubPage(QWidget):
             page = CatalogTablePage(repository, kind, self.tabs, background=background)
             page.familyRequested.connect(self.familyRequested.emit)
             page.inscriptionRequested.connect(self.inscriptionRequested.emit)
+            page.activityRequested.connect(self.activityRequested.emit)
             self.pages[kind] = page
             self.tabs.addTab(page, CATALOG_DOMAINS[kind].label)
         self.tabs.currentChanged.connect(self._tab_changed)
@@ -374,5 +424,21 @@ class CatalogHubPage(QWidget):
         for page in self.pages.values():
             page.set_context(
                 family_id=family_id if page.spec.family_column is not None else None
+            )
+        self.tabs.setCurrentIndex(0)
+
+    def set_activity_context(self, activity_id=None):
+        """Applique un identifiant d'activité aux onglets qui le supportent."""
+        validate_finance_id(activity_id, "activité")
+        if activity_id is not None and not any(
+            CATALOG_DOMAINS[kind].activity_column is not None
+            for kind in CATALOG_MODULES[self.module][1]
+        ):
+            raise ValueError("Ce module ne possède pas de filtre activité")
+        self._activity_id = activity_id
+        for page in self.pages.values():
+            page.set_context(
+                activity_id=activity_id
+                if page.spec.activity_column is not None else None
             )
         self.tabs.setCurrentIndex(0)

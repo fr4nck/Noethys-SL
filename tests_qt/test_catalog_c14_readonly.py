@@ -20,7 +20,8 @@ from PySide6.QtWidgets import QApplication, QAbstractItemView
 
 from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.catalog_readonly_core import (
-    CATALOG_DOMAINS, CATALOG_MODULES, CatalogRepository, build_catalog_query,
+    CATALOG_DOMAINS, CATALOG_MODULES, C14_DOMAIN_CODES,
+    C14_MODULE_CODES, CatalogRepository, build_catalog_query,
     validate_catalog_query,
 )
 from noethys_qt.noethys_native import NAVIGATION, NoethysQtWindow
@@ -48,7 +49,7 @@ class C14CatalogSqlTests(unittest.TestCase):
         self.repository = CatalogRepository(self.db.repository.editor_repository)
 
     def test_all_nine_catalog_tables_are_readable(self):
-        self.assertEqual(set(CATALOG_DOMAINS), set(EXPECTED))
+        self.assertEqual(set(C14_DOMAIN_CODES), set(EXPECTED))
         for kind, wanted in EXPECTED.items():
             with self.subTest(kind=kind):
                 result = self.repository.search(kind)
@@ -193,7 +194,7 @@ class C14CatalogSqlTests(unittest.TestCase):
 
     def test_fixture_unchanged_after_all_sql_reads(self):
         before = self.db.dump()
-        for kind in CATALOG_DOMAINS:
+        for kind in C14_DOMAIN_CODES:
             self.repository.search(kind)
         self.assertEqual(before, self.db.dump())
 
@@ -257,7 +258,7 @@ class C14NativeCatalogTests(unittest.TestCase):
     def test_six_new_modules_are_in_native_shell(self):
         self.assertEqual(len(NAVIGATION), 14)
         self.assertEqual(self.window.navigation.count(), 14)
-        for module in CATALOG_MODULES:
+        for module in C14_MODULE_CODES:
             with self.subTest(module=module):
                 row = next(
                     i for i in range(self.window.navigation.count())

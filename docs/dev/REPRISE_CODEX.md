@@ -1,5 +1,55 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## C15 — 4 nouveaux grands modules Qt, 8 listes (28/10/2026)
+
+**Développement en qualification** sur la seule branche canonique `qt`.
+Les modules Échéances d'adhésion, Attestations, Paramètres d'activités
+(unités, groupes, catégories tarifaires) et Effectifs bruts
+(inscriptions/consommations enregistrées) sont raccordés à la même
+coque Qt via `CatalogRepository` et `CatalogHubPage`, **SELECT-only**.
+Navigation 18 entrées en C15, ancienne navigation 14 entrées et
+fixtures historiques C12/C13/C14 conservées sans tables C15.
+Les liens Familles/Activités/Inscription reposent sur les IDs SQL,
+sans rapprochement nominatif. Les montants et dates historiques
+sont affichés sans recalcul ; les statistiques C15 sont des compteurs
+bruts NON officiels. Aucune création d'adhésion, attestation ou
+échéance, aucun envoi, tarification ni écriture.
+
+**Prévol C15 :** `main 754242e5357198afc530dc8b0d7ff95ea8c5dc5`,
+`wx bb2914ab40e715a9ab4b0e824bf62a501a192e0b`,
+`qt 1e1530e1d56a4342d576036929d1d73e318fb01f`.
+Les trois historiques restent divergents : aucune copie ni fusion
+des correctifs communs, qualification interbranches toujours
+EN ATTENTE ; pas de statut STABLE.
+
+**Correction préalable CI :** le run 40656390406 avait échoué à
+l'import du lanceur shardé. Commit `a4fb04adfff03c07ac9eeb9559c54c755659ab48`
+(exécution en module). Run Windows
+[40657764926](https://github.com/fr4nck/Noethys-SL/actions/runs/40657764926)
+`completed/success` : 332 PASS sur trois shards
+166 + 75 + 91, job graphique PASS. Avant C15, C14 était qualifié
+sur le run 40638033811 à 328 PASS.
+
+**Nouveaux fichiers C15 :** `noethys_qt/catalog_c15_specs.py`,
+`tools/qt_c15_modules_fixture.py`,
+`tools/qt_c15_native_modules_demo.py`,
+`tests_qt/test_modules_c15_readonly.py`,
+`tools/Noethys-Qt-C15-Modules-Demo.cmd`.
+Tests C15 : 23 nouveaux cas, total de découverte attendu
+**355 tests**, deux parcours Windows (clair 100 % et
+sombre 150 %) de 15 captures chacun sur SQLite temporaire
+et 100 % inventé, tests avant/après `dump()`.
+La qualification C15 ne sera déclarée réussie qu'après
+contrôle exact du SHA et du run Windows.
+
+**STOP-GATE :** aucun test ni connexion à une base de familles
+réelles, aucun droit métier effectif qualifié, aucune écriture,
+aucune statistique AFAS homologuée, aucun recalcul ni attestation
+générée, aucune migration PostgreSQL et aucun packaging.
+La cible long terme reste **un moteur Python indépendant de wx
+et de Qt**, à extraire progressivement sur `main`.
+Voir [QT_MODULES_LOT15.md](QT_MODULES_LOT15.md).
+
 ## C14 — six grands modules administratifs natifs Qt (QUALIFIÉ sur fixture)
 
 C14 est exclusivement développé sur la branche canonique `qt`. Les six nouvelles entrées sont Cotisations (cotisations/types), Contrats, Quotients familiaux (quotients/types), Locations (locations/demandes), Commandes et Devis : neuf listes Qt en consultation. Le moteur de connexion Qt est réutilisé sans importer wx, sans calculer de droit, cotisation, montant, validité, solde ou commande. Recherche SQL paramétrée, filtre famille par ID exact si applicable, plage annuelle sur date source, limite 250 lignes, montants sans arrondi et navigation réversible.

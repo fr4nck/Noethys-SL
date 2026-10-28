@@ -41,7 +41,10 @@ from .consumptions_calendar_ui import ConsumptionCalendarPage
 from .inscriptions_readonly import InscriptionPage, InscriptionRepository
 from .finance_readonly_core import FinanceRepository, validate_finance_id
 from .finance_readonly_ui import FinanceHubPage, MODULES
-from .catalog_readonly_core import CATALOG_MODULES, FAMILY_CATALOG_MODULES, CatalogRepository
+from .catalog_readonly_core import (
+    CATALOG_MODULES, C14_MODULE_CODES, FAMILY_CATALOG_MODULES,
+    C15_ACTIVITY_MODULES, CatalogRepository,
+)
 from .catalog_readonly_ui import CatalogHubPage
 
 
@@ -90,6 +93,12 @@ NAVIGATION = (
     ("orders", "Commandes", True),
     ("quotes", "Devis", True),
 )
+C15_NAVIGATION = (
+    ("renewals", "Échéances d'adhésion", True),
+    ("certificates", "Attestations", True),
+    ("activity_settings", "Paramètres d'activités", True),
+    ("headcounts", "Effectifs bruts", True),
+)
 
 
 class NoethysQtWindow(QMainWindow):
@@ -107,6 +116,7 @@ class NoethysQtWindow(QMainWindow):
         read_only_demo: bool = False,
         finance_enabled: bool = True,
         catalog_enabled: bool = True,
+        c15_enabled: bool = False,
     ):
         super().__init__()
         self.people_repository = people_repository
@@ -124,6 +134,11 @@ class NoethysQtWindow(QMainWindow):
         self.finance_enabled = finance_enabled
         # C12/C13 : les anciennes bases fictives n'ont pas les tables C14.
         self.catalog_enabled = catalog_enabled
+        # Les fixtures C12/C13/C14 n'ont pas les tables du lot C15.
+        self.c15_enabled = c15_enabled
+        self._navigation_entries = NAVIGATION + (
+            C15_NAVIGATION if self.c15_enabled else ()
+        )
         self._context_navigation = False
         self._context_history: list[tuple] = []
         self._return_context: tuple | None = None
@@ -179,7 +194,10 @@ class NoethysQtWindow(QMainWindow):
                 lambda _checked=False, target=code: self.navigate(target)
             )
         for code, action in self.catalog_actions.items():
-            action.setEnabled(self.catalog_enabled)
+            action.setEnabled(
+                self.catalog_enabled
+                and (code in C14_MODULE_CODES or self.c15_enabled)
+            )
             action.triggered.connect(
                 lambda _checked=False, destination=code: self.navigate(destination)
             )
@@ -245,7 +263,7 @@ class NoethysQtWindow(QMainWindow):
         self.navigation.setFixedWidth(205)
         self.navigation.setSpacing(1)
         self._nav_codes: list[str] = []
-        for code, label, enabled in NAVIGATION:
+        for code, label, enabled in self._navigation_entries:
             item = QListWidgetItem(label if enabled else f"{label}  · à migrer")
             item.setData(Qt.ItemDataRole.UserRole, code)
             if (
@@ -253,6 +271,8 @@ class NoethysQtWindow(QMainWindow):
                 or (self.read_only_demo and code == "activities")
                 or (not self.finance_enabled and code in MODULES)
                 or (not self.catalog_enabled and code in CATALOG_MODULES)
+                or (code in C15_ACTIVITY_MODULES and not self.c15_enabled)
+                or (code in ("renewals", "certificates") and not self.c15_enabled)
             ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
@@ -286,8 +306,11 @@ class NoethysQtWindow(QMainWindow):
         self.details_page = PeopleDetailsPage(self.stack)
         self.details_page.family_invoices_button.setEnabled(self.finance_enabled)
         self.details_page.family_payments_button.setEnabled(self.finance_enabled)
-        for button in self.details_page.catalog_buttons.values():
-            button.setEnabled(self.catalog_enabled)
+        for code, button in self.details_page.catalog_buttons.items():
+            button.setEnabled(
+                self.catalog_enabled
+                and (code in C14_MODULE_CODES or self.c15_enabled)
+            )
         self.details_page.backRequested.connect(self._back_to_people)
         self.details_page.familyRequested.connect(self._family_requested)
         self.details_page.individualRequested.connect(self._individual_requested)
@@ -345,6 +368,8 @@ class NoethysQtWindow(QMainWindow):
             self.stack.addWidget(panel)
         self.catalog_pages = {}
         for code in CATALOG_MODULES:
+            if code not in C14_MODULE_CODES and not self.c15_enabled:
+                continue
             panel = CatalogHubPage(
                 self.catalog_repository, code, self.stack,
                 background=self.background_queries,
@@ -354,6 +379,9 @@ class NoethysQtWindow(QMainWindow):
             )
             panel.inscriptionRequested.connect(
                 lambda ident, origin=code: self._catalog_inscription_requested(origin, ident)
+            )
+            panel.activityRequested.connect(
+                lambda ident, origin=code: self._catalog_activity_requested(origin, ident)
             )
             self.catalog_pages[code] = panel
             self.stack.addWidget(panel)
@@ -429,6 +457,17 @@ class NoethysQtWindow(QMainWindow):
                 catalog_quick.addWidget(button)
             catalog_quick.addStretch(1)
             layout.addLayout(catalog_quick)
+        if self.c15_enabled:
+            extra = QHBoxLayout()
+            for code in ("renewals", "certificates", "activity_settings", "headcounts"):
+                button = QPushButton(CATALOG_MODULES[code][0], page)
+                button.setEnabled(self.catalog_enabled)
+                button.clicked.connect(
+                    lambda _checked=False, target=code: self.navigate(target)
+                )
+                extra.addWidget(button)
+            extra.addStretch(1)
+            layout.addLayout(extra)
 
         migration = QLabel(
             "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
@@ -769,6 +808,14 @@ class NoethysQtWindow(QMainWindow):
         self._navigate_with_context("inscriptions")
         self._set_return_context(("catalog", origin))
 
+    def _catalog_activity_requested(self, origin: str, activity_id: int) -> None:
+        if origin not in C15_ACTIVITY_MODULES:
+            raise ValueError("Ce lien vers les inscriptions est indisponible")
+        validate_finance_id(activity_id, "activité")
+        self.inscriptions_page.set_context(activity_id=activity_id)
+        self._navigate_with_context("inscriptions")
+        self._set_return_context(("catalog", origin))
+
     def _family_inscriptions_requested(self, family_id: int) -> None:
         self._show_inscriptions_from_detail("family", family_id)
 
@@ -884,6 +931,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         editor_sqlite_path=args.sqlite,
         requested_theme=args.theme,
         source_label=_configured_source_label(args.sqlite),
+        c15_enabled=True,
     )
     window.show()
     return app.exec()

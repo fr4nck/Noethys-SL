@@ -18,7 +18,7 @@ from pathlib import Path
 
 SHARD_COUNT = 3
 # Garde anti-perte de tests : CI C14 validée à 328 tests le 28 octobre 2026.
-MINIMUM_TOTAL_TESTS = 328
+MINIMUM_TOTAL_TESTS = 355
 
 # Répartir les suites les plus longues d'après les durées du run 40638033811.
 # Pour tout fichier nouveau, affectation stable par hachage, jamais ignoré.

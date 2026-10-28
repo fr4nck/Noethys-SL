@@ -216,6 +216,19 @@ class PeopleDetailsPage(QWidget):
             catalog_actions.addWidget(button)
         catalog_actions.addStretch(1)
         root.addLayout(catalog_actions)
+        c15_actions = QHBoxLayout()
+        for code, title in (
+            ("renewals", "Échéances d'adhésion"),
+            ("certificates", "Attestations"),
+        ):
+            button = QPushButton(title + " de cette famille", self)
+            button.clicked.connect(
+                lambda _checked=False, target=code: self._request_family_catalog(target)
+            )
+            self.catalog_buttons[code] = button
+            c15_actions.addWidget(button)
+        c15_actions.addStretch(1)
+        root.addLayout(c15_actions)
 
         self.person_group = QGroupBox("Identité et coordonnées", self)
         person_form = QFormLayout(self.person_group)

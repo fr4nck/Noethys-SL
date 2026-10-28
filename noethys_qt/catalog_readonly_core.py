@@ -24,6 +24,7 @@ class CatalogSpec:
     date_column: str | None = None
     family_column: str | None = None
     numeric_keys: tuple[str, ...] = ()
+    activity_column: str | None = None
 
 
 # Déclarations fermées : le nom d'un domaine reçu ne produit jamais un nom SQL.
@@ -125,6 +126,8 @@ CATALOG_DOMAINS = {
     ),
 }
 
+C14_DOMAIN_CODES = frozenset(CATALOG_DOMAINS)
+
 CATALOG_MODULES = {
     "memberships": ("Cotisations", ("fees", "fee_types")),
     "contracts": ("Contrats", ("contracts",)),
@@ -133,9 +136,17 @@ CATALOG_MODULES = {
     "orders": ("Commandes", ("orders",)),
     "quotes": ("Devis", ("quotes",)),
 }
+
+C14_MODULE_CODES = frozenset(CATALOG_MODULES)
+from .catalog_c15_specs import (  # noqa: E402
+    build_c15_domains, C15_MODULES, C15_FAMILY_MODULES,
+    C15_ACTIVITY_MODULES, C15_ACTIVITY_LINK_DOMAINS,
+)
+CATALOG_DOMAINS.update(build_c15_domains(CatalogSpec))
+CATALOG_MODULES.update(C15_MODULES)
 FAMILY_CATALOG_MODULES = frozenset(
     ("memberships", "contracts", "quotients", "rentals", "quotes")
-)
+) | C15_FAMILY_MODULES
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +169,7 @@ class CatalogResult:
 
 
 def validate_catalog_query(
-    kind: str, *, family_id=None, year=None, text="",
+    kind: str, *, family_id=None, activity_id=None, year=None, text="",
     limit=MAX_CATALOG_ROWS, placeholder="?",
 ) -> None:
     if kind not in CATALOG_DOMAINS:
@@ -168,9 +179,12 @@ def validate_catalog_query(
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= MAX_CATALOG_ROWS:
         raise ValueError("Limite de consultation invalide")
     validate_finance_id(family_id, "famille")
+    validate_finance_id(activity_id, "activité")
     spec = CATALOG_DOMAINS[kind]
     if family_id is not None and spec.family_column is None:
         raise ValueError("Filtre famille indisponible pour ce domaine")
+    if activity_id is not None and spec.activity_column is None:
+        raise ValueError("Filtre activité indisponible pour ce domaine")
     if year is not None:
         if not isinstance(year, int) or isinstance(year, bool) or not 1900 <= year <= 2098:
             raise ValueError("Année invalide")
@@ -185,12 +199,12 @@ def _escape_like(text: str) -> str:
 
 
 def build_catalog_query(
-    kind: str, *, family_id=None, year=None, text="",
+    kind: str, *, family_id=None, activity_id=None, year=None, text="",
     limit=MAX_CATALOG_ROWS, placeholder="?",
 ):
     validate_catalog_query(
-        kind, family_id=family_id, year=year, text=text,
-        limit=limit, placeholder=placeholder,
+        kind, family_id=family_id, activity_id=activity_id,
+        year=year, text=text, limit=limit, placeholder=placeholder,
     )
     spec = CATALOG_DOMAINS[kind]
     where = []
@@ -198,6 +212,9 @@ def build_catalog_query(
     if family_id is not None:
         where.append(f"{spec.family_column} = {placeholder}")
         params.append(family_id)
+    if activity_id is not None:
+        where.append(f"{spec.activity_column} = {placeholder}")
+        params.append(activity_id)
     if year is not None:
         where.append(
             f"{spec.date_column} >= {placeholder} AND {spec.date_column} < {placeholder}"
@@ -225,19 +242,20 @@ class CatalogRepository:
         self.editor_repository = editor_repository
 
     def search(
-        self, kind: str, *, family_id=None, year=None, text="",
+        self, kind: str, *, family_id=None, activity_id=None, year=None, text="",
         limit=MAX_CATALOG_ROWS,
     ) -> CatalogResult:
         validate_catalog_query(
-            kind, family_id=family_id, year=year, text=text, limit=limit,
+            kind, family_id=family_id, activity_id=activity_id,
+            year=year, text=text, limit=limit,
         )
         connection, placeholder = self.editor_repository._connect()
         try:
             if isinstance(connection, sqlite3.Connection):
                 connection.execute("PRAGMA query_only=ON")
             sql, params = build_catalog_query(
-                kind, family_id=family_id, year=year, text=text,
-                limit=limit, placeholder=placeholder,
+                kind, family_id=family_id, activity_id=activity_id,
+                year=year, text=text, limit=limit, placeholder=placeholder,
             )
             cursor = connection.cursor()
             try:
