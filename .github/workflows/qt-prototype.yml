@@ -9,21 +9,32 @@ on:
       - "noethys_qt/**"
       - "tests_qt/**"
       - "tools/qt_c*.py"
+      - "tools/qt_ci_test_runner.py"
       - "requirements-qt.txt"
       - ".github/workflows/qt-prototype.yml"
 
 permissions:
   contents: read
 
+# Une exécution courante par branche ; aucun run protégé ou release affecté.
+concurrency:
+  group: noethys-qt-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  windows-qt-smoke:
-    name: Windows / PySide6 / smoke
+  windows-qt-tests:
+    name: Windows / tests Qt shard ${{ matrix.shard }}
     runs-on: windows-latest
     timeout-minutes: 20
-
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Python 3.11
         uses: actions/setup-python@v5
@@ -38,13 +49,40 @@ jobs:
           python -m pip install -r requirements-qt.txt
 
       - name: Compiler le rail Qt
-        run: python -m compileall -q noethys_qt tests_qt
+        run: python -m compileall -q noethys_qt tests_qt tools/qt_ci_test_runner.py
 
-      - name: Tests Qt hors écran
+      - name: Suite de tests Qt fictifs complete - partition deterministe
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m unittest discover -s tests_qt -p "test_*.py" -v
+        run: python tools/qt_ci_test_runner.py --shard ${{ matrix.shard }} --shards 3
+
+  windows-qt-smoke:
+  windows-qt-smoke:
+    name: Windows / PySide6 / smoke
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer Qt
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-qt.txt
+
+      - name: Compiler le rail Qt
+        run: python -m compileall -q noethys_qt tests_qt tools/qt_ci_test_runner.py
 
       - name: Capture Qt fictive - echelle 100%
         shell: pwsh
