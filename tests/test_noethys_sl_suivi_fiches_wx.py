@@ -67,6 +67,12 @@ class SuiviFichesWxContrats(unittest.TestCase):
         self.assertIn("Échec de l'enregistrement. Aucun succès n'est présumé", self.source)
         self.assertIn("Enregistrement incertain : vérifiez l'historique", self.source)
 
+    def test_message_dates_distingue_comparaison_et_ecriture_immediate(self):
+        self.assertNotIn("jamais enregistrées par cet assistant", self.source)
+        self.assertIn("La comparaison des dates ne modifie rien", self.source)
+        self.assertIn("écrit immédiatement après confirmation", self.source)
+        self.assertIn("libelle_dates.Wrap(620)", self.source)
+
     def test_presentation_sur_un_unique_dialogue_deroulant(self):
         self.assertIn("wx.ScrolledWindow(self)", self.source)
         self.assertIn("panneau.SetScrollRate(0, 16)", self.source)

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Relecture manuelle d'une fiche enfant Pêle-Mêle deja recue (#436).
 
-Aucune lecture de document ni ecriture SQL : la fiche originale est consultee
-auparavant dans l'onglet Pieces. La proposition AEEH est appliquee au controle
-d'Identite SEULEMENT ; le bouton Ok de la fiche individuelle garde la maitrise
-de l'enregistrement. Les informations medicales sont a verifier dans l'onglet
-Medical, jamais extraire d'un PDF automatiquement.
+Aucune extraction de document ni SQL direct : la fiche originale est lue
+auparavant dans l'onglet Pieces. La proposition AEEH Oui/Non est reportee
+au controle Identite et soumise au bouton Ok habituel. Les actions distinctes
+de justification AEEH et de reception parentale peuvent enregistrer tout de
+suite via le service commun apres confirmation explicite. Le volet Medical
+reste la source de saisie des vaccinations, allergies, traitements et PAI.
 """
 import wx
 from datetime import date as date_calendrier
@@ -105,9 +106,13 @@ class Dialog(wx.Dialog):
         ligne_dates.Add(wx.StaticText(panneau, label=u"Fin :"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
         ligne_dates.Add(self.date_fin, 0)
         vertical.Add(ligne_dates, 0, wx.ALL, 8)
-        vertical.Add(wx.StaticText(
-            panneau, label=u"Les dates sont comparées, jamais enregistrées par cet assistant."
-        ), 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        libelle_dates = wx.StaticText(panneau, label=(
+            u"La comparaison des dates ne modifie rien. "
+            u"Le bouton « Enregistrer cette période AEEH vérifiée » "
+            u"écrit immédiatement après confirmation et contrôle du justificatif."
+        ))
+        libelle_dates.Wrap(620)
+        vertical.Add(libelle_dates, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
         medical = wx.StaticText(panneau, label=(
             u"À examiner dans l'onglet Médical : vaccinations et justificatifs, "
