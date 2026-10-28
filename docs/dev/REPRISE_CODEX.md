@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## #436 B4 — sécurité historique et simulation des deux pilotes (28/10/2026)
+
+- **B3 qualifié CI :** `main` #40654939570 SUCCESS et `wx` #40655529299 SUCCESS, mais ni recette graphique Windows, ni connexion MySQL réelle.
+- **Risque découvert :** `OL_Historique` affiche les catégories et les textes d'action ; il n'a pas été prouvé que ses accès soient identiques à ceux de l'onglet Médical. Le service `UTILS_Suivi_fiches` garde désormais la **quantité** de rubriques parentales déclarées dans l'événement #41, mais plus leurs noms sensibles (PAI, allergies, traitements, vaccinations). L'événement demeure distinct d'une preuve sanitaire.
+- **Nouveaux tests :** `tests/test_noethys_sl_suivi_fiches_mysql.py` : 10 scénarios SQL sous adaptateur **MySQL simulé** sans réseau, dont `FOR UPDATE`, paramètres `%s`, rollback et isolation. `tests/test_noethys_sl_suivi_fiches_wx_events.py` : 16 contrôles dynamiques des événements des boutons, sans `wx.App`, base ni impression.
+- **Frontières :** pas de changement des tables, périodes AEEH existantes, droits, portail Connecthys hébergé, données PMSL, profil Portable, fiches PDF originales ni de Qt. La qualification d'un serveur MySQL fictif isolé, des habilitations historiques et l'ouverture réelle du dialogue wx demeure obligatoire avant production.
+- **CI B4 :** résultats à suivre sur les HEAD exacts après publication (ne pas les annoncer PASS avant confirmation).
+
+
+
 ## #436 B3 — droits AEEH contrôlés et suivi des fiches parentales (28/10/2026)
 
 - **Audit du code existant** : `aeeh_periodes` est le stockage canonique des périodes, `UTILS_AEEH_Periodes.ValiderPeriode` refuse déjà les chevauchements ; `DLG_Individu_medical`, `OL_Vaccins`, `OL_Vaccins_obligatoires` et `OL_Pb_sante` assurent déjà la saisie sanitaire. `historique` stocke date/heure/utilisateur/individu, sans nouveau champ. Aucun doublon médical ni seconde table AEEH.

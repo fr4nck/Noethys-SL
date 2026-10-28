@@ -152,9 +152,12 @@ def EnregistrerConfirmationParentale(IDindividu, IDutilisateur, rubriques,
         date_parent = _date(date_parent)
         if date_parent > date.today():
             raise ControleFicheInvalide("Date parentale dans le futur")
-    action = ("Fiche enfant : déclaration parentale relue ; rubriques %s ; "
+    # L'historique global n'a pas les mêmes droits que l'onglet Médical.
+    # Aucune catégorie de santé (PAI, allergies, traitements...) dans
+    # l'action : seul le nombre de rubriques déclarées est conservé.
+    action = ("Fiche enfant : déclaration parentale relue ; %d rubrique(s) ; "
               "source %s ; signature %s ; justificatifs non validés") % (
-                  ", ".join(rubriques), source,
+                  len(rubriques), source,
                   date_parent.isoformat() if date_parent else "non datée")
     if len(action) >= 500:
         raise ControleFicheInvalide("Historique trop long")
