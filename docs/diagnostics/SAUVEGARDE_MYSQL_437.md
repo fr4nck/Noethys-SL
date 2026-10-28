@@ -1,5 +1,13 @@
 # Sauvegarde réseau après RC10 — incident #437
 
+## RC10.1 disponible
+
+Le [paquet Windows RC10.1](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.10.1)
+est publié au commit `cfeccd499927319583b263b5361d9abbedeb6963`, après réussite de
+la CI rapide 40762579606 et du build complet 40762579762. Setup et portable ont
+été téléchargés après publication et leurs empreintes concordent avec celles
+issues du candidat. Aucune installation sur un profil réel par l'agent.
+
 ## Complément RC10.1
 
 La sauvegarde automatique propose un dossier existant lorsque le chemin hérité

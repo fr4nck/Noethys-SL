@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC10.1 publiée — sauvegardes Windows (28/10/2026)
+
+- **Release publique** : [Noethys SL 0.1.0 RC10.1](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.10.1), préversion publiée le 28/10/2026 à 20:34:38 UTC. Tag léger et artefacts au commit qualifié `cfeccd499927319583b263b5361d9abbedeb6963`, pas au commit de publication `fbb6fa9d401924915cdec33afa7a0e6e98b764e2`. [Publication 40764456778](https://github.com/fr4nck/Noethys-SL/actions/runs/40764456778) SUCCESS, sans reconstruction. RC10 et les anciennes releases conservées.
+- **Qualification** : [CI rapide 40762579606](https://github.com/fr4nck/Noethys-SL/actions/runs/40762579606) SUCCESS ; [build Windows 40762579762](https://github.com/fr4nck/Noethys-SL/actions/runs/40762579762) SUCCESS sur le même SHA. Exécutable, moteur inclus, clients MySQL 5.7 livrés, progression wx réelle, gros BLOB synthétique restauré, démarrages installable et portable, profil portable conservé, Setup/ZIP/empreintes validés. Les 4 nouveaux contrôles du workflow ponctuel ont aussi passé localement.
+- **Assets vérifiés après publication et téléchargement** : Setup 105 696 644 octets / SHA-256 `5142e8e18eabda7bbdeaf13fbe06a48ce28741136d61666e4cecefdcb2166755` ; portable 147 679 430 octets / SHA-256 `8aa18246ba5037e2c26c6e43b74da7ef5e2af8142983b1190f0d7d9c2036b024` ; `SHA256SUMS.txt` présent et concordant. ZIP CRC, marqueur Portable, provenance `cfeccd49` et absence de Config.json/identifiants embarqués revérifiés sur les fichiers publics.
+- **Portage du complément** : main `8504fea4220e5b81e2b71fedc70f3c302e91ea5a`, qt `fa299114069486e26e3a04af9f33ef6fbd7db8fd`, wx candidat `cfeccd499927319583b263b5361d9abbedeb6963` : moteur et choix de dossier identiques, 91 tests ciblés locaux sur chaque branche. Identité et paquet RC10.1 propres à wx ; aucune version Qt ou main annoncée installée.
+- **Exploitation** : l'utilisateur installe volontairement RC10.1. Si l'ancien dossier est absent, choix d'un dossier existant puis mémorisation propre au poste après succès. L'agent n'a installé aucun binaire sur le profil réel, modifié aucune base de production ni lancé de restauration en production. Runtime, traces et téléchargement local restent hors Git ; aucune sauvegarde ou donnée des familles publiée. Issue #437 non fermée : l'ancien déclencheur serveur/réseau reste non attribué et le retour utilisateur sur la nouvelle version reste distinct des preuves techniques.
+
+
 ## RC10.1 / #437 — choix local du dossier et qualification Windows (28/10/2026)
 
 - Demande explicite de fabrication et publication d'une nouvelle version Windows. Prévol : main `9ef81817`, wx `17b6e1d`, qt `b38c4cba`. Pas de fusion globale ni de modification des précédentes releases.
