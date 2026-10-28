@@ -46,7 +46,24 @@ pas une aptitude à la production.
 
 ## Qualification
 
-**EN ATTENTE** de la CI Windows sur le SHA de la correction.
-Le nombre attendu passe de 328 à 332 tests après ajout des
-quatre tests de répartition. Vérifier chaque shard, la somme
-des tests et toutes les captures avant de classer VALIDÉ.
+**VALIDÉ TECHNIQUEMENT sur fixtures fictives**. Le premier
+essai [40656390406](https://github.com/fr4nck/Noethys-SL/actions/runs/40656390406)
+a échoué sur les trois shards avant d'exécuter les tests
+(import Python incorrect). Le commit
+`a4fb04adfff03c07ac9eeb9559c54c755659ab48`
+a corrigé le lancement avec `python -m tools.qt_ci_test_runner`.
+Le run [40657764926](https://github.com/fr4nck/Noethys-SL/actions/runs/40657764926)
+a confirmé **332 PASS, zéro échec** (166 + 75 + 91)
+et toutes les captures fictives C6–C14.
+
+La CI suivante C15
+[40659547120](https://github.com/fr4nck/Noethys-SL/actions/runs/40659547120)
+a également réussi sur le code `6eea2cada4aae67622df5dbd4e0e0f72c23dc0a9`,
+**355 PASS, zéro échec**, avec quatre jobs Windows verts
+(189 + 75 + 91), captures C6–C15 comprises.
+Le minimum de découverte est désormais 355, augmenté de 23
+tests C15. Une répartition plus homogène des nouveaux tests
+reste souhaitable, sans réduire la couverture.
+
+Ni l'ancien run en échec, ni cette réussite sur fixtures ne
+constituent une qualification de production.

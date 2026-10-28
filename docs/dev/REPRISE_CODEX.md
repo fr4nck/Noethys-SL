@@ -2,7 +2,7 @@
 
 ## C15 — 4 nouveaux grands modules Qt, 8 listes (28/10/2026)
 
-**Développement en qualification** sur la seule branche canonique `qt`.
+**Développement VALIDÉ TECHNIQUEMENT sur données fictives uniquement** sur la seule branche canonique `qt`.
 Les modules Échéances d'adhésion, Attestations, Paramètres d'activités
 (unités, groupes, catégories tarifaires) et Effectifs bruts
 (inscriptions/consommations enregistrées) sont raccordés à la même
@@ -35,12 +35,31 @@ sur le run 40638033811 à 328 PASS.
 `tools/qt_c15_native_modules_demo.py`,
 `tests_qt/test_modules_c15_readonly.py`,
 `tools/Noethys-Qt-C15-Modules-Demo.cmd`.
-Tests C15 : 23 nouveaux cas, total de découverte attendu
-**355 tests**, deux parcours Windows (clair 100 % et
-sombre 150 %) de 15 captures chacun sur SQLite temporaire
-et 100 % inventé, tests avant/après `dump()`.
-La qualification C15 ne sera déclarée réussie qu'après
-contrôle exact du SHA et du run Windows.
+Tests C15 : 23 nouveaux cas, **355 tests PASS / 0 erreur / 0 échec**
+sur le code `6eea2cada4aae67622df5dbd4e0e0f72c23dc0a9`.
+CI Windows [40659547120](https://github.com/fr4nck/Noethys-SL/actions/runs/40659547120)
+`completed/success`, quatre jobs verts : shard 0 189 tests en
+389,16 s, shard 1 75 tests en 158,57 s, shard 2 91 tests en
+154,02 s. Parcours C15 clair 100 % et sombre 150 % :
+`C15_MODULES_PASS` avec 15 captures/profil, huit domaines,
+quatre modules, `sqlite_unchanged=true`. C12/C13/C14 également
+PASS sur leurs fixtures fictives. Artefact
+`qt-c15-modules-fictifs` ID 12803377784, 406 815 octets,
+SHA-256 `9c4d4c867b738a5d2a9486743018968bf45587075cc2d4530ad72adcbad588a6`
+(30 PNG + 2 JSON, expiration annoncée au 11 novembre 2026).
+Résultat uniquement technique sur données inventées, sans aptitude
+à l'exploitation ni à la production.
+
+**SHA observés après qualification C15** :
+`main c87ee58cdba3281833d0dc2d272c59363f8a492d`,
+`wx bb2914ab40e715a9ab4b0e824bf62a501a192e0b`,
+`qt 6eea2cada4aae67622df5dbd4e0e0f72c23dc0a9`
+(avant la clôture documentaire). `main` a évolué séparément :
+correctifs communs et divergences interbranches EN ATTENTE,
+pas de merge ni de déclaration de stabilité. La CI C15 conserve
+l'ensemble des tests fictifs mais ne prouve pas leur parité métier.
+La répartition 189/75/91 pourra être équilibrée ultérieurement,
+sans retirer de tests.
 
 **STOP-GATE :** aucun test ni connexion à une base de familles
 réelles, aucun droit métier effectif qualifié, aucune écriture,
