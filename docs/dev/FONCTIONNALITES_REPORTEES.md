@@ -39,8 +39,13 @@ La liste complète des branches archivées, avec SHA et empreintes, est dans
 | Sujet | PR | Issue de reprise | Archive (branche @ SHA) | Dépendances |
 |---|---|---|---|---|
 | Fonctions des individus dans les entités (table `rattachements_fonctions`, type École) | #384 (empilée sur #370) | #423 | `feature/vanilla-entites-fonctions` @ `4e2c615b` ; `feature/vanilla-conventions` @ `c2c3e87a` | migration SQL additive ; feuille de route #382, #383 |
-| Consommateur `session-attendance/1` (pointage de séance) | #369 | #424 | `feature/session-attendance-consumer-2026-09-19` @ `74410a3e` | interventions Noe-062 de la lignée `master` ; table `interventions_attendance_inbox` |
 | `SecretProvider` Windows du client mailbox inter-domaines | #355 | #424 | `noe-062-secure-secret-provider` @ `04f7886c` | client mailbox de la lignée `master` |
+
+## Reprises qualifiées depuis les archives
+
+| Sujet | Archive | Reprise canonique | Limites restantes |
+|---|---|---|---|
+| Consommateur `session-attendance/1` (ancienne #369) | `feature/session-attendance-consumer-2026-09-19` @ `74410a3e` | repris sans Noe-062 E14 : `main` `4a663fc`, `wx` `883bf00`, `qt` `ffa1657` ; E2E Portails/Noethys-SL run `40661602931` SUCCESS | non activé en production ; corrélation de séance à alimenter ; lecteur participants à raccorder ; copie MySQL réelle à qualifier ; #355 secrets/client réseau toujours reporté |
 
 ## Packaging
 
@@ -57,7 +62,7 @@ Ces apports restent consultables dans l'historique de `origin/master` et des bra
 |---|---|---|---|
 | Noe-062 tiers/structures, relations, payeurs, conventions versionnées (E13) | C | crée ~12 tables ; modèle concurrent des conventions Noedoc/Word de main | noethys/Data/DATA_Structures.py, noethys/Utils/UTILS_Tiers.py, UTILS_Conventions_Structures*.py ; PR #212-#215, #298-#309 |
 | Noe-062 programmations, séances, lieux, prévu/réalisé (E14) | C | tables interventions/lieux/programmations ; touche le pointage | UTILS_Programmations_*.py, UTILS_Interventions*.py, UTILS_Lieux.py ; PR #214, #249, #310, #312 |
-| Noe-062 inter-domaines, inbox du réalisé, pointage session-attendance, coffre de secrets (E15) | C | réseau + pointage + table interventions_execution_inbox | UTILS_Interdomain_*.py, UTILS_Interventions_Actual_Inbox*.py ; PR #318, #325, #353, #355, #369 |
+| Noe-062 inter-domaines, inbox du réalisé et coffre de secrets (E15 historique) | C | le pointage #369 a été réécrit et qualifié hors Noe-062 ; restent le réalisé historique, le client réseau et #355 | UTILS_Interdomain_*.py, UTILS_Interventions_Actual_Inbox*.py ; PR #318, #325, #353, #355 ; voir reprise #424 §34 |
 | Synchronisation PMSL (E16) | C | client réseau HMAC écrivant dans ouvertures | UTILS_PMSL_*.py, DLG_PMSL_Synchronisation.py |
 | Migration contrôlée de base (E12) | C | écrit une base cible complète ; aucune migration implicite autorisée | UTILS_Migration_base.py, tests/test_migration_base.py |
 | Portail Connecthys Noe-063 : blocs dynamiques, RSS/Atom, tarifs | C | réseau / synchro portail non qualifiés ; PR fermées | branches feature/noe-063-portail-consolide, feature/noe-063b-rss-atom-connecthys, feature/noe-063d-tarifs-ui |

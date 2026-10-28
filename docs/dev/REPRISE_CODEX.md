@@ -2513,3 +2513,30 @@ Reprise de la fabrication du candidat Vanilla depuis `wx`, **sur demande de Fran
 **Livraison des UI :** le moteur est commun, pas une fonctionnalité installée. Le raccordement wx (menu Outils fiche individuelle, contrôle avant édition du champ existant, validation normale) fait l'objet d'un commit wx **distinct et d'une CI distincte**. Le portage Qt reste EN ATTENTE ; aucun bouton du portail hébergé modifié. Les PDF Pêle-Mêle existants restent uniques.
 
 **Garde-fous :** sans changement de schéma, de `DLG_Saisie_portail_demande`, d'AEEH historique, de questionnaires, de facturation, de Connecthys, de PMSL ni du profil Portable. Ne pas confondre réception d'une pièce et contrôle médical de son contenu. Résultat final de la nouvelle CI à consigner après sa fin.
+
+
+## 34. Reprise #424 — pointage `session-attendance/1` sans lignée Noe-062 — 28/10/2026
+
+**Prévol et décision.** La reprise est repartie de `main` `754242e5357198afc530dc8b0d7ff95ea8c5dc5c` et de l'archive #369 `74410a3ef4ef8b618a2214487453d379ff596f3a`. Les tables historiques `interventions` / `interventions_programmations` de Noe-062 E14 ne sont pas revenues : elles restent reportées. Le moteur courant utilise les tables Noethys existantes (`consommations`, `ouvertures`, `evenements`) et une corrélation d'intégration explicite `session_uid -> activité/groupe/unité ou événement/date`.
+
+**Moteur commun repris sur `main`.**
+- `c87ee58cdba3281833d0dc2d272c59363f8a492d` : schéma additif `interdomain_attendance_sessions` + `interdomain_attendance_inbox`, consommateur idempotent, rollback explicite, protection de `absentj` ;
+- `058f2de55ba294f459c286085bb6a87ebf222ab9` : routeur pur `inter-domain-delivery/1`, HMAC injecté en mémoire, aucune URL/socket/config de secret ;
+- `4a663fc4f1a0c07da6882e764a85cfb28bd4e2ec` : refus fail-closed des consommations verrouillées ou déjà facturées, plus sauvegarde/restauration de copie synthétique.
+
+Le commit concurrent #436 `92ea80dc5ee6006ef0d285cd539b6be3582451e6` a été réconcilié sans écrasement : il est descendant de `058f2de` et préserve explicitement les lots pointage.
+
+**Qualification locale/CI.**
+- run `40659329141` sur `c87ee58` : syntaxe + 12 tests ciblés PASS, gate Windows rapide SUCCESS ;
+- run `40660538055` sur `058f2de` : 19 tests ciblés PASS ; run supersédé/cancelled par le commit concurrent #436, pas par un échec ;
+- run final `40661354725` sur `4a663fc` : étape Linux ciblée **21 PASS** (HMAC, replay, ambiguïtés, `absentj`, rollback, verrouillage/facturation, sauvegarde/restauration). Le gate Windows général reste à lire sur le run lui-même avant toute livraison.
+
+**Preuve transverse Portails -> Noethys-SL.** Le harnais Portails #36 a été reconstruit contre le schéma courant, sans `interventions*`. Qualification sur `Portails@51bcc906dada9b41cde8c3476051d5430061f7cc` et `Noethys-SL@4a663fc4f1a0c07da6882e764a85cfb28bd4e2ec` : Actions run `40661602931` **SUCCESS**. Chaîne réellement exercée sur données fictives : écriture Portail -> outbox -> claim `activity_users` -> enveloppe HMAC -> consommateur Noethys-SL -> `present/absenti` -> inbox -> replay identique sans seconde écriture -> ACK `replayed` -> outbox Portail `delivered` -> rollback Portail. Le déclencheur `push` utilisé uniquement pour cette preuve a ensuite été retiré dans `Portails@4582f61bbacf74853422b0962a06fa336f8dafe2`; le harnais redevient manuel.
+
+**Matrice des trois branches.**
+- `main` : `4a663fc4f1a0c07da6882e764a85cfb28bd4e2ec` ;
+- `wx` : `883bf008119bd729fdb238849344fbe6663e68d7` ;
+- `qt` : `ffa1657d770db035ffa26b97c226b57734533eda`.
+Les six fichiers moteur/tests de pointage ont des blobs Git identiques sur `main`, `wx` et `qt`. Aucun merge de branches ni force-push n'a été utilisé.
+
+**Limites / production.** Ce jalon ne crée aucun client réseau actif et ne stocke aucun secret. La corrélation de séance doit encore être alimentée par un mécanisme qualifié ; le lecteur de participants côté Portail reste à raccorder au domaine activité/usagers ; la migration doit encore être éprouvée sur une copie MySQL représentative avant exploitation. `PORTAIL_SESSION_ATTENDANCE_API_ENABLED` reste désactivé. Le sous-chantier #355 (`SecretProvider` Windows + client mailbox sortant) reste séparé et non intégré ; l'issue #424 reste donc ouverte.
