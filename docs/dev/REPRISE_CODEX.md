@@ -1,4 +1,19 @@
-# Reprise du chantier Noethys-SL — état au 27/10/2026
+# Reprise du chantier Noethys-SL — état au 28/10/2026
+
+## C14 — grands modules administratifs natifs Qt (développement et vérification en cours)
+
+C14 est exclusivement développé sur la branche canonique `qt`. Les six nouvelles entrées sont Cotisations (cotisations/types), Contrats, Quotients familiaux (quotients/types), Locations (locations/demandes), Commandes et Devis : neuf listes Qt en consultation. Le moteur de connexion Qt est réutilisé sans importer wx, sans calculer de droit, cotisation, montant, validité, solde ou commande. Recherche SQL paramétrée, filtre famille par ID exact si applicable, plage annuelle sur date source, limite 250 lignes, montants sans arrondi et navigation réversible.
+
+La fixture C14 étend la fixture fictive C13 uniquement dans un répertoire temporaire vérifié : 100 % individus/familles inventés, aucun `.nod`, aucun accès réseau, aucun `Config.json` et aucune migration de schéma Noethys. Les anciennes captures C12/C13 continuent à utiliser leur fixture d'origine grâce au drapeau `catalog_enabled=False`. Les modules nouvellement intégrés ne possèdent **aucune commande d'écriture métier**. Le démonstrateur `tools/Noethys-Qt-C14-Catalog-Demo.cmd` ne doit pas être utilisé sur une base réelle.
+
+**Prévol GitHub observé avant C14 :**
+- `main` : `f6f5ccdf6a491025db052b7759aa6facc01b2eca` ;
+- `wx` : `ba9271339ac14ac159e3ab62af70ddfcaa3ab721` ;
+- `qt` : `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3` ;
+- `main..qt` **diverged** (246 commits ahead/268 behind), `main..wx` **diverged** (363 ahead/268 behind), ascendance commune principale `44fd8096506f7362706bb95ef1fbee3dae790a59`.
+- Matrice des changements C14 : `main` NON APPLICABLE/INCHANGÉ ; `wx` NON APPLICABLE/INCHANGÉ ; `qt` EN QUALIFICATION technique sur seules données fictives. Les divergences de moteurs communs restent EN ATTENTE de qualification interbranches (pas de synchronisation implicite).
+
+Les corrections de moteur commun de `main` et `wx` restent une obligation de qualification séparée : aucune déclaration de synchronisation, de stabilité ou d'aptitude production. Documentation de périmètre et preuves : [QT_CATALOGUES_LOT14.md](QT_CATALOGUES_LOT14.md). La CI Windows C14 doit être contrôlée sur son SHA exact avant de la classer VALIDÉE.
 
 ## Qt C13 — trois grands modules financiers et 6 listes natives (27/10/2026)
 
@@ -6,7 +21,7 @@ Périmètre exclusivement Qt, sans mise en forme définitive : Facturation (fact
 
 Implémentation : noethys_qt/finance_readonly_core.py et finance_readonly_ui.py ; fichier source de données C13 inventées tools/qt_c13_finance_fixture.py, tests tests_qt/test_finance_c13_readonly.py, lanceur tools/Noethys-Qt-C13-Finance-Demo.cmd et tools/qt_c13_native_finance_demo.py, recette CI 18 captures sous artifacts/qt-c13. Les connexions sont SELECT-only, SQLite PRAGMA query_only=ON, et les contrôles d'IDs / bornes SQL sont faits avant ouverture. Aucune base réelle, aucun wx import ni schéma migré. Le mode read_only_demo de la coque interdit l'éditeur Activités.
 
-Branches relevées : main f6f5ccd INCHANGÉ / NON APPLICABLE, wx 11b8546 INCHANGÉ / NON APPLICABLE, qt C12 c401cf8 ; commits du code financier 593714c, a6fe1ce, dc5e0bd, 10a6f12, fixture fb0806c, tests d138a63, captures 1778546. La qualification de référence Windows est la CI [40558968795](https://github.com/fr4nck/Noethys-SL/actions/runs/40558968795), EN COURS à la rédaction ; ne pas annoncer son résultat avant vérification. STOP-GATE maintenu : validation des droits effectifs, lecture MySQL réelle, rapprochement, génération et édition de factures, encaissements, export comptable, conformité des soldes et publication d'une version installable. Voir [QT_FINANCE_LOT13.md](QT_FINANCE_LOT13.md).
+Branches relevées au lancement C13 : main f6f5ccd INCHANGÉ / NON APPLICABLE, wx 11b8546 (SHA historique au lancement C13), qt C12 c401cf8 ; commits du code financier 593714c, a6fe1ce, dc5e0bd, 10a6f12, fixture fb0806c, tests d138a63, captures 1778546. **Qualification Windows C13 vérifiée** : CI [40560772284](https://github.com/fr4nck/Noethys-SL/actions/runs/40560772284), `completed/success`, HEAD `2f97b75`, **301 tests PASS / 0 échec**, C12_NATIVE_PASS et C13_FINANCE_PASS clair 100 % / sombre 150 %, chacune avec 9 vues et base fictive intacte. Artefact C13 `qt-c13-finances-fictives` ID 12761142180 (227 838 octets ; SHA-256 `b14446cb13ad5b72d31a0f5d244488176d4f67a6de4832eab26e1d08718e7b74`). STOP-GATE maintenu : validation des droits effectifs, lecture MySQL réelle, rapprochement, génération et édition de factures, encaissements, export comptable, conformité des soldes et publication d'une version installable. Voir [QT_FINANCE_LOT13.md](QT_FINANCE_LOT13.md).
 
 
 ## Qt C12 — coque native intégrée, inscriptions et parcours complet (27/10/2026)
