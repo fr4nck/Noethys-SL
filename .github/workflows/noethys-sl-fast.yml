@@ -117,6 +117,8 @@ jobs:
           tests.test_noethys_sl_backup_zip_lifecycle
           tests.test_noethys_sl_backup_missing_file
           tests.test_noethys_sl_backup_network_config
+          tests.test_noethys_sl_backup_complete
+          tests.test_noethys_sl_backup_dump_watchdog
           tests.test_noethys_sl_mysql_returncode
           tests.test_noethys_sl_sql_manifest
           tests.test_noethys_sl_sql_analyse

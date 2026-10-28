@@ -9,10 +9,14 @@ import importlib.util
 import os
 import shutil
 import tempfile
+import shlex
+import time
+import subprocess
 import types
 import unittest
 import zipfile
 from pathlib import Path
+from tests._mysql_backup_test_support import moteur
 
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Sauvegarde.py"
 MANIFESTE = SOURCE.with_name("UTILS_SQL_Integrite.py")
@@ -47,6 +51,7 @@ def _charger_sauvegarde(dependances):
         if isinstance(noeud, ast.FunctionDef) and noeud.name == "Sauvegarde"
     )
     namespace = dict(dependances)
+    namespace["UTILS_MySQL_backup"] = moteur(namespace)
     exec(compile(ast.fix_missing_locations(ast.Module(body=[fonction], type_ignores=[])),
                  str(SOURCE), "exec"), namespace)
     return namespace["Sauvegarde"]
@@ -77,8 +82,11 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             class ProcessusFictif:
                 returncode = 23
 
-                def communicate(self):
-                    return b"", None
+                def wait(self, timeout=None):
+                    return self.returncode
+
+                def poll(self):
+                    return self.returncode
 
             def popen(arguments, **kwargs):
                 journal.append(arguments)
@@ -101,7 +109,9 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
                 "os": os,
                 "shutil": shutil,
                 "zipfile": zipfile,
-                "subprocess": types.SimpleNamespace(Popen=popen, PIPE=-1, STDOUT=-2),
+                "subprocess": types.SimpleNamespace(
+                    Popen=popen, DEVNULL=-3, TimeoutExpired=subprocess.TimeoutExpired),
+                "shlex": shlex, "time": time, "tempfile": tempfile,
                 "six": types.SimpleNamespace(PY2=False, PY3=True),
                 "EXTENSIONS": {"decrypte": "nod", "crypte": "noc"},
                 "UTILS_Fichiers": types.SimpleNamespace(
@@ -125,7 +135,8 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
 
             self.assertIs(resultat, False)
             self.assertEqual(len(journal), 1)
-            self.assertIn("--opt --single-transaction --skip-lock-tables", journal[0])
+            self.assertEqual(journal[0][2:5], ["--opt", "--single-transaction", "--skip-lock-tables"])
+            self.assertNotIn("cmd.exe", journal[0][0])
             self.assertTrue(errors)
             self.assertIn("23", errors[0])
             self.assertFalse((rep / "essai.nod").exists(), "ZIP partiel conserve")
