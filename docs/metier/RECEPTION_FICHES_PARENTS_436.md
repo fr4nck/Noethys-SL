@@ -78,3 +78,40 @@ de wx/Qt et n'active ni wx, ni Qt, ni portail à lui seul.
   provenance datée et historisation, sur données et migrations fictives.
 - Vérifier les habilitations héritées et les accès de lecture, sans modifier
   la version hébergée de Connecthys.
+
+
+## Lot B3 — Historiser les confirmations et enregistrer les droits AEEH vérifiés
+
+**Audit de l'existant avant développement (28 octobre 2026).** Les périodes sont
+déjà historisées dans `aeeh_periodes` et leur chevauchement est contrôlé par
+`UTILS_AEEH_Periodes.ValiderPeriode`. Les vaccins et problèmes de santé
+disposent déjà de leurs écrans dans l'onglet Médical. La table
+`historique` associe déjà date, heure, utilisateur, enfant et événement.
+Aucun nouveau référentiel médical ni nouveau champ AEEH n'est introduit.
+
+Le service commun `Utils/UTILS_Suivi_fiches.py` propose trois opérations :
+
+- `EnregistrerPeriodeVerifiee` : **uniquement après validation humaine du
+  justificatif**, avec ID enfant et ID utilisateur ; réutilisation du validateur
+  d'intervalles AEEH sur la **même transaction**, verrou de l'enfant (SQLite
+  `BEGIN IMMEDIATE`, MySQL `FOR UPDATE`), création dans `aeeh_periodes`
+  et historique **atomique**. Toute anomalie annule les deux écritures.
+  Date de fin inconnue refusée sauf confirmation expresse qu'elle est
+  absente du document. Aucun changement de `individus.aeeh`.
+- `EnregistrerConfirmationParentale` : après lecture d'une fiche enfant
+  **signée par les parents**, consigne uniquement la liste des rubriques
+  réellement déclarées et leur source (papier ou Pièces), dans
+  `historique` ; **pas de diagnostic ni traitement en texte libre**.
+  La date de signature parentale, si connue, est distincte de la date
+  de réception. Ni preuve vaccinale ni PAI ne sont validés par cet événement.
+- `GetDerniereConfirmationParentale` : dernière réception contrôlée
+  depuis l'historique existant ; ce n'est pas un certificat sanitaire.
+  Deux **catégories d'historique** sont ajoutées : 40 (période AEEH
+  contrôlée), 41 (déclaration parentale reçue), sans migration de schéma.
+
+**Tests :** tests SQLite fictifs de l'insertion, du chevauchement,
+du rollback sur échec de l'historique et de l'isolation des enfants ;
+simulation MySQL à compléter avant qualification du mode réseau.
+Les écrans et le flux Connecthys restent inchangés dans ce commit commun.
+Le raccordement graphique sur wx est un sous-lot distinct, non encore
+qualifié ici. Aucun accès aux dossiers PMSL ou au profil Portable.

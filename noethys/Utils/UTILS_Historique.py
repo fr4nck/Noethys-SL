@@ -55,6 +55,8 @@ CATEGORIES = {
     37 : _(u"Saisie d'une location"),
     38 : _(u"Modification d'une location"),
     39 : _(u"Suppression d'une location"),
+    40 : _(u"Période AEEH contrôlée sur justificatif"),
+    41 : _(u"Confirmation parentale de fiche enfant reçue"),
 
 }
 
