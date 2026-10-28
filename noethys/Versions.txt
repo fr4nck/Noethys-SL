@@ -1,3 +1,16 @@
+Version Noethys SL 0.1.0 RC10 (28/10/2026) :
+
+- Préversion cumulative de recette depuis RC9.1 : correctifs Connecthys de réservations, créneaux Journée/Matin/Après-midi, quantités et reprises contrôlées, sans écraser les demandes ambiguës.
+- Synchronisation Connecthys et interface : progression plus réactive, traitement des demandes, reprise des erreurs et diagnostics facultatifs, sans modification du portail hébergé.
+- Repas et questionnaires : préparation ou réutilisation explicite du questionnaire individuel Type de repas ; signalement des préférences incohérentes sans modifier les anciens modèles.
+- Panier repas apporté par la famille : prise en compte expérimentale pour les suggestions de commandes fournisseur ; tarification et exonération réelle non activées.
+- Fiches enfant Pêle-Mêle : contrôle manuel des réponses AEEH et comparaison des périodes déclarées avec les périodes déjà enregistrées, y compris contradictions à arbitrer.
+- AEEH : enregistrement explicite d'une période après vérification d'un justificatif ; sauvegarde et historique dans la même transaction.
+- Fiches reçues : historisation de la confirmation parentale signée et relue, avec contrôle de confidentialité ; les données de santé restent à vérifier dans les écrans existants.
+- Conservation des fiches Famille/Enfant et du dépôt de pièces Connecthys existants ; aucune extraction OCR automatique ni mise à jour implicite des informations médicales.
+- Vérifications et protections de l'accueil et des grilles ; correctifs de réactivité des interfaces et de reprise Connecthys soumis à recette graphique Windows.
+- Préversion de recette uniquement : bouton CAF/AFAS non qualifié maintenu masqué, aucune facturation automatique à zéro euro des paniers familiaux, pas de déploiement automatique.
+
 Version Noethys SL 0.1.0 RC9.1 (26/10/2026) :
 
 - Commandes de repas : quatre colonnes de repartition Standard, Sans porc, Vegetarien et Non renseigne, calculees a partir de la question individuelle configuree pour chaque date, site et service

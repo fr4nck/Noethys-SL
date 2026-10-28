@@ -16,6 +16,7 @@ on:
       - 'packaging/**'
       - '.github/workflows/noethys-sl-fast.yml'
       - '.github/workflows/noethys-sl-windows.yml'
+      - '.github/workflows/noethys-sl-rc10-windows.yml'
   pull_request:
     branches:
       - main
@@ -29,6 +30,7 @@ on:
       - 'packaging/**'
       - '.github/workflows/noethys-sl-fast.yml'
       - '.github/workflows/noethys-sl-windows.yml'
+      - '.github/workflows/noethys-sl-rc10-windows.yml'
   workflow_dispatch:
     inputs:
       mode:
@@ -205,6 +207,7 @@ jobs:
           tests.test_individu_rattachement_hardening
           tests.test_noethys_sl_recherche_individus_entree
           tests.test_noethys_sl_workflow_publication_rc9
+          tests.test_noethys_sl_workflow_publication_rc10
           tests.test_noethys_sl_diagnostic_demarrage
           tests.test_noethys_sl_dependances_demarrage
           tests.test_connecthys_mailjet_lot_asynchrone

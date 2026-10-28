@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## 2026-10-28 — Candidat cumulatif RC10 Windows wx (en attente de build)
+
+- **Référence de diffusion** : RC9.1 `noethys-sl-0.1.0-rc.9.1`, commit `0eccac4acbda263e068ce1b007e27734a7b0af60`, publiée le 26/10/2026. Aucun remplacement du tag ni de la release RC9.1.
+- **Branches prévol 28/10** : `main` `92ea80dc5ee6006ef0d285cd539b6be3582451e6`, `wx` `2104c352e5ec00f00233e113ca22b193dd8bdb9c`, `qt` `a830589b946c7c61d30bb4e8988ad8d36bda423c`. Le composant `UTILS_Suivi_fiches.py` est identique entre `main` et `wx` au SHA blob `53c035ed0e267f51e9f3db168dc2f133828fe0ac` : les rubriques médicales ne sont plus détaillées dans l'historique général. Les tests MySQL simulés et contrats B4 sont aussi sur wx. Ne pas fusionner globalement les prototypes de pointage de main.
+- **Packaging** : nouvelle identité `Noethys SL 0.1.0 RC10`, nouvelles notes dans `Versions.txt` en tête, moteur numérique interne `1.3.4.4` inchangé. Nouveau workflow `noethys-sl-rc10-windows.yml` et script de recette portable `verify_windows_portable_rc10.ps1`, sans modifier le workflow historique RC9.1. Production de `Setup.exe`, `Windows-portable.zip` et `SHA256SUMS.txt` seulement après tests Windows ; déploiement interdît avant qualification.
+- **Tests / sécurité** : tests de publication du workflow RC9.1 préservés ; contrôle de non-publication sur push et garde manuelle `publier=true` pour RC10 ; suites AEEH B3/B4, questionnaires repas #433 et Connecthys #435 ajoutées aux contrats du build complet. Téléchargement MySQL 5.7 pour banc CI uniquement avec SHA-256 figé ; aucun moteur OCR livré. Le traitement OCR local des fiches demeure EN ATTENTE DE QUALIFICATION et n'est pas indiqué comme disponible dans RC10.
+- **Matrice** : `main` : règles communes AEEH/privacy qualifiées sur CI précédente ; `wx` : composants communs + interface + packaging RC10 CANDIDAT, CI rapide et build RC10 à vérifier sur SHA final ; `qt` : interfaces RC10 ABSENTES/non applicables à ce paquet. **Aucune version RC10 n'est réputée installable ou déployée avant la réussite du workflow complet et une recette graphique sur données fictives.**
+
+
+
 ## #436 B4 — sécurité historique et simulation des deux pilotes (28/10/2026)
 
 - **B3 qualifié CI :** `main` #40654939570 SUCCESS et `wx` #40655529299 SUCCESS, mais ni recette graphique Windows, ni connexion MySQL réelle.
