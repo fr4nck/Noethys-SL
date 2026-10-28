@@ -1,16 +1,6 @@
 name: Noethys SL - pointage inter-domaines MySQL fictif
 
-# Déclencheur push temporaire pour la qualification initiale de #424.
-# Il sera retiré après preuve MySQL 5.7 réussie.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'noethys/Data/DATA_Interdomain_Attendance.py'
-      - 'noethys/Utils/UTILS_Interdomain_Attendance.py'
-      - 'noethys/Utils/UTILS_Interdomain_Attendance_Schema.py'
-      - 'tests/test_noethys_sl_interdomain_attendance_mysql.py'
-      - '.github/workflows/noethys-sl-interdomain-mysql.yml'
   workflow_dispatch:
 
 permissions:
