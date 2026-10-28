@@ -2529,7 +2529,7 @@ Le commit concurrent #436 `92ea80dc5ee6006ef0d285cd539b6be3582451e6` a été ré
 **Qualification locale/CI.**
 - run `40659329141` sur `c87ee58` : syntaxe + 12 tests ciblés PASS, gate Windows rapide SUCCESS ;
 - run `40660538055` sur `058f2de` : 19 tests ciblés PASS ; run supersédé/cancelled par le commit concurrent #436, pas par un échec ;
-- run final `40661354725` sur `4a663fc` : étape Linux ciblée **21 PASS** (HMAC, replay, ambiguïtés, `absentj`, rollback, verrouillage/facturation, sauvegarde/restauration). Le gate Windows général reste à lire sur le run lui-même avant toute livraison.
+- run final `40661354725` sur `4a663fc` : étape Linux ciblée **21 PASS** (HMAC, replay, ambiguïtés, `absentj`, rollback, verrouillage/facturation, sauvegarde/restauration) et gate Windows rapide **SUCCESS**.
 
 **Preuve transverse Portails -> Noethys-SL.** Le harnais Portails #36 a été reconstruit contre le schéma courant, sans `interventions*`. Qualification sur `Portails@51bcc906dada9b41cde8c3476051d5430061f7cc` et `Noethys-SL@4a663fc4f1a0c07da6882e764a85cfb28bd4e2ec` : Actions run `40661602931` **SUCCESS**. Chaîne réellement exercée sur données fictives : écriture Portail -> outbox -> claim `activity_users` -> enveloppe HMAC -> consommateur Noethys-SL -> `present/absenti` -> inbox -> replay identique sans seconde écriture -> ACK `replayed` -> outbox Portail `delivered` -> rollback Portail. Le déclencheur `push` utilisé uniquement pour cette preuve a ensuite été retiré dans `Portails@4582f61bbacf74853422b0962a06fa336f8dafe2`; le harnais redevient manuel.
 
@@ -2539,4 +2539,8 @@ Le commit concurrent #436 `92ea80dc5ee6006ef0d285cd539b6be3582451e6` a été ré
 - `qt` : `ffa1657d770db035ffa26b97c226b57734533eda`.
 Les six fichiers moteur/tests de pointage ont des blobs Git identiques sur `main`, `wx` et `qt`. Aucun merge de branches ni force-push n'a été utilisé.
 
+Après synchronisation, `wx` a avancé par commit descendant vers le candidat RC10 `5c63e83c5fe63a2333d5f8d2b8e3713720d8aad0` sans modifier ces six blobs. Sa CI rapide `40662354234` a déjà validé l'étape « Qualifier le consommateur session-attendance/1 isolé ». La branche `qt` ne déclenche son workflow prototype que pour `noethys_qt/**`, `tests_qt/**` et outils Qt : aucun run Qt artificiel n'a été lancé pour ces fichiers moteur communs.
+
 **Limites / production.** Ce jalon ne crée aucun client réseau actif et ne stocke aucun secret. La corrélation de séance doit encore être alimentée par un mécanisme qualifié ; le lecteur de participants côté Portail reste à raccorder au domaine activité/usagers ; la migration doit encore être éprouvée sur une copie MySQL représentative avant exploitation. `PORTAIL_SESSION_ATTENDANCE_API_ENABLED` reste désactivé. Le sous-chantier #355 (`SecretProvider` Windows + client mailbox sortant) reste séparé et non intégré ; l'issue #424 reste donc ouverte.
+
+**Finition Portails.** Le commit de nettoyage `4582f61bbacf74853422b0962a06fa336f8dafe2` a remis le harnais transverse en `workflow_dispatch` uniquement. Sa CI minimale a rencontré un échec Docker MySQL 5.7 transitoire (`ERROR 2002`, socket indisponible) sur le job `heterogeneous-databases`; le rerun isolé du même job a réussi et le run `40661771310` est finalement **SUCCESS** sans modification de code.
