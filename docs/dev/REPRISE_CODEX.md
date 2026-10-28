@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## #424 — corrélations session_uid administrables (28/10/2026)
+
+- Gate d'exploitation réduit sans activation réseau : nouveau module pur `noethys/Utils/UTILS_Interdomain_Attendance_Correlation.py`.
+- Administration explicite de `interdomain_attendance_sessions` : créer, relire, ajuster avant usage, désactiver. Aucun schéma ni objet métier Noethys n'est créé implicitement.
+- Validation contre activité/groupe/ouverture ou événement existants ; unité ou événement obligatoire.
+- Après première réception d'un pointage pour un `session_uid`, le périmètre de corrélation devient immuable afin d'interdire un remappage silencieux de l'historique ; la désactivation reste possible.
+- Branches : main `cc68bb465d03c2fb89e4f50abb255f83a2e8c238`, wx `90c5d069ec489e88267f655a4252d8a2e4442f3a`, qt `fe827e8771de116eac7ca34efd845b7ddd0b039d`.
+- Blobs du module et du test pointage identiques sur main/wx/qt. Gate ciblé CI main `40667664524` PASS ; wx `40668206752` PASS. Jobs Windows larges en cours lors de cette consignation.
+- Aucune donnée PMSL, credential, URL, polling ou activation Portail. #424 reste ouverte pour recette sur copie MySQL représentative/anonymisée, installation/politique des credentials d'exploitation et décision explicite d'activation.
+
+
 ## Restauration #433 — Lot 2C-1 : noyau pur panier familial (26/10/2026)
 
 - Base de publication ciblée : main 887aec2469503713ad43bd6e7f75689a5ce414c8 ; wx 21c4fc2a0b440d91d18d7fa582d91a9989fd982b ; qt f2316046f9f22ed59aeba33f9f8c090d3667ca06.
