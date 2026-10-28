@@ -1,6 +1,6 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
-## C17 — moteur commun et suivi transversal (EN QUALIFICATION Qt)
+## C17 — moteur commun et suivi transversal (VALIDÉ sur fixture)
 
 **Moteur partagé publié sur `main`** au SHA
 `53052ed5075c9b8336f380f7db1a1ca2daa5b595` :
@@ -33,12 +33,34 @@ sans fusion globale ni écrasement du travail concurrent.
 L'inspection d'éventuels WIP locaux non publiés reste
 impossible depuis les seules références GitHub.
 
-**CI Qt C17 EN ATTENTE** : 27 tests nouveaux (garde 409 tests
-Qt au total), 12 tests de moteur pur exécutés séparément,
-deux parcours fictifs de 15 vues (30 PNG + 2 JSON attendus),
-C6–C16 conservés sans régression, aucune écriture SQLite.
-La réussite de la recette fictive n'est pas une qualification
-de production ni une validation d'aptitude wx/Qt réelle.
+**CI Qt C17 VALIDÉE TECHNIQUEMENT sur données fictives** :
+[run 40691411571](https://github.com/fr4nck/Noethys-SL/actions/runs/40691411571),
+code `e3f0f1e01203d2743c12c02fc79e8b4d644ff87f`,
+`completed/success`, quatre jobs Windows verts.
+**409 tests Qt PASS / 0 erreur / 0 échec**
+(shard 0 193 tests en 418,72 s ; shard 1 102 tests
+en 485,43 s ; shard 2 114 tests en 286,40 s).
+27 tests C17 nouveaux, aucune suppression des 382
+tests antérieurs. **12 tests communs PASS** dans le job
+graphique, également validés sur `main`.
+Les parcours graphiques C6–C16 restent verts.
+`C17_OVERVIEW_PASS` sur les deux profils de 15 vues,
+soit **30 PNG + 2 JSON**, données 100 % inventées,
+navigation transversale par ID exact, journal sensible bloqué,
+`sqlite_unchanged=true`. Artefact `qt-c17-suivi-activites-fictifs`
+ID `12817502111`, 449 963 octets,
+SHA-256 `7e5aa5d0548c99ec69a8d9b5f3ef1cb56963d8c5ec9d63f19e6bba3a26c457ff`
+(expiration annoncée le 11 novembre 2026).
+
+**SHA observés après qualification** :
+`main 53052ed5075c9b8336f380f7db1a1ca2daa5b595`,
+`wx 61130f7eecafce9469611d6de267f56f95fccdac`,
+`qt e3f0f1e01203d2743c12c02fc79e8b4d644ff87f`
+(avant clôture documentaire). La branche wx a évolué
+indépendamment ; sa compatibilité métier avec ce moteur
+reste EN ATTENTE. Aucune écriture ni état CAF/AFAS
+officiel qualifié. La recette fictive ne prouve pas
+l'aptitude à la production. **STOP-GATE publication**.
 Voir [QT_MODULES_LOT17.md](QT_MODULES_LOT17.md).
 
 ## C16 — planning, tarifs et aperçu des états de consommation (VALIDÉ sur fixture)

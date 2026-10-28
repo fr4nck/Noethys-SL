@@ -1,8 +1,11 @@
 # Noethys SL Qt — C17 : moteur d'états commun et suivi transversal d'activités
 
-Date : 28 octobre 2026. **Qualification Qt : EN ATTENTE du run
-Windows C17.** La qualification du moteur pur sur `main` a réussi.
-Aucune étape n'autorise une utilisation sur les bases des familles réelles.
+Date : 28 octobre 2026. **C17 VALIDÉ TECHNIQUEMENT sur données fictives.**
+Code Qt qualifié : `e3f0f1e01203d2743c12c02fc79e8b4d644ff87f`.
+CI Windows [40691411571](https://github.com/fr4nck/Noethys-SL/actions/runs/40691411571)
+`completed/success` ; quatre jobs verts, 409 tests Qt PASS et
+30 captures C17 validées. Le moteur partagé a également réussi
+la CI `main`. **Aucune aptitude à la production.**
 
 ## Périmètre et provenance
 
@@ -123,24 +126,47 @@ shard Windows 1 sans supprimer les tests anciens.
 `tools/qt_c17_native_demo.py` et
 `tools/Noethys-Qt-C17-Demo.cmd` :
 **deux scénarios de 15 étapes** (clair 100 % et sombre
-150 %), 30 PNG + 2 rapports JSON **attendus** sur une
-fixture C16 en `TemporaryDirectory`. Journal nominatif
+150 %), **30 PNG + 2 rapports JSON validés** sur une
+fixture C16 en `TemporaryDirectory`.  Journal nominatif
 délibérément non montré, éditeur d'activité désactivé,
 réinitialisation du contexte et comparaison `dump()`
 avant/après. Aucune capture issue d'une base privée.
 
-**Qualification Qt C17 : EN ATTENTE** de la CI Windows
-sur le SHA exact, des trois shards (409 tests attendus),
-de la recette graphique C6–C17 et des deux marqueurs
-`C17_OVERVIEW_PASS`. Ne pas cocher validé avant
-d'avoir contrôlé ces éléments.
+**Qualification Qt C17 : VALIDÉE sur fixtures fictives.**
+Code SHA `e3f0f1e01203d2743c12c02fc79e8b4d644ff87f` ;
+run Windows [40691411571](https://github.com/fr4nck/Noethys-SL/actions/runs/40691411571)
+`completed/success`, les quatre jobs `success`.
+Trois shards : **193 PASS (418,72 s)**,
+**102 PASS (485,43 s)**, **114 PASS (286,40 s)**,
+soit **409 tests Qt, zéro erreur, zéro échec**.
+Le job graphique a validé tous les parcours C6–C16
+et les marqueurs `C17_OVERVIEW_PASS` sur les deux profils.
+Les **12 tests du moteur commun** ont également réussi
+dans ce job et dans la CI `main` (run 40689720991).
+Les 27 tests C17 nouveaux ne remplacent aucun ancien test.
+
+**Artefact GitHub** `qt-c17-suivi-activites-fictifs`
+(ID `12817502111`, **449 963 octets**, SHA-256
+`7e5aa5d0548c99ec69a8d9b5f3ef1cb56963d8c5ec9d63f19e6bba3a26c457ff`) :
+30 PNG + 2 JSON, `sqlite_unchanged=true`,
+`badge_disabled=true` et moteurs communs utilisés.
+Expiration annoncée le **11 novembre 2026**.
+
+**Branches observées en clôture** :
+`main 53052ed5075c9b8336f380f7db1a1ca2daa5b595`,
+`wx 61130f7eecafce9469611d6de267f56f95fccdac`,
+`qt e3f0f1e01203d2743c12c02fc79e8b4d644ff87f`
+(avant clôture documentaire). `wx` a évolué de façon
+indépendante ; la parité avec son moteur de calcul n'est
+pas acquise. Un partage de code vérifié n'implique
+aucune qualification des écritures ou des états officiels.
 
 ## Matrice des branches et barrières
 
 | Périmètre | main | wx | qt |
 | --- | --- | --- | --- |
-| Contrat d'états pur C17 | VALIDÉ sur SQLite fictif (53052ed) | EN ATTENTE d'intégration et parité | EN QUALIFICATION |
-| Coque « Suivi transversal » | NON APPLICABLE | NON APPLICABLE | EN QUALIFICATION |
+| Contrat d'états pur C17 | VALIDÉ sur SQLite fictif (53052ed) | EN ATTENTE d'intégration et de parité | VALIDÉ sur fixture (e3f0f1e, CI 40691411571) |
+| Coque « Suivi transversal » | NON APPLICABLE | NON APPLICABLE | VALIDÉ sur fixture, STOP-GATE production |
 | Moteurs de mutation, pointage, facturation | INCHANGÉS par C17 | INCHANGÉS par C17 | INCHANGÉS par C17 |
 
 **STOP-GATE** : aucune habilitation réelle, aucun état CAF/AFAS,
