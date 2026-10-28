@@ -527,8 +527,51 @@ class ListView(FastObjectListView):
         # Ouverture de la fiche famille
         self.OuvrirFicheFamille(track, ouvrirGrille, ouvrirFicheInd)
     
+    def OuvrirFicheIndividu(self, track):
+        """Ouverture directe depuis la liste, sans fenêtre familiale intermédiaire.
+
+        Le dialogue est rattaché à la fenêtre de liste pour préserver l'owner
+        modal et rendre le focus directement à son origine à la fermeture.
+        """
+        if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("individus_fiche", "modifier") == False:
+            return
+        IDindividu = track.IDindividu
+        from Dlg import DLG_Individu
+        fenetre_origine = wx.GetTopLevelParent(self)
+        if fenetre_origine is None:
+            fenetre_origine = self
+        dlg = DLG_Individu.Dialog(fenetre_origine, IDindividu=IDindividu)
+        try:
+            resultat = dlg.ShowModal()
+        finally:
+            dlg.Destroy()
+
+        if resultat == wx.ID_OK:
+            self.MAJ(IDindividu)
+        # Conserver la même actualisation et le même historique qu'auparavant.
+        try:
+            if self.GetGrandParent().GetName() == "general":
+                self.GetGrandParent().MAJ()
+            else:
+                self.MAJ()
+        except Exception:
+            pass
+        try:
+            if IDindividu not in self.historique:
+                self.historique.append(IDindividu)
+                if len(self.historique) > 30:
+                    self.historique.pop(0)
+        except Exception:
+            pass
+
     def OuvrirFicheFamille(self, track=None, ouvrirGrille=False, ouvrirFicheInd=False, IDfamille=None):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_fiche", "consulter") == False : return
+
+        # Le clic droit « Ouvrir la fiche individuelle » et Maj + double-clic
+        # concernent l'individu, indépendamment de ses rattachements familiaux.
+        # Ne pas ouvrir une fiche famille vide qui reste affichée après fermeture.
+        if ouvrirFicheInd and track is not None:
+            return self.OuvrirFicheIndividu(track)
 
         IDindividu = None
         if IDfamille == None:
@@ -547,14 +590,9 @@ class ListView(FastObjectListView):
                 if reponse !=  wx.ID_YES :
                     return False
                 else:
-                    # Ouverture de la fiche individuelle
-                    from Dlg import DLG_Individu
-                    dlg = DLG_Individu.Dialog(None, IDindividu=IDindividu)
-                    if dlg.ShowModal() == wx.ID_OK:
-                        pass
-                    dlg.Destroy()
-                    self.MAJ()
-                    return
+                    # Même parent modal, mêmes droits et même retour direct
+                    # à la liste que le menu « fiche individuelle ».
+                    return self.OuvrirFicheIndividu(track)
 
             # Rattachée à une seule famille
             elif len(rattachements) == 1 :
