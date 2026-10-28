@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## #436 B3 — droits AEEH contrôlés et suivi des fiches parentales (28/10/2026)
+
+- **Audit du code existant** : `aeeh_periodes` est le stockage canonique des périodes, `UTILS_AEEH_Periodes.ValiderPeriode` refuse déjà les chevauchements ; `DLG_Individu_medical`, `OL_Vaccins`, `OL_Vaccins_obligatoires` et `OL_Pb_sante` assurent déjà la saisie sanitaire. `historique` stocke date/heure/utilisateur/individu, sans nouveau champ. Aucun doublon médical ni seconde table AEEH.
+- **Correction CI B2** : huit erreurs `NameError: VALEURS_AEEH` dues à l'extraction AST des méthodes du dialogue dans les tests, corrigées par récupération de la constante source au commit `0cd248bc`. La CI [#40653752294](https://github.com/fr4nck/Noethys-SL/actions/runs/40653752294) **SUCCESS**. Le précédent run [#40650814814](https://github.com/fr4nck/Noethys-SL/actions/runs/40650814814) reste bien marqué FAILURE historique.
+- **Moteur commun main** : `754242e5` (testées localement : 22 vérifications SQLite fictives) ajoute `UTILS_Suivi_fiches`, le contrôle AEEH sur connexion commune et deux catégories de l'historique (40 période vérifiée ; 41 confirmation parentale reçue) sans migration de schéma. Une période AEEH n'est créée qu'après justificatif explicitement vérifié ; verrouillage de la ligne enfant et transaction commune avec l'audit ; en cas d'échec, rollback des deux écritures. Date sans terme uniquement si justificatif attestant explicitement un droit sans échéance ; `individus.aeeh` reste indépendant. La réception des rubriques parentales n'est pas une preuve de vaccination/PAI conforme ; aucune valeur médicale détaillée n'est journalisée.
+- **UI wx ciblée** : une seule fenêtre déroulante `DLG_Reception_fiche_enfant` enrichie de deux boutons : enregistrement de la période justifiée et historisation de la fiche parentale signée après confirmation explicite. Source Pièces/papier, acteur et date de signature parentale distincts de la date de traitement. Réutilisation de l'onglet Médical et de la liste des périodes ; aucun OCR, aucun formulaire tiers. `tests/test_noethys_sl_suivi_fiches_wx.py` (11 contrôles statiques) ajouté à la CI rapide avec les 22 tests SQLite nouveaux.
+- **Frontières** : main = service partagé, wx = service + UI, qt non raccordé. Aucune modification des branches par fusion globale, Connecthys tiers, dossier PMSL réel, profil Portable, réservation #435, modèles de PDF, schéma ni migration. Test MySQL réel et recette graphique Windows **non réalisés** ; résultats de CI B3 à lire après publication, ne pas annoncer de version déployée.
+
+
+
 
 ### #436 B2 - audit de l'existant et controle de dates AEEH (28/10/2026)
 

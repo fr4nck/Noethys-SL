@@ -25,7 +25,7 @@ class PeriodeAEEHInvalide(Exception):
     pass
 
 
-def GetPeriodes(IDindividu):
+def GetPeriodes(IDindividu, DB=None):
     """ Liste des périodes de droit AEEH de cet individu, triée
     chronologiquement (date_debut croissante) :
 
@@ -36,10 +36,18 @@ def GetPeriodes(IDindividu):
     FROM aeeh_periodes
     WHERE IDindividu=%d
     ORDER BY date_debut;""" % IDindividu
-    DB = GestionDB.DB()
-    DB.ExecuterReq(req)
-    listeDonnees = DB.ResultatReq()
-    DB.Close()
+    # Une transaction d'écriture peut fournir sa connexion : validation
+    # et insertion voient alors exactement le même état de l'historique.
+    est_proprietaire = DB is None
+    if est_proprietaire:
+        DB = GestionDB.DB()
+    try:
+        if not DB.ExecuterReq(req):
+            raise PeriodeAEEHInvalide(u"Lecture des périodes AEEH impossible.")
+        listeDonnees = DB.ResultatReq()
+    finally:
+        if est_proprietaire:
+            DB.Close()
     return [
         {"IDperiode": IDperiode, "IDindividu": IDindividu_ligne, "date_debut": date_debut, "date_fin": date_fin}
         for IDperiode, IDindividu_ligne, date_debut, date_fin in listeDonnees
@@ -98,7 +106,7 @@ def _chevauche(date_debut_1, date_fin_1, date_debut_2, date_fin_2):
     return str(date_debut_1) <= fin_2 and str(date_debut_2) <= fin_1
 
 
-def ValiderPeriode(IDindividu, date_debut, date_fin=None, IDperiode_exclue=None):
+def ValiderPeriode(IDindividu, date_debut, date_fin=None, IDperiode_exclue=None, DB=None):
     """ Valide une période de droit AEEH avant écriture dans
     `aeeh_periodes` (l'écriture elle-même reste à la charge de
     l'appelant -- ce module ne modifie jamais la base) :
@@ -127,7 +135,7 @@ def ValiderPeriode(IDindividu, date_debut, date_fin=None, IDperiode_exclue=None)
             u"date_fin (%r) doit être postérieure ou égale à date_debut (%r)." % (date_fin, date_debut)
         )
 
-    for periode in GetPeriodes(IDindividu):
+    for periode in GetPeriodes(IDindividu, DB=DB):
         if IDperiode_exclue is not None and periode["IDperiode"] == IDperiode_exclue:
             continue
         if _chevauche(date_debut, date_fin, periode["date_debut"], periode["date_fin"]):

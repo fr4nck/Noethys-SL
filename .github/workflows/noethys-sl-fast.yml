@@ -108,6 +108,8 @@ jobs:
           tests.test_noethys_sl_repas_2c
           tests.test_noethys_sl_fiche_accueil_enfant
           tests.test_noethys_sl_reception_fiches
+          tests.test_noethys_sl_suivi_fiches
+          tests.test_noethys_sl_suivi_fiches_wx
           tests.test_noethys_sl_reception_fiches_wx
           tests.test_noethys_sl_reception_fiches_wx_periods
           tests.test_noethys_sl_repas_tarification_2c
