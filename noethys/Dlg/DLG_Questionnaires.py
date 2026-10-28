@@ -180,12 +180,14 @@ class Dialog(wx.Dialog):
         """État de la base active, vérifié sans la modifier."""
         try:
             etat = UTILS_Repas_questionnaire.ExaminerQuestionnaire()
-            textes = {
-                "pret": _(u"Questionnaire repas : PRÊT (4 réponses, choix unique)"),
-                "absent": _(u"Questionnaire repas : ABSENT — préparation disponible"),
-                "conflit": _(u"Questionnaire repas : À CORRIGER — %s") % etat["detail"],
-            }
-            self.label_repas.SetLabel(textes[etat["etat"]])
+            if etat["etat"] == "pret":
+                texte = _(u"Questionnaire repas : PRÊT (4 réponses, choix unique)")
+            elif etat["etat"] == "absent":
+                texte = _(u"Questionnaire repas : ABSENT — préparation disponible")
+            else:
+                texte = _(u"Questionnaire repas : À CORRIGER — %s") % etat.get(
+                    "detail", _(u"état inattendu"))
+            self.label_repas.SetLabel(texte)
             return etat
         except Exception:
             self.label_repas.SetLabel(_(u"Questionnaire repas : vérification impossible"))
