@@ -58,7 +58,6 @@ jobs:
         run: python tools/qt_ci_test_runner.py --shard ${{ matrix.shard }} --shards 3
 
   windows-qt-smoke:
-  windows-qt-smoke:
     name: Windows / PySide6 / smoke
     runs-on: windows-latest
     timeout-minutes: 20
