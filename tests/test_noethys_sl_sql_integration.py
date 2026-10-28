@@ -321,12 +321,25 @@ class RestaurationManifesteTests(unittest.TestCase):
             class Processus:
                 returncode = 0
 
-                def communicate(self):
-                    return b"", None
+                def wait(self, timeout=None):
+                    self_timeout = timeout
+                    assert self_timeout == 2
+                    return self.returncode
+
+                def poll(self):
+                    return self.returncode
 
             def popen(commande, **kwargs):
-                chemin = re.search(r'>\s*"([^"]+)"', commande).group(1)
-                Path(chemin).write_bytes(b"CREATE TABLE test_synth (id INT);\n")
+                # L'export passe par mysqldump direct et non plus cmd.exe.
+                self.assertIsInstance(commande, list)
+                self.assertEqual(commande[2:5], [
+                    "--opt", "--single-transaction", "--skip-lock-tables"])
+                self.assertEqual(commande[-2:], ["--databases", "base_fictive"])
+                self.assertIs(kwargs["shell"], False)
+                self.assertIs(kwargs["stderr"] is None, False)
+                sortie = kwargs["stdout"]
+                sortie.write(b"CREATE TABLE test_synth (id INT);\n")
+                sortie.flush()
                 return Processus()
 
             wx = types.SimpleNamespace(
@@ -335,9 +348,13 @@ class RestaurationManifesteTests(unittest.TestCase):
             )
             deps = {
                 "zipfile": zipfile, "os": os, "shutil": shutil,
+                "shlex": __import__("shlex"), "tempfile": tempfile,
+                "time": __import__("time"),
                 "wx": wx, "_": lambda texte: texte,
                 "six": types.SimpleNamespace(PY2=False, PY3=True),
-                "subprocess": types.SimpleNamespace(Popen=popen, PIPE=-1, STDOUT=-2),
+                "subprocess": types.SimpleNamespace(
+                    Popen=popen, DEVNULL=-3,
+                    TimeoutExpired=__import__("subprocess").TimeoutExpired),
                 "UTILS_SQL_Integrite": _charger_manifeste(),
                 "UTILS_Customize": types.SimpleNamespace(GetValeur=lambda *args, **kwargs: ""),
                 "UTILS_Envoi_email": types.SimpleNamespace(Message=lambda **kwargs: kwargs),
