@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## RC10.2 — correction limitée et retour à l’interface existante (28/10/2026)
+
+- Retour utilisateur explicite : RC10.1 ouvrait la console Windows de mysqldump ; les changements de libellés et de parcours de dossier n’étaient pas demandés. Retrait du choix/mémorisation de dossier ajouté en RC10.1 et rétablissement des libellés traduits de RC10 (fixture de référence). Les données et préférences existantes de l’utilisateur ne sont ni supprimées ni modifiées par cette reprise.
+- Correctif technique : CREATE_NO_WINDOW au lancement direct du client sous Windows ; sorties et diagnostics toujours redirigés, surveillance et nettoyage conservés. Trois tests de lancement (dont un véritable enfant Windows), garde des textes historiques et des styles de progression. Les tests du parcours retiré sont remplacés avec la fonctionnalité à la demande de l’utilisateur, pas pour masquer un échec de CI.
+- Prévol : main `8504fea4`, wx `a21705c1`, qt `fa299114`. Correctif commun porté de façon ciblée sur les trois branches. Seul wx change d’identité publique pour livrer RC10.2 ; version interne inchangée. Aucune manipulation du processus de sauvegarde en cours ou de la production.
+- **Validation locale** : 88 tests ciblés PASS sur chaque branche ; sur wx, 106 tests PASS avec la garde de publication RC10.2 et le changelog. Les textes traduits des deux modules de sauvegarde et les styles de progression sont comparés à RC10 ; un véritable enfant Windows est vérifié sans fenêtre console.
+- Construction et publication de la correction RC10.2 à qualifier sur Windows, sans remplacer RC10/RC10.1. Aucun autre changement d’écran ou de texte fonctionnel demandé.
+
+
 ## RC10.1 / #437 — choix local du dossier et qualification Windows (28/10/2026)
 
 - Demande explicite de fabrication et publication d'une nouvelle version Windows. Prévol : main `9ef81817`, wx `17b6e1d`, qt `b38c4cba`. Pas de fusion globale ni de modification des précédentes releases.

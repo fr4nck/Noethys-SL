@@ -79,19 +79,6 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             dlg.Destroy()
             if reponse != wx.ID_YES :
                 return False
-        # Valider le répertoire avant un long export réseau. Une procédure copiée
-        # d'un autre poste peut désigner un chemin inexistant ici.
-        try:
-            import tempfile
-            fd, essaiEcriture = tempfile.mkstemp(prefix=".noethys-writecheck-", dir=repertoire)
-            os.close(fd)
-            os.remove(essaiEcriture)
-        except OSError as err:
-            dlgErreur = wx.MessageDialog(None, _(u"Le répertoire de sauvegarde est introuvable ou inaccessible : %s\n\nVérifiez le répertoire choisi dans la procédure de sauvegarde.\n\nErreur : %s") % (repertoire, err), _(u"Erreur"), wx.OK | wx.ICON_ERROR)
-            dlgErreur.ShowModal()
-            dlgErreur.Destroy()
-            return False
-
     # Récupération des paramètres de l'adresse d'expéditeur par défaut
     if listeEmails != None :
         dictAdresse = UTILS_Envoi_email.GetAdresseExpDefaut()
@@ -149,7 +136,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
         
             # Création du backup pour chaque fichier MySQL
             for nomFichier in listeFichiersReseau :
-                dlgprogress.Update(numEtape, _(u"Export MySQL %s...") % nomFichier);numEtape += 1
+                dlgprogress.Update(numEtape, _(u"Compression du fichier %s...") % nomFichier);numEtape += 1
                 fichierSave = u"%s/%s.sql" % (repTemp, nomFichier)
                 options = UTILS_Customize.GetValeur("sauvegarde", "options", "", ajouter_si_manquant=False)
 
@@ -160,8 +147,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 def progressionDump(taille):
                     dlgprogress.Update(
                         numEtape - 1,
-                        _(u"Export MySQL %s : %.1f Mo produits (surveillance active)...")
-                        % (nomFichier, taille / 1048576.0))
+                        _(u"Compression du fichier %s...") % nomFichier)
 
                 resultatDump = UTILS_MySQL_backup.ExporterSQL(
                     programme, nomFichierLoginTemp, fichierSave, nomFichier,
@@ -196,7 +182,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                 # En cas d'echec, aucun ZIP partiel ne doit etre publie.
                 try:
                     # Meme analyse qu'a la restauration : ne pas archiver un dump qui y serait refuse.
-                    dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
+                    dlgprogress.Update(numEtape - 1, _(u"Compression du fichier %s...") % nomFichier)
                     # L'analyse des gros dumps travaille hors du fil wx.
                     from concurrent.futures import ThreadPoolExecutor, TimeoutError as DelaiVerification
                     with ThreadPoolExecutor(max_workers=1) as verification:
@@ -207,7 +193,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
                                 analyseSQL, erreurSQL = travail.result(timeout=0.2)
                                 break
                             except DelaiVerification:
-                                dlgprogress.Update(numEtape - 1, _(u"Vérification du dump SQL %s...") % nomFichier)
+                                dlgprogress.Update(numEtape - 1, _(u"Compression du fichier %s...") % nomFichier)
                     if erreurSQL is not None:
                         raise ValueError(erreurSQL)
                     UTILS_SQL_Integrite.AjouterManifesteIntegriteSQL(fichierSave)
@@ -243,7 +229,7 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             erreur = UTILS_MySQL_backup.NettoyerDiagnostic(str(err), (
                 dictConnexion.get("user"), dictConnexion.get("password")))
             dlgprogress.Destroy()
-            dlgErreur = wx.MessageDialog(None, _(u"La sauvegarde réseau a échoué : %s") % erreur,
+            dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de sauvegarde !\n\nErreur : %s") % erreur,
                                         _(u"Erreur"), wx.OK | wx.ICON_ERROR)
             dlgErreur.ShowModal()
             dlgErreur.Destroy()
@@ -289,9 +275,6 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
         except Exception as err:
             print("Le repertoire de destination de sauvegarde n'existe pas : %s" % err)
             dlgprogress.Destroy()
-            dlgErreur = wx.MessageDialog(None, _(u"Impossible d'enregistrer la sauvegarde dans le répertoire cible.\n\nErreur : %s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
-            dlgErreur.ShowModal()
-            dlgErreur.Destroy()
             return False
         finally:
             if copieTemp is not None and os.path.isfile(copieTemp):
