@@ -102,6 +102,7 @@ jobs:
           tests.test_noethys_sl_repas_regimes_2b
           tests.test_noethys_sl_repas_2c
           tests.test_noethys_sl_fiche_accueil_enfant
+          tests.test_noethys_sl_reception_fiches
           tests.test_noethys_sl_repas_pdf_mail_recette
           tests.test_noethys_sl_encadrement
           tests.test_noethys_sl_encadrement_dialog

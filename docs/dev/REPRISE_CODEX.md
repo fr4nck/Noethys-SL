@@ -2500,3 +2500,16 @@ Reprise de la fabrication du candidat Vanilla depuis `wx`, **sur demande de Fran
 **Niveau de livraison** : moteur pur testé en local, **non raccordé** aux bases ou aux fiches wx/Qt, pas d'écran unique encore, pas de PAI/document ni de consentement persisté. Test GitHub CI du nouveau commit à vérifier séparément ; ne pas lui attribuer le SUCCESS ancien #433. Aucun profil Portable, base PMSL, Connecthys, AFAS, tarification, tag ou release touché.
 
 **Suite** : accès explicite par profil et rubrique avant requêtes, adaptateur de lecture sécurisé + tests SQLite/MySQL isolés, stockage daté versionné des autorisations et métadonnées PAI, puis carrosserie wx unique et diffusion conditionnelle Qt ; portail famille toujours désactivé.
+
+
+## 2026-10-28 — #436 Lot B1 - Controle manuel des fiches Pêle-Mêle
+
+**Base de départ** : main `9807ce11a1416dbc35046b4a7589b72ff5894ea6`, wx `70fa4a7ea44d053c0ec4b338643947b0ae05612b`, qt `e979d56ff9749e4f3b96ceb6fd54890de61d5c0b`. Branchement spécifique pour le contrôle de réception de documents, sans intervention sur Connecthys d'Ivan Lucas.
+
+**Audit confirmé** : transmission des PDF des familles déjà disponible via Connecthys rubrique Pièces ; côté Noethys, `DLG_Saisie_portail_demande.Traitement_pieces` importe la pièce mais ne certifie pas les cases de la fiche ni ne met à jour automatiquement AEEH/vaccins/PAI. Les champs existants sont `individus.aeeh` et `aeeh_periodes`. Les vaccins sont distincts de `problemes_sante`.
+
+**Nouveau noyau** : `noethys/Utils/UTILS_Reception_fiches.py`, tests `tests/test_noethys_sl_reception_fiches.py`, documentation `docs/metier/RECEPTION_FICHES_PARENTS_436.md`. **18 tests locaux Python 3.13 PASS**, compilation PASS ; aucune lecture/écriture de base, aucune donnée réelle. Le workflow rapide Windows doit exécuter ces tests sur HEAD. La valeur AEEH ne peut être proposée qu'après relecture explicite ; un champ vide ne devient jamais Non. Les périodes ne sont pas inscrites automatiquement. Vaccinations, allergies, traitements, PAI, consignes de sortie restent à vérifier sur les sources d'origine.
+
+**Livraison des UI :** le moteur est commun, pas une fonctionnalité installée. Le raccordement wx (menu Outils fiche individuelle, contrôle avant édition du champ existant, validation normale) fait l'objet d'un commit wx **distinct et d'une CI distincte**. Le portage Qt reste EN ATTENTE ; aucun bouton du portail hébergé modifié. Les PDF Pêle-Mêle existants restent uniques.
+
+**Garde-fous :** sans changement de schéma, de `DLG_Saisie_portail_demande`, d'AEEH historique, de questionnaires, de facturation, de Connecthys, de PMSL ni du profil Portable. Ne pas confondre réception d'une pièce et contrôle médical de son contenu. Résultat final de la nouvelle CI à consigner après sa fin.
