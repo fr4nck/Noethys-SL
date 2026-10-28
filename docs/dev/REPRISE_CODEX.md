@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## RC10.2 — correction limitée et retour à l’interface existante (28/10/2026)
+
+- Retour utilisateur explicite : RC10.1 ouvrait la console Windows de mysqldump ; les changements de libellés et de parcours de dossier n’étaient pas demandés. Retrait du choix/mémorisation de dossier ajouté en RC10.1 et rétablissement des libellés traduits de RC10 (fixture de référence). Les données et préférences existantes de l’utilisateur ne sont ni supprimées ni modifiées par cette reprise.
+- Correctif technique : CREATE_NO_WINDOW au lancement direct du client sous Windows ; sorties et diagnostics toujours redirigés, surveillance et nettoyage conservés. Trois tests de lancement (dont un véritable enfant Windows), garde des textes historiques et des styles de progression. Les tests du parcours retiré sont remplacés avec la fonctionnalité à la demande de l’utilisateur, pas pour masquer un échec de CI.
+- Prévol : main `8504fea4`, wx `a21705c1`, qt `fa299114`. Correctif commun porté de façon ciblée sur les trois branches. Seul wx change d’identité publique pour livrer RC10.2 ; version interne inchangée. Aucune manipulation du processus de sauvegarde en cours ou de la production.
+- **Validation locale** : 88 tests ciblés PASS sur chaque branche ; sur wx, 106 tests PASS avec la garde de publication RC10.2 et le changelog. Les textes traduits des deux modules de sauvegarde et les styles de progression sont comparés à RC10 ; un véritable enfant Windows est vérifié sans fenêtre console.
+- Construction et publication de la correction RC10.2 à qualifier sur Windows, sans remplacer RC10/RC10.1. Aucun autre changement d’écran ou de texte fonctionnel demandé.
+
+
 ## RC10.1 publiée — sauvegardes Windows (28/10/2026)
 
 - **Release publique** : [Noethys SL 0.1.0 RC10.1](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.10.1), préversion publiée le 28/10/2026 à 20:34:38 UTC. Tag léger et artefacts au commit qualifié `cfeccd499927319583b263b5361d9abbedeb6963`, pas au commit de publication `fbb6fa9d401924915cdec33afa7a0e6e98b764e2`. [Publication 40764456778](https://github.com/fr4nck/Noethys-SL/actions/runs/40764456778) SUCCESS, sans reconstruction. RC10 et les anciennes releases conservées.

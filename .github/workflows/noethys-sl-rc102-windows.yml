@@ -1,0 +1,502 @@
+name: Noethys SL wx - candidat 0.1.0 RC10.2 Windows
+
+# Par défaut, un lancement manuel ou un commit marqué [candidate rc102] ne
+# produit QUE des artefacts de recette (candidat + diagnostics de démarrage).
+# La publication est un job séparé, seul à disposer de l'écriture sur le
+# dépôt, exécuté uniquement sur lancement manuel depuis wx avec publier=true
+# ET après la réussite de toutes les barrières du job build.
+on:
+  workflow_dispatch:
+    inputs:
+      publier:
+        description: 'Publier la préversion RC10.2 (tag + release) après toutes les barrières'
+        type: boolean
+        required: false
+        default: false
+  push:
+    branches:
+      - wx
+    paths:
+      - '.github/workflows/noethys-sl-rc102-windows.yml'
+      - 'noethys/**'
+      - 'tests/**'
+      - 'scripts/verify_windows_portable_rc102.ps1'
+      - 'packaging/**'
+      - 'requirements.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/wx' &&
+       contains(github.event.head_commit.message, '[candidate rc102]'))
+    name: Construire Noethys SL wx 0.1.0 RC10.2 (candidat)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    # CE-4/CE-5 utilise un sous-processus Python isole : chemins du projet
+    # et des fixtures de garde reseau obligatoires comme en CI rapide.
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Installer les dépendances
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+
+      - name: Vérifier syntaxe, identité publique RC10.2 et splash
+        shell: pwsh
+        run: |
+          python -m compileall -q noethys tests
+          if ($LASTEXITCODE -ne 0) { throw 'Échec de compilation Python' }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert (Identite.PRODUCT_NAME, Identite.PRODUCT_VERSION, Identite.PRODUCT_VERSION_DISPLAY) == ('Noethys SL', '0.1.0-rc.10.2', '0.1.0 RC10.2')"
+          if ($LASTEXITCODE -ne 0) { throw 'Identité publique RC10.2 incohérente' }
+          python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
+          if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
+
+      - name: Vérifier les contrats critiques du candidat (tests de régression inclus)
+        run: >-
+          python -m unittest
+          tests.test_vanilla_identite_noethys_sl
+          tests.test_accueil_logo_organisateur
+          tests.test_vanilla_candidate_contract
+          tests.test_noethys_sl_facture_export_options
+          tests.test_noethys_sl_repas_alimentaires
+          tests.test_noethys_sl_repas_source
+          tests.test_noethys_sl_repas_totaux
+          tests.test_noethys_sl_repas_validation
+          tests.test_noethys_sl_repas_validation_dialog
+          tests.test_noethys_sl_repas_sqlite_recette
+          tests.test_noethys_sl_repas_pdf_mail_recette
+          tests.test_noethys_sl_repas_regimes
+          tests.test_noethys_sl_repas_regimes_ui
+          tests.test_noethys_sl_repas_regimes_2b
+          tests.test_noethys_sl_repas_regimes_mysql
+          tests.test_noethys_sl_commandes_directeur
+          tests.test_noethys_sl_encadrement
+          tests.test_noethys_sl_encadrement_dialog
+          tests.test_noethys_sl_adhesions
+          tests.test_noethys_sl_adhesions_echeances
+          tests.test_noethys_sl_adhesions_facturation_wx
+          tests.test_vanilla_facture_prestation_sans_activite
+          tests.test_noethys_sl_backup_zip_lifecycle
+          tests.test_rail1_reportlab5
+          tests.test_vanilla_connecthys_synchro
+          tests.test_connecthys_reservations_progress
+          tests.test_noethys_sl_portail_repas
+          tests.test_noethys_sl_assiduite
+          tests.test_portail_payment_ventilation_contract
+          tests.test_devis_tri_activites
+          tests.test_regr_devis_integration
+          tests.test_photos_db_cache
+          tests.test_pieces_jointes_accumulation
+          tests.test_000_garde_reseau
+          tests.test_noethys_sl_backup_network_config
+          tests.test_noethys_sl_mysql_returncode
+          tests.test_noethys_sl_backup_dump_watchdog
+          tests.test_noethys_sl_backup_complete
+          tests.test_noethys_sl_backup_interface
+          tests.test_noethys_sl_backup_no_console
+          tests.test_noethys_sl_backup_missing_file
+          tests.test_noethys_sl_sql_analyse
+          tests.test_noethys_sl_sql_integration
+          tests.test_noethys_sl_sql_manifest
+          tests.test_noethys_sl_mysql_client_embarque
+          tests.test_audit_reseau_emails
+          tests.test_rail1_mail_lot
+          tests.test_rail1_recu_reglement
+          tests.test_rail1_portail_recu
+          tests.test_noethys_sl_recus_envoi
+          tests.test_noethys_sl_releve_couleur
+          tests.test_noethys_sl_printer_pen
+          tests.test_noethys_sl_changelog
+          tests.test_noethys_sl_accueil_compact
+          tests.test_ephemerides
+          tests.test_ephemerides_ui
+          tests.test_noethys_sl_impression_depot
+          tests.test_noethys_sl_rappels_solde
+          tests.test_noethys_sl_suivi_mailjet
+          tests.test_noethys_sl_performance_grille
+          tests.test_noethys_sl_grille_synthetic
+          tests.test_noethys_sl_profilage_conso
+          tests.test_noe_041_portable_paths
+          tests.test_noethys_sl_workflow_publication_rc9
+          tests.test_noethys_sl_workflow_publication_rc10
+          tests.test_noethys_sl_workflow_publication_rc101
+          tests.test_noethys_sl_workflow_publication_rc102
+          tests.test_noethys_sl_reception_fiches
+          tests.test_noethys_sl_reception_fiches_wx
+          tests.test_noethys_sl_reception_fiches_wx_periods
+          tests.test_noethys_sl_suivi_fiches
+          tests.test_noethys_sl_suivi_fiches_wx
+          tests.test_noethys_sl_suivi_fiches_mysql
+          tests.test_noethys_sl_suivi_fiches_wx_events
+          tests.test_noethys_sl_fiche_accueil_enfant
+          tests.test_noethys_sl_repas_2c
+          tests.test_noethys_sl_repas_2c_wx_integration
+          tests.test_noethys_sl_repas_questionnaire_setup
+          tests.test_noethys_sl_repas_questionnaire_dialog
+          tests.test_noethys_sl_repas_tarification_2c
+          tests.test_noethys_sl_repas_tarifs_audit_2c
+          tests.test_connecthys_ui432_etapes
+          tests.test_noethys_sl_ouverture_individu_directe
+          tests.test_ui432g_lanceur_recette
+          tests.test_noethys_sl_interdomain_attendance
+          tests.test_noethys_sl_interdomain_delivery
+          tests.test_connecthys_priorites_435
+          tests.test_noethys_sl_diagnostic_demarrage
+          tests.test_noethys_sl_dependances_demarrage
+          tests.test_connecthys_mailjet_lot_asynchrone
+          tests.test_connecthys_confirmation_partielle
+          tests.test_connecthys_smtp_lot_asynchrone
+          tests.test_connecthys_ui1_dialog_owner
+          tests.test_connecthys_ui3_diagnostic
+          tests.test_connecthys_ui3_reentrance
+          tests.test_connecthys_ui3c_sauvegarde
+          tests.test_connecthys_ui3c1_reconciliation
+          tests.test_mailer_unique_uncertain
+          tests.test_vanilla_dlg_mailer_progress_parent
+          tests.test_connecthys_reprises
+          tests.test_piece_quotient_dialog
+          tests.test_noethys_sl_type_cotisation_saisie
+          tests.test_noethys_sl_type_cotisation_erreurs
+          tests.test_noethys_sl_impression_depot_perimetre
+          -v
+
+          # Version RC10.2 de recette : ne pas valider le fonctionnement OCR (en développement).
+      - name: Construire le binaire wxPython
+        run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+
+      - name: Vérifier le moteur de sauvegarde embarqué dans Noethys.exe
+        shell: pwsh
+        run: |
+          $liste = Join-Path $env:RUNNER_TEMP 'modules-noethys-rc102.txt'
+          pyi-archive_viewer -l -r dist/Noethys/Noethys.exe | Set-Content -LiteralPath $liste
+          if ($LASTEXITCODE -ne 0) { throw 'Inventaire PyInstaller impossible' }
+          foreach ($module in @('Utils.UTILS_MySQL_backup', 'Utils.UTILS_Sauvegarde_auto', 'concurrent.futures.thread')) {
+            if (-not (Select-String -LiteralPath $liste -SimpleMatch -Pattern $module -Quiet)) {
+              throw "Module critique absent du paquet : $module"
+            }
+          }
+
+      - name: Télécharger l'archive officielle MySQL 5.7.44 (empreinte épinglée)
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $zip
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Empreinte inattendue de l'archive MySQL : $hash"
+          }
+
+      - name: Livrer les clients mysql/mysqldump 5.7 (sans serveur) et vérifier leurs DLL
+        shell: pwsh
+        run: |
+          python -m pip install pefile==2024.8.26
+          python packaging/assembler_client_mysql.py (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') dist/Noethys
+          if ($LASTEXITCODE -ne 0) { throw 'Assemblage des clients MySQL en échec' }
+
+      - name: Recette réelle sauvegarde/restauration (MySQL 5.7.44 local jetable, clients livrés)
+        shell: pwsh
+        env:
+          NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
+          NOETHYS_TEST_MYSQL_PORT: '3399'
+          NOETHYS_TEST_MYSQL_USER: recette
+          # Mot de passe synthétique piégé : '#', ';', guillemets, antislash, accent, espace final.
+          NOETHYS_TEST_MYSQL_PASSWORD: 'P#w;d "x\y''z é '
+          NOETHYS_TEST_MYSQL_EXIGER: '1'
+          PYTHONIOENCODING: utf-8
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP 'mysql57-recette'
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m == 'mysql-5.7.44-winx64/bin/mysqld.exe']" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $base
+          $root = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'data'
+          & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation du serveur MySQL jetable en échec' }
+          $serveur = Start-Process -WindowStyle Hidden -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root", "--datadir=$data", '--port=3399',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8')
+          try {
+            python tests/recette_mysql_jetable_preparer.py
+            if ($LASTEXITCODE -ne 0) { throw 'Préparation du serveur de recette en échec' }
+            $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
+            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql -v
+            if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
+          }
+          finally {
+            Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Qualifier le gros document fictif et sa restauration MySQL isolee
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          $runtime437 = Join-Path $env:RUNNER_TEMP 'backup437'
+          python -c "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); [z.extract(n,sys.argv[2]) for n in z.namelist() if n.startswith('mysql-5.7.44-winx64/share/') or n in ('mysql-5.7.44-winx64/bin/mysqld.exe','mysql-5.7.44-winx64/bin/mysql.exe','mysql-5.7.44-winx64/bin/mysqldump.exe') or (n.startswith('mysql-5.7.44-winx64/bin/') and n.lower().endswith('.dll'))]" (Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip') $runtime437
+          if ($LASTEXITCODE -ne 0) { throw 'Extraction du runtime 437 impossible' }
+          $root437 = Join-Path $runtime437 'mysql-5.7.44-winx64'
+          $data437 = Join-Path $runtime437 'mysql-data'
+          & "$root437/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root437" "--datadir=$data437"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation du serveur 437 impossible' }
+          $serveur437 = Start-Process -WindowStyle Hidden -FilePath "$root437/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root437", "--datadir=$data437", '--port=3407',
+            '--bind-address=127.0.0.1', '--max-allowed-packet=128M', '--character-set-server=utf8')
+          try {
+            $pret437 = $false
+            for ($tentative437 = 0; $tentative437 -lt 30; $tentative437++) {
+              & "$root437/bin/mysql.exe" --no-defaults --host=127.0.0.1 --port=3407 --user=root --connect-timeout=1 -e 'SELECT 1' 2>$null | Out-Null
+              if ($LASTEXITCODE -eq 0) { $pret437 = $true; break }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $pret437) { throw 'Serveur local 437 indisponible' }
+            $env:NOETHYS_TEST_MYSQL437_RUNTIME = $runtime437
+            python -m unittest tests.test_noethys_sl_backup_mysql437_real -v
+            if ($LASTEXITCODE -ne 0) { throw 'Recette gros BLOB 437 en echec' }
+            if (-not (Test-Path (Join-Path $runtime437 'preuve-recette-synthetique.json'))) { throw 'Preuve MySQL 437 absente' }
+          }
+          finally {
+            Stop-Process -Id $serveur437.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Vérifier le contenu et enregistrer la provenance
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Noethys.exe absent' }
+          foreach ($resource in @('Static', 'Versions.txt', 'Licence.txt', 'Icone.ico')) {
+            if (-not (Test-Path (Join-Path 'dist/Noethys' $resource))) {
+              throw "Ressource absente : $resource"
+            }
+          }
+          if (-not (Test-Path 'dist/Noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png')) {
+            throw 'Splash Noethys SL absent du paquet'
+          }
+          if (Test-Path 'dist/Noethys/_internal') { throw 'Layout PyInstaller incompatible' }
+          @(
+            'Produit: Noethys SL'
+            'Interface: wxPython'
+            'Version publique: 0.1.0-rc.10.2'
+            'Correctif: sauvegardes reseau completes et dossier propre a chaque poste (#437)'
+            'Details: Versions.txt et docs/releases/noethys-sl-0.1.0-rc.10.2.md'
+            'Version interne: 1.3.4.4 ; aucune migration'
+            "Commit: $env:GITHUB_SHA"
+            "Branche: $env:GITHUB_REF_NAME"
+            "Workflow run: $env:GITHUB_RUN_ID"
+            "Build UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          ) | Set-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Encoding UTF8
+          New-Item -ItemType Directory -Path 'windows-output' -Force | Out-Null
+
+      - name: Vérifier le démarrage sur runner Windows isolé
+        shell: pwsh
+        run: |
+          # Un processus encore vivant ne prouve rien : exiger que le
+          # diagnostic de démarrage atteigne la fin de l'initialisation wx.
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'diagnostics-demarrage'
+          New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
+          $diagnostic = Join-Path $diagnostics 'demarrage-installable.log'
+          $env:NOETHYS_DIAGNOSTIC_DEMARRAGE = $diagnostic
+          $env:NOETHYS_DIAGNOSTIC_DELAI_PILES = '20'
+          $process = Start-Process -WindowStyle Hidden -FilePath 'dist/Noethys/Noethys.exe' -PassThru
+          $limite = [DateTime]::UtcNow.AddSeconds(120)
+          $atteint = $false
+          while ([DateTime]::UtcNow -lt $limite -and -not $process.HasExited) {
+            if ((Test-Path $diagnostic) -and (Select-String -LiteralPath $diagnostic -Pattern ' ETAPE oninit_fin' -Quiet)) {
+              $atteint = $true
+              break
+            }
+            Start-Sleep -Seconds 2
+          }
+          $vivant = -not $process.HasExited
+          if ($vivant) { Stop-Process -Id $process.Id -Force }
+          if (Test-Path $diagnostic) {
+            Select-String -LiteralPath $diagnostic -Pattern ' (DEBUT|ETAPE|EXCEPTION|FIN_PROCESSUS)' | ForEach-Object { Write-Host $_.Line }
+          }
+          if (-not $atteint) {
+            if (Test-Path $diagnostic) { Get-Content -LiteralPath $diagnostic -Tail 80 }
+            else { Write-Host 'Aucun diagnostic écrit : blocage avant le premier module Python.' }
+            if (-not $vivant) { Write-Host "Code de sortie : $($process.ExitCode)" }
+            throw 'Noethys.exe n''a pas terminé son initialisation (ETAPE oninit_fin absente)'
+          }
+          Write-Host 'Noethys.exe a terminé son initialisation wx.'
+
+      - name: Préparer et fabriquer le Setup (sans profil Portable)
+        shell: pwsh
+        run: |
+          if (Test-Path 'dist/Noethys/Portable') {
+            throw 'Un profil Portable ne doit jamais se trouver dans le Setup'
+          }
+          Copy-Item 'dist/Noethys' 'dist/Noethys-installable' -Recurse
+          if (-not (Test-Path 'dist/Noethys-installable/mysql-client/bin/mysqldump.exe')) {
+            throw 'Clients MySQL absents du contenu du Setup'
+          }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Échec installation Inno Setup ($LASTEXITCODE)" }
+          }
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe introuvable' }
+          & $iscc '/DMyAppVersion=0.1.0-rc.10.2' 'packaging\vanilla-installer.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
+          if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
+          Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.10.2-Setup.exe'
+
+      - name: Créer le véritable ZIP portable RC10.2
+        shell: pwsh
+        run: |
+          # Compress-Archive omet les dossiers vides : sans ce fichier, le ZIP
+          # « portable » RC4/RC5 n'avait pas de dossier Portable/ (profil %APPDATA%).
+          New-Item -ItemType Directory -Path 'dist/Noethys/Portable' -Force | Out-Null
+          Copy-Item 'packaging/portable/README.txt' 'dist/Noethys/Portable/README.txt' -ErrorAction Stop
+          Add-Content -Path 'dist/Noethys/BUILD-INFO.txt' -Value 'Portable mode: enabled (Portable/)'
+          $zip = 'windows-output/Noethys-SL-0.1.0-rc.10.2-Windows-portable.zip'
+          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath $zip -ErrorAction Stop
+          if (-not (Test-Path $zip) -or (Get-Item $zip).Length -eq 0) {
+            throw 'Archive portable absente ou vide'
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip).Path)
+          try { $entrees = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }) }
+          finally { $archive.Dispose() }
+          foreach ($attendu in @('Noethys.exe', 'Portable/README.txt', 'mysql-client/bin/mysql.exe',
+                                 'mysql-client/bin/mysqldump.exe', 'mysql-client/bin/msvcp140.dll',
+                                 'mysql-client/bin/vcruntime140.dll', 'mysql-client/bin/vcruntime140_1.dll',
+                                 'mysql-client/LICENSE', 'mysql-client/LISEZMOI-NOETHYS.txt')) {
+            if ($entrees -notcontains $attendu) { throw "Entrée absente du ZIP portable : $attendu" }
+          }
+
+      - name: Qualifier deux demarrages portables et la persistance de Config.json
+        shell: pwsh
+        run: ./scripts/verify_windows_portable_rc102.ps1
+
+      - name: Conserver les diagnostics de démarrage (même en échec)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.2-diagnostics-demarrage
+          path: ${{ runner.temp }}/diagnostics-demarrage/*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Calculer les empreintes SHA-256
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem 'windows-output' -File |
+            Where-Object { $_.Extension -in @('.zip', '.exe') } |
+            Sort-Object Name)
+          if ($files.Count -ne 2) { throw "Deux livrables attendus, obtenu(s) : $($files.Count)" }
+          $checksums = @($files | ForEach-Object {
+            "{0}  {1}" -f ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()), $_.Name
+          })
+          $checksums | Set-Content -Path 'windows-output/SHA256SUMS.txt' -Encoding Ascii
+          $checksums | ForEach-Object { Write-Host $_ }
+
+      - name: Conserver les artefacts du candidat RC10.2
+        uses: actions/upload-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.2-Windows-candidat
+          path: windows-output/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Vérifier les fichiers et la version avant publication
+        shell: pwsh
+        run: |
+          $expected = @(
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+            'docs/releases/noethys-sl-0.1.0-rc.10.2.md'
+          )
+          foreach ($path in $expected) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Fichier RC10.2 absent : $path" }
+          }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert Identite.PRODUCT_VERSION == '0.1.0-rc.10.2'; assert Identite.PRODUCT_VERSION_DISPLAY == '0.1.0 RC10.2'"
+          if ($LASTEXITCODE -ne 0) { throw 'Identite RC10.2 incoherente' }
+          if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC10.2 doit provenir de wx' }
+
+  publish:
+    # Seul job autorisé à écrire sur le dépôt (tag et release). Jamais exécuté
+    # sur un push, ni sur un lancement manuel sans publier=true, ni hors wx,
+    # ni si une barrière du job build a échoué (needs).
+    needs: build
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/wx' &&
+      inputs.publier == true
+    name: Publier la préversion RC10.2 (autorisation explicite)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Récupérer les artefacts exacts du candidat construit
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.2-Windows-candidat
+          path: windows-output
+
+      - name: Revérifier fichiers, empreintes et identité
+        shell: pwsh
+        run: |
+          $expected = @(
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+            'docs/releases/noethys-sl-0.1.0-rc.10.2.md'
+          )
+          foreach ($path in $expected) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Fichier RC10.2 absent : $path" }
+          }
+          foreach ($ligne in Get-Content 'windows-output/SHA256SUMS.txt') {
+            $attendu, $nom = $ligne -split '\s+', 2
+            $obtenu = (Get-FileHash -LiteralPath (Join-Path 'windows-output' $nom) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($obtenu -ne $attendu) { throw "Empreinte différente pour $nom" }
+          }
+          python -c "import sys; sys.path.insert(0, 'noethys'); import Identite; assert Identite.PRODUCT_VERSION == '0.1.0-rc.10.2'; assert Identite.PRODUCT_VERSION_DISPLAY == '0.1.0 RC10.2'"
+          if ($LASTEXITCODE -ne 0) { throw 'Identite RC10.2 incoherente' }
+          if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC10.2 doit provenir de wx' }
+
+      - name: Publier la préversion RC10.2 (après tous les contrôles)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'noethys-sl-0.1.0-rc.10.2'
+          # Ne jamais modifier, remplacer ou écraser une release déjà publiée.
+          gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $tag déjà existant : publication refusée" }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag déjà publiée : publication refusée" }
+          $assets = @(
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Setup.exe'
+            'windows-output/Noethys-SL-0.1.0-rc.10.2-Windows-portable.zip'
+            'windows-output/SHA256SUMS.txt'
+          )
+          gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Noethys SL 0.1.0 RC10.2' --notes-file 'docs/releases/noethys-sl-0.1.0-rc.10.2.md' --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Publication GitHub RC10.2 en échec' }
+          $publie = gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
+          if (-not $publie.isPrerelease -or $publie.tagName -ne $tag) { throw 'Release créée mais identité/prerelease incohérente' }
+          $livres = @($publie.assets | ForEach-Object { $_.name })
+          foreach ($path in $assets) {
+            $nom = Split-Path $path -Leaf
+            if ($livres -notcontains $nom) { throw "Artefact manquant dans la release : $nom" }
+          }
+          Write-Host "RC10.2 publiée : $tag, $($assets.Count) assets"

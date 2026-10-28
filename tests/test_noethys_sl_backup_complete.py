@@ -64,14 +64,6 @@ class BackupCompletTests(unittest.TestCase):
                 env["Start"](objet)
             env["glob"].glob.assert_not_called()
 
-    def test_repertoire_absent_refuse_avant_creation_du_zip(self):
-        with tempfile.TemporaryDirectory() as rep:
-            rep = Path(rep)
-            module = _load_module(rep, rep)
-            self.assertFalse(module.Sauvegarde(listeFichiersLocaux=["fictif.dat"],
-                             nom="essai", repertoire=str(rep / "autre-poste")))
-            self.assertFalse((rep / "essai.nod").exists())
-
     def test_code_zero_sans_fin_dump_refuse_avant_manifeste(self):
         with tempfile.TemporaryDirectory() as rep:
             rep = Path(rep)

@@ -1,3 +1,9 @@
+Version Noethys SL 0.1.0 RC10.2 (28/10/2026) :
+
+- Sauvegarde réseau : suppression de la fenêtre console MySQL parasite sous Windows.
+- Rétablissement des libellés et du parcours de sauvegarde existants ; retrait du choix et de la mémorisation de dossier ajoutés en RC10.1.
+- Maintien des corrections techniques de sauvegarde, des contrôles d'intégrité et de la protection des sauvegardes précédentes.
+
 Version Noethys SL 0.1.0 RC10.1 (28/10/2026) :
 
 - Sauvegardes réseau : export MySQL surveillé, progression visible, prise en charge des gros documents et diagnostic exploitable en cas de blocage.
