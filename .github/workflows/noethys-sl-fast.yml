@@ -87,6 +87,8 @@ jobs:
             Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
           python -m pip install -r requirements-noethys-sl-ci.txt
           python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Qualifier OCR-01 et OCR-02 sans moteur ni modele telecharge
+        run: python -m unittest -v tests.test_noethys_sl_ocr_contract tests.test_noethys_sl_ocr_local
       - name: Recette rapide - reseau isole, adhesions, reglements, devis
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'complete'
         run: >-
