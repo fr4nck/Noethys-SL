@@ -2483,3 +2483,20 @@ Reprise de la fabrication du candidat Vanilla depuis `wx`, **sur demande de Fran
 - **Branches et commits :** `main` [2e30b0e](https://github.com/fr4nck/Noethys-SL/commit/2e30b0e454db89e7e2bde004722ab5b114da00c6) (lecteur/contrats), `wx` [84d9f96](https://github.com/fr4nck/Noethys-SL/commit/84d9f96e4fd71009471f7bf26c2c1a693816283c) (notes publiques RC7.2/RC7.1/RC7 et lecteur/contrats), `qt` [cd3c938](https://github.com/fr4nck/Noethys-SL/commit/cd3c938af6012e8427ef8e5aeb1ea5b9f599fe1a) (lecteur/contrats, pas de nouvelles notes RC7.2 puisque la version publique Qt est différente). Aucun force-push, aucune branche supplémentaire.
 - **CI :** [main #38735832105](https://github.com/fr4nck/Noethys-SL/actions/runs/38735832105) et [wx #38735877115](https://github.com/fr4nck/Noethys-SL/actions/runs/38735877115) : vérifier leur conclusion définitive avant de qualifier les tests. Syntaxe réussie initialement ; étape Windows en cours au moment de la rédaction.
 - **Limite de livraison :** ces nouveaux textes sont dans les branches source, **pas dans le candidat Windows RC7.2** déjà fabriqué (`ffd28de`). Pas de nouveau paquet, de changement de production ni de migration. Prochain build : vérifier menu Notes de versions et version affichée ; recette Windows sur poste pilote avant annonce de disponibilité.
+
+
+## 2026-10-28 — #436 fiche d'accueil enfant : lot A moteur pur
+
+**Base de travail** : `main` `f6f5ccdf6a491025db052b7759aa6facc01b2eca` ; `wx` `70fa4a7ea44d053c0ec4b338643947b0ae05612b` ; `qt` `2f97b75cb02c1e38f4492500bb3745cd7ba4a9d3`.
+**Préalable #433 vérifié** : CI rapide Windows `40634463963` sur `f12c207a` : SUCCESS, jobs syntaxe et tests Windows SUCCESS (28 octobre 2026). Les commits wx suivants `ac714c09` et `70fa4a7e` sont documentaires ; ils ne prouvent ni la création réelle du questionnaire ni une facturation panier à 0 EUR.
+
+**Audit** : `individus.aeeh` et `aeeh_periodes` constituent la source unique AEEH ; `problemes_sante` porte des données médicales non réutilisées comme PAI ; repas #433 utilise quatre réponses dans le questionnaire individuel ; aucune preuve structurée de consentement enfant daté n'est qualifiée. Alerte d'accès : `UTILS_Utilisateurs.VerificationDroits` retourne True si le droit est absent ; `VerificationDroitsUtilisateurActuel` peut aussi retourner True hors fenêtre générale. **STOP-GATE** sur toute lecture sensible et toute UI avant une vraie couche d'autorisation fail-closed, appliquée avant SELECT/exports.
+
+**Nouveau sous-lot commun, sans migration** :
+- `noethys/Utils/UTILS_Fiche_accueil_enfant.py` : projection par enfant, lecture seule et indépendante wx/Qt ; trois états AEEH, périodes existantes ; PAI à statut opérationnel seulement ; repas #433 en quatre choix, pas de défaut global ; sept autorisations distinctes à preuves individuelles datées et bornées, révocation et collision ; aucune exposition portail ;
+- `tests/test_noethys_sl_fiche_accueil_enfant.py` : **31 PASS localement** (pur + SQLite :memory: fictif en lecture seule) ; ajout à la CI rapide Windows ;
+- `docs/metier/FICHE_ACCUEIL_ENFANT_436.md` : inventaire, droits, contrat d'historisation et limites.
+
+**Niveau de livraison** : moteur pur testé en local, **non raccordé** aux bases ou aux fiches wx/Qt, pas d'écran unique encore, pas de PAI/document ni de consentement persisté. Test GitHub CI du nouveau commit à vérifier séparément ; ne pas lui attribuer le SUCCESS ancien #433. Aucun profil Portable, base PMSL, Connecthys, AFAS, tarification, tag ou release touché.
+
+**Suite** : accès explicite par profil et rubrique avant requêtes, adaptateur de lecture sécurisé + tests SQLite/MySQL isolés, stockage daté versionné des autorisations et métadonnées PAI, puis carrosserie wx unique et diffusion conditionnelle Qt ; portail famille toujours désactivé.
