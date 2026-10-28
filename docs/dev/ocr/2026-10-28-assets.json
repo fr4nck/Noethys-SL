@@ -1,0 +1,106 @@
+[
+  {
+    "path": "downloads/tesseract-5.5.3.exe",
+    "url": "https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe",
+    "bytes": 26573224,
+    "sha256": "bee9e3434bd94fd65387d9be28cd467a41f61b1275383b55b0f59a1331270ae4",
+    "expected_sha256": "bee9e3434bd94fd65387d9be28cd467a41f61b1275383b55b0f59a1331270ae4",
+    "git_blob": null
+  },
+  {
+    "path": "tessdata/fra.traineddata",
+    "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/fra.traineddata",
+    "bytes": 1130365,
+    "sha256": "ced037562e8c80c13122dece28dd477d399af80911a28791a66a63ac1e3445ca",
+    "expected_sha256": null,
+    "git_blob": "d9e2b2160be0d1ca3b8f1bf2730fae476ef3b4a6"
+  },
+  {
+    "path": "fonts/Caveat.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/5571d84c0d8c70ec1af4f64072d8c5cf1e4e9643/ofl/caveat/Caveat%5Bwght%5D.ttf",
+    "bytes": 403648,
+    "sha256": "0bdb6b660482d31531b3945849fba5916b3ef8695da7024a9e6b9ee3c4157988",
+    "expected_sha256": null,
+    "git_blob": "f84acf2ce2d1b3329b194749530dbaec047e6df6"
+  },
+  {
+    "path": "fonts/OFL-Caveat.txt",
+    "url": "https://raw.githubusercontent.com/google/fonts/5571d84c0d8c70ec1af4f64072d8c5cf1e4e9643/ofl/caveat/OFL.txt",
+    "bytes": 4385,
+    "sha256": "1f9d81d094273d82f3898a1ee8b598a717d050ecbf5ff7bede105b704880157b",
+    "expected_sha256": null,
+    "git_blob": "6e5220c9576d98dfc684e550ddf0d87f68b3edc5"
+  },
+  {
+    "path": "trocr-fr/README.md",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/README.md",
+    "bytes": 3973,
+    "sha256": "e239eb9ae55afdaf411ff0e152dc109c64e445fd3ae16cbedd518d43febf9e8f",
+    "expected_sha256": null,
+    "git_blob": "72f5b163bfec0a765a5dd0a5d25bb98b79b017b2"
+  },
+  {
+    "path": "trocr-fr/config.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/config.json",
+    "bytes": 1581,
+    "sha256": "35d72009dd4241a8e278b874e261c05e7cd26c756cf810bd9902e99f96fca0d8",
+    "expected_sha256": null,
+    "git_blob": "1fe663221d7437ddeca84f0ecd7ddc3a5915396a"
+  },
+  {
+    "path": "trocr-fr/generation_config.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/generation_config.json",
+    "bytes": 194,
+    "sha256": "bc1b5c1c12a3d32b5b27523cff36de3d48fd734a9bb2ed0abc63f250ccc649d7",
+    "expected_sha256": null,
+    "git_blob": "804e90cdba3b0d7334563e77f405f3a5320fdaaf"
+  },
+  {
+    "path": "trocr-fr/preprocessor_config.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/preprocessor_config.json",
+    "bytes": 414,
+    "sha256": "16caa089924e73b559763ca2daf0b0240166ea2fb1b8fd4549899ab86e1aca78",
+    "expected_sha256": null,
+    "git_blob": "808e83b04ce145088b02b491926389879ba97607"
+  },
+  {
+    "path": "trocr-fr/special_tokens_map.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/special_tokens_map.json",
+    "bytes": 1008,
+    "sha256": "75cbec71553267dadc77a583ef15122c2aa7422eb6635acc72a184a413f17c1c",
+    "expected_sha256": null,
+    "git_blob": "a7816a407990c2e8d254b10d36beeb972016086e"
+  },
+  {
+    "path": "trocr-fr/tokenizer.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/tokenizer.json",
+    "bytes": 3558907,
+    "sha256": "4341bad76b2695122e89199d147e0b7f5c341644dc004b3bc4c426e5a8e36a8f",
+    "expected_sha256": null,
+    "git_blob": "beb3fc0d26c8071e2f0fbd66e965c2edc58bca8d"
+  },
+  {
+    "path": "trocr-fr/tokenizer_config.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/tokenizer_config.json",
+    "bytes": 1541,
+    "sha256": "14feb01d9b22a88be370ca2c4ab257cb8f315a79a7c1e86aece03af8378dbdce",
+    "expected_sha256": null,
+    "git_blob": "dcfbee33442f7b69f941f12f66b7c5a73cd088cb"
+  },
+  {
+    "path": "trocr-fr/vocab.json",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/vocab.json",
+    "bytes": 798293,
+    "sha256": "ed19656ea1707df69134c4af35c8ceda2cc9860bf2c3495026153a133670ab5e",
+    "expected_sha256": null,
+    "git_blob": "4ebe4bb3f3114daf2e4cc349f24873a1175a35d7"
+  },
+  {
+    "path": "trocr-fr/model.safetensors",
+    "url": "https://huggingface.co/dj0w/trocr-french-handwriting-v5/resolve/6047032cbe5f3c7f17244a4c3dd21d9356f15480/model.safetensors",
+    "bytes": 1335747032,
+    "sha256": "2a995003b846cd719a389dfcf4febef7883ccc5731f701337fa1b9ae5593232c",
+    "expected_sha256": "2a995003b846cd719a389dfcf4febef7883ccc5731f701337fa1b9ae5593232c",
+    "git_blob": null
+  }
+]

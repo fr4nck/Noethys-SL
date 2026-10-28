@@ -1,0 +1,138 @@
+{
+  "python": "3.10.11",
+  "os": "Windows-10-10.0.26200-SP0",
+  "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+  "dependencies": {
+    "torch": "2.7.1+cpu",
+    "transformers": "4.57.1",
+    "Pillow": "12.3.0",
+    "tokenizers": "0.22.2",
+    "safetensors": "0.8.0",
+    "huggingface-hub": "0.36.2"
+  },
+  "tests_run": 4,
+  "success": true,
+  "skipped": 0,
+  "errors": 0,
+  "failures": 0,
+  "evidence": [
+    {
+      "case": "incomplete-tokenizer",
+      "expected_local_error": true,
+      "network_attempts": 0
+    },
+    {
+      "case": "missing-model",
+      "expected_local_error": true,
+      "network_attempts": 0
+    },
+    {
+      "sample": "printed_fr.png",
+      "expected": "Élise prépare le goûter.",
+      "actual": "Élise prépare le goûter.",
+      "exact_match": true,
+      "result": {
+        "source_sha256": "0e865815cd9b9c166c19e8bdd313e938b1ba22b5274fa862569f9b2f22cf15a7",
+        "model_id": "tesseract/fra@sha256:ced037562e8c80c13122dece28dd477d399af80911a28791a66a63ac1e3445ca",
+        "engine_version": "tesseract 5.5.3.20260724",
+        "write_allowed": false,
+        "fields": [
+          {
+            "key": "ocr.word.1",
+            "value": "Élise",
+            "source_page": 1,
+            "bbox": [
+              0.051188299817184646,
+              0.23300970873786409,
+              0.23217550274223034,
+              0.6699029126213593
+            ],
+            "engine": "tesseract-fra-cpu",
+            "kind": "printed",
+            "confidence": 0.92398819,
+            "state": "review_required",
+            "requires_review": true
+          },
+          {
+            "key": "ocr.word.2",
+            "value": "prépare",
+            "source_page": 1,
+            "bbox": [
+              0.26508226691042047,
+              0.32038834951456313,
+              0.5612431444241316,
+              0.7669902912621359
+            ],
+            "engine": "tesseract-fra-cpu",
+            "kind": "printed",
+            "confidence": 0.96262535,
+            "state": "review_required",
+            "requires_review": true
+          },
+          {
+            "key": "ocr.word.3",
+            "value": "le",
+            "source_page": 1,
+            "bbox": [
+              0.5941499085923218,
+              0.3300970873786408,
+              0.6544789762340036,
+              0.6699029126213593
+            ],
+            "engine": "tesseract-fra-cpu",
+            "kind": "printed",
+            "confidence": 0.9648568000000001,
+            "state": "review_required",
+            "requires_review": true
+          },
+          {
+            "key": "ocr.word.4",
+            "value": "goûter.",
+            "source_page": 1,
+            "bbox": [
+              0.6855575868372943,
+              0.32038834951456313,
+              0.9488117001828154,
+              0.7669902912621359
+            ],
+            "engine": "tesseract-fra-cpu",
+            "kind": "printed",
+            "confidence": 0.96811913,
+            "state": "review_required",
+            "requires_review": true
+          }
+        ]
+      }
+    },
+    {
+      "sample": "cursive_fr.png",
+      "expected": "Bonjour les enfants.",
+      "actual": "Bonjour les enfants.",
+      "exact_match": true,
+      "result": {
+        "source_sha256": "54435b22ba456cb07e6e5489c1a1aa70745d7fd256bef969f949b27b4ebc03cf",
+        "model_id": "dj0w/trocr-french-handwriting-v5@6047032cbe5f3c7f17244a4c3dd21d9356f15480@sha256:be76dfe5c9217ade80c4d924ba1b2f1c031f37ef33398b2de41d6ab6952a3741",
+        "engine_version": "transformers 4.57.1; torch 2.7.1+cpu",
+        "write_allowed": false,
+        "fields": [
+          {
+            "key": "document.ligne.1",
+            "value": "Bonjour les enfants.",
+            "source_page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              1.0,
+              1.0
+            ],
+            "engine": "trocr-fr-cpu",
+            "kind": "handwritten",
+            "confidence": null,
+            "state": "review_required",
+            "requires_review": true
+          }
+        ]
+      }
+    }
+  ]
+}

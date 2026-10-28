@@ -1,0 +1,26 @@
+[
+  {
+    "file": "printed_fr.png",
+    "expected": "Élise prépare le goûter.",
+    "sha256": "0e865815cd9b9c166c19e8bdd313e938b1ba22b5274fa862569f9b2f22cf15a7",
+    "font": "arial.ttf",
+    "font_size": 48,
+    "size": [
+      547,
+      103
+    ],
+    "synthetic": true
+  },
+  {
+    "file": "cursive_fr.png",
+    "expected": "Bonjour les enfants.",
+    "sha256": "54435b22ba456cb07e6e5489c1a1aa70745d7fd256bef969f949b27b4ebc03cf",
+    "font": "Caveat.ttf",
+    "font_size": 64,
+    "size": [
+      481,
+      105
+    ],
+    "synthetic": true
+  }
+]

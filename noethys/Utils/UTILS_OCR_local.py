@@ -124,7 +124,7 @@ class TesseractFrenchCPU:
             raise OCRUnavailableError("Fournir Tesseract 5 CPU et fra.traineddata locaux")
         image, source_hash = _page(image_path, source_page)
         version_output = self._run(["--version"]).decode("utf-8", errors="replace")
-        version = re.search(r"^tesseract (5\.\S+)", version_output)
+        version = re.search(r"^tesseract v?(5\.\S+)", version_output)
         if not version or "opencl" in version_output.lower():
             raise OCRUnavailableError("Une distribution Tesseract 5 CPU sans OpenCL est requise")
         model_hash = _sha256_file(model)

@@ -123,6 +123,11 @@ class LocalOCRTests(unittest.TestCase):
         with self.tesseract(output=HEADER.encode()):
             self.assertEqual(self.adapter.recognize_page(self.source).fields, ())
 
+    def test_windows_tesseract_version_prefix_is_supported(self):
+        with self.tesseract(version=b"tesseract v5.5.3.20260724\n Found AVX2\n"):
+            result = self.adapter.recognize_page(self.source)
+        self.assertEqual(result.engine_version, "tesseract 5.5.3.20260724")
+
     def test_malformed_tsv_fails_without_partial_results(self):
         for data in (b"", b"text\nsecret\n", TSV.replace(b"96.5", b"nan"),
                      TSV.replace(b"96.5", b"101"), TSV.replace(b"96.5", b"-2"),
