@@ -134,9 +134,13 @@ class EvenementsWx(unittest.TestCase):
             }]),
         )
         self.ident = types.SimpleNamespace(GetIDutilisateur=mock.Mock(return_value=11))
+        self.droits = types.SimpleNamespace(
+            VerificationDroitsUtilisateurActuel=mock.Mock(return_value=True),
+        )
         for attr, objet in (("UTILS_Suivi_fiches", self.suivi),
                             ("UTILS_AEEH_Periodes", self.periodes),
-                            ("UTILS_Identification", self.ident)):
+                            ("UTILS_Identification", self.ident),
+                            ("UTILS_Utilisateurs", self.droits)):
             p = mock.patch.object(Utils, attr, objet, create=True)
             p.start()
             self.addCleanup(p.stop)
@@ -233,6 +237,14 @@ class EvenementsWx(unittest.TestCase):
         self.suivi.GetDerniereConfirmationParentale.return_value = None
         self.dlg._RafraichirConfirmation()
         self.assertIn("Aucune réception parentale", self.dlg.label_derniere.valeur)
+
+    def test_historique_interdit_ne_consulte_rien(self):
+        self.droits.VerificationDroitsUtilisateurActuel.return_value = False
+        self.dlg._RafraichirConfirmation()
+        self.droits.VerificationDroitsUtilisateurActuel.assert_called_once_with(
+            "individus_historique", "consulter", afficheMessage=False)
+        self.suivi.GetDerniereConfirmationParentale.assert_not_called()
+        self.assertIn("non accessible", self.dlg.label_derniere.valeur)
 
     def test_historique_indisponible_signale(self):
         self.suivi.GetDerniereConfirmationParentale.side_effect = RuntimeError("injection")

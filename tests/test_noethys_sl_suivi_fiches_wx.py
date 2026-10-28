@@ -73,6 +73,10 @@ class SuiviFichesWxContrats(unittest.TestCase):
         self.assertIn("écrit immédiatement après confirmation", self.source)
         self.assertIn("libelle_dates.Wrap(620)", self.source)
 
+    def test_historique_ne_contourne_pas_les_droits_existants(self):
+        self.assertIn('"individus_historique", "consulter", afficheMessage=False', self.source)
+        self.assertIn("Historique non accessible avec vos droits.", self.source)
+
     def test_presentation_sur_un_unique_dialogue_deroulant(self):
         self.assertIn("wx.ScrolledWindow(self)", self.source)
         self.assertIn("panneau.SetScrollRate(0, 16)", self.source)

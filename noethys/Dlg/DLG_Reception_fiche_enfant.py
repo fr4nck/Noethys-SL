@@ -268,7 +268,12 @@ class Dialog(wx.Dialog):
         return {1: "papier", 2: "pieces"}.get(self.source.GetSelection())
 
     def _RafraichirConfirmation(self):
-        from Utils import UTILS_Suivi_fiches
+        from Utils import UTILS_Suivi_fiches, UTILS_Utilisateurs
+        # Réutiliser l'habilitation de lecture du journal, sans contournement.
+        if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel(
+                "individus_historique", "consulter", afficheMessage=False) is False:
+            self.label_derniere.SetLabel(u"Historique non accessible avec vos droits.")
+            return
         try:
             derniere = UTILS_Suivi_fiches.GetDerniereConfirmationParentale(self.IDindividu)
         except Exception:
