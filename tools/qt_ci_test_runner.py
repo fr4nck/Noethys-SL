@@ -3,7 +3,7 @@
 Un fichier de tests reste dans un seul processus (setUpModule, setUpClass
 et état QApplication préservés). Toutes les données sont fictives ; aucun
 accès à une configuration, une sauvegarde ou une base Noethys réelle.
-Les durées proviennent des résultats CI C14 du 28/10/2026.
+Les durées proviennent des résultats CI C14-C18 du 28/10/2026.
 """
 from __future__ import annotations
 
@@ -20,7 +20,8 @@ SHARD_COUNT = 3
 # Garde anti-perte de tests : CI C14 validée à 328 tests le 28 octobre 2026.
 MINIMUM_TOTAL_TESTS = 439
 
-# Répartir les suites les plus longues d'après les durées du run 40638033811.
+# Rééquilibrage selon le run C18 40701384201 : shard 2 prenait 929 s ;
+# déplacer les suites C15 et C18 sans retirer aucun test ni modifier leur ordre interne.
 # Pour tout fichier nouveau, affectation stable par hachage, jamais ignoré.
 HOT_MODULE_SHARDS = {
     "test_native_c12_shell_routes": 0,
@@ -29,10 +30,10 @@ HOT_MODULE_SHARDS = {
     "test_consumptions_c11_exact_context": 1,
     "test_people_search": 1,
     "test_catalog_c14_readonly": 2,
-    "test_modules_c15_readonly": 2,
+    "test_modules_c15_readonly": 1,
     "test_modules_c16_readonly": 0,
     "test_c17_shared_activity_overview": 1,
-    "test_c18_schools_products_documents": 2,
+    "test_c18_schools_products_documents": 0,
     "test_consumptions_c8_demo": 2,
     "test_consumptions_c9_navigation": 2,
 }

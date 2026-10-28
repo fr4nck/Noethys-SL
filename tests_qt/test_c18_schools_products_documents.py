@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -208,12 +209,12 @@ class C18SqlTests(unittest.TestCase):
         self.assertTrue(require_c18_synthetic_source(
             self.fixture.path, read_only_demo=True, c18_enabled=True
         ))
-        self.assertEqual(
-            sqlite3.connect(self.fixture.path).execute(
-                "SELECT token FROM c18_marker"
-            ).fetchone(),
-            (C18_MARKER,),
-        )
+        # SQLite Connection.__exit__ ne ferme PAS la connexion sous
+        # Windows. closing() est indispensable avant le cleanup de
+        # TemporaryDirectory (sinon WinError 32 en CI).
+        with closing(sqlite3.connect(self.fixture.path)) as conn:
+            marker = conn.execute("SELECT token FROM c18_marker").fetchone()
+        self.assertEqual(marker, (C18_MARKER,))
 
     def test_sensitive_guard_rejects_normal_execution(self):
         for options in (
@@ -227,7 +228,9 @@ class C18SqlTests(unittest.TestCase):
     def test_sensitive_guard_rejects_unmarked_temporary_file(self):
         with tempfile.TemporaryDirectory(prefix="noethys-qt-c8-fictif-unmarked-") as tmp:
             fake = Path(tmp) / "C8_DEMONSTRATION_FICTIVE.sqlite"
-            with sqlite3.connect(fake) as conn:
+            # Transaction commitée puis HANDLE explicitement fermé ;
+            # un simple "with sqlite3.connect" n'appelle pas close().
+            with closing(sqlite3.connect(fake)) as conn, conn:
                 conn.execute("CREATE TABLE c18_marker(token TEXT)")
                 conn.execute("INSERT INTO c18_marker VALUES ('UNTRUSTED')")
             with self.assertRaises(ValueError):
