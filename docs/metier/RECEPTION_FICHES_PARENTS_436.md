@@ -115,3 +115,35 @@ simulation MySQL à compléter avant qualification du mode réseau.
 Les écrans et le flux Connecthys restent inchangés dans ce commit commun.
 Le raccordement graphique sur wx est un sous-lot distinct, non encore
 qualifié ici. Aucun accès aux dossiers PMSL ou au profil Portable.
+
+
+## Lot B4 — Qualification renforcée et minimisation de l'historique (28/10/2026)
+
+Après réussite des CI B3 [main #40654939570](https://github.com/fr4nck/Noethys-SL/actions/runs/40654939570)
+et [wx #40655529299](https://github.com/fr4nck/Noethys-SL/actions/runs/40655529299),
+l'audit a distingué trois niveaux de preuve :
+
+1. **Tests SQLite fictifs** : écritures réellement exercées sur une base
+   en mémoire, sans PMSL ni Connecthys.
+2. **Tests MySQL simulés** : les paramètres `%s`, la syntaxe `FOR UPDATE`,
+   les écritures et les rollbacks sont exercés par un adaptateur SQLite
+   instrumenté ; cela **ne teste pas** les verrous InnoDB, les permissions,
+   les versions de pilote ni un serveur MySQL réel.
+3. **Tests d'événements wx simulés** : clics de confirmation/refus,
+   vérification de l'utilisateur, justificatif, choix du support et gestion
+   d'échec, sans ouvrir de fenêtre réelle.
+
+**Minimisation des données :** la liste détaillée des rubriques de santé
+(« allergies », « traitements », « PAI », etc.) n'est plus copiée dans
+`historique.action`, car l'historique général n'a pas nécessairement les
+mêmes habilitations que l'onglet médical. L'événement de réception conserve
+la date, l'utilisateur, l'enfant, la source, la date parentale si connue
+et **le nombre de rubriques renseignées**, mais aucune catégorie médicale.
+Le détail sanitaire reste uniquement dans les pièces/fiches et écrans
+existants, sous leurs accès normaux. Une confirmation parentale ne vaut
+jamais validation des vaccins ou d'un PAI.
+
+**Avant production** : recette visuelle wx sous Windows, recette MySQL
+sur une **base fictive isolée**, examen des habilitations de lecture
+`historique` et `aeeh_periodes`. Aucune modification de droits,
+migration, ni traitement des données PMSL dans ce lot.

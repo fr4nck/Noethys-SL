@@ -163,8 +163,9 @@ class ConfirmationParentale(unittest.TestCase):
     def test_confirmation_parentale_distincte_de_justificatif_medical(self):
         self.assertTrue(self.confirmer())
         action = self.db.lire("historique")[0][7]
-        self.assertIn("vaccinations", action)
-        self.assertIn("allergies", action)
+        self.assertIn("2 rubrique(s)", action)
+        for mot_sensible in ("vaccinations", "allergies", "traitements", "pai"):
+            self.assertNotIn(mot_sensible, action.lower())
         self.assertIn("justificatifs non validés", action)
         self.assertIn("2026-10-20", action)
         self.assertEqual(self.db.lire("historique")[0][6], 41)
@@ -209,7 +210,9 @@ class ConfirmationParentale(unittest.TestCase):
     def test_derniere_confirmation_selon_identifiant_evenement(self):
         self.confirmer()
         self.confirmer(rubriques=("pai",), date_parent=None)
-        self.assertIn("pai", suivi.GetDerniereConfirmationParentale(1, DB=self.db)["description"])
+        description = suivi.GetDerniereConfirmationParentale(1, DB=self.db)["description"]
+        self.assertIn("1 rubrique(s)", description)
+        self.assertNotIn("pai", description.lower())
 
     def test_echec_ecriture_historique_ne_marque_pas_le_document(self):
         self.db.connexion.execute("DROP TABLE historique")
