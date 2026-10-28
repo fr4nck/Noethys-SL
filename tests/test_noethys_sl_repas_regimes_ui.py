@@ -321,6 +321,87 @@ class PageParametrageWxTests(unittest.TestCase):
     def role(self, code):
         return [c for c, _l in self.page.roles_repas].index(code)
 
+    def test_questionnaire_repas_existant_reutilise_sans_ecriture(self):
+        page = self.page
+        page.ctrl_role_repas.SetSelection(self.role("regime_standard"))
+        page.OnChoixRole()
+        self.assertTrue(page.bouton_preparer_questionnaire.IsEnabled())
+        reponses = [(11, u"Standard"), (12, u"Sans porc"), (13, u"Végétarien"),
+                    (14, u"Repas apporté par la famille (sans repas PMSL)")]
+        pret = {"etat": "pret", "question": 5,
+                "choix": {"standard": 11, "sans_porc": 12, "vegetarien": 13,
+                          "sans_repas_pmsl": 14}}
+        with patch.object(self.module.UTILS_Repas_questionnaire,
+                          "ExaminerQuestionnaire", return_value=pret), \
+             patch.object(self.module.UTILS_Repas_questionnaire,
+                          "PreparerQuestionnaire") as creation, \
+             patch.object(self.module.UTILS_Repas_source,
+                          "ListerChoixQuestion", return_value=reponses), \
+             patch.object(self.module.wx, "MessageBox") as message:
+            self.assertTrue(page.OnPreparerQuestionnaireRepas())
+            creation.assert_not_called()
+            message.assert_not_called()
+        self.assertEqual(page.GetQuestionRegime(), 5)
+        self.assertEqual(page.GetChoixRegimes(), pret["choix"])
+        self.assertIn(u"prêt", page.label_etat_questionnaire.GetLabel())
+
+    def test_questionnaire_absent_demande_accord_une_seule_fois(self):
+        page = self.page
+        page.ctrl_role_repas.SetSelection(self.role("regime_vegetarien"))
+        page.OnChoixRole()
+        pret = {"etat": "pret", "question": 5,
+                "choix": {"standard": 11, "sans_porc": 12,
+                          "vegetarien": 13, "sans_repas_pmsl": 14}}
+        reponses = [(11, "Standard"), (12, "Sans porc"), (13, "Végétarien"),
+                    (14, "Repas apporté par la famille (sans repas PMSL)")]
+        with patch.object(self.module.UTILS_Repas_questionnaire,
+                          "ExaminerQuestionnaire",
+                          return_value={"etat": "absent"}), \
+             patch.object(self.module.UTILS_Repas_questionnaire,
+                          "PreparerQuestionnaire", return_value=pret) as creation, \
+             patch.object(self.module.UTILS_Repas_source,
+                          "ListerChoixQuestion", return_value=reponses), \
+             patch.object(self.module.wx, "MessageBox",
+                          return_value=self.module.wx.YES) as message:
+            self.assertTrue(page.OnPreparerQuestionnaireRepas())
+            creation.assert_called_once_with()
+            message.assert_called_once()
+        self.assertEqual(page.GetChoixRegimes(), pret["choix"])
+
+    def test_questionnaire_absent_refus_pas_de_creation(self):
+        self.page.ctrl_role_repas.SetSelection(self.role("regime_standard"))
+        self.page.OnChoixRole()
+        with patch.object(self.module.UTILS_Repas_questionnaire,
+                          "ExaminerQuestionnaire",
+                          return_value={"etat": "absent"}), \
+             patch.object(self.module.UTILS_Repas_questionnaire,
+                          "PreparerQuestionnaire") as creation, \
+             patch.object(self.module.wx, "MessageBox",
+                          return_value=self.module.wx.NO):
+            self.assertFalse(self.page.OnPreparerQuestionnaireRepas())
+            creation.assert_not_called()
+
+    def test_questionnaire_conflit_ne_modifie_aucun_choix(self):
+        self.page.ctrl_role_repas.SetSelection(self.role("regime_standard"))
+        self.page.OnChoixRole()
+        ancienne_question = self.page.GetQuestionRegime()
+        with patch.object(self.module.UTILS_Repas_questionnaire,
+                          "ExaminerQuestionnaire",
+                          return_value={"etat": "conflit",
+                                        "detail": "Question incomplete"}), \
+             patch.object(self.module.UTILS_Repas_questionnaire,
+                          "PreparerQuestionnaire") as creation, \
+             patch.object(self.module.wx, "MessageBox") as message:
+            self.assertFalse(self.page.OnPreparerQuestionnaireRepas())
+            creation.assert_not_called()
+            message.assert_called_once()
+        self.assertEqual(self.page.GetQuestionRegime(), ancienne_question)
+
+    def test_bouton_inactif_sur_ancien_role(self):
+        self.page.ctrl_role_repas.SetSelection(self.role("sans_porc"))
+        self.page.OnChoixRole()
+        self.assertFalse(self.page.bouton_preparer_questionnaire.IsEnabled())
+
     def test_selection_par_libelle_et_stockage_des_ids(self):
         self.page.ctrl_role_repas.SetSelection(self.role("regime_vegetarien"))
         self.page.OnChoixRole()
