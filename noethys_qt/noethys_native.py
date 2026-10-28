@@ -39,7 +39,7 @@ from .people_details import FamilyDetails, PeopleDetailsPage, PeopleDetailsRepos
 from .consumptions_core import ConsumptionRepository
 from .consumptions_calendar_ui import ConsumptionCalendarPage
 from .inscriptions_readonly import InscriptionPage, InscriptionRepository
-from .finance_readonly_core import FinanceRepository
+from .finance_readonly_core import FinanceRepository, validate_finance_id
 from .finance_readonly_ui import FinanceHubPage, MODULES
 from .catalog_readonly_core import CATALOG_MODULES, FAMILY_CATALOG_MODULES, CatalogRepository
 from .catalog_readonly_ui import CatalogHubPage

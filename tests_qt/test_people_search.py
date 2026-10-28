@@ -130,9 +130,11 @@ class PeopleSearchTests(unittest.TestCase):
             editor_sqlite_path=database,
             requested_theme="dark",
             source_label="copie de test",
+            catalog_enabled=False,
         )
         self.addCleanup(window.close)
-        self.assertEqual(window.navigation.count(), 8)
+        self.assertEqual(window.navigation.count(), 14)
+        self.assertFalse(window.catalog_actions["memberships"].isEnabled())
         window.navigate("people")
         self.assertIs(window.stack.currentWidget(), window.people_page)
         window.people_page.search_edit.setText("Dupont")
