@@ -174,8 +174,24 @@ class Dialog(wx.Dialog):
             self._section(panneau, colonne, u"AEEH",
                 u"Statut existant dans l'Identité : %s" %
                 self.entete.get("aeeh", u"Non renseigné"))
+        libelles_repas = {
+            "standard": u"Standard", "sans_porc": u"Sans porc",
+            "vegetarien": u"Végétarien",
+            "sans_repas_pmsl": u"Repas apporté par la famille",
+            "non_renseigne": u"Non renseigné",
+            "non_configure": u"Questionnaire repas non préparé",
+            "a_verifier": u"Réponse alimentaire à vérifier",
+        }
+        self.repas_existant = "non_renseigne"
+        if self.acces:
+            try:
+                self.repas_existant = sources.LireRepasExistant(
+                    IDindividu, self.utilisateur)
+            except Exception:
+                self.repas_existant = "a_verifier"
         self._section(panneau, colonne, u"REPAS",
-             u"Choix existant dans l'onglet Questionnaire ; aucune nouvelle saisie.")
+             u"Choix dans le questionnaire individuel : %s." %
+             libelles_repas.get(self.repas_existant, u"À vérifier"))
         self.bouton_repas = wx.Button(panneau, label=_(u"Consulter le questionnaire repas"))
         colonne.Add(self.bouton_repas, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
 
@@ -406,7 +422,13 @@ class Dialog(wx.Dialog):
         info["responsables"] = [
             {"identite": nom} for identifiant, nom in self.signataires[:2]]
         info["aeeh"] = self.entete.get("aeeh", "")
-        info["repas"] = u"Voir le questionnaire individuel Noethys"
+        info["repas"] = {
+            "standard": u"Standard", "sans_porc": u"Sans porc",
+            "vegetarien": u"Végétarien",
+            "sans_repas_pmsl": u"Repas apporté par la famille",
+            "non_renseigne": u"Non renseigné",
+        }.get(getattr(self, "repas_existant", None),
+              u"À vérifier dans le questionnaire Noethys")
         info["vaccinations"] = (u"%d vaccination(s) enregistrée(s)" %
                 self.medical["vaccins_enregistres"]) if self.medical else u""
         medecin = self.medical.get("medecin") if self.medical else None
