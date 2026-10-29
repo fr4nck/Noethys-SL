@@ -11,6 +11,7 @@
 import Chemins
 
 import wx
+from Utils import UTILS_Attente
 import datetime
 import copy
 import os
@@ -354,7 +355,7 @@ class ObjectListView(OLV.ObjectListView):
         self.useExpansionColumn = False
 
         # Mise à jour de la liste
-        attente = wx.BusyInfo(u"Configuration de la liste en cours...", self)
+        attente = UTILS_Attente.BusyInfo(u"Configuration de la liste en cours...", self)
         self.OnConfigurationListe()
         self.InitModel()
         self.InitObjectListView()

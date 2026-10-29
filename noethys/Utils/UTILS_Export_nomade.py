@@ -12,6 +12,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 import sqlite3
@@ -139,7 +140,7 @@ class Export():
         
         # Ouverture dlg d'attente
         if afficherDlgAttente == True :
-            dlgAttente = wx.BusyInfo(_(u"Génération du fichier de données..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération du fichier de données..."), None)
         
         try :
             
@@ -289,7 +290,7 @@ class Export():
             mdp = mdp.decode("utf-8")
 
         # Envoyer le fichier
-        dlgAttente = wx.BusyInfo(_(u"Envoi du fichier de données vers un répertoire FTP..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Envoi du fichier de données vers un répertoire FTP..."), None)
         try :
             ftp = ftplib.FTP(hote, identifiant, mdp)
             ftp.cwd(repertoire)

@@ -109,7 +109,7 @@ class RechercheTests(unittest.TestCase):
 
     def test_nettoyage_attente_et_statut_apres_exception(self):
         recherche = module.Depannage()
-        with mock.patch.object(module.wx, 'BusyInfo'), \
+        with mock.patch.object(module.UTILS_Attente, 'BusyInfo'), \
              mock.patch.object(module.wx, 'GetApp', return_value=object()), \
              mock.patch.object(module.wx, 'IsMainThread', return_value=True), \
              mock.patch.object(module, 'EcritStatusbar') as statut, \
@@ -160,7 +160,8 @@ def scenario(ancien=False, mode='maximise', panne=False):
                       bool(u32.IsIconic(frame.GetHandle())), tuple(frame.GetRect())))
     timer.Bind(wx.EVT_TIMER, battement)
     timer.Start(25)
-    busy_initial = module.wx.BusyInfo
+    attente_module = module.wx if ancien else module.UTILS_Attente
+    busy_initial = attente_module.BusyInfo
     attaches = []
 
     def fenetres_thread():
@@ -201,7 +202,7 @@ def scenario(ancien=False, mode='maximise', panne=False):
         recherche = module.Depannage(frame)
         try:
             with mock.patch.object(module.GestionDB, 'DB', BaseFictive), \
-                 mock.patch.object(module.wx, 'BusyInfo', side_effect=attente):
+                 mock.patch.object(attente_module, 'BusyInfo', side_effect=attente):
                 if ancien:
                     ns = dict(module.__dict__)
                     exec(REFERENCE['recherche'], ns)
@@ -233,7 +234,8 @@ class BoucleWindowsTests(unittest.TestCase):
         ligne = next(l for l in p.stdout.splitlines() if l.startswith('ANOMALIES_UI '))
         m = json.loads(ligne.split(' ', 1)[1])
         self.assertTrue(m['geometrie_identique'] and m['etat_identique'], m)
-        self.assertTrue(m['owner_ok'] and m['reactivation'], m)
+        self.assertTrue(m['reactivation'], m)
+        self.assertEqual(m['owner_ok'], '--ancien' not in arguments, m)
         self.assertEqual(m['reseau'], 0)
         print('ANOMALIES_MESURE ' + json.dumps({k: v for k, v in m.items() if k not in ('resultats', 'requetes')}), flush=True)
         return m

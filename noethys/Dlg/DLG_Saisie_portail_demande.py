@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import wx.html as html
 import datetime, re, os
 import GestionDB
@@ -1968,7 +1969,7 @@ class Traitement():
 
         # Téléchargement du fichier
         from Utils import UTILS_Portail_synchro
-        dlgAttente = wx.BusyInfo(_(u"Téléchargement de la pièce en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Téléchargement de la pièce en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         else:

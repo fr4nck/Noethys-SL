@@ -12,6 +12,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import os
 import six
 import GestionDB
@@ -190,7 +191,7 @@ class Importer():
         return listeNoms
     
     def Ajouter(self, index=0, nbre=0, dictID={}):
-        dlgAttente = wx.BusyInfo(_(u"Merci de patienter..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Merci de patienter..."), None)
         # Importation
         self.dictID = dictID
         self.DB = GestionDB.DB()

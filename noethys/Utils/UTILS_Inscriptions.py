@@ -11,6 +11,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import GestionDB
 import traceback
 import datetime
@@ -94,7 +95,7 @@ class Inscription():
 
     def GetDonneesImpression(self, listeInscriptions=[]):
         """ Impression des inscriptions """
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), None)
 
         # Récupère les données de la facture
         if len(listeInscriptions) == 0:
@@ -283,7 +284,7 @@ class Inscription():
         # Création des PDF à l'unité
         def CreationPDFunique(repertoireCible=""):
             dictPieces = {}
-            dlgAttente = wx.BusyInfo(_(u"Génération des PDF à l'unité en cours..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération des PDF à l'unité en cours..."), None)
             try:
                 index = 0
                 for IDinscription, dictInscription in dictInscriptions.items():
@@ -370,7 +371,7 @@ class Inscription():
 
         # Fabrication du PDF global
         if repertoireTemp == False:
-            dlgAttente = wx.BusyInfo(_(u"Création du PDF en cours..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Création du PDF en cours..."), None)
             self.EcritStatusbar(_(u"Création du PDF des inscriptions en cours... veuillez patienter..."))
             try:
                 UTILS_Impression_inscription.Impression(dictInscriptions, dictOptions, IDmodele=dictOptions["IDmodele"], ouverture=afficherDoc, nomFichier=nomDoc)

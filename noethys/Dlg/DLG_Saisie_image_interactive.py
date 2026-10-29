@@ -12,6 +12,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import wx.lib.agw.aui as aui
 from Dlg.DLG_Noedoc import Panel_canvas, Panel_infos, Panel_commandes, Panel_proprietes_objet, Panel_proprietes_image_interactive
 from Utils import UTILS_Dialogs
@@ -26,7 +27,7 @@ class Dialog(wx.Dialog):
         self.IDdonnee = IDdonnee
 
         # DLG Attente
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter..."), self.parent)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter..."), self.parent)
 
         self._mgr = aui.AuiManager()
         self._mgr.SetManagedWindow(self)

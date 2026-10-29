@@ -14,6 +14,7 @@ from Utils.UTILS_Traduction import _
 from Utils import UTILS_Titulaires
 import GestionDB
 import wx
+from Utils import UTILS_Attente
 import wx.lib.agw.hypertreelist as HTL
 from Ctrl import CTRL_Bouton_image
 from Dlg import DLG_Messagebox
@@ -275,7 +276,7 @@ class Archivage():
             return False
 
         # Attente
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'effacement..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant l'effacement..."), None)
 
         # Récupère les comptes_payeurs
         req = """SELECT IDfamille, IDcompte_payeur
@@ -389,7 +390,7 @@ class Archivage():
                 return False
 
             # Attente
-            dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'effacement..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant l'effacement..."), None)
 
         # Individus
         liste_valeurs = [

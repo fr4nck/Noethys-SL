@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import time
@@ -309,7 +310,7 @@ class Parametres(wx.Panel):
                 return False
         
         # MAJ de la liste des prestations
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         try :

@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import os
 import wx.lib.agw.hypertreelist as HTL
 import datetime
@@ -439,7 +440,7 @@ class CTRL(HTL.HyperTreeList):
         self.SetColumnAlignment(numColonne, wx.ALIGN_CENTRE)
         
     def MAJ(self):
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données..."), self)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
 
         # Importation des données
         dictPrestations, listeRegroupements, dictLabelsRegroupements = self.Importation_prestations()

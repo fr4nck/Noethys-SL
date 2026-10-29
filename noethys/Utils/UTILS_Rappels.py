@@ -13,6 +13,7 @@ import Chemins
 from Utils.UTILS_Traduction import _
 
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import decimal
@@ -240,7 +241,7 @@ class Facturation():
 
     def GetDonneesImpression(self, listeRappels=[]):
         """ Impression des factures """
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données de facturation..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données de facturation..."), None)
         try :
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
@@ -397,7 +398,7 @@ class Facturation():
         # Création des PDF à l'unité
         def CreationPDFunique(repertoireCible=""):
             dictPieces = {}
-            dlgAttente = wx.BusyInfo(_(u"Génération des lettres de rappel à l'unité au format PDF..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération des lettres de rappel à l'unité au format PDF..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             try :
@@ -439,7 +440,7 @@ class Facturation():
 
         # Fabrication du PDF global
         if repertoireTemp == False :
-            dlgAttente = wx.BusyInfo(_(u"Création du PDF des lettres de rappel..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Création du PDF des lettres de rappel..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             self.EcritStatusbar(_(u"Création du PDF des lettres de rappel en cours... veuillez patienter..."))

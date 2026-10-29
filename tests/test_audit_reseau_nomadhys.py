@@ -178,6 +178,7 @@ class BaseSync(unittest.TestCase):
         return {
             "os": os, "six": __import__("six"), "base64": base64, "zipfile": zipfile,
             "shutil": shutil, "_": lambda t: t, "wx": self.wx,
+            "UTILS_Attente": types.SimpleNamespace(BusyInfo=self.wx.BusyInfo),
             "ftplib": types.SimpleNamespace(FTP=FauxFTP),
             "UTILS_Fichiers": types.SimpleNamespace(GetRepSync=lambda f="": os.path.join(sync, f)),
             "UTILS_Config": types.SimpleNamespace(GetParametre=lambda nom, defaut=None: config.get(nom, defaut)),

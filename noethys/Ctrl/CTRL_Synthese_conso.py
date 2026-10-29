@@ -19,6 +19,7 @@ if rows == [-1] : return
 """
 
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import wx.grid as gridlib
 import wx.lib.wordwrap as wordwrap
@@ -170,7 +171,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         
         # init grid
         try :
-            dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant la recherche des données..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant la recherche des données..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             self.InitGrid() 

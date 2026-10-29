@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import wx.lib.agw.hypertreelist as HTL
 from wx.lib.agw.customtreectrl import EVT_TREE_ITEM_CHECKED
@@ -219,7 +220,7 @@ class CTRL(HTL.HyperTreeList):
         self.CocheTout() 
     
     def Remplissage(self):
-        dlgAttente = wx.BusyInfo(_(u"Recherche des impayés en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des impayés en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         
@@ -369,7 +370,7 @@ class CTRL(HTL.HyperTreeList):
             return False
                    
         # Fabrication du PDF
-        dlgAttente = wx.BusyInfo(_(u"Création de l'aperçu au format PDF..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Création de l'aperçu au format PDF..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         try :

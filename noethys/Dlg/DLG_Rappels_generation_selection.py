@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import traceback
@@ -190,7 +191,7 @@ class Panel(wx.Panel):
 
     def SauvegardeRappels(self):
         """ Sauvegarde des rappels """
-        dlgAttente = wx.BusyInfo(_(u"Génération des rappels en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération des rappels en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
 

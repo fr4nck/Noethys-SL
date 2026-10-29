@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import os
@@ -618,7 +619,7 @@ class Panel(wx.Panel):
         listeActivites = self.GetParent().page1.GetActivites() 
         self.ctrl_options.ctrl_signataire.MAJ(listeActivites)
 
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         try :
@@ -646,7 +647,7 @@ class Panel(wx.Panel):
         if reponse != wx.ID_YES :
             return
 
-        dlgAttente = wx.BusyInfo(_(u"Sauvegarde des attestations en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Sauvegarde des attestations en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
 

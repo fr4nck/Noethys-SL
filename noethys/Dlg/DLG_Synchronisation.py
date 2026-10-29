@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import os
 import re
@@ -784,7 +785,7 @@ class Dialog(wx.Dialog):
             nomFichier = os.path.basename(chemin)
             shutil.copyfile(chemin, UTILS_Fichiers.GetRepSync(nomFichier))
             # Analyse du fichier
-            dlgAttente = wx.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
             anomalies = []
             resultat = AnalyserFichier(nomFichier, typeTransfert="manuel", anomalies=anomalies)
             del dlgAttente
@@ -813,7 +814,7 @@ class Dialog(wx.Dialog):
         
         # Récupération des fichiers
         listeFichiersRecus = []
-        dlgAttente = wx.BusyInfo(_(u"Récupération des fichiers de synchronisation depuis un répertoire FTP..."), self)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Récupération des fichiers de synchronisation depuis un répertoire FTP..."), self)
         try :
             ftp = ftplib.FTP(hote, identifiant, mdp)
             ftp.cwd(repertoire)
@@ -854,7 +855,7 @@ class Dialog(wx.Dialog):
 
         for nomFichier, tailleFichier in listeFichiersRecus :
             # Analyse du fichier
-            dlgAttente = wx.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Analyse du fichier synchronisation..."), self)
             resultat = AnalyserFichier(nomFichier=nomFichier, tailleFichier=tailleFichier, typeTransfert="ftp", anomalies=anomalies)
             del dlgAttente
 

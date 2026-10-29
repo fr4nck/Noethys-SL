@@ -13,6 +13,7 @@ import Chemins
 from Utils.UTILS_Traduction import _
 
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import decimal
@@ -98,7 +99,7 @@ class Cotisation():
 
     def GetDonneesImpression(self, listeCotisations=[]):
         """ Impression des factures """
-        dlgAttente = wx.BusyInfo(_(u"Recherche des données..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         
@@ -387,7 +388,7 @@ class Cotisation():
         # Création des PDF à l'unité
         def CreationPDFunique(repertoireCible=""):
             dictPieces = {}
-            dlgAttente = wx.BusyInfo(_(u"Génération des cotisations à l'unité au format PDF..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération des cotisations à l'unité au format PDF..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             try :
@@ -429,7 +430,7 @@ class Cotisation():
 
         # Fabrication du PDF global
         if repertoireTemp == False :
-            dlgAttente = wx.BusyInfo(_(u"Création du PDF des cotisations..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Création du PDF des cotisations..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             self.EcritStatusbar(_(u"Création du PDF des cotisations en cours... veuillez patienter..."))

@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import os
 import wx.lib.agw.hypertreelist as HTL
@@ -305,7 +306,7 @@ class CTRL(HTL.HyperTreeList):
         
         # Affiche d'une fenêtre d'attente
         message = _(u"Calcul des données en cours... Veuillez patienter...")
-        dlgAttente = wx.BusyInfo(message, None)
+        dlgAttente = UTILS_Attente.BusyInfo(message, None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
 

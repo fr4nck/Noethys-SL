@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import sys
 from Ctrl import CTRL_Bouton_image
 from Ctrl import CTRL_Bandeau
@@ -252,7 +253,7 @@ class Dialog(wx.Dialog):
     
     def VerifieEtat(self, identifiant="", code=""):
         """ Vérifie la validité du code en ligne """
-        dlgAttente = wx.BusyInfo(_(u"Vérification du code en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Vérification du code en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         else:

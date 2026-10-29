@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import sys
 import wx.grid as gridlib
@@ -1156,7 +1157,7 @@ class Calendrier(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         if dlg.ShowModal() == wx.ID_OK:
             dictDonnees = dlg.GetDonnees()
             try :
-                dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'opération..."), None)
+                dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant l'opération..."), None)
                 if 'phoenix' not in wx.PlatformInfo:
                     wx.Yield()
                 self.TraitementLot(dictDonnees)
@@ -2175,7 +2176,7 @@ class Dialog(wx.Dialog):
 
         # mémoriser calendrier
         try :
-            dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant la sauvegarde des données..."), None) # .PyBusyInfo(_(u"Veuillez patienter durant la sauvegarde des données..."), parent=None, title=_(u"Enregistrement"), icon=wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Logo.png"), wx.BITMAP_TYPE_ANY))
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant la sauvegarde des données..."), None) # .PyBusyInfo(_(u"Veuillez patienter durant la sauvegarde des données..."), parent=None, title=_(u"Enregistrement"), icon=wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Logo.png"), wx.BITMAP_TYPE_ANY))
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             self.ctrl_calendrier.Sauvegarde()

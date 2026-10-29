@@ -12,6 +12,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 
 import GestionDB
@@ -89,7 +90,7 @@ def Appliquer():
     dlg.Destroy()
     
     # Application
-    dlgAttente = wx.BusyInfo(_(u"Traitement en cours..."), None)
+    dlgAttente = UTILS_Attente.BusyInfo(_(u"Traitement en cours..."), None)
     if 'phoenix' not in wx.PlatformInfo:
         wx.Yield()
     DB = GestionDB.DB()

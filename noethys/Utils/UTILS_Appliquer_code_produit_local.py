@@ -12,6 +12,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import GestionDB
 from Dlg import DLG_Selection_dates
 
@@ -78,7 +79,7 @@ def Appliquer():
     dlg.Destroy()
     
     # Application
-    dlgAttente = wx.BusyInfo(_(u"Veuillez patienter..."), None)
+    dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter..."), None)
     if 'phoenix' not in wx.PlatformInfo:
         wx.Yield()
     DB = GestionDB.DB()

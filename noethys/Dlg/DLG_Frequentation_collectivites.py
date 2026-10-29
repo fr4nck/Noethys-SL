@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 
 import wx
+from Utils import UTILS_Attente
 from Utils.UTILS_Frequentation_collectivites import (
     CONTROLES, ErreurFrequentation, calculer, exporter_csv, exporter_pdf, exporter_xlsx,
     modele, _fr_centimes, _fr_jours,
@@ -440,7 +441,9 @@ class Dialog(wx.Dialog):
             self._sync()
             if not self.dossier["conventions"]:
                 return self._message("Aucune convention applicable pour cette annee")
-            unites = lister_unites(self.dossier["annee"])
+            annee = self.dossier["annee"]
+            unites = UTILS_Attente.LireSQL(lambda db: lister_unites(annee, db=db),
+                                          self, "Recherche des données...")
             if not unites:
                 return self._message("Aucune consommation presente ou reservee pour cet exercice")
         except (ErreurFrequentation, ValueError) as erreur:
@@ -464,9 +467,9 @@ class Dialog(wx.Dialog):
                              self) != wx.YES:
                 return
         try:
-            resultat = importer_journees(self.dossier["annee"],
-                                          self.dossier["arrete"],
-                                          self.dossier["commune"], mapping)
+            annee, arrete, commune = (self.dossier[k] for k in ("annee", "arrete", "commune"))
+            resultat = UTILS_Attente.LireSQL(lambda db: importer_journees(
+                annee, arrete, commune, mapping, db=db), self, "Recherche des données...")
             # Aucun identifiant ou nom d'enfant n'entre dans le dossier sauvegarde.
             nouveau = list(resultat["jours"])
             self.dossier["jours"] = nouveau

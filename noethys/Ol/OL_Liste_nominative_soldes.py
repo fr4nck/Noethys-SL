@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 import datetime
@@ -136,7 +137,7 @@ class ListView(FastObjectListView):
         pass
 
     def InitModel(self):
-        dlgAttente = wx.BusyInfo(_(u"Recherche des prestations en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des prestations en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         self.donnees = self.GetTracks()

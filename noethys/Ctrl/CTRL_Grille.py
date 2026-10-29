@@ -20,6 +20,7 @@ if rows == [-1] : return
 
 
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import wx.grid as gridlib
 import wx.lib.mixins.gridlabelrenderer as glr
@@ -762,7 +763,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         
     def SetModeIndividu(self, listeActivites=[], listeSelectionIndividus=[], listeIndividusFamille=[], listePeriodes=[], modeSilencieux=False):
         if modeSilencieux == False :
-            attente = wx.BusyInfo(_(u"Recherche des données..."), self)
+            attente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
         self.mode = "individu"
         self.listeActivites = listeActivites
         self.listeSelectionIndividus = listeSelectionIndividus
@@ -805,7 +806,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
     def SetModeDate(self, listeActivites=[], listeSelectionIndividus=[], date=None, modeSilencieux=False):
         if modeSilencieux == False :
-            attente = wx.BusyInfo(_(u"Recherche des données..."), self)
+            attente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
         self.mode = "date"
         self.listeActivites = listeActivites
         self.date = date
@@ -4921,7 +4922,7 @@ class CTRL(gridlib.Grid, glr.GridWithLabelRenderersMixin):
         dlg_grille = self.GetGrandParent()
         
         try :
-            # dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant la procédure..."), None)
+            # dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant la procédure..."), None)
             # wx.Yield()
 
             # Sélection des individus

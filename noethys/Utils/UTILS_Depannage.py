@@ -12,9 +12,9 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
-import threading
 import GestionDB
 from Utils import UTILS_Dates
 from Utils import UTILS_Fichiers
@@ -29,44 +29,13 @@ def EcritStatusbar(texte=u""):
         pass
 
 
-def _ExecuterRechercheHorsUI(recherche):
+def _ExecuterRechercheHorsUI(recherche, fenetre_attente=None):
     """Garde l'attente existante et traite les événements wx pendant le SQL.
 
     Le thread de recherche possède sa connexion et ne touche aucun widget.
     Aucun appel ne restaure, redimensionne ou maximise la fenêtre principale.
     """
-    termine = threading.Event()
-    erreurs = []
-
-    def effectuer():
-        try:
-            recherche()
-        except BaseException as erreur:
-            erreurs.append(erreur)
-        finally:
-            termine.set()
-
-    boucle = wx.GUIEventLoop()
-    timer = wx.Timer()
-    timer.Bind(wx.EVT_TIMER, lambda event: boucle.Exit() if termine.is_set() else None)
-    travail = threading.Thread(target=effectuer, name="Noethys-Recherche-anomalies", daemon=False)
-    try:
-        with wx.EventLoopActivator(boucle), wx.WindowDisabler():
-            timer.Start(25)
-            travail.start()
-            # Le timer couvre aussi une recherche terminée avant Run().
-            while not termine.is_set():
-                boucle.Run()
-    finally:
-        timer.Stop()
-        timer.Unbind(wx.EVT_TIMER)
-        if travail.ident is not None:
-            travail.join()
-    # Une exception peut retenir sa frame Python : libérer les objets wx
-    # avant de la transmettre, pendant que l'application est encore vivante.
-    del timer, boucle
-    if erreurs:
-        raise erreurs.pop()
+    return UTILS_Attente.Executer(recherche, fenetre_attente, "Noethys-Recherche-anomalies")
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -301,7 +270,7 @@ class Depannage():
         self.listeResultats = []
         EcritStatusbar(_(u"Recherche d'anomalies en cours...   Veuillez patienter..."))
         try :
-            dlgAttente = wx.BusyInfo(_(u"Recherche d'anomalies en cours. Veuillez patienter..."), self.parent)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche d'anomalies en cours. Veuillez patienter..."), self.parent)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
         except :
@@ -314,7 +283,8 @@ class Depannage():
                 suffixe = "TDATA" if GestionDB.MODE_TEAMWORKS else "DATA"
                 nomFichier = UTILS_Fichiers.GetRepData(u"%s_%s.dat" % (nomFichier, suffixe))
             if wx.GetApp() is not None and wx.IsMainThread():
-                _ExecuterRechercheHorsUI(lambda: self._RechercherDonnees(nomFichier))
+                _ExecuterRechercheHorsUI(lambda: self._RechercherDonnees(nomFichier),
+                                        dlgAttente.GetWindow() if dlgAttente is not None else None)
             else:
                 self._RechercherDonnees(nomFichier)
         finally:

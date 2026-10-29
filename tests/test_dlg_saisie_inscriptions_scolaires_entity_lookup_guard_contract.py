@@ -35,6 +35,7 @@ def _extract_method(extra_namespace):
     module = ast.Module(body=[method_node], type_ignores=[])
     ast.fix_missing_locations(module)
     namespace = dict(extra_namespace)
+    namespace["UTILS_Attente"] = types.SimpleNamespace(BusyInfo=namespace["wx"].BusyInfo)
     exec(compile(module, str(SOURCE_PATH), "exec"), namespace)
     return namespace["OnBoutonOk"]
 

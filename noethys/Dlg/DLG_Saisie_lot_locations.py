@@ -14,6 +14,7 @@ from Utils import UTILS_Adaptations
 import datetime
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import copy
 from Ctrl import CTRL_Bouton_image
 from Ctrl import CTRL_Saisie_date
@@ -463,7 +464,7 @@ class Dialog(wx.Dialog):
         # Recopiage de la location
         DB = GestionDB.DB()
 
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant le traitement..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant le traitement..."), None)
 
         for date in listeDates :
 

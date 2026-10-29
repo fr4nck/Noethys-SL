@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 from Ctrl import CTRL_Bandeau
 import GestionDB
@@ -343,7 +344,7 @@ class Dialog(wx.Dialog):
         self.label_infos.SetLabel(_(u"Analyse de l'image en cours..."))
         self.Layout()
         
-        dlgAttente = wx.BusyInfo(_(u"Analyse de l'image en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Analyse de l'image en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         

@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import wx.lib.agw.hypertreelist as HTL
@@ -1466,7 +1467,7 @@ class Dialog(wx.Dialog):
         typeListe = self.GetTypeListe()
 
         # Affiche la DLG d'attente
-        DlgAttente = wx.BusyInfo(_(u"Recherche des données..."), self)
+        DlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
 
         # Recherche des infos individuelles et familiales pour les colonnes perso
         if len(dictParametres["colonnes"]) >0 :

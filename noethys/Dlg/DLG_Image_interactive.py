@@ -12,6 +12,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import datetime
 import wx.lib.agw.aui as aui
 from Dlg.DLG_Noedoc import Panel_canvas
@@ -351,7 +352,7 @@ class Dialog(wx.Dialog):
         self.parent = parent
         self.IDmodele = IDmodele
 
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter..."), self.parent)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter..."), self.parent)
 
         self.ctrl_image = CTRL(self, IDmodele=IDmodele)
         self.ctrl_image.SetMinSize((700, 600))

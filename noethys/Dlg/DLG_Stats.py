@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import sys
 import datetime
@@ -382,7 +383,7 @@ class Dialog(wx.Dialog):
         listeCodes = self.ctrl_impression.GetCoches() 
         
         # Imprimer tout
-        dlgAttente = wx.BusyInfo(_(u"Création du rapport..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Création du rapport..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         
@@ -529,7 +530,7 @@ class Dialog(wx.Dialog):
 
     def MAJpage(self, indexRubrique=None, indexPage=None):
         """ Met à jour le contenu d'une page """
-        dlgAttente = wx.BusyInfo(_(u"Actualisation des données..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Actualisation des données..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         

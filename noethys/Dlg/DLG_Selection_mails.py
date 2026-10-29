@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import GestionDB
@@ -466,7 +467,7 @@ class CTRL_Pages(wx.Notebook):
         event.Skip()
 
     def MAJ_page(self, page=None):
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter..."), self.parent)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter..."), self.parent)
         page.MAJ()
         del dlgAttente
 

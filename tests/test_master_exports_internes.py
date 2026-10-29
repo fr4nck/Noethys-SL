@@ -163,7 +163,7 @@ class ExportNoethysWebEchecTests(unittest.TestCase):
         module = DLG_Export_noethysweb
         with mock.patch.object(module.UTILS_Export_noethysweb, "Verifications", return_value=True), \
                 mock.patch.object(module.UTILS_Export_noethysweb, "Export_all", return_value=echec), \
-                mock.patch.object(module.wx, "BusyInfo", return_value=object()), \
+                mock.patch.object(module.UTILS_Attente, "BusyInfo", return_value=object()), \
                 mock.patch.object(module.wx, "MessageDialog", _fabrique(wx.ID_OK)):
             resultat = module.Dialog.OnBoutonGenerer(faux, None)
         self.assertIs(resultat, False)

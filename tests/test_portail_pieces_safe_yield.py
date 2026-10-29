@@ -39,7 +39,8 @@ class TraitementPiecesYieldTests(unittest.TestCase):
         utils = ModuleType("Utils")
         synchro = Mock(side_effect=DownloadReached)
         utils.UTILS_Portail_synchro = SimpleNamespace(Synchro=synchro)
-        namespace = {"wx": wx, "_": lambda text: text}
+        namespace = {"wx": wx, "_": lambda text: text,
+                     "UTILS_Attente": SimpleNamespace(BusyInfo=wx.BusyInfo)}
         exec(self.code, namespace)
         traitement = SimpleNamespace(
             parent=parent, dict_parametres={},

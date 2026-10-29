@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 import datetime
@@ -511,7 +512,7 @@ class ListView(FastObjectListView):
         for track in listeSelections :
             listeIDrappels.append(track.IDrappel)
 
-        dlgAttente = wx.BusyInfo(_(u"Suppression des lettres de rappel en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Suppression des lettres de rappel en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         DB = GestionDB.DB()

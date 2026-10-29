@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import wx.lib.agw.aui as aui
 from wx.lib.floatcanvas import FloatCanvas, GUIMode
@@ -5606,7 +5607,7 @@ class Dialog(wx.Dialog):
         self.taille_page = taille_page
 
         # DLG Attente
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'initialisation de Noedoc..."), self.parent)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant l'initialisation de Noedoc..."), self.parent)
 
         # Recherche des données de la catégorie
         if categorie == "fond" : self.infosCategorie = Fond()

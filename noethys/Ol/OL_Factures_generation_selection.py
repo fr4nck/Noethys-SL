@@ -14,6 +14,7 @@ from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 
 import wx
+from Utils import UTILS_Attente
 import datetime
 import sys
 import traceback
@@ -71,7 +72,7 @@ class ListView(FastObjectListView):
 
     def GetTracks(self):
         # Récupération des données
-        dlgAttente = wx.BusyInfo(_(u"Recherche des prestations à facturer en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des prestations à facturer en cours..."), None)
         #wx.Yield()
         
         try :
@@ -359,7 +360,7 @@ class ListView(FastObjectListView):
             return False
 
         # Fabrication du PDF
-        dlgAttente = wx.BusyInfo(_(u"Création de l'aperçu au format PDF..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Création de l'aperçu au format PDF..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         try:

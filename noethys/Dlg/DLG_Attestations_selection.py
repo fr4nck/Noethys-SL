@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import os
@@ -319,7 +320,7 @@ class Dialog(wx.Dialog):
         # Création des PDF à l'unité
         repertoire = dictOptions["repertoire_copie"]
         if repertoire not in (None, "") :
-            dlgAttente = wx.BusyInfo(_(u"Génération des attestations à l'unité au format PDF..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération des attestations à l'unité au format PDF..."), None)
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
             try :
@@ -344,7 +345,7 @@ class Dialog(wx.Dialog):
                 return False
 
         # Fabrication du PDF global
-        dlgAttente = wx.BusyInfo(_(u"Génération du lot d'attestations au format PDF..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Génération du lot d'attestations au format PDF..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         self.EcritStatusbar(_(u"Génération du lot d'attestations de rappel en cours... veuillez patienter..."))
@@ -372,7 +373,7 @@ class Dialog(wx.Dialog):
         if reponse != wx.ID_YES :
             return
 
-        dlgAttente = wx.BusyInfo(_(u"Sauvegarde des attestations en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Sauvegarde des attestations en cours..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
 

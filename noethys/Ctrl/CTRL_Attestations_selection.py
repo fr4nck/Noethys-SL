@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import wx.lib.agw.hypertreelist as HTL
 from wx.lib.agw.customtreectrl import EVT_TREE_ITEM_CHECKED
@@ -581,7 +582,7 @@ class CTRL(HTL.HyperTreeList):
         self.CocheTout() 
 
     def Remplissage(self):
-        dlgAttente = wx.BusyInfo(_(u"Recherche des prestations en cours..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Recherche des prestations en cours..."), None)
         try :
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()

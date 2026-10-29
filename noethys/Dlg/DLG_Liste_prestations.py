@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 from Ctrl import CTRL_Bandeau
@@ -267,7 +268,7 @@ class Dialog(wx.Dialog):
             self.ctrl_listview.dictFiltres["FACTURE_COMPLEXE"] = "prestations.IDfacture IS NULL"
 
         # MAJ de la liste
-        attente = wx.BusyInfo(_(u"Recherche des données..."), self)
+        attente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
         self.ctrl_listview.MAJ() 
         del attente
         

@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 from wx.lib.floatcanvas import FloatCanvas
 import numpy
@@ -253,7 +254,7 @@ class Dialog(wx.Dialog):
         self.categorie = categorie
 
         # DLG Attente
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant l'initialisation de l'éditeur..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant l'initialisation de l'éditeur..."), None)
         try :
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()

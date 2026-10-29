@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import datetime
 import GestionDB
@@ -532,7 +533,7 @@ class Dialog(wx.Dialog):
         dlg.Destroy()
         
         # Fenêtre d'attente
-        dlgAttente = wx.BusyInfo(_(u"Veuillez patienter durant la procédure d'inscription..."), None)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Veuillez patienter durant la procédure d'inscription..."), None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
 

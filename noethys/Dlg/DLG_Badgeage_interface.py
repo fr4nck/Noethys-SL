@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import sys
 import os
@@ -1050,7 +1051,7 @@ class Dialog(wx.Dialog):
                 texte = _(u"Veuillez patienter durant l'initialisation de l'interface de badgeage...")
             else :
                 texte = _(u"Veuillez patienter durant l'importation des badgeages...")
-            dlgAttente = wx.BusyInfo(_(u"Initialisation..."), None)
+            dlgAttente = UTILS_Attente.BusyInfo(_(u"Initialisation..."), None)
             if 'phoenix' in wx.PlatformInfo:
                 wx.SafeYield(self, True)
             else:

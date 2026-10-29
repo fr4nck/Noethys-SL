@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 from Ctrl import CTRL_Bandeau
 from Utils import UTILS_Export_noethysweb
@@ -253,7 +254,7 @@ class Dialog(wx.Dialog):
             return False
 
         # Générer du fichier de données
-        dlgAttente = wx.BusyInfo(_(u"Cette opération peut prendre quelques minutes. Veuillez patienter..."), self)
+        dlgAttente = UTILS_Attente.BusyInfo(_(u"Cette opération peut prendre quelques minutes. Veuillez patienter..."), self)
         export = UTILS_Export_noethysweb.Export_all(dlg=self, nom_fichier=os.path.join(repertoire, nom + ".nweb"), mdp=motdepasse, options=options)
         del dlgAttente
         if not export.resultat:

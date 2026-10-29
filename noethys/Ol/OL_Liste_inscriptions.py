@@ -13,6 +13,7 @@ import Chemins
 from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 from Ctrl import CTRL_Bouton_image
 import GestionDB
 import datetime
@@ -468,7 +469,7 @@ class ListView(GroupListView):
         else:
             self.selectionID = None
             self.selectionTrack = None
-        attente = wx.BusyInfo(_(u"Recherche des données..."), self)
+        attente = UTILS_Attente.BusyInfo(_(u"Recherche des données..."), self)
         self.dict_titulaires = UTILS_Titulaires.GetTitulaires()
         self.InitModel()
         self.InitObjectListView()

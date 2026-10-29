@@ -26,6 +26,7 @@ from Data import DATA_Codes_etab
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import datetime
 import six
 import sys
@@ -792,7 +793,7 @@ class Facturation():
 
     def GetDonneesImpression(self, listeFactures=[], dictOptions=None):
         """ Impression des factures """
-        dlgAttente = wx.BusyInfo(
+        dlgAttente = UTILS_Attente.BusyInfo(
             _(u"Recherche des données de facturation..."), None)
         try:
             if 'phoenix' not in wx.PlatformInfo:
@@ -1206,7 +1207,7 @@ class Facturation():
 
         # Fabrication du PDF global
         if repertoireTemp == False:
-            dlgAttente = wx.BusyInfo(
+            dlgAttente = UTILS_Attente.BusyInfo(
                 _(u"Création du PDF des factures..."), None)
             try:
                 if 'phoenix' not in wx.PlatformInfo:
@@ -1237,7 +1238,7 @@ class Facturation():
 
 def SuppressionFacture(listeFactures=[], mode="suppression"):
     """ Suppression d'une facture """
-    dlgAttente = wx.BusyInfo(
+    dlgAttente = UTILS_Attente.BusyInfo(
         _(u"%s des factures en cours...") % mode.capitalize(), None)
     if 'phoenix' not in wx.PlatformInfo:
         wx.Yield()
@@ -1265,7 +1266,7 @@ def SuppressionFacture(listeFactures=[], mode="suppression"):
 
 def ModificationFacture(listeFactures=[], dict_valeurs={}):
     """ Modification des caractéristique d'une facture """
-    dlgAttente = wx.BusyInfo(_(u"Modification des factures en cours..."), None)
+    dlgAttente = UTILS_Attente.BusyInfo(_(u"Modification des factures en cours..."), None)
     if 'phoenix' not in wx.PlatformInfo:
         wx.Yield()
     DB = GestionDB.DB()

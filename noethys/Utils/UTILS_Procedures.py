@@ -12,6 +12,7 @@
 import Chemins
 from Utils.UTILS_Traduction import _
 import wx
+from Utils import UTILS_Attente
 import datetime
 import decimal
 import GestionDB
@@ -299,7 +300,7 @@ def E4072():
     dlg.CenterOnScreen()
     if dlg.ShowModal() == wx.ID_OK:
         message = _(u"Veuillez patienter durant la procédure...")
-        dlgAttente = wx.BusyInfo(message, None)
+        dlgAttente = UTILS_Attente.BusyInfo(message, None)
         if 'phoenix' not in wx.PlatformInfo:
             wx.Yield()
         selections = dlg.GetSelections()
@@ -382,7 +383,7 @@ def A5200():
     from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
     DB = GestionDB.DB()
 
-    dlgAttente = wx.BusyInfo(
+    dlgAttente = UTILS_Attente.BusyInfo(
         _(u"Veuillez patienter durant la procédure... Celle-ci peut nécessiter quelques minutes..."), None)
     if 'phoenix' not in wx.PlatformInfo:
         wx.Yield()

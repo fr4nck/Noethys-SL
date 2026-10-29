@@ -24,6 +24,7 @@ from Utils.UTILS_Traduction import _
 from Utils import UTILS_Traduction
 import six
 import wx
+from Utils import UTILS_Attente
 import platform
 import datetime
 import traceback
@@ -4045,7 +4046,7 @@ class MainFrame(wx.Frame):
             # Affiche d'une fenêtre d'attente
             try :
                 message = _(u"Mise à jour de la base de données en cours... Veuillez patienter...")
-                dlgAttente = wx.BusyInfo(message, None)
+                dlgAttente = UTILS_Attente.BusyInfo(message, None)
                 if 'phoenix' not in wx.PlatformInfo:
                     wx.Yield()
                 else:
@@ -4439,6 +4440,9 @@ Merci pour votre participation !
 
     def Autodeconnect(self, event=None):
         """ Actionne l'Autodeconnect si inactivité durant un laps de temps """
+        # Une attente modale peut laisser la fenêtre principale active mais désactivée.
+        if not self.IsEnabled():
+            return False
         #print "Timer autodeconnect...  ", time.time()
         
         # Vérifie que la souris a bougé
