@@ -11,6 +11,7 @@ import wx
 import GestionDB
 from Utils import UTILS_Accueil_autorisations as registre
 from Utils import UTILS_Accueil_sources as sources
+from Utils import UTILS_Accueil_impression as impression
 from Utils import UTILS_Fiche_accueil_enfant as regles
 from Utils.UTILS_Traduction import _
 
@@ -231,6 +232,15 @@ class Dialog(wx.Dialog):
             u"J'ai vérifié l'identité et l'autorité parentale du signataire."))
         colonne.Add(self.autorite, 0, wx.ALL, 12)
 
+        self.inclure_medical = wx.CheckBox(
+            panneau, label=_(u"Inclure les informations médicales déjà enregistrées dans le PDF (confidentiel)"))
+        self.inclure_medical.Enable(self.lecture_medicale and self.medical is not None)
+        colonne.Add(self.inclure_medical, 0, wx.ALL, 12)
+        self.bouton_imprimer = wx.Button(
+            panneau, label=_(u"Éditer la fiche enfant PDF (2 pages)"))
+        self.bouton_imprimer.Enable(self.acces)
+        colonne.Add(self.bouton_imprimer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+
         outils = wx.BoxSizer(wx.HORIZONTAL)
         self.bouton_initialiser = wx.Button(
             panneau, label=_(u"Préparer le registre (administrateur)"))
@@ -257,6 +267,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnInitialiser, self.bouton_initialiser)
         self.Bind(wx.EVT_BUTTON, self.OnActualiser, self.bouton_actualiser)
         self.Bind(wx.EVT_BUTTON, self.OnEnregistrer, self.bouton_sauver)
+        self.Bind(wx.EVT_BUTTON, self.OnImprimer, self.bouton_imprimer)
         self.OnActualiser()
 
     @staticmethod
@@ -356,6 +367,79 @@ class Dialog(wx.Dialog):
             wx.MessageBox(_(u"Registre non préparé : %s") % exc,
                           _(u"Opération refusée"), wx.OK | wx.ICON_WARNING, self)
             return False
+
+    def OnImprimer(self, event=None):
+        """Édition locale sur le modèle papier, aucun envoi ni nouvelle donnée."""
+        if not self.acces:
+            return False
+        perimetre = self.perimetre.GetValue().strip()
+        if perimetre != self.perimetre_charge:
+            wx.MessageBox(
+                _(u"Actualisez le périmètre avant d'imprimer."),
+                _(u"Fiche enfant"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        inclure = (self.lecture_medicale and self.medical is not None
+                   and self.inclure_medical.GetValue() is True)
+        if inclure:
+            if wx.MessageBox(_(
+                    u"Ce PDF contiendra des informations médicales sensibles "
+                    u"issues de la fiche existante. Il sera enregistré sur "
+                    u"l'ordinateur choisi, sans protection automatique. "
+                    u"Confirmez-vous cet export confidentiel ?"),
+                    _(u"Export de données médicales"),
+                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+                    self) != wx.YES:
+                return False
+        choix = wx.FileDialog(
+            self, _(u"Enregistrer la fiche enfant au format PDF"),
+            defaultFile=u"Fiche_Enfant_%d.pdf" % self.IDindividu,
+            wildcard=u"Documents PDF (*.pdf)|*.pdf",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        try:
+            if choix.ShowModal() != wx.ID_OK:
+                return False
+            destination = choix.GetPath()
+        finally:
+            choix.Destroy()
+        info = dict(self.entete)
+        info["annee"] = perimetre
+        info["responsables"] = [
+            {"identite": nom} for identifiant, nom in self.signataires[:2]]
+        info["aeeh"] = self.entete.get("aeeh", "")
+        info["repas"] = u"Voir le questionnaire individuel Noethys"
+        info["vaccinations"] = (u"%d vaccination(s) enregistrée(s)" %
+                self.medical["vaccins_enregistres"]) if self.medical else u""
+        medecin = self.medical.get("medecin") if self.medical else None
+        info["medecin"] = (u"%s %s (%s)" % (
+            medecin.get("nom", ""), medecin.get("prenom", ""),
+            medecin.get("telephone", ""))) if medecin else u""
+        info["medical"] = ([
+            u"%s : %s" % (item.get("intitule", ""), item.get("description", ""))
+            for item in self.medical["problemes"]] if inclure else [])
+        info["autorisation_modele"] = u"Fiche Enfant 2026-06"
+        info["autorisations"] = {}
+        for code, _libelle in PRINCIPALES:
+            if self.registre_pret:
+                _index, etat = EtatChoix(
+                    self.historique, self.IDindividu, code, perimetre,
+                    date.today().isoformat())
+                info["autorisations"][code] = etat
+        if self.signataire.GetSelection() > 0:
+            info["signataire"] = self.signataires[
+                self.signataire.GetSelection() - 1][1]
+        info["date_signature"] = self.date_signature.GetValue()
+        try:
+            impression.GenererPDF(destination, info)
+        except Exception as exc:
+            wx.MessageBox(
+                _(u"Le PDF n'a pas pu être généré : %s") % exc,
+                _(u"Édition impossible"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        wx.MessageBox(
+            _(u"Fiche PDF créée localement. Conservez séparément la fiche "
+              u"originale signée et les justificatifs."),
+            _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
+        return True
 
     def OnEnregistrer(self, event=None):
         if not self.ecriture or not self.registre_pret:
