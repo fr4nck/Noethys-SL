@@ -1,0 +1,77 @@
+name: Noethys SL - qualification isolee RC10.3
+
+on:
+  push:
+    branches: [wx]
+    paths: ['.github/workflows/noethys-sl-rc103-qualification.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-rc103-qualification-source-f4b19f7d
+  cancel-in-progress: false
+
+jobs:
+  qualifier:
+    if: >-
+      github.repository == 'fr4nck/Noethys-SL' &&
+      github.ref == 'refs/heads/wx' &&
+      github.event.head_commit.message == 'ci: qualifier RC10.3 source f4b19f7d'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      SOURCE_SHA: f4b19f7de9e0aec6dc0901214c6807b8bbc9ec90
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: f4b19f7de9e0aec6dc0901214c6807b8bbc9ec90
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de la CI rapide du candidat
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5 PyYAML==6.0.3
+      - name: Compiler exactement les sources du candidat
+        run: python -m compileall -q -x C866CA3A noethys tests scripts tools
+      - name: Rejouer la commande COMPLETE de sa CI rapide et attester sa provenance
+        shell: pwsh
+        run: |
+          @'
+          import hashlib, json, os, re, shlex, subprocess, sys
+          from pathlib import Path
+          import yaml
+          source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert source == os.environ['SOURCE_SHA']
+          fichier = Path('.github/workflows/noethys-sl-fast.yml')
+          workflow = yaml.safe_load(fichier.read_text(encoding='utf-8'))
+          etape = next(s for s in workflow['jobs']['tests-windows']['steps'] if s.get('name', '').startswith('Recette rapide -'))
+          commande = shlex.split(etape['run'])
+          assert commande[:3] == ['python', '-m', 'unittest']
+          assert all(a == '-v' or re.fullmatch(r'tests\.[A-Za-z0-9_]+', a) for a in commande[3:])
+          modules = sum(a.startswith('tests.') for a in commande)
+          assert modules >= 100, modules
+          print('RC103_QUALIFICATION source=%s modules=%d' % (source, modules), flush=True)
+          subprocess.check_call([sys.executable] + commande[1:])
+          subprocess.check_call(['git', 'diff', '--exit-code'])
+          preuve = {'source_sha': source, 'workflow_sha': os.environ['GITHUB_SHA'],
+                    'fast_workflow_sha256': hashlib.sha256(fichier.read_bytes()).hexdigest(),
+                    'command_sha256': hashlib.sha256(json.dumps(commande).encode()).hexdigest(),
+                    'suite_modules': modules, 'resultat': 'success'}
+          Path('qualification-rc103.json').write_text(json.dumps(preuve, indent=2), encoding='utf-8')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Qualification RC10.3 non validee' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: RC10.3-qualification-f4b19f7d
+          path: qualification-rc103.json
+          if-no-files-found: error
+
