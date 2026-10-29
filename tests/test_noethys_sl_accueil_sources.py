@@ -2,7 +2,9 @@
 """#436 - Lecture des champs medicaux existants, sans ecriture ni fuite."""
 import sqlite3
 import unittest
+from unittest.mock import patch
 from Utils import UTILS_Accueil_sources as S
+from Utils import UTILS_Repas_questionnaire as Q
 
 ADMIN = {"IDutilisateur": 3, "actif": 1, "profil": "administrateur"}
 
@@ -19,6 +21,9 @@ class Base:
               IDmedecin INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, tel_cabinet TEXT);
             CREATE TABLE vaccins (
               IDvaccin INTEGER PRIMARY KEY, IDindividu INTEGER);
+            CREATE TABLE questionnaire_reponses (
+              IDreponse INTEGER PRIMARY KEY, IDindividu INTEGER,
+              IDquestion INTEGER, reponse TEXT);
             CREATE TABLE problemes_sante (
               IDprobleme INTEGER PRIMARY KEY, IDindividu INTEGER, intitule TEXT,
               date_debut TEXT, date_fin TEXT, description TEXT,
@@ -89,6 +94,51 @@ class SourceMedicaleTests(unittest.TestCase):
     def test_enfant_inexistant_refuse(self):
         with self.assertRaises(ValueError):
             S.LireMedicalExistant(42, ADMIN, DB=self.db)
+
+
+
+class QuestionnaireRepasExistant(unittest.TestCase):
+    def setUp(self):
+        self.db = Base()
+        self.addCleanup(self.db.Close)
+        self.config = {"etat": "pret", "question": 3,
+                       "choix": {"standard": 50, "sans_porc": 51,
+                                 "vegetarien": 52, "sans_repas_pmsl": 53}}
+    def lire(self):
+        with patch.object(Q, "ExaminerQuestionnaire", return_value=self.config):
+            return S.LireRepasExistant(10, ADMIN, DB=self.db)
+    def test_absence_ne_devient_pas_standard(self):
+        self.assertEqual(self.lire(), "non_renseigne")
+    def test_quatre_reponses_proviennent_du_questionnaire(self):
+        for id_choix, attendu in ((50, "standard"), (51, "sans_porc"),
+                                   (52, "vegetarien"), (53, "sans_repas_pmsl")):
+            self.db.connexion.execute("DELETE FROM questionnaire_reponses")
+            self.db.connexion.execute(
+                "INSERT INTO questionnaire_reponses VALUES (1,10,3,?)",
+                (str(id_choix),))
+            self.db.connexion.commit()
+            self.assertEqual(self.lire(), attendu)
+    def test_reponse_inconnue_refusee(self):
+        self.db.connexion.execute(
+            "INSERT INTO questionnaire_reponses VALUES (1,10,3,'999')")
+        self.assertEqual(self.lire(), "a_verifier")
+    def test_deux_reponses_meme_enfant_refusees(self):
+        self.db.connexion.executemany(
+            "INSERT INTO questionnaire_reponses VALUES (?,?,?,?)",
+            [(1,10,3,"50"), (2,10,3,"51")])
+        self.assertEqual(self.lire(), "a_verifier")
+    def test_questionnaire_incomplet_signale(self):
+        with patch.object(Q, "ExaminerQuestionnaire",
+                          return_value={"etat": "absent"}):
+            self.assertEqual(S.LireRepasExistant(10, ADMIN, DB=self.db),
+                             "non_configure")
+        with patch.object(Q, "ExaminerQuestionnaire",
+                          return_value={"etat": "conflit"}):
+            self.assertEqual(S.LireRepasExistant(10, ADMIN, DB=self.db),
+                             "a_verifier")
+    def test_lecture_sans_habilitation_refusee(self):
+        with self.assertRaises(S.LectureMedicaleRefusee):
+            S.LireRepasExistant(10, {}, DB=self.db)
 
 
 if __name__ == "__main__":
