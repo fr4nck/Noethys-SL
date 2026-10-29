@@ -72,3 +72,46 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
     finally:
         if propre:
             DB.Close()
+
+
+def LireRepasExistant(IDindividu, utilisateur, DB=None):
+    """Lit la reponse au questionnaire repas existant, sans valeur implicite.
+
+    L'absence de reponse ne devient jamais Standard. Le libelle du portail,
+    les formulaires de facturation et les questions medicales sont exclus.
+    """
+    if type(IDindividu) is not int or IDindividu <= 0:
+        raise ValueError("Identifiant enfant incorrect")
+    if not acl.AccesUtilisateur(utilisateur, "consulter"):
+        raise LectureMedicaleRefusee("Lecture des preferences non autorisee")
+    from Utils import UTILS_Repas_questionnaire
+    propre = DB is None
+    if propre:
+        import GestionDB
+        DB = GestionDB.DB()
+    try:
+        if getattr(DB, "echec", 0):
+            raise RuntimeError("Base Noethys indisponible")
+        parametrage = UTILS_Repas_questionnaire.ExaminerQuestionnaire(base=DB)
+        if parametrage["etat"] != "pret":
+            return "non_configure" if parametrage["etat"] == "absent" else "a_verifier"
+        placeholder = "%s" if DB.isNetwork else "?"
+        DB.cursor.execute("""
+            SELECT reponse FROM questionnaire_reponses
+            WHERE IDquestion=""" + placeholder +
+            " AND IDindividu=" + placeholder + " ORDER BY IDreponse",
+            (parametrage["question"], IDindividu))
+        reponses = DB.cursor.fetchall()
+        if len(reponses) > 1:
+            return "a_verifier"
+        brut = reponses[0][0] if reponses else None
+        if brut is None or str(brut).strip() == "":
+            return "non_renseigne"
+        elements = [x.strip() for x in str(brut).split(";") if x.strip()]
+        if len(set(elements)) != 1:
+            return "a_verifier"
+        inverse = {str(id_): role for role, id_ in parametrage["choix"].items()}
+        return inverse.get(elements[0], "a_verifier")
+    finally:
+        if propre:
+            DB.Close()
