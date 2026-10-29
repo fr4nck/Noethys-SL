@@ -1,0 +1,174 @@
+name: "Noethys SL - publication ponctuelle RC10.3 verifiee"
+
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - '.github/workflows/noethys-sl-rc103-publish-verified.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-release-rc103-exact-build
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    if: >-
+      github.repository == 'fr4nck/Noethys-SL' &&
+      github.ref == 'refs/heads/wx' &&
+      github.event_name == 'push' &&
+      github.event.head_commit.message == 'release: publier RC10.3 validee f4b19f7d'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    env:
+      BUILD_SHA: 'f4b19f7de9e0aec6dc0901214c6807b8bbc9ec90'
+      BUILD_RUN: '40871040969'
+      FAST_RUN: '40873002081'
+      QUALIFICATION_SHA: '7f48148df568acb243063aa2427707cd292669d1'
+      TAG: 'noethys-sl-0.1.0-rc.10.3'
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Rassembler les notes du commit Windows qualifie
+        uses: actions/checkout@v4
+        with:
+          ref: 'f4b19f7de9e0aec6dc0901214c6807b8bbc9ec90'
+          persist-credentials: false
+
+      - name: Controler la provenance et les deux CI reussies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "fr4nck/Noethys-SL"
+          test "$GITHUB_REF_NAME" = "wx"
+          test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+          for controle in "$BUILD_RUN:$BUILD_SHA" "$FAST_RUN:$QUALIFICATION_SHA"; do
+            run="${controle%%:*}"
+            attendu="${controle#*:}"
+            etat="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .conclusion)"
+            source="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .head_sha)"
+            test "$etat" = "success" || { echo "Run $run non valide : $etat"; exit 1; }
+            test "$source" = "$attendu" || { echo "Run $run : mauvais commit $source"; exit 1; }
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$FAST_RUN" --jq .path)" = '.github/workflows/noethys-sl-rc103-qualification.yml'
+          test -s docs/releases/noethys-sl-0.1.0-rc.10.3.md
+          grep -q "0.1.0-rc.10.3" noethys/Identite.py
+
+      - name: Recuperer l'attestation de qualification des sources figees
+        uses: actions/download-artifact@v7
+        with:
+          name: RC10.3-qualification-f4b19f7d
+          repository: fr4nck/Noethys-SL
+          run-id: 40873002081
+          github-token: ${{ github.token }}
+          path: qualification
+
+      - name: Verifier la provenance de la commande complete executee
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, shlex
+          from pathlib import Path
+          from tests.test_noethys_sl_workflow_publication_rc103 import LireWorkflow
+          preuve = json.loads(Path('qualification/qualification-rc103.json').read_text(encoding='utf-8'))
+          assert preuve['source_sha'] == os.environ['BUILD_SHA']
+          assert preuve['workflow_sha'] == os.environ['QUALIFICATION_SHA']
+          assert preuve['resultat'] == 'success'
+          assert preuve['suite_modules'] >= 100
+          chemin = Path('.github/workflows/noethys-sl-fast.yml')
+          texte = chemin.read_text(encoding='utf-8')
+          # checkout Windows peut utiliser CRLF ; contenu identique requis.
+          empreintes = {hashlib.sha256(texte.encode()).hexdigest(), hashlib.sha256(texte.replace('\n', '\r\n').encode()).hexdigest()}
+          assert preuve['fast_workflow_sha256'] in empreintes
+          workflow = LireWorkflow(texte)
+          etape = next(s for s in workflow['jobs']['tests-windows']['steps'] if s.get('name', '').startswith('Recette rapide -'))
+          commande = shlex.split(etape['run'])
+          assert preuve['command_sha256'] == hashlib.sha256(json.dumps(commande).encode()).hexdigest()
+          assert preuve['suite_modules'] == sum(a.startswith('tests.') for a in commande)
+          print('PASS : qualification complete du source exact, sans modification du candidat')
+          PY
+
+      - name: Recuperer les binaires du run EXACT valide (sans reconstruction)
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.3-Windows-candidat
+          repository: fr4nck/Noethys-SL
+          run-id: 40871040969
+          github-token: ${{ github.token }}
+          path: windows-output
+
+      - name: Verifier les modules ALSH et attente dans le binaire sans l'executer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'pyinstaller==6.22.3'
+          python - <<'PY'
+          from pathlib import Path
+          import tempfile
+          import zipfile
+          from PyInstaller.archive.readers import CArchiveReader
+          with zipfile.ZipFile('windows-output/Noethys-SL-0.1.0-rc.10.3-Windows-portable.zip') as z:
+              assert z.testzip() is None, 'CRC ZIP invalide'
+              noms = [n for n in z.namelist() if n.lower() == 'noethys.exe' or n.lower().endswith('/noethys.exe')]
+              assert len(noms) == 1, 'Executable introuvable ou ambigu'
+              with tempfile.TemporaryDirectory() as rep:
+                  exe = Path(rep) / 'Noethys.exe'
+                  exe.write_bytes(z.read(noms[0]))
+                  archive = CArchiveReader(str(exe))
+                  pyz = archive.open_embedded_archive(next(n for n in archive.toc if n.startswith('PYZ')))
+                  modules = set(pyz.toc)
+                  attendus = {'Dlg.DLG_Frequentation_collectivites', 'Utils.UTILS_Frequentation_collectivites',
+                              'Utils.UTILS_Frequentation_collectivites_db', 'Utils.UTILS_Attente',
+                              'Utils.UTILS_MySQL_backup', 'xlsxwriter', 'xlsxwriter.workbook', 'reportlab.platypus'}
+                  assert attendus <= modules, 'Modules absents : ' + ', '.join(sorted(attendus - modules))
+          print('PASS : CRC et modules ALSH/Excel/PDF/attente/sauvegarde embarques')
+          PY
+
+      - name: Verifier Setup, portable, empreintes et absence de release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s windows-output/Noethys-SL-0.1.0-rc.10.3-Setup.exe
+          test -s windows-output/Noethys-SL-0.1.0-rc.10.3-Windows-portable.zip
+          test -s windows-output/SHA256SUMS.txt
+          test "$(wc -l < windows-output/SHA256SUMS.txt)" -eq 2
+          (cd windows-output && sha256sum -c SHA256SUMS.txt)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "STOP : release RC10.3 preexistante, aucun ecrasement"
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "STOP : tag RC10.3 preexistant, aucun ecrasement"
+            exit 1
+          fi
+
+      - name: Publier uniquement la prerelease GitHub RC10.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "windows-output/Noethys-SL-0.1.0-rc.10.3-Setup.exe" \
+            "windows-output/Noethys-SL-0.1.0-rc.10.3-Windows-portable.zip" \
+            "windows-output/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$BUILD_SHA" \
+            --title 'Noethys SL 0.1.0 RC10.3' \
+            --notes-file docs/releases/noethys-sl-0.1.0-rc.10.3.md \
+            --prerelease
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "true"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$BUILD_SHA"
+          for nom in Noethys-SL-0.1.0-rc.10.3-Setup.exe Noethys-SL-0.1.0-rc.10.3-Windows-portable.zip SHA256SUMS.txt; do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$nom"
+          done
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
+
+# Publication demandee explicitement par l’utilisateur le 29/10/2026 ; apres qualification RC10.3.
+# Aucune installation automatique et aucun remplacement des versions publiees.
+
+
