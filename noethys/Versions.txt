@@ -1,3 +1,12 @@
+Version Noethys SL 0.1.0 RC10.4 (29/10/2026) :
+
+- Situation des communes ALSH : choix explicite des absences injustifiees facturables, desactive par defaut, avec jours et participations separes des presences reelles.
+- Situation des communes ALSH : maintien de l'import Noethys en lecture seule, des controles des conventions et des exports Excel, PDF et CSV.
+- Fiche enfant Pêle-Mêle : restitution de la structure papier en deux pages et consultation des informations existantes avec restrictions de droits et export confidentiel sur choix explicite (#436).
+- Attentes et fenetres : correction des tests Windows apres ajout du choix absenti et placement explicite des boutons de la fiche enfant.
+- Conservation des correctifs de recherche d'anomalies et de fenetres RC10.3, et des sauvegardes RC10.2.
+- Sauvegarde reseau : incident #437 encore soumis a validation sur le terrain ; aucun probleme MySQL ou de sauvegarde reelle n'est declare resolu par cette seule RC.
+
 Version Noethys SL 0.1.0 RC10.3 (29/10/2026) :
 
 - Recherche d'anomalies au démarrage : maintien de la réactivité de l'interface pendant les lectures SQL, sans modifier les textes ou la présentation.
