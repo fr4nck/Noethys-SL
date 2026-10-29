@@ -143,10 +143,8 @@ jobs:
             echo "STOP : release RC10.3 preexistante, aucun ecrasement"
             exit 1
           fi
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "STOP : tag RC10.3 preexistant, aucun ecrasement"
-            exit 1
-          fi
+          # Tag publie avec l'identite Git autorisee ; aucun deplacement permis.
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$BUILD_SHA"
 
       - name: Publier uniquement la prerelease GitHub RC10.3
         shell: bash
@@ -157,7 +155,7 @@ jobs:
             "windows-output/Noethys-SL-0.1.0-rc.10.3-Windows-portable.zip" \
             "windows-output/SHA256SUMS.txt" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$BUILD_SHA" \
+            --verify-tag \
             --title 'Noethys SL 0.1.0 RC10.3' \
             --notes-file docs/releases/noethys-sl-0.1.0-rc.10.3.md \
             --prerelease
