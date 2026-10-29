@@ -262,8 +262,9 @@ class Dialog(wx.Dialog):
             panneau, label=_(u"Préparer le registre (administrateur)"))
         self.bouton_actualiser = wx.Button(panneau, label=_(u"Actualiser les autorisations"))
         self.bouton_sauver = wx.Button(panneau, label=_(u"Enregistrer les changements signés"))
-        for bouton in (self.bouton_initialiser, self.bouton_actualiser, self.bouton_sauver):
-            outils.Add(bouton, 0, wx.RIGHT, 9)
+        outils.Add(self.bouton_initialiser, 0, wx.RIGHT, 9)
+        outils.Add(self.bouton_actualiser, 0, wx.RIGHT, 9)
+        outils.Add(self.bouton_sauver, 0, wx.RIGHT, 9)
         colonne.Add(outils, 0, wx.ALL, 12)
         bas = wx.BoxSizer(wx.HORIZONTAL)
         bas.AddStretchSpacer()

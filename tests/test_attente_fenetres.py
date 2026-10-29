@@ -151,8 +151,9 @@ def scenario():
                 def Close(self):
                     assert threading.get_ident() == self.thread
                     self.fermee = True
-            def lecture(annee, db=None):
+            def lecture(annee, db=None, inclure_absenti=False):
                 assert annee == 2026 and not wx.IsMainThread()
+                assert inclure_absenti is False
                 assert db is connexions[-1]
                 time.sleep(1.1)
                 return []
