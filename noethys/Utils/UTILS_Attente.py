@@ -118,6 +118,10 @@ class BusyInfo:
             taille = panneau.GetBestSize()
             fenetre.SetClientSize((max(400, taille.width), max(80, taille.height)))
             fenetre.Layout()
+            # Les traitements synchrones peuvent commencer avant le prochain
+            # EVT_SIZE : placer et peindre aussi le panneau et son texte ici.
+            panneau.SetSize(fenetre.GetClientSize())
+            panneau.Layout()
             fenetre.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
             if parent is None:
                 fenetre.CentreOnScreen()
@@ -129,6 +133,8 @@ class BusyInfo:
             fenetre.ShowWithoutActivating()
             fenetre.Refresh()
             fenetre.Update()
+            panneau.Update()
+            self._texte.Update()
         except BaseException:
             self.Destroy()
             raise

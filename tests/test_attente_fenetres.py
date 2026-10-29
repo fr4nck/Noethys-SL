@@ -116,7 +116,13 @@ def scenario():
                 if u32.PrintWindow(hwnd, dc.GetHDC(), 1):
                     dc.SelectObject(wx.NullBitmap)
                     sortie = io.BytesIO()
-                    bitmap.ConvertToImage().SaveFile(sortie, wx.BITMAP_TYPE_PNG)
+                    capture = bitmap.ConvertToImage()
+                    data = bytes(capture.GetData())
+                    observations[-1]['pixels_texte'] = sum(max(r, g, b) < 120
+                        for r, g, b in zip(data[0::3], data[1::3], data[2::3]))
+                    if not ancien:
+                        observations[-1]['rectangle_texte'] = list(info._texte.GetRect())
+                    capture.SaveFile(sortie, wx.BITMAP_TYPE_PNG)
                     print('ATTENTE_IMAGE ' + ('avant ' if ancien else 'apres ') + base64.b64encode(sortie.getvalue()).decode('ascii'), flush=True)
                 else:
                     dc.SelectObject(wx.NullBitmap)
@@ -211,6 +217,8 @@ class AttenteWindowsTests(unittest.TestCase):
         self.assertTrue(apres['owner'] and apres['focus_inchange'] and apres['etat_inchange'])
         self.assertFalse(apres['topmost'])
         self.assertEqual(avant['taille'], apres['taille'])
+        self.assertGreater(avant['pixels_texte'], 50)
+        self.assertGreater(apres['pixels_texte'], 50, apres)
         alsh = d['alsh']
         self.assertTrue(alsh['connexion_fermee'] and alsh['retour_attendu'] and alsh['etat_inchange'], alsh)
         self.assertGreater(alsh['battements'], 10)
