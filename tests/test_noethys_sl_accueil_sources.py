@@ -4,7 +4,10 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 from Utils import UTILS_Accueil_sources as S
-from Utils import UTILS_Repas_questionnaire as Q
+try:
+    from Utils import UTILS_Repas_questionnaire as Q
+except ImportError:
+    Q = None  # Le sous-lot questionnaire repas n'est pas encore porte sur main.
 
 ADMIN = {"IDutilisateur": 3, "actif": 1, "profil": "administrateur"}
 
@@ -97,6 +100,7 @@ class SourceMedicaleTests(unittest.TestCase):
 
 
 
+@unittest.skipIf(Q is None, "Questionnaire repas non integre a cette branche")
 class QuestionnaireRepasExistant(unittest.TestCase):
     def setUp(self):
         self.db = Base()
