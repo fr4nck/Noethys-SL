@@ -37,9 +37,11 @@ def _connecter(db):
     return connexion, True
 
 
-def lister_unites(annee, db=None):
+def lister_unites(annee, db=None, inclure_absenti=False):
     """Unites utilisees sur l'annee, sans noms ni identifiants d'enfants."""
     a = _annee(annee)
+    if not isinstance(inclure_absenti, bool):
+        raise ErreurFrequentation("Choix des absences non booleen")
     connexion, proprietaire = _connecter(db)
     try:
         sql = """SELECT c.IDactivite, c.IDunite, a.nom, u.nom, COUNT(c.IDconso)
@@ -47,9 +49,10 @@ def lister_unites(annee, db=None):
           JOIN activites AS a ON a.IDactivite=c.IDactivite
           JOIN unites AS u ON u.IDunite=c.IDunite AND u.IDactivite=c.IDactivite
           WHERE c.date >= '%04d-01-01' AND c.date <= '%04d-12-31'
-            AND c.etat IN ('present', 'reservation')
+            AND c.etat IN ('present', 'reservation'%s)
           GROUP BY c.IDactivite, c.IDunite, a.nom, u.nom
-          ORDER BY a.nom, u.nom, c.IDactivite, c.IDunite""" % (a, a)
+          ORDER BY a.nom, u.nom, c.IDactivite, c.IDunite""" % (
+              a, a, ", 'absenti'" if inclure_absenti else "")
         return [{"IDactivite": int(act), "IDunite": int(unit),
                  "activite": str(nom_a or ""), "unite": str(nom_u or ""),
                  "nombre": int(count)}
@@ -86,7 +89,7 @@ def resoudre_villes(individus):
     return villes
 
 
-def importer_journees(annee, arrete, commune, mapping, db=None):
+def importer_journees(annee, arrete, commune, mapping, db=None, inclure_absenti=False):
     """Importe les presences/reservations des seules unites choisies.
 
     Retourne seulement des totaux mensuels non nominatifs et des diagnostics
@@ -94,6 +97,8 @@ def importer_journees(annee, arrete, commune, mapping, db=None):
     Les contributions communales et les acomptes sont geres separement.
     """
     a = _annee(annee)
+    if not isinstance(inclure_absenti, bool):
+        raise ErreurFrequentation("Choix des absences non booleen")
     d = _date(arrete, "date d'arrete")
     if d.year != a:
         raise ErreurFrequentation("Arrete hors de l'annee civile")
@@ -127,7 +132,8 @@ def importer_journees(annee, arrete, commune, mapping, db=None):
         if not lignes:
             return {"jours": [], "exclusions": {"hors_commune": 0,
                     "domiciles_indetermines": 0}, "nb_enfants_jour": 0,
-                    "domiciliation_historique_verifiee": False}
+                    "domiciliation_historique_verifiee": False,
+            "absenti_selectionne": inclure_absenti}
         adresses = _executer(connexion, "SELECT IDindividu, adresse_auto, ville_resid FROM individus")
         villes = resoudre_villes({int(i): (reference, ville) for i, reference, ville in adresses})
         utiles = []
@@ -149,7 +155,8 @@ def importer_journees(annee, arrete, commune, mapping, db=None):
                            "date": str(jour), "IDactivite": activite,
                            "IDunite": unite, "etat": etat,
                            "commune_residence": ville})
-        r = consolider_export_consommations(utiles, regles, commune, a, d)
+        r = consolider_export_consommations(utiles, regles, commune, a, d,
+                                            inclure_absenti=inclure_absenti)
         r["exclusions"]["domiciles_indetermines"] = indetermines
         r["exclusions"]["hors_commune"] = non_commune
         r["domiciliation_historique_verifiee"] = False

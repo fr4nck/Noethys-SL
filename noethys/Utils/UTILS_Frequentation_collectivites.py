@@ -18,7 +18,7 @@ from pathlib import Path
 
 SCHEMA = "noethys-sl.frequentation-collectivites.v1"
 CONTROLES = ("frequentation", "prevision", "domiciliation", "acomptes")
-ETATS = ("realise", "prevision")
+ETATS = ("realise", "absence_injustifiee", "prevision")
 COMMUNES_ALSH = (
     "Availles-sur-Seiche", "Bais", "Drouges", "La Guerche-de-Bretagne",
     "Mousse", "Moutiers", "Rannee", "La Selle-Guerchaise", "Visseiche",
@@ -144,6 +144,7 @@ def modele(commune="Bais", annee=2026, arrete="2026-10-29"):
         "commune": commune, "annee": a, "arrete": arrete,
         "conventions": conventions,
         "jours": [], "acomptes": [],
+        "options_etats": {"absenti": False},
         "controles": {k: False for k in CONTROLES},
     }
 
@@ -169,6 +170,11 @@ def calculer(dossier):
     org = dossier.get("emetteur", "")
     if not isinstance(org, str):
         raise ErreurFrequentation("Nom d'organisme non textuel")
+    # Old v1 dossiers without options keep the safe historical default.
+    options = dossier.get("options_etats", {"absenti": False})
+    if not isinstance(options, dict) or set(options) != {"absenti"} or not isinstance(options["absenti"], bool):
+        raise ErreurFrequentation("Choix de comptage des absences invalide")
+    compter_absenti = options["absenti"]
     verifs = dossier.get("controles")
     if not isinstance(verifs, dict) or any(not isinstance(verifs.get(c), bool) for c in CONTROLES):
         raise ErreurFrequentation("Controles obligatoires sous forme true/false")
@@ -202,7 +208,7 @@ def calculer(dossier):
         conventions[ident] = {"accueil": accueil, "tarif_centimes": tarif, "debut": d0,
                               "fin": d1, "tarif_confirme": conf, "demi": demi,
                               "justificatif": justificatif,
-                              "mensuel": {m: {"realise": Decimal("0"), "prevision": Decimal("0")} for m in range(1,13)}}
+                              "mensuel": {m: {"realise": Decimal("0"), "absence_injustifiee": Decimal("0"), "prevision": Decimal("0")} for m in range(1,13)}}
     raw_jours = dossier.get("jours")
     raw_acomptes = dossier.get("acomptes")
     if not isinstance(raw_jours, list) or not isinstance(raw_acomptes, list):
@@ -231,8 +237,10 @@ def calculer(dossier):
         if cle in vus_jours:
             raise ErreurFrequentation("Deux bilans de frequentation pour une meme periode : %s" % (cle,))
         vus_jours.add(cle)
-        if nature == "realise" and mois > arrete.month:
-            raise ErreurFrequentation("Presence future comptabilisee comme realisee : %s" % ident)
+        if nature == "absence_injustifiee" and not compter_absenti:
+            raise ErreurFrequentation("Activer explicitement les absences injustifiees avant leur saisie : %s" % ident)
+        if nature in ("realise", "absence_injustifiee") and mois > arrete.month:
+            raise ErreurFrequentation("Journee retenue apres la date d'arrete : %s" % ident)
         if nature == "prevision" and mois < arrete.month:
             raise ErreurFrequentation("Ancienne reservation consideree comme future : %s" % ident)
         c = conventions[cid]
@@ -297,36 +305,46 @@ def calculer(dossier):
         if indetermines:
             source_valide = False
             alertes.append("Domiciles non resolus, consommations exclues : %d" % indetermines)
+        if source.get("absenti_selectionne", False) is not compter_absenti:
+            raise ErreurFrequentation("Choix des absences modifie : recharger les donnees Noethys")
         if source.get("perimetre_unites_confirme") is not True:
             source_valide = False
             alertes.append("Selection des unites ALSH non declaree exhaustive")
         if source.get("domiciliation_historique_verifiee") is not True:
             source_valide = False
             alertes.append("Adresses actuelles : domiciliation historique non verifiee")
-    real = pred = Decimal("0")
-    part_reelle = part_prevue = 0
+    real = pred = absenti = Decimal("0")
+    part_reelle = part_prevue = part_absenti = 0
     par_accueil = {}
-    mensuel = {m: {"realise": Decimal("0"), "prevision": Decimal("0"),
+    mensuel = {m: {"realise": Decimal("0"), "absence_injustifiee": Decimal("0"),
+                   "prevision": Decimal("0"), "participation_absences": 0,
                    "participation": 0} for m in range(1, 13)}
     for cid, c in conventions.items():
         r = sum((c["mensuel"][m]["realise"] for m in range(1, 13)), Decimal("0"))
         p = sum((c["mensuel"][m]["prevision"] for m in range(1, 13)), Decimal("0"))
+        a = sum((c["mensuel"][m]["absence_injustifiee"] for m in range(1, 13)), Decimal("0"))
         er = _en_centimes(r, c["tarif_centimes"])
         ep = _en_centimes(p, c["tarif_centimes"])
+        ea = _en_centimes(a, c["tarif_centimes"])
         real += r
         pred += p
+        absenti += a
         part_reelle += er
         part_prevue += ep
+        part_absenti += ea
         par_accueil[cid] = {"accueil": c["accueil"], "tarif_centimes": c["tarif_centimes"],
                             "tarif_confirme": c["tarif_confirme"], "realise": r, "prevision": p,
+                            "absences_injustifiees": a,
                             "participation_reelle": er, "participation_prevue": ep,
-                            "participation_estimee": er + ep, "acomptes_recus": payes[cid]}
+                            "participation_absences_injustifiees": ea,
+                            "participation_estimee": er + ep + ea, "acomptes_recus": payes[cid]}
         for m in range(1, 13):
             mensuel[m]["realise"] += c["mensuel"][m]["realise"]
+            mensuel[m]["absence_injustifiee"] += c["mensuel"][m]["absence_injustifiee"]
             mensuel[m]["prevision"] += c["mensuel"][m]["prevision"]
         # Allouer les fractions de centime au dernier mois renseigne afin que
         # le tableau mensuel reconcilie exactement le total annuel par accueil.
-        for nature, total_cents in (("realise", er), ("prevision", ep)):
+        for nature, total_cents in (("realise", er), ("absence_injustifiee", ea), ("prevision", ep)):
             monthly = {m: _en_centimes(c["mensuel"][m][nature], c["tarif_centimes"])
                        for m in range(1, 13)}
             correction = total_cents - sum(monthly.values())
@@ -335,34 +353,51 @@ def calculer(dossier):
                 monthly[nonzero[-1]] += correction
             for m, cents in monthly.items():
                 mensuel[m]["participation"] += cents
+                if nature == "absence_injustifiee":
+                    mensuel[m]["participation_absences"] += cents
     # Les cases non renseignees sont indeterminees sauf lorsque leur
     # categorie a ete explicitement declaree exhaustive pour l'exercice.
     for m in range(1, 13):
-        for nature, controle in (("realise", "frequentation"), ("prevision", "prevision")):
-            applicable = m <= arrete.month if nature == "realise" else m >= arrete.month
+        natures = [("realise", "frequentation"), ("prevision", "prevision")]
+        if compter_absenti:
+            natures.append(("absence_injustifiee", "frequentation"))
+        for nature, controle in natures:
+            applicable = m <= arrete.month if nature != "prevision" else m >= arrete.month
             if applicable and not verifs[controle] and not all(
                     (cid, m, nature) in vus_jours for cid in conventions):
                 mensuel[m][nature] = None
-        if mensuel[m]["realise"] is None or mensuel[m]["prevision"] is None:
+        if any(mensuel[m][nature] is None for nature, _ in natures):
             mensuel[m]["participation"] = None
+            if compter_absenti and mensuel[m]["absence_injustifiee"] is None:
+                mensuel[m]["participation_absences"] = None
+    if compter_absenti:
+        alertes.append("Absences injustifiees retenues dans le calcul : accord communal ecrit a verifier. Ce ne sont PAS des presences reelles.")
     connu = bool(raw_jours and conventions)
-    complet = bool(connu and org.strip() and all(verifs.values()) and
+    # Conventions fournies : journees realisees, sans regle explicite sur les
+    # absences facturees. Le choix peut etre utilise pour simulation seulement.
+    complet = bool(not compter_absenti and connu and org.strip() and all(verifs.values()) and
                    all(c["tarif_confirme"] for c in conventions.values()) and
                    not lignes_sans_piece and not paiements_sans_piece and source_valide)
-    solde = part_reelle + part_prevue - acomptes if connu else None
+    solde = part_reelle + part_absenti + part_prevue - acomptes if connu else None
     if solde is not None and solde < 0:
         alertes.append("Acomptes superieurs a la participation estimee : trop-percu possible")
-    statut = "ETAT VERIFIE - PREVISIONNEL" if complet else "PROVISOIRE - A VERIFIER"
+    statut = ("ETAT VERIFIE - PREVISIONNEL" if complet else
+              "PROVISOIRE - ABSENCES A VALIDER" if compter_absenti else
+              "PROVISOIRE - A VERIFIER")
     return {
         "schema": SCHEMA, "emetteur": org.strip(), "commune": nom,
         "annee": annee, "arrete": arrete.isoformat(), "statut": statut,
+        "options_etats": {"absenti": compter_absenti},
         "conventions": par_accueil,
         "mensuel": {str(m): mensuel[m] for m in range(1, 13)},
         "totaux": {"journees_reelles": real if connu else None,
+                   "journees_absences_injustifiees": absenti if connu else None,
+                   "journees_retenues": real + absenti if connu else None,
                    "journees_prevues": pred if connu else None,
                    "participation_reelle": part_reelle if connu else None,
+                   "participation_absences_injustifiees": part_absenti if connu else None,
                    "participation_prevue": part_prevue if connu else None,
-                   "participation_estimee": part_reelle + part_prevue if connu else None,
+                   "participation_estimee": part_reelle + part_absenti + part_prevue if connu else None,
                    "acomptes_recus": acomptes if raw_acomptes or verifs["acomptes"] else None,
                    "solde_indicatif": solde,
                    "solde_verifie": solde if complet else None},
@@ -370,7 +405,7 @@ def calculer(dossier):
     }
 
 
-def consolider_export_consommations(records, mapping_unites, commune, annee, arrete):
+def consolider_export_consommations(records, mapping_unites, commune, annee, arrete, inclure_absenti=False):
     """Prepare les bilans mensuels depuis des consommations exportees de Noethys.
 
     Pas d'acces direct a la base ; id enfant et commune doivent deja avoir ete
@@ -379,6 +414,8 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
     Un poids 0 exclut repas/garderie ; jamais de reconnaissance par libelle.
     Les reservations passees ne sont PAS des presences.
     """
+    if not isinstance(inclure_absenti, bool):
+        raise ErreurFrequentation("Choix absenti attendu sous forme vrai/faux")
     a = int(annee)
     cutoff = _date(arrete, "arrete")
     if cutoff.year != a:
@@ -410,13 +447,14 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
             exclus["autres_communes"] += 1
             continue
         etat = _texte(l.get("etat"), "etat consommation").lower()
-        # Etats canoniques Noethys sans frequentation : absence justifiee
-        # (absentj), injustifiee (absenti), attente ou refus. Ne jamais les
-        # transformer en journees-enfants, meme si l'unite est selectionnee.
-        if etat in ("absent", "absentj", "absenti", "annule", "refus", "attente"):
+        # Excluded states do not become visits, even for a selected unit.
+        if etat in ("absent", "absentj", "annule", "refus", "attente"):
             exclus["absences"] += 1
             continue
-        if etat not in ("present", "reservation"):
+        if etat == "absenti" and (not inclure_absenti or jour > cutoff):
+            exclus["absences"] += 1
+            continue
+        if etat not in ("present", "reservation", "absenti"):
             raise ErreurFrequentation("Etat de consommation inconnu : %s" % etat)
         if etat == "reservation" and jour <= cutoff:
             exclus["reservations_passees"] += 1
@@ -452,7 +490,7 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
             raise ErreurFrequentation("Plus d'une journee par enfant/jour/accueil : %s %s" % (cid, jour))
         cle = (enfant, jour, cid)
         if cle in par_jour:
-            raise ErreurFrequentation("Presence et reservation simultanees : %s %s" % (cid, jour))
+            raise ErreurFrequentation("Etats incompatibles le meme jour : %s %s" % (cid, jour))
         par_jour[cle] = (etat, quantite)
     # Un enfant ne peut totaliser deux journees pleines le meme jour sous
     # deux conventions ALSH differentes. Cas suspect = validation manuelle.
@@ -464,7 +502,8 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
             raise ErreurFrequentation("Double comptage entre accueils le %s" % jour)
     par_mois = {}
     for (_enfant, jour, cid), (etat, quantite) in par_jour.items():
-        nature = "realise" if etat == "present" else "prevision"
+        nature = {"present": "realise", "reservation": "prevision",
+                  "absenti": "absence_injustifiee"}[etat]
         cle = (cid, jour.month, nature)
         par_mois[cle] = par_mois.get(cle, Decimal("0")) + quantite
     lignes = []
@@ -473,7 +512,9 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
                        "nature": nature, "nombre": str(nombre),
                        "justificatif": "Export Noethys : consommations / paramétrage des unités à vérifier"})
     return {"jours": lignes, "exclusions": exclus,
-            "nb_enfants_jour": len(par_jour), "verification_domicile_requise": True}
+            "nb_enfants_jour": len(par_jour),
+            "absenti_selectionne": inclure_absenti,
+            "verification_domicile_requise": True}
 
 
 def exporter_csv(resultat, destination):
@@ -485,22 +526,26 @@ def exporter_csv(resultat, destination):
         for key in ("commune", "annee", "arrete", "statut"):
             w.writerow([key, resultat[key]])
         w.writerow([])
-        w.writerow(["Accueil", "Tarif EUR par journee-enfant", "Jours reels", "Jours previsionnels", "Participation reelle EUR", "Participation previsionnelle EUR", "Acomptes recus EUR"])
+        w.writerow(["Accueil", "Tarif EUR par journee-enfant", "Jours reels", "Jours previsionnels", "Participation reelle EUR", "Participation previsionnelle EUR", "Acomptes recus EUR", "Absences injustifiees retenues", "Participation absences injustifiees EUR"])
         for c in resultat["conventions"].values():
             w.writerow([c["accueil"], "%d.%02d" % divmod(c["tarif_centimes"], 100),
                         _fr_jours(c["realise"]), _fr_jours(c["prevision"]),
                         _csv_centimes(c["participation_reelle"]),
                         _csv_centimes(c["participation_prevue"]),
-                        _csv_centimes(c["acomptes_recus"])])
+                        _csv_centimes(c["acomptes_recus"]),
+                        _fr_jours(c["absences_injustifiees"]),
+                        _csv_centimes(c["participation_absences_injustifiees"])])
         w.writerow([])
-        w.writerow(["Mois", "Journees reelles", "Journees prevues", "Participation theorique EUR"])
+        w.writerow(["Mois", "Journees reelles", "Journees prevues", "Participation theorique EUR", "Absences injustifiees retenues", "Participation absences EUR"])
         for mois in range(1, 13):
             r = resultat["mensuel"][str(mois)]
             w.writerow(["%02d/%d" % (mois, resultat["annee"]), _fr_jours(r["realise"]),
-                        _fr_jours(r["prevision"]), _csv_centimes(r["participation"])])
+                        _fr_jours(r["prevision"]), _csv_centimes(r["participation"]),
+                        _fr_jours(r["absence_injustifiee"]), _csv_centimes(r["participation_absences"])])
         w.writerow([])
-        for cle in ("journees_reelles", "journees_prevues", "participation_reelle", "participation_prevue",
-                    "participation_estimee", "acomptes_recus", "solde_indicatif", "solde_verifie"):
+        for cle in ("journees_reelles", "journees_absences_injustifiees", "journees_retenues",
+                    "journees_prevues", "participation_reelle", "participation_absences_injustifiees",
+                    "participation_prevue", "participation_estimee", "acomptes_recus", "solde_indicatif", "solde_verifie"):
             val = resultat["totaux"][cle]
             if cle.startswith("journees"):
                 val = _fr_jours(val)
@@ -508,6 +553,8 @@ def exporter_csv(resultat, destination):
                 val = "NON CALCULABLE" if val is None else _csv_centimes(val)
             w.writerow([cle, val])
         w.writerow([])
+        w.writerow(["OPTION ABSENCES INJUSTIFIEES", "INCLUSES" if resultat["options_etats"]["absenti"] else "EXCLUES"])
+        w.writerow(["METHODE", "Les absences injustifiees retenues ne sont pas des presences reelles."])
         for msg in resultat["alertes"]:
             w.writerow(["CONTROLE", msg])
     return p
@@ -571,6 +618,7 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         situation.set_column("F:J", 24)
         situation.set_column("K:K", 20)
         situation.set_column("L:L", 62)
+        situation.set_column("M:N", 30)
         situation.freeze_panes(8, 2)
         texte(situation, 0, 0, "SITUATION DE FREQUENTATION ALSH", titre)
         for ligne, label, valeur in (
@@ -588,11 +636,14 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
             mentions.append("EXEMPLE FICTIF - NE PAS TRANSMETTRE")
         if totaux["solde_verifie"] is None:
             mentions.append("ETAT PROVISOIRE : les sommes ne sont pas certifiees")
+        if resultat["options_etats"]["absenti"]:
+            mentions.append("ABSENCES INJUSTIFIEES RETENUES - ACCORD COMMUNAL A VERIFIER")
         if mentions:
             texte(situation, 6, 0, " | ".join(mentions), reserve)
         colonnes = ("Accueil", "Convention", "Tarif €/jour", "Jours realises", "Jours prevus",
                     "Participation realisee €", "Participation prevue €", "Participation estimee €",
-                    "Acomptes saisis €", "Solde indicatif €", "Tarif confirme", "Source convention")
+                    "Acomptes saisis €", "Solde indicatif €", "Tarif confirme", "Source convention",
+                    "Absences injustifiees retenues", "Participation des absences €")
         for col, label in enumerate(colonnes):
             texte(situation, 7, col, label, entete)
         debut = 8
@@ -607,15 +658,18 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
             texte(situation, ligne, 10, "OUI" if convention["tarif_confirme"] else "A CONFIRMER")
             texte(situation, ligne, 11, justifs.get(ident, "Non fournie"))
             if not connu:
-                for col in (3, 4, 5, 6, 7, 9):
+                for col in (3, 4, 5, 6, 7, 9, 12, 13):
                     texte(situation, ligne, col, "NON CALCULABLE", reserve)
             else:
                 nombre(situation, ligne, 3, convention["realise"])
                 nombre(situation, ligne, 4, convention["prevision"])
+                nombre(situation, ligne, 12, convention["absences_injustifiees"])
+                situation.write_formula(ligne, 13, "=ROUND(C%d*M%d,2)" % (num, num),
+                                        euros, convention["participation_absences_injustifiees"] / 100.0)
                 for col, formule, cache in (
                     (5, "=ROUND(C%d*D%d,2)" % (num, num), convention["participation_reelle"]),
                     (6, "=ROUND(C%d*E%d,2)" % (num, num), convention["participation_prevue"]),
-                    (7, "=F%d+G%d" % (num, num), convention["participation_estimee"]),
+                    (7, "=F%d+G%d+N%d" % (num, num, num), convention["participation_estimee"]),
                     (9, "=H%d-I%d" % (num, num), convention["participation_estimee"] - convention["acomptes_recus"]),
                 ):
                     situation.write_formula(ligne, col, formule, euros, cache / 100.0)
@@ -634,14 +688,15 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         for colonne, champ in ((3, "journees_reelles"), (4, "journees_prevues"),
                                (5, "participation_reelle"), (6, "participation_prevue"),
                                (7, "participation_estimee"), (8, "acomptes_recus"),
-                               (9, "solde_indicatif")):
+                               (9, "solde_indicatif"), (12, "journees_absences_injustifiees"),
+                               (13, "participation_absences_injustifiees")):
             if totaux[champ] is None or fin == debut:
                 texte(situation, fin, colonne, "NON CALCULABLE", reserve)
             else:
                 lettre = chr(65 + colonne)
-                cache = float(totaux[champ]) if colonne in (3, 4) else totaux[champ] / 100.0
+                cache = float(totaux[champ]) if colonne in (3, 4, 12) else totaux[champ] / 100.0
                 situation.write_formula(fin, colonne, "=SUM(%s%d:%s%d)" % (
-                    lettre, debut + 1, lettre, fin), nb if colonne in (3, 4) else euros, cache)
+                    lettre, debut + 1, lettre, fin), nb if colonne in (3, 4, 12) else euros, cache)
         texte(situation, fin + 2, 0, "Solde verifie (€)")
         if totaux["solde_verifie"] is None:
             texte(situation, fin + 2, 1, "NON CALCULABLE", reserve)
@@ -656,10 +711,12 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         mensuel.set_column("A:A", 18)
         mensuel.set_column("B:C", 24)
         mensuel.set_column("D:D", 30)
+        mensuel.set_column("E:F", 32)
         mensuel.freeze_panes(3, 1)
         texte(mensuel, 0, 0, "FREQUENTATION MENSUELLE", titre)
         texte(mensuel, 1, 0, "Commune : %s / %d" % (resultat["commune"], resultat["annee"]))
-        for col, label in enumerate(("Mois", "Jours realises", "Jours prevus", "Participation (€)")):
+        for col, label in enumerate(("Mois", "Jours realises", "Jours prevus", "Participation (€)",
+                                     "Absences injustifiees retenues", "Participation des absences (€)")):
             texte(mensuel, 2, col, label, entete)
         incomplet = False
         for mois in range(1, 13):
@@ -669,7 +726,9 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
             nombre(mensuel, ligne, 1, vals["realise"])
             nombre(mensuel, ligne, 2, vals["prevision"])
             monnaie(mensuel, ligne, 3, vals["participation"])
-            incomplet |= any(vals[k] is None for k in ("realise", "prevision", "participation"))
+            nombre(mensuel, ligne, 4, vals["absence_injustifiee"])
+            monnaie(mensuel, ligne, 5, vals["participation_absences"])
+            incomplet |= any(vals[k] is None for k in ("realise", "prevision", "participation", "absence_injustifiee"))
         # Sources des nombres de journees, sans noms d'enfants.
         if dossier is not None:
             sources_mensuelles = {}
@@ -678,18 +737,20 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
                 sources_mensuelles.setdefault(cle, []).append(
                     "%s : %s" % (releve["convention"], releve.get("justificatif", "")))
             for (mois, nature), sources in sources_mensuelles.items():
-                mensuel.write_comment(mois + 2, 1 if nature == "realise" else 2,
-                                      "\n".join(sources)[:32000])
+                col = {"realise": 1, "prevision": 2, "absence_injustifiee": 4}[nature]
+                mensuel.write_comment(mois + 2, col, "\n".join(sources)[:32000])
         texte(mensuel, 15, 0, "TOTAL", entete)
         for col, nom in ((1, "journees_reelles"), (2, "journees_prevues"),
-                         (3, "participation_estimee")):
+                         (3, "participation_estimee"),
+                         (4, "journees_absences_injustifiees"),
+                         (5, "participation_absences_injustifiees")):
             if incomplet or totaux[nom] is None:
                 texte(mensuel, 15, col, "NON CALCULABLE", reserve)
             else:
                 lettre = chr(65 + col)
-                cache = float(totaux[nom]) if col < 3 else totaux[nom] / 100.0
+                cache = float(totaux[nom]) if col in (1, 2, 4) else totaux[nom] / 100.0
                 mensuel.write_formula(15, col, "=SUM(%s4:%s15)" % (lettre, lettre),
-                                      nb if col < 3 else euros, cache)
+                                      nb if col in (1, 2, 4) else euros, cache)
         if incomplet:
             texte(mensuel, 17, 0, "Les mois non documentes ne sont pas assimiles a zero.", reserve)
 
@@ -740,6 +801,7 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         controles.set_column("A:A", 110)
         texte(controles, 0, 0, "CONTROLES ET RESERVES", titre)
         texte(controles, 1, 0, resultat["statut"], reserve if totaux["solde_verifie"] is None else None)
+        texte(controles, 2, 0, "Absences injustifiees : incluses sous reserve d'accord communal" if resultat["options_etats"]["absenti"] else "Absences injustifiees : exclues par choix", reserve)
         if fictif:
             texte(controles, 2, 0, "EXEMPLE FICTIF - NE PAS TRANSMETTRE", reserve)
         for num, message in enumerate(resultat["alertes"], 3):
@@ -783,15 +845,15 @@ def exporter_pdf(resultat, destination, fictif=False):
     if fictif:
         story.append(Paragraph("<font color='#b52e2e'><b>EXEMPLE DE TEST - DONNEES FICTIVES - NE PAS TRANSMETTRE</b></font>", corps))
     story.append(Paragraph("Participations par accueil", sous))
-    headers = ["Accueil", "€/journée", "Jours réels", "Jours prévus", "Participation estimée"]
+    headers = ["Accueil", "€/journée", "Présents", "Abs. inj. retenues", "Prévus", "Participation estimée"]
     tableau = [headers]
     for c in resultat["conventions"].values():
         tableau.append([c["accueil"], _fr_centimes(c["tarif_centimes"]),
-                        _fr_jours(c["realise"]), _fr_jours(c["prevision"]),
-                        _fr_centimes(c["participation_estimee"])])
+                        _fr_jours(c["realise"]), _fr_jours(c["absences_injustifiees"]),
+                        _fr_jours(c["prevision"]), _fr_centimes(c["participation_estimee"])])
     if len(tableau) == 1:
-        tableau.append(["Aucune convention", "-", "-", "-", "-"])
-    col_w = [44*mm, 28*mm, 27*mm, 27*mm, 46*mm]
+        tableau.append(["Aucune convention", "-", "-", "-", "-", "-"])
+    col_w = [40*mm, 25*mm, 22*mm, 32*mm, 18*mm, 35*mm]
     table = Table(tableau, colWidths=col_w, hAlign="LEFT", repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), bleu), ("TEXTCOLOR",(0,0),(-1,0),colors.white),
@@ -804,8 +866,10 @@ def exporter_pdf(resultat, destination, fictif=False):
     story += [table, Paragraph("Situation financière de la participation communale", sous)]
     resumes = [
         ("Journées-enfants effectivement réalisées", _fr_jours(t["journees_reelles"]), "jours"),
+        ("Absences injustifiées retenues (non présences)", _fr_jours(t["journees_absences_injustifiees"]), "jours"),
         ("Journées-enfants encore prévues", _fr_jours(t["journees_prevues"]), "jours"),
         ("Participation correspondant aux journées réalisées", _fr_centimes(t["participation_reelle"]), "EUR"),
+        ("Participation optionnelle des absences injustifiées", _fr_centimes(t["participation_absences_injustifiees"]), "EUR"),
         ("Participation prévisionnelle jusqu'au 31 décembre", _fr_centimes(t["participation_prevue"]), "EUR"),
         ("Participation annuelle estimée", _fr_centimes(t["participation_estimee"]), "EUR"),
         ("Acomptes communaux effectivement reçus", _fr_centimes(t["acomptes_recus"]), "EUR"),
@@ -818,16 +882,17 @@ def exporter_pdf(resultat, destination, fictif=False):
         ("ALIGN",(1,0),(1,-1),"RIGHT"), ("FONTNAME",(1,0),(1,-1),"Helvetica-Bold"),
         ("FONTSIZE",(1,0),(1,-1),8.5), ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("TOPPADDING",(0,0),(-1,-1),4), ("BOTTOMPADDING",(0,0),(-1,-1),4),
-        ("LINEABOVE",(0,4),(-1,4),.7,colors.HexColor("#a0abb9")),
-        ("LINEABOVE",(0,6),(-1,6),.9,bleu),
+        ("LINEABOVE",(0,6),(-1,6),.7,colors.HexColor("#a0abb9")),
+        ("LINEABOVE",(0,8),(-1,8),.9,bleu),
     ]))
     story += [st, Paragraph("Détail par mois civil - tous accueils", sous)]
-    mois_table = [["Mois", "Journées réalisées", "Journées prévues", "Participation estimée"]]
+    mois_table = [["Mois", "Jours réels", "Abs. injustifiées", "Jours prévus", "Participation estimée"]]
     for mois in range(1, 13):
         m = resultat["mensuel"][str(mois)]
         mois_table.append(["%02d" % mois, _fr_jours(m["realise"]),
+                           _fr_jours(m["absence_injustifiee"]),
                            _fr_jours(m["prevision"]), _fr_centimes(m["participation"])])
-    mt = Table(mois_table, colWidths=[21*mm, 48*mm, 48*mm, 55*mm], hAlign="LEFT",repeatRows=1)
+    mt = Table(mois_table, colWidths=[17*mm, 35*mm, 42*mm, 32*mm, 46*mm], hAlign="LEFT",repeatRows=1)
     mt.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,0),bleu), ("TEXTCOLOR",(0,0),(-1,0),colors.white),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),
@@ -840,7 +905,9 @@ def exporter_pdf(resultat, destination, fictif=False):
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph("<b>Méthode :</b> journées-enfants des habitants de la commune × tarif conventionnel propre à chaque accueil. "
                            "Les montants conventionnels intègrent déjà les autres ressources ayant servi à fixer le tarif. "
-                           "Les prévisions ne constituent pas des présences réalisées.", petite))
+                           "Les prévisions ne constituent pas des présences réalisées. "
+                           "Les absences injustifiées retenues, si l'option est cochée, restent des absences "
+                           "et leur prise en compte par la commune doit être validée.", petite))
     if resultat["alertes"]:
         story.append(Paragraph("Points à vérifier", sous))
         for alerte in resultat["alertes"][:8]:
