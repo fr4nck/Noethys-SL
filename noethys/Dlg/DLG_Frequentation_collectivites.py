@@ -66,7 +66,7 @@ class SaisieConvention(wx.Dialog):
 
 
 class SaisieJours(wx.Dialog):
-    def __init__(self, parent, conventions, ident, data=None):
+    def __init__(self, parent, conventions, ident, data=None, inclure_absenti=False):
         wx.Dialog.__init__(self, parent, title="Frequentation : journees-enfants",
                            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         d = data or {}
@@ -83,8 +83,12 @@ class SaisieJours(wx.Dialog):
         self.mois = wx.SpinCtrl(self, min=1, max=12, initial=int(d.get("mois", date.today().month)))
         g.Add(self.mois, 1, wx.EXPAND)
         g.Add(wx.StaticText(self, label="Nature"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.nature = wx.Choice(self, choices=["Frequentation realisee", "Frequentation prevue"])
-        self.nature.SetSelection(1 if d.get("nature") == "prevision" else 0)
+        self.natures = [("realise", "Frequentation realisee"), ("prevision", "Frequentation prevue")]
+        if inclure_absenti:
+            self.natures.append(("absence_injustifiee", "Absence injustifiee retenue (pas une presence)"))
+        self.nature = wx.Choice(self, choices=[libelle for _code, libelle in self.natures])
+        self.nature.SetSelection(next((i for i, (code, _label) in enumerate(self.natures)
+                                       if code == d.get("nature", "realise")), 0))
         g.Add(self.nature, 1, wx.EXPAND)
         self.nombre = champ(self, g, "Nombre de journees-enfants", d.get("nombre", ""))
         self.justif = champ(self, g, "Etat de frequentation / justificatif", d.get("justificatif", ""))
@@ -100,7 +104,7 @@ class SaisieJours(wx.Dialog):
         return {"id": self.id.GetValue().strip(),
                 "convention": self.conventions[self.convention.GetSelection()],
                 "mois": self.mois.GetValue(),
-                "nature": "prevision" if self.nature.GetSelection() == 1 else "realise",
+                "nature": self.natures[self.nature.GetSelection()][0],
                 "nombre": self.nombre.GetValue().strip(),
                 "justificatif": self.justif.GetValue().strip()}
 
@@ -240,6 +244,10 @@ class Dialog(wx.Dialog):
         barre_import.Add(wx.StaticText(self, label="Frequentation en journees-enfants (par mois et accueil) :"),
                          0, wx.ALIGN_CENTER_VERTICAL)
         barre_import.AddStretchSpacer(1)
+        self.inclure_absenti = wx.CheckBox(self, label="Compter les absences injustifiees")
+        self.inclure_absenti.SetToolTip("Facturees aux familles et moyens mobilises : calcul distinct des presences. Le solde reste provisoire sans accord communal.")
+        self.inclure_absenti.Bind(wx.EVT_CHECKBOX, self.OnChoixAbsenti)
+        barre_import.Add(self.inclure_absenti, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
         importer = wx.Button(self, label="Charger les presences Noethys...")
         importer.Bind(wx.EVT_BUTTON, self.OnImporterNoethys)
         barre_import.Add(importer)
@@ -318,6 +326,7 @@ class Dialog(wx.Dialog):
         self.dossier["arrete"] = self.arrete.GetValue().strip()
         self.dossier["emetteur"] = self.emetteur.GetValue().strip()
         self.dossier["controles"] = {k: w.GetValue() for k, w in self.verifs.items()}
+        self.dossier["options_etats"] = {"absenti": bool(self.inclure_absenti.GetValue())}
         origine = self.dossier.get("import_noethys")
         if isinstance(origine, dict):
             origine["domiciliation_historique_verifiee"] = bool(
@@ -333,6 +342,7 @@ class Dialog(wx.Dialog):
         self.annee.SetValue(d["annee"])
         self.arrete.SetValue(d["arrete"])
         self.emetteur.SetValue(d.get("emetteur", ""))
+        self.inclure_absenti.SetValue(d.get("options_etats", {}).get("absenti", False))
         self.choix_conv.Set(["%s  -  %s  (%s EUR/j)" % (c["id"], c["accueil"], c["tarif_jour"])
                              for c in d["conventions"]])
         if d["conventions"]:
@@ -340,7 +350,8 @@ class Dialog(wx.Dialog):
         self.liste_jours.DeleteAllItems()
         for l in d["jours"]:
             self._ajouter_ligne(self.liste_jours, [l["id"], "%02d" % l["mois"], l["convention"],
-                              "Realise" if l["nature"] == "realise" else "Prevision",
+                              {"realise": "Presence reelle", "prevision": "Prevision",
+                               "absence_injustifiee": "Absence injustifiee retenue"}.get(l["nature"], "Inconnue"),
                               str(l["nombre"]), l.get("justificatif", "")])
         self.liste_acomptes.DeleteAllItems()
         for l in d["acomptes"]:
@@ -384,6 +395,28 @@ class Dialog(wx.Dialog):
         except (ValueError, ErreurFrequentation) as e:
             self._message(e)
             return
+        self.Rafraichir()
+
+    def OnChoixAbsenti(self, event):
+        """Never silently keep old imported or manual totals after changing rules."""
+        nouveau = bool(self.inclure_absenti.GetValue())
+        ancien = self.dossier.get("options_etats", {}).get("absenti", False)
+        if nouveau == ancien:
+            return
+        if self.dossier["jours"]:
+            message = ("Ce choix modifie le nombre de journees retenues.\n"
+                       "Les lignes mensuelles actuelles doivent etre supprimees et les presences rechargees.\n"
+                       "Les acomptes communaux seront conserves. Confirmer ?")
+            if wx.MessageBox(message, "Modifier le comptage des absences ?",
+                             wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+                             self) != wx.YES:
+                self.inclure_absenti.SetValue(ancien)
+                return
+            self.dossier["jours"] = []
+            self.dossier.pop("import_noethys", None)
+            self.dossier["controles"]["frequentation"] = False
+            self.dossier["controles"]["prevision"] = False
+        self.dossier["options_etats"] = {"absenti": nouveau}
         self.Rafraichir()
 
     def OnNouveau(self, event):
@@ -442,8 +475,10 @@ class Dialog(wx.Dialog):
             if not self.dossier["conventions"]:
                 return self._message("Aucune convention applicable pour cette annee")
             annee = self.dossier["annee"]
-            unites = UTILS_Attente.LireSQL(lambda db: lister_unites(annee, db=db),
-                                          self, "Recherche des données...")
+            inclure_absenti = bool(self.inclure_absenti.GetValue())
+            unites = UTILS_Attente.LireSQL(lambda db: lister_unites(
+                annee, db=db, inclure_absenti=inclure_absenti),
+                self, "Recherche des données...")
             if not unites:
                 return self._message("Aucune consommation presente ou reservee pour cet exercice")
         except (ErreurFrequentation, ValueError) as erreur:
@@ -469,7 +504,8 @@ class Dialog(wx.Dialog):
         try:
             annee, arrete, commune = (self.dossier[k] for k in ("annee", "arrete", "commune"))
             resultat = UTILS_Attente.LireSQL(lambda db: importer_journees(
-                annee, arrete, commune, mapping, db=db), self, "Recherche des données...")
+                annee, arrete, commune, mapping, db=db,
+                inclure_absenti=inclure_absenti), self, "Recherche des données...")
             # Aucun identifiant ou nom d'enfant n'entre dans le dossier sauvegarde.
             nouveau = list(resultat["jours"])
             self.dossier["jours"] = nouveau
@@ -480,6 +516,7 @@ class Dialog(wx.Dialog):
                 "domiciles_indetermines": resultat["exclusions"].get("domiciles_indetermines", 0),
                 "domiciliation_historique_verifiee": False,
                 "unites_selectionnees": len(mapping),
+                "absenti_selectionne": bool(self.inclure_absenti.GetValue()),
             }
             self.dossier["controles"]["frequentation"] = False
             self.dossier["controles"]["prevision"] = False
@@ -497,7 +534,8 @@ class Dialog(wx.Dialog):
     def OnAjouterJours(self, event):
         if not self._ids_conventions():
             return self._message("Ajouter une convention d'abord.")
-        dlg = SaisieJours(self, self._ids_conventions(), self._id("J"))
+        dlg = SaisieJours(self, self._ids_conventions(), self._id("J"),
+                          inclure_absenti=self.inclure_absenti.GetValue())
         if dlg.ShowModal() == wx.ID_OK:
             self.dossier["jours"].append(dlg.valeurs())
             self.dossier.pop("import_noethys", None)
@@ -509,7 +547,8 @@ class Dialog(wx.Dialog):
         if pos is None:
             return
         old = self.dossier["jours"][pos]
-        dlg = SaisieJours(self, self._ids_conventions(), old["id"], old)
+        dlg = SaisieJours(self, self._ids_conventions(), old["id"], old,
+                          inclure_absenti=self.inclure_absenti.GetValue())
         if dlg.ShowModal() == wx.ID_OK:
             self.dossier["jours"][pos] = dlg.valeurs()
             self.dossier.pop("import_noethys", None)
@@ -556,10 +595,10 @@ class Dialog(wx.Dialog):
             r = self._calculer()
             t = r["totaux"]
             lines = [r["statut"],
-                     "Journées réalisées : %s  |  Prévisions : %s" % (
-                         _fr_jours(t["journees_reelles"]), _fr_jours(t["journees_prevues"])),
-                     "Participation réalisée : %s  |  Future : %s  |  Annuelle : %s" % (
-                         _fr_centimes(t["participation_reelle"]), _fr_centimes(t["participation_prevue"]),
+                     "Journees presentes : %s | Absences injustifiees retenues : %s | Futures : %s" % (
+                         _fr_jours(t["journees_reelles"]), _fr_jours(t["journees_absences_injustifiees"]), _fr_jours(t["journees_prevues"])),
+                     "Participation presence : %s | Absences : %s | Future : %s | Annuelle : %s" % (
+                         _fr_centimes(t["participation_reelle"]), _fr_centimes(t["participation_absences_injustifiees"]), _fr_centimes(t["participation_prevue"]),
                          _fr_centimes(t["participation_estimee"])),
                      "Acomptes : %s  |  Solde indicatif : %s" % (
                          _fr_centimes(t["acomptes_recus"]), _fr_centimes(t["solde_indicatif"]))]
