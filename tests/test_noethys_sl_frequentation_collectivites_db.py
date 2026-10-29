@@ -78,6 +78,18 @@ class LectureTests(unittest.TestCase):
         self.assertNotIn("commune_residence", str(r["jours"]))
         self.assertTrue(all(s.lstrip().upper().startswith("SELECT") for s in self.db.queries))
 
+    def test_import_noethys_absentj_absenti_attente_refus_ignores(self):
+        self.db.db.executemany(
+            "INSERT INTO consommations VALUES (?,?,?,?,?,?)",
+            [(n, 20, "2026-03-02", 1, 101, etat)
+             for n, etat in enumerate(("absentj", "absenti", "attente", "refus"), 7)],
+        )
+        r = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
+        self.assertEqual([(x["nature"], x["nombre"]) for x in r["jours"]],
+                         [("realise", "1"), ("prevision", "1")])
+        self.assertEqual(r["exclusions"]["absences"], 4)
+        self.assertTrue(all(s.lstrip().upper().startswith("SELECT") for s in self.db.queries))
+
     def test_domiciliation_chaussee_vers_reference_et_cycle_refuse(self):
         villes = resoudre_villes({1:(None,"Bais"),2:(1,None),3:(4,None),4:(3,None),5:(99,None)})
         self.assertEqual(villes[2], "Bais")

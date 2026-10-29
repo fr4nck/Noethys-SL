@@ -410,7 +410,10 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
             exclus["autres_communes"] += 1
             continue
         etat = _texte(l.get("etat"), "etat consommation").lower()
-        if etat in ("absent", "annule", "refus"):
+        # Etats canoniques Noethys sans frequentation : absence justifiee
+        # (absentj), injustifiee (absenti), attente ou refus. Ne jamais les
+        # transformer en journees-enfants, meme si l'unite est selectionnee.
+        if etat in ("absent", "absentj", "absenti", "annule", "refus", "attente"):
             exclus["absences"] += 1
             continue
         if etat not in ("present", "reservation"):

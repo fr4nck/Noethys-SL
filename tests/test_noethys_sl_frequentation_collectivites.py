@@ -284,9 +284,19 @@ class ExportConsommationsTests(unittest.TestCase):
             consolider_export_consommations([self.rec(1, 1, "2026-01-10", 20)], rules, "Bais", 2026, "2026-10-29")
 
     def test_presence_future_et_etat_inconnu_bloquent(self):
-        for rec in [self.rec(1, 1, "2026-11-02", 10), self.rec(1, 1, "2026-01-10", 10, etat="attente")]:
+        for rec in [self.rec(1, 1, "2026-11-02", 10), self.rec(1, 1, "2026-01-10", 10, etat="etat-inconnu")]:
             with self.subTest(rec=rec), self.assertRaises(ErreurFrequentation):
                 consolider_export_consommations([rec], self.rules, "Bais", 2026, "2026-10-29")
+
+    def test_etats_noethys_absences_attente_refus_non_comptes(self):
+        etats = ("absentj", "absenti", "attente", "refus", "absent", "annule")
+        recs = [self.rec(1, 1, "2026-03-02", 10, "present")]
+        recs += [self.rec(n, 1, "2026-03-02", 10, etat)
+                 for n, etat in enumerate(etats, 2)]
+        r = consolider_export_consommations(recs, self.rules, "Bais", 2026, "2026-10-29")
+        self.assertEqual([(x["nature"], x["nombre"]) for x in r["jours"]], [("realise", "1")])
+        self.assertEqual(r["nb_enfants_jour"], 1)
+        self.assertEqual(r["exclusions"]["absences"], len(etats))
 
     def test_pas_de_identifiants_personnels_en_sortie(self):
         recs = [self.rec(1, 74749, "2026-01-10", 10)]
