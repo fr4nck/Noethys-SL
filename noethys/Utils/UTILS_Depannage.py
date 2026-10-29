@@ -14,6 +14,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import datetime
+import threading
 import GestionDB
 from Utils import UTILS_Dates
 from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
@@ -25,6 +26,42 @@ def EcritStatusbar(texte=u""):
         topWindow.SetStatusText(texte)
     except : 
         pass
+
+
+def _ExecuterRechercheHorsUI(recherche):
+    """Garde l'attente existante et traite les événements wx pendant le SQL.
+
+    Le thread de recherche possède sa connexion et ne touche aucun widget.
+    Aucun appel ne restaure, redimensionne ou maximise la fenêtre principale.
+    """
+    termine = threading.Event()
+    erreurs = []
+
+    def effectuer():
+        try:
+            recherche()
+        except BaseException as erreur:
+            erreurs.append(erreur)
+        finally:
+            termine.set()
+
+    boucle = wx.GUIEventLoop()
+    timer = wx.Timer()
+    timer.Bind(wx.EVT_TIMER, lambda event: boucle.Exit() if termine.is_set() else None)
+    travail = threading.Thread(target=effectuer, name="Noethys-Recherche-anomalies", daemon=False)
+    try:
+        with wx.EventLoopActivator(boucle), wx.WindowDisabler():
+            timer.Start(25)
+            travail.start()
+            # Le timer couvre aussi une recherche terminée avant Run().
+            while not termine.is_set():
+                boucle.Run()
+    finally:
+        timer.Stop()
+        if travail.ident is not None:
+            travail.join()
+    if erreurs:
+        raise erreurs[0]
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -265,8 +302,26 @@ class Depannage():
         except :
             dlgAttente = None
         
-        # Init DB
-        self.DB = GestionDB.DB()
+        try:
+            # Résoudre le fichier sur le thread wx, avant toute connexion.
+            nomFichier = GestionDB.DB.GetNomFichierDefaut(None)
+            if wx.GetApp() is not None and wx.IsMainThread():
+                _ExecuterRechercheHorsUI(lambda: self._RechercherDonnees(nomFichier))
+            else:
+                self._RechercherDonnees(nomFichier)
+        finally:
+            del dlgAttente
+            EcritStatusbar("")
+
+    def _RechercherDonnees(self, nomFichier):
+        """Lectures seules, connexion créée et fermée dans le même thread."""
+        self.DB = GestionDB.DB(nomFichier=nomFichier)
+        try:
+            self._RechercherAnomalies()
+        finally:
+            self.DB.Close()
+
+    def _RechercherAnomalies(self):
         # Recherches
         self.InscriptionsSansIndividus()
         self.CotisationsSansIndividus()
@@ -286,12 +341,6 @@ class Depannage():
         self.VentilationExcessive()
         self.PrestationsFantomes()
         self.MySQL8()
-                
-        # Fermeture DB
-        self.DB.Close()
-
-        del dlgAttente
-        EcritStatusbar("")
         
     def InscriptionsSansIndividus(self):
         labelProbleme = _(u"Inscriptions sans individus associés")
@@ -681,8 +730,7 @@ class Depannage():
         labelCorrection = _(u"Correction manuelle requise : L'utilisation de la version 8 de MySQL est déconseillée. Faites une sauvegarde, désinstallez MySQL 8, installez MySQL 5.7 et restaurez la sauvegarde.")
 
         # Recherche si le serveur MySQL est une version 8
-        nomFichier = self.DB.GetNomFichierDefaut()
-        if "[RESEAU]" in nomFichier:
+        if self.DB.isNetwork:
             req = """SHOW VARIABLES LIKE "version";"""
             self.DB.ExecuterReq(req)
             listeTemp = self.DB.ResultatReq()

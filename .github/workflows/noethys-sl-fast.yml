@@ -93,6 +93,8 @@ jobs:
         run: >-
           python -m unittest -v
           tests.test_000_garde_reseau
+          tests.test_depannage_reactivite
+          tests.test_demarrage_splash
           tests.test_noethys_sl_mailjet_acceptation
           tests.test_noethys_sl_suivi_mailjet
           tests.test_noethys_sl_impression_depot

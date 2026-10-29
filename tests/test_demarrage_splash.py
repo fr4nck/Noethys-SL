@@ -66,6 +66,7 @@ class SplashTests(unittest.TestCase):
                 def later(delay, callback):
                     pending.append((delay, callback))
                 ns = dict(MainFrame=lambda parent: frame, self=Mock(), splash=splash,
+                          UTILS_Diagnostic_demarrage=Mock(),
                           CUSTOMIZE=Mock(), wx=SimpleNamespace(STAY_ON_TOP=1, CallLater=later),
                           FermerSplashProgressivement=fade,
                           time=SimpleNamespace(time=lambda: 1), heure_debut=0, print=lambda *args: None)
