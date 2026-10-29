@@ -13,6 +13,8 @@ on:
       - 'noethys/Dlg/DLG_Saisie_type_cotisation.py'
       - 'tests/test_noethys_sl_type_cotisation_mysql.py'
       - 'tests/test_connecthys_reprises_mysql.py'
+      - 'tests/test_noethys_sl_accueil_autorisations_mysql.py'
+      - 'noethys/Utils/UTILS_Accueil_autorisations.py'
   workflow_dispatch:
 
 permissions:
@@ -58,7 +60,7 @@ jobs:
       - name: Vérification syntaxique des modules et tests RC9
         shell: pwsh
         run: |
-          python -m py_compile noethys/Utils/UTILS_Adhesions.py noethys/Dlg/DLG_Saisie_type_cotisation.py tests/test_noethys_sl_adhesions_inscriptions.py tests/test_noethys_sl_adhesions_inscriptions_mysql.py tests/test_noethys_sl_type_cotisation_mysql.py tests/test_connecthys_reprises_mysql.py
+          python -m py_compile noethys/Utils/UTILS_Adhesions.py noethys/Dlg/DLG_Saisie_type_cotisation.py tests/test_noethys_sl_adhesions_inscriptions.py tests/test_noethys_sl_adhesions_inscriptions_mysql.py tests/test_noethys_sl_type_cotisation_mysql.py tests/test_connecthys_reprises_mysql.py tests/test_noethys_sl_accueil_autorisations_mysql.py
           if ($LASTEXITCODE -ne 0) { throw 'Syntaxe RC9 invalide' }
 
       - name: Télécharger MySQL 5.7.44 officiel avec SHA-256 épinglé
@@ -89,7 +91,7 @@ jobs:
           try {
             python tests/recette_mysql_jetable_preparer.py
             if ($LASTEXITCODE -ne 0) { throw 'Initialisation utilisateur de recette en échec' }
-            python -m unittest -v tests.test_noethys_sl_adhesions_inscriptions_mysql tests.test_noethys_sl_adhesions_concurrence.ConcurrenceMySQLTests tests.test_noethys_sl_adhesions_activites.ConcurrenceActivitesMySQLTests tests.test_noethys_sl_type_cotisation_mysql tests.test_connecthys_reprises_mysql
+            python -m unittest -v tests.test_noethys_sl_adhesions_inscriptions_mysql tests.test_noethys_sl_adhesions_concurrence.ConcurrenceMySQLTests tests.test_noethys_sl_adhesions_activites.ConcurrenceActivitesMySQLTests tests.test_noethys_sl_type_cotisation_mysql tests.test_connecthys_reprises_mysql tests.test_noethys_sl_accueil_autorisations_mysql
             if ($LASTEXITCODE -ne 0) { throw 'Échec tests RC9 MySQL' }
           }
           finally {
