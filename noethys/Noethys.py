@@ -1134,6 +1134,7 @@ class MainFrame(wx.Frame):
                     {"code" : "solder_impayes", "label" : _(u"Solder les impayés"), "infobulle" : _(u"Solder les impayés"), "image" : "Images/16x16/Impayes.png", "action" : self.On_facturation_solder_impayes},
                     "-",
                     {"code" : "synthese_prestations", "label" : _(u"Synthèse des prestations"), "infobulle" : _(u"Synthèse des prestations"), "image" : "Images/16x16/Diagramme.png", "action" : self.On_facturation_synthese_prestations},
+                    {"code" : "situation_collectivites_alsh", "label" : _(u"Situation des communes (ALSH)"), "infobulle" : _(u"Frequentation et participations communales"), "image" : "Images/16x16/Tableaux.png", "action" : self.On_facturation_situation_collectivites_alsh},
                     {"code" : "prestations_villes", "label" : _(u"Liste des prestations par famille"), "infobulle" : _(u"Liste des prestations par famille"), "image" : "Images/16x16/Euro.png", "action" : self.On_facturation_prestations_villes},
                     "-",
                     {"code" : "export_compta", "label" : _(u"Export des écritures comptables"), "infobulle" : _(u"Exporter les écritures comptables"), "image" : "Images/16x16/Export_comptable.png", "action" : self.On_facturation_export_compta},
@@ -3206,6 +3207,15 @@ class MainFrame(wx.Frame):
         dlg = DLG_Solder_impayes.Dialog(self)
         dlg.ShowModal() 
         dlg.Destroy()
+
+    def On_facturation_situation_collectivites_alsh(self, event):
+        """Situation de frequentation par commune, sans factures familiales."""
+        from Dlg import DLG_Frequentation_collectivites
+        dlg = DLG_Frequentation_collectivites.Dialog(self)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
 
     def On_facturation_prestations_villes(self, event):
         if self.VerificationVentilation() == False :
