@@ -257,7 +257,10 @@ def _normaliser(enfant, donnees, operateur):
         "IDutilisateur": operateur,
     }
     # L'empreinte n'inclut pas la date de saisie pour rendre le rejeu idempotent.
-    chaine = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    # La meme fiche signee ne devient pas une nouvelle autorisation si
+    # un autre operateur la ressaisit : l'auteur de saisie n'est pas la preuve.
+    empreinte_champs = {k: v for k, v in payload.items() if k != "IDutilisateur"}
+    chaine = json.dumps(empreinte_champs, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     payload["empreinte"] = hashlib.sha256(chaine.encode("utf-8")).hexdigest()
     return payload
 
