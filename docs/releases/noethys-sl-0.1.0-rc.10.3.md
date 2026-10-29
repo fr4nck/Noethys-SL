@@ -6,6 +6,9 @@
   redimensionnement ou retour forcé au plein écran n'est ajouté.
 - Les requêtes et les règles de détection sont conservées ; la connexion est
   ouverte et fermée dans le même thread, y compris en cas d'erreur.
+- Les fiches famille/individu et le dialogue d'ajout sont rattachés explicitement
+  à la fenêtre d'origine : compositions graphique et liste, archivage et listes
+  d'anomalies de prestations. Les retours de fenêtres sont vérifiés sous Windows.
 - Les corrections de sauvegarde RC10.2 et la version interne `1.3.4.4` sont conservées.
 
 Cette correction traite le blocage identifié dans la recherche. Le maintien

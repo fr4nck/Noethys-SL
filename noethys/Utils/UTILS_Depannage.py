@@ -17,6 +17,7 @@ import datetime
 import threading
 import GestionDB
 from Utils import UTILS_Dates
+from Utils import UTILS_Fichiers
 from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
 
 
@@ -58,10 +59,14 @@ def _ExecuterRechercheHorsUI(recherche):
                 boucle.Run()
     finally:
         timer.Stop()
+        timer.Unbind(wx.EVT_TIMER)
         if travail.ident is not None:
             travail.join()
+    # Une exception peut retenir sa frame Python : libérer les objets wx
+    # avant de la transmettre, pendant que l'application est encore vivante.
+    del timer, boucle
     if erreurs:
-        raise erreurs[0]
+        raise erreurs.pop()
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -305,6 +310,9 @@ class Depannage():
         try:
             # Résoudre le fichier sur le thread wx, avant toute connexion.
             nomFichier = GestionDB.DB.GetNomFichierDefaut(None)
+            if "[RESEAU]" not in nomFichier:
+                suffixe = "TDATA" if GestionDB.MODE_TEAMWORKS else "DATA"
+                nomFichier = UTILS_Fichiers.GetRepData(u"%s_%s.dat" % (nomFichier, suffixe))
             if wx.GetApp() is not None and wx.IsMainThread():
                 _ExecuterRechercheHorsUI(lambda: self._RechercherDonnees(nomFichier))
             else:
@@ -315,7 +323,8 @@ class Depannage():
 
     def _RechercherDonnees(self, nomFichier):
         """Lectures seules, connexion créée et fermée dans le même thread."""
-        self.DB = GestionDB.DB(nomFichier=nomFichier)
+        options = {} if "[RESEAU]" in nomFichier else {"suffixe": None}
+        self.DB = GestionDB.DB(nomFichier=nomFichier, **options)
         try:
             self._RechercherAnomalies()
         finally:

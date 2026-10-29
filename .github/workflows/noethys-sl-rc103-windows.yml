@@ -70,11 +70,17 @@ jobs:
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
+      - name: Recette Windows des attentes et des passages famille-individu
+        run: >-
+          python -m unittest -v
+          tests.test_depannage_reactivite
+          tests.test_famille_individu_fenetres
+          tests.test_noethys_sl_ouverture_individu_directe
+          tests.test_demarrage_splash
+
       - name: Vérifier les contrats critiques du candidat (tests de régression inclus)
         run: >-
           python -m unittest
-          tests.test_depannage_reactivite
-          tests.test_demarrage_splash
           tests.test_vanilla_identite_noethys_sl
           tests.test_accueil_logo_organisateur
           tests.test_vanilla_candidate_contract

@@ -281,7 +281,7 @@ class ListView(FastObjectListView):
                 else:
                     # Ouverture de la fiche individuelle
                     from Dlg import DLG_Individu
-                    dlg = DLG_Individu.Dialog(None, IDindividu=IDindividu)
+                    dlg = DLG_Individu.Dialog(wx.GetTopLevelParent(self), IDindividu=IDindividu)
                     if dlg.ShowModal() == wx.ID_OK:
                         pass
                     dlg.Destroy()

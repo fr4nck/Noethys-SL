@@ -1296,7 +1296,7 @@ class CTRL_Graphique(wx.ScrolledWindow):
         """ Rattacher un nouvel individu """
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("individus_fiche", "creer") == False : return
         from Dlg import DLG_Rattachement
-        dlg = DLG_Rattachement.Dialog(None, IDfamille=self.IDfamille)
+        dlg = DLG_Rattachement.Dialog(wx.GetTopLevelParent(self), IDfamille=self.IDfamille)
         if dlg.ShowModal() == wx.ID_OK:
             mode, IDcategorie, titulaire, IDindividu, nom, prenom = dlg.GetData()
             dlg.Destroy()
@@ -1309,7 +1309,7 @@ class CTRL_Graphique(wx.ScrolledWindow):
                     "nom" : nom,
                     "prenom" : prenom,
                     }
-                dlg = DLG_Individu.Dialog(None, IDindividu=None, dictInfosNouveau=dictInfosNouveau)
+                dlg = DLG_Individu.Dialog(wx.GetTopLevelParent(self), IDindividu=None, dictInfosNouveau=dictInfosNouveau)
                 if dlg.ShowModal() == wx.ID_OK:
                     IDindividu = dlg.IDindividu #print "Nouvelle fiche creee et deja rattachee."
                 else:
@@ -1389,7 +1389,7 @@ class CTRL_Graphique(wx.ScrolledWindow):
 
     def Modifier(self, IDindividu=None):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("individus_fiche", "modifier") == False : return
-        dlg = DLG_Individu.Dialog(None, IDindividu=IDindividu)
+        dlg = DLG_Individu.Dialog(wx.GetTopLevelParent(self), IDindividu=IDindividu)
         if dlg.ShowModal() == wx.ID_OK:
             pass
         try :
@@ -1679,7 +1679,7 @@ class CTRL_Liste(HTL.HyperTreeList):
         """ Rattacher un nouvel individu """
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("individus_fiche", "creer") == False : return
         from Dlg import DLG_Rattachement
-        dlg = DLG_Rattachement.Dialog(None, IDfamille=self.IDfamille)
+        dlg = DLG_Rattachement.Dialog(wx.GetTopLevelParent(self), IDfamille=self.IDfamille)
         if dlg.ShowModal() == wx.ID_OK:
             mode, IDcategorie, titulaire, IDindividu, nom, prenom = dlg.GetData()
             dlg.Destroy()
@@ -1692,7 +1692,7 @@ class CTRL_Liste(HTL.HyperTreeList):
                     "nom" : nom,
                     "prenom" : prenom,
                     }
-                dlg = DLG_Individu.Dialog(None, IDindividu=None, dictInfosNouveau=dictInfosNouveau)
+                dlg = DLG_Individu.Dialog(wx.GetTopLevelParent(self), IDindividu=None, dictInfosNouveau=dictInfosNouveau)
                 if dlg.ShowModal() == wx.ID_OK:
                     pass #print "Nouvelle fiche creee et deja rattachee."
                 else:
@@ -1754,7 +1754,7 @@ class CTRL_Liste(HTL.HyperTreeList):
             dlg.Destroy()
             return   
         from Dlg import DLG_Individu
-        dlg = DLG_Individu.Dialog(None, IDindividu=IDindividu)
+        dlg = DLG_Individu.Dialog(wx.GetTopLevelParent(self), IDindividu=IDindividu)
         if dlg.ShowModal() == wx.ID_OK:
             self.MAJ() 
         dlg.Destroy()

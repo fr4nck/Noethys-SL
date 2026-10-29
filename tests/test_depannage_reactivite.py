@@ -25,7 +25,7 @@ class BaseFictive:
     panne = False
     reseau = False
 
-    def __init__(self, nomFichier='fictif'):
+    def __init__(self, nomFichier='fictif', suffixe='DATA'):
         self.nomFichier = nomFichier
         self.isNetwork = self.reseau
         self.thread = threading.get_ident()
@@ -148,6 +148,8 @@ def scenario(ancien=False, mode='maximise', panne=False):
     u32 = ctypes.windll.user32
     u32.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
     u32.GetWindow.restype = ctypes.c_void_p
+    u32.GetParent.argtypes = [ctypes.c_void_p]
+    u32.GetParent.restype = ctypes.c_void_p
     u32.IsZoomed.argtypes = [ctypes.c_void_p]
     u32.IsIconic.argtypes = [ctypes.c_void_p]
     timer = wx.Timer()
@@ -161,16 +163,25 @@ def scenario(ancien=False, mode='maximise', panne=False):
     busy_initial = module.wx.BusyInfo
     attaches = []
 
+    def fenetres_thread():
+        handles = set()
+        callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        callback = callback_type(lambda hwnd, arg: handles.add(hwnd) or True)
+        u32.EnumThreadWindows(ctypes.windll.kernel32.GetCurrentThreadId(), callback, 0)
+        return handles
+
     def attente(*args):
         assert wx.IsMainThread()
-        avant = set(w.GetHandle() for w in wx.GetTopLevelWindows())
+        avant = fenetres_thread()
         busy = busy_initial(*args)
-        nouvelles = [w for w in wx.GetTopLevelWindows() if w.GetHandle() not in avant]
-        attaches.extend(u32.GetWindow(w.GetHandle(), 4) == frame.GetHandle() for w in nouvelles)
+        nouvelles = fenetres_thread() - avant
+        attaches.extend(u32.GetParent(hwnd) == frame.GetHandle() or
+                        u32.GetWindow(hwnd, 4) == frame.GetHandle() for hwnd in nouvelles)
         return busy
 
     def finir():
         timer.Stop()
+        timer.Unbind(wx.EVT_TIMER)
         donnees.update(retard_max_ms=round(1000 * max((b-a for a, b in zip(battements, battements[1:])), default=0)),
                        battements=len(battements), geometrie_identique=all(e[-1] == initial[-1] for e in etats),
                        etat_identique=all(e[:-1] == initial[:-1] for e in etats), owner_ok=bool(attaches) and all(attaches),
@@ -205,6 +216,10 @@ def scenario(ancien=False, mode='maximise', panne=False):
     initial = None
     wx.CallLater(150, lancer)
     app.MainLoop()
+    app.ProcessPendingEvents()
+    import gc
+    gc.collect()
+    app.Destroy()
 
 
 @unittest.skipUnless(sys.platform == 'win32' and os.environ.get('GITHUB_ACTIONS') == 'true',
