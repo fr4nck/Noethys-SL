@@ -48,7 +48,9 @@ class PublicationExacteTests(unittest.TestCase):
         self.assertIn('gh release view "$TAG"', texte)
         self.assertNotIn("--clobber", texte)
         self.assertNotIn("--force", texte)
-        self.assertIn('--target "$BUILD_SHA"', texte)
+        self.assertIn('--verify-tag', texte)
+        self.assertNotIn('--target ', texte)
+        self.assertEqual(texte.count('test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$BUILD_SHA"'), 2)
         self.assertIn("--prerelease", texte)
 
     def test_permissions_et_declencheur_limites(self):
