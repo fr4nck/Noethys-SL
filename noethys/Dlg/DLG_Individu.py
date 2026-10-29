@@ -372,9 +372,41 @@ class Dialog(wx.Dialog):
             item = wx.MenuItem(menuPop, 60, _(u"Contrôler une fiche enfant reçue"))
             menuPop.AppendItem(item)
             self.Bind(wx.EVT_MENU, self.MenuControlerFicheEnfant, id=60)
+            item = wx.MenuItem(menuPop, 61, _(u"Fiche enfant Pêle-Mêle : accueil et autorisations"))
+            menuPop.AppendItem(item)
+            self.Bind(wx.EVT_MENU, self.MenuFicheAccueilEnfant, id=61)
 
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def MenuFicheAccueilEnfant(self, event):
+        """Fiche en une fenêtre, sans resaisie médicale ni création implicite."""
+        if self.nouvelleFiche or not self.IDindividu:
+            return
+        from Dlg import DLG_Fiche_accueil_enfant
+        try:
+            dialogue = DLG_Fiche_accueil_enfant.Dialog(
+                self, IDindividu=self.IDindividu)
+        except Exception:
+            wx.MessageBox(
+                _(u"Impossible d'ouvrir la fiche d'accueil. La fiche individuelle "
+                  u"n'a pas été modifiée."),
+                _(u"Fiche enfant"), wx.OK | wx.ICON_WARNING, self)
+            return
+        try:
+            resultat = dialogue.ShowModal()
+        finally:
+            dialogue.Destroy()
+        destination = (
+            "medical" if resultat == wx.ID_APPLY else
+            "questionnaire" if resultat == wx.ID_YES else None)
+        if destination is not None:
+            if self.ctrl_notebook.GetPageAvecCode(destination) is not None:
+                self.ctrl_notebook.AffichePage(destination)
+            else:
+                wx.MessageBox(
+                    _(u"L'onglet demandé est masqué dans les options de la fiche."),
+                    _(u"Fiche enfant"), wx.OK | wx.ICON_INFORMATION, self)
 
     def MenuControlerFicheEnfant(self, event):
         """Préparer, sans écrire en base, le report manuel de la réponse AEEH."""
