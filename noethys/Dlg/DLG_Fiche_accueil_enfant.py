@@ -10,6 +10,7 @@ from datetime import date
 import wx
 import GestionDB
 from Utils import UTILS_Accueil_autorisations as registre
+from Utils import UTILS_Accueil_sources as sources
 from Utils import UTILS_Fiche_accueil_enfant as regles
 from Utils.UTILS_Traduction import _
 
@@ -111,8 +112,10 @@ class Dialog(wx.Dialog):
         self.etats_initiaux = {}
         self.perimetre_charge = None
         self.registre_pret = False
+        self.lecture_medicale = sources.AdministrateurActuel(self.utilisateur)
+        self.medical = None
         try:
-            self.entete = LireEntete(IDindividu, aeeh_autorisee=self.acces)
+            self.entete = LireEntete(IDindividu, aeeh_autorisee=self.lecture_medicale)
         except Exception:
             self.entete = {"nom": u"", "prenom": u"", "date_naiss": None}
 
@@ -137,16 +140,36 @@ class Dialog(wx.Dialog):
              u"Vérifier les titulaires et les coordonnées dans les fiches existantes.")
         self._section(panneau, colonne, u"ACCOMPAGNANTS",
              u"Conserver la liste des accompagnants et les liens dans Noethys.")
-        self._section(panneau, colonne, u"VACCINATIONS",
-             u"Informations et justificatifs conservés dans l'onglet Médical.")
-        self._section(panneau, colonne, u"MÉDECIN TRAITANT",
-             u"Médecin déjà rattaché à l'enfant dans Noethys.")
-        self._section(panneau, colonne, u"MALADIES ET ALLERGIES",
-             u"Traitements, PAI, allergies et consignes : onglet Médical existant.")
+        # Les donnees restent dans les tables Medical de Noethys. On lit
+        # uniquement pour afficher, sous permission stricte admin.
+        if self.lecture_medicale:
+            try:
+                self.medical = sources.LireMedicalExistant(
+                    IDindividu, self.utilisateur)
+            except Exception:
+                self.medical = None
+        vaccinations = (u"%d vaccination(s) enregistrée(s) dans Noethys." %
+                       self.medical["vaccins_enregistres"]
+                       if self.medical else u"Consulter les vaccins dans l'onglet Médical.")
+        medecin = self.medical.get("medecin") if self.medical else None
+        nom_medecin = (u"%s %s — %s" % (
+            medecin.get("nom") or "", medecin.get("prenom") or "",
+            medecin.get("telephone") or "")).strip() if medecin else (
+            u"Consulter le médecin traitant dans l'onglet Médical.")
+        problemes = self.medical.get("problemes", []) if self.medical else []
+        libelles = [p.get("intitule") or u"Information enregistrée" for p in problemes]
+        contenu_medical = (u"Informations déjà enregistrées : %s. "
+                           u"Consignes et PAI à consulter dans Médical." %
+                           (u" ; ".join(libelles) or u"Aucune fiche signalée")
+                           if self.medical else
+                           u"Traitements, PAI, allergies et consignes : onglet Médical existant.")
+        self._section(panneau, colonne, u"VACCINATIONS", vaccinations)
+        self._section(panneau, colonne, u"MÉDECIN TRAITANT", nom_medecin)
+        self._section(panneau, colonne, u"MALADIES ET ALLERGIES", contenu_medical)
         self.bouton_medical = wx.Button(
             panneau, label=_(u"Consulter les informations médicales déjà enregistrées"))
         colonne.Add(self.bouton_medical, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
-        if self.acces:
+        if self.lecture_medicale:
             self._section(panneau, colonne, u"AEEH",
                 u"Statut existant dans l'Identité : %s" %
                 self.entete.get("aeeh", u"Non renseigné"))
@@ -181,7 +204,10 @@ class Dialog(wx.Dialog):
             colonne.Add(ligne, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
 
         self._bandeau(panneau, colonne, u"SIGNATURE ET JUSTIFICATIF")
-        self.signataires = ListerResponsables(IDindividu) if self.acces else []
+        try:
+            self.signataires = ListerResponsables(IDindividu) if self.acces else []
+        except Exception:
+            self.signataires = []
         self.signataire = wx.Choice(panneau, choices=[
             u"Sélectionner le responsable signataire"] + [
             u"%s (fiche n°%d)" % (nom, ident)
