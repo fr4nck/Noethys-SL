@@ -429,15 +429,39 @@ class Dialog(wx.Dialog):
             "non_renseigne": u"Non renseigné",
         }.get(getattr(self, "repas_existant", None),
               u"À vérifier dans le questionnaire Noethys")
-        info["vaccinations"] = (u"%d vaccination(s) enregistrée(s)" %
-                self.medical["vaccins_enregistres"]) if self.medical else u""
-        medecin = self.medical.get("medecin") if self.medical else None
-        info["medecin"] = (u"%s %s (%s)" % (
-            medecin.get("nom", ""), medecin.get("prenom", ""),
-            medecin.get("telephone", ""))) if medecin else u""
-        info["medical"] = ([
-            u"%s : %s" % (item.get("intitule", ""), item.get("description", ""))
-            for item in self.medical["problemes"]] if inclure else [])
+        # Le consentement a l'export s'applique a TOUS les champs medicaux,
+        # pas seulement a la liste des problemes. Aucune fuite par defaut.
+        info["vaccinations"] = u""
+        info["medecin"] = u""
+        info["medical"] = []
+        info["traitement"] = u"Non renseigné"
+        if inclure:
+            info["vaccinations"] = (
+                u"%d vaccination(s) enregistrée(s) dans Noethys ; "
+                u"date du dernier DT Polio non vérifiée" %
+                self.medical["vaccins_enregistres"])
+            medecin = self.medical.get("medecin")
+            if medecin:
+                info["medecin"] = u"%s %s (%s)" % (
+                    medecin.get("nom", ""), medecin.get("prenom", ""),
+                    medecin.get("telephone", ""))
+            traitements = [
+                item for item in self.medical["problemes"]
+                if item.get("traitement_medical") is True
+            ]
+            info["traitement"] = (
+                u"Traitement signalé dans Noethys : vérifier ordonnance"
+                if traitements else u"Aucun traitement signalé dans les fiches consultées"
+            )
+            for item in self.medical["problemes"]:
+                details = [
+                    item.get("intitule") or u"Information médicale",
+                    item.get("description") or u"",
+                    item.get("description_traitement") or u"",
+                ]
+                info["medical"].append(u" — ".join(x for x in details if x))
+        # PAI/AESH/allergies : ne jamais inférer Oui ou Non depuis un
+        # problème de santé générique ou depuis l'absence de saisie.
         info["autorisation_modele"] = u"Fiche Enfant 2026-06"
         info["autorisations"] = {}
         for code, _libelle in PRINCIPALES:
