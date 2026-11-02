@@ -311,7 +311,7 @@ class PAGE_Unites(wx.Panel):
         # Contrôles
         self.label_intro = wx.StaticText(self, -1, _(u"Cochez les unités à additionner :"))
         self.ctrl_unites = CTRL_Unites(self)
-        self.ctrl_unites.SetMinSize((100, 50))
+        self.ctrl_unites.SetMinSize((100, 120))  # Plusieurs unites visibles sans redimensionner
         self.check_repas = wx.CheckBox(self, -1, _(u"Afficher uniquement les unités avec repas inclus"))
         # Opt-in par site et service : ce repas adulte rejoint la colonne 6 ans et plus.
         self.check_directeur = wx.CheckBox(self, -1, _(u"+1 repas directeur détaché non déjà compté (colonne 6 ans et plus)"))
@@ -376,7 +376,7 @@ class PAGE_Unites(wx.Panel):
         # Layout
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=5, hgap=5)
         grid_sizer_base.Add(self.label_intro, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
-        grid_sizer_base.Add(self.ctrl_unites, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 0)
+        grid_sizer_base.Add(self.ctrl_unites, 0, wx.EXPAND, 0)
         grid_sizer_base.Add(self.check_repas, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 0)
         options_directeur = wx.BoxSizer(wx.VERTICAL)
         options_directeur.Add(self.check_directeur, 0, wx.ALL, 2)

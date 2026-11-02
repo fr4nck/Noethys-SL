@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Liste des unités dans la saisie d'une colonne — correction ergonomique (02/11/2026)
+
+- **Constat** : arbre « Cochez les unités à additionner » limité à 50 pixels ; dans une fenêtre agrandie, l'alignement vertical maintenait la liste trop basse et trop courte au lieu d'occuper la ligne extensible.
+- **Correctif sur `wx` uniquement** : hauteur minimale de la liste portée à 120 pixels, suppression de l'alignement vertical incompatible avec son expansion, maintien de `AddGrowableRow(1)`. Aucun changement de sélection, de paramètres, de données ou de calcul.
+- **Prévol distant** : `main` `78b1170f`, `wx` `9861635b`, `qt` `3b2e6033` ; comparaison ciblée des trois versions du dialogue. Aucun merge, branche ni PR. Code de test AST autonome ajouté (`tests/test_noethys_sl_colonne_unites_layout.py`).
+- **Contrôle / publication** : candidat source uniquement, contrat de disposition à rejouer en CI ; recette visuelle Windows et publication d'un exécutable **non effectuées**. Pas d'installation ni d'accès aux données de production.
+
+| Comportement | `main` | `wx` | `qt` |
+|---|---|---|---|
+| Hauteur/expansion de la liste des unités dans cette fenêtre wx | ABSENT (inchangé) | CANDIDAT (source + garde AST) | ABSENT (inchangé, interface non qualifiée pour la livraison wx) |
+
 ## RC10.3 publiée et fichiers publics vérifiés (29/10/2026)
 
 - **Livraison** : [Noethys SL 0.1.0 RC10.3](https://github.com/fr4nck/Noethys-SL/releases/tag/noethys-sl-0.1.0-rc.10.3), préversion publique du 2026-10-29T12:46:25Z, tag `noethys-sl-0.1.0-rc.10.3` au source qualifié `f4b19f7de9e0aec6dc0901214c6807b8bbc9ec90`. L'identité publique change ; la version numérique interne demeure `1.3.4.4`. Les releases et tags antérieurs restent intacts.
