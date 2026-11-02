@@ -28,6 +28,7 @@ from Utils import UTILS_Images
 from Utils import UTILS_Repas_validation
 from Data import DATA_Civilites as Civilites
 from Ctrl import CTRL_Saisie_date
+from Ctrl import CTRL_Grille_periode
 from Ctrl import CTRL_Commande_repas
 from Ctrl.CTRL_ObjectListView import FastObjectListView, ColumnDefn, Filter, CTRL_Outils
 
@@ -148,6 +149,67 @@ class CTRL_Infos(html.HtmlWindow):
         self.SetPage(texte)
 
 
+def VerifierSelectionDatesCommande(selections):
+    """Une commande de repas couvre une seule plage continue, aux dates valides."""
+    if not isinstance(selections, (list, tuple)) or len(selections) != 1:
+        return None
+    bornes = selections[0]
+    if not isinstance(bornes, (list, tuple)) or len(bornes) != 2:
+        return None
+    date_debut, date_fin = bornes
+    if isinstance(date_debut, datetime.datetime):
+        date_debut = date_debut.date()
+    if isinstance(date_fin, datetime.datetime):
+        date_fin = date_fin.date()
+    if not isinstance(date_debut, datetime.date) or not isinstance(date_fin, datetime.date):
+        return None
+    if date_debut > date_fin:
+        return None
+    return (date_debut, date_fin)
+
+
+class DialogChoixPeriodeCommande(wx.Dialog):
+    """Sélecteur partagé Mois / Vacances / Année / Dates / Saison (P1-P5)."""
+
+    def __init__(self, parent, date_debut=None, date_fin=None):
+        wx.Dialog.__init__(self, parent, -1,
+                           title=_(u"Choisir la période de commande"),
+                           style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.periode = None
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(wx.StaticText(self, -1, _(u"Choisissez une seule période pour la commande de repas :")),
+                  0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self.ctrl_periodes = CTRL_Grille_periode.CTRL(self, selection_multiple=False)
+        self.ctrl_periodes.SetMinSize((440, 260))
+        bornes_actuelles = VerifierSelectionDatesCommande([(date_debut, date_fin)])
+        if bornes_actuelles is not None:
+            # Une commande existante se rouvre sur ses dates exactes.
+            # On ne déduit pas un code de période à partir de dates arbitraires.
+            self.ctrl_periodes.SetDictDonnees({
+                "page": 3, "listeSelections": [], "annee": None,
+                "dateDebut": bornes_actuelles[0], "dateFin": bornes_actuelles[1],
+            })
+        sizer.Add(self.ctrl_periodes, 1, wx.EXPAND | wx.ALL, 8)
+        sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL),
+                  0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.SetSizerAndFit(sizer)
+        self.SetMinSize((500, 365))
+        self.SetSize((max(500, self.GetSize().width), max(365, self.GetSize().height)))
+        self.CentreOnParent()
+        self.Bind(wx.EVT_BUTTON, self.OnValider, id=wx.ID_OK)
+
+    def OnValider(self, event):
+        bornes = VerifierSelectionDatesCommande(self.ctrl_periodes.GetDatesSelections())
+        if bornes is None:
+            wx.MessageBox(
+                _(u"Sélectionnez une seule période avec une date de début et de fin valides."),
+                _(u"Période de commande invalide"), wx.OK | wx.ICON_WARNING, self)
+            return
+        self.periode = bornes
+        self.EndModal(wx.ID_OK)
+
+
 class Dialog(wx.Dialog):
     def __init__(self, parent, IDmodele=None, IDcommande=None):
         wx.Dialog.__init__(self, parent, -1, name="DLG_Saisie_commande", style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
@@ -165,6 +227,7 @@ class Dialog(wx.Dialog):
         self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)
         self.label_au = wx.StaticText(self, wx.ID_ANY, _(u"au"))
         self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)
+        self.bouton_choisir_periode = wx.Button(self, wx.ID_ANY, _(u"Choisir une période…"))
         self.label_observations = wx.StaticText(self, wx.ID_ANY, _(u"Notes :"))
         self.ctrl_observations = wx.TextCtrl(self, wx.ID_ANY, u"", style=wx.TE_MULTILINE)
         self.ctrl_observations.SetMinSize((270, -1))
@@ -213,6 +276,7 @@ class Dialog(wx.Dialog):
         self.__do_layout()
 
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonChoisirPeriode, self.bouton_choisir_periode)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonOutils, self.bouton_outils)
         self.Bind(wx.EVT_BUTTON, self.Imprimer, self.bouton_imprimer)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonEmail, self.bouton_email)
@@ -234,6 +298,8 @@ class Dialog(wx.Dialog):
         self.ctrl_nom.SetToolTip(wx.ToolTip(_(u"Saisissez un nom pour cette commande (Ex : 'Vacances de Pâques 2018')")))
         self.ctrl_date_debut.SetToolTip(wx.ToolTip(_(u"Saisissez la date de début de la période")))
         self.ctrl_date_fin.SetToolTip(wx.ToolTip(_(u"Saisissez la date de fin de la période")))
+        self.bouton_choisir_periode.SetToolTip(wx.ToolTip(
+            _(u"Choisir Mois, Vacances, Année, Dates ou Saison (P1 à P5)")))
         self.ctrl_observations.SetToolTip(wx.ToolTip(_(u"Saisissez des observations")))
         self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
         self.bouton_outils.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour accéder aux outils")))
@@ -260,6 +326,7 @@ class Dialog(wx.Dialog):
         grid_sizer_periode.Add(self.ctrl_date_debut, 0, wx.EXPAND, 0)
         grid_sizer_periode.Add(self.label_au, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_periode.Add(self.ctrl_date_fin, 0, wx.EXPAND, 0)
+        grid_sizer_periode.Add(self.bouton_choisir_periode, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_generalites.Add(grid_sizer_periode, 1, wx.EXPAND, 0)
 
         grid_sizer_generalites.Add(self.label_observations, 0, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL, 0)
@@ -329,6 +396,23 @@ class Dialog(wx.Dialog):
 
     def OnChoixDate(self):
         self.MAJ()
+
+    def OnBoutonChoisirPeriode(self, event):
+        """Les dates ne sont appliquées qu'après validation du sélecteur commun."""
+        dlg = DialogChoixPeriodeCommande(
+            self, self.ctrl_date_debut.GetDate(), self.ctrl_date_fin.GetDate())
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return
+            date_debut, date_fin = dlg.periode
+            if (date_debut, date_fin) == (
+                    self.ctrl_date_debut.GetDate(), self.ctrl_date_fin.GetDate()):
+                return
+            self.ctrl_date_debut.SetDate(date_debut)
+            self.ctrl_date_fin.SetDate(date_fin)
+            self.OnChoixDate()  # Recalcule les lignes sans enregistrer la commande.
+        finally:
+            dlg.Destroy()
 
     def OnBoutonAide(self, event): 
         from Utils import UTILS_Aide

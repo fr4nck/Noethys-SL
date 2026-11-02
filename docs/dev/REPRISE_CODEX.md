@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Commandes de repas — sélecteur commun des dates raccordé à la cantine (02/11/2026)
+
+- **Signalement** : dans `DLG_Saisie_commande.py`, la période de commande n'offrait que deux dates manuelles ; aucun raccordement au module commun `CTRL_Grille_periode` (Mois/Vacances/Année/Dates/Saison) malgré le moteur périscolaire P1–P5 qualifié (#421).
+- **Correctif wx** : bouton « Choisir une période… » près de la période, ouverture modale du sélecteur existant en sélection simple. En édition, les bornes enregistrées sont reprises à l'identique dans l'onglet Dates. Annuler ne change rien ; OK exige une plage continue valide avant de remplir les deux dates et d'actualiser la grille, sans enregistrer automatiquement une commande.
+- **Préservation** : aucun nouveau moteur de dates, aucune migration, aucun changement des calculs/suggestions de repas ni des anciennes périodes ; les autres branches restent inchangées. Prévol : `wx` `b2f47e0f`, `main` `78b1170f`, `qt` `3b2e6033`. Test dédié `tests/test_noethys_sl_commandes_dates_selection.py` (validation des bornes, raccordement UI, conservation des données et annulation).
+- **Qualification** : source candidate sur `wx`. Recette native Windows avec une copie de base fictive à réaliser avant d'annoncer une nouvelle version. Aucun paquet ni binaire publié par ce commit.
+
+| Correctif | main | wx | qt |
+|---|---|---|---|
+| Sélecteur commun pour dates des commandes cantine | ABSENT | CANDIDAT SOURCE + TEST | ABSENT (adaptation Qt à qualifier) |
+
 ## Liste des unités dans la saisie d'une colonne — correction ergonomique (02/11/2026)
 
 - **Constat** : arbre « Cochez les unités à additionner » limité à 50 pixels ; dans une fenêtre agrandie, l'alignement vertical maintenait la liste trop basse et trop courte au lieu d'occuper la ligne extensible.
