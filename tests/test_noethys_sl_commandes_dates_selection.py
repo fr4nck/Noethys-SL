@@ -73,9 +73,9 @@ class CommandesDatesSelectionTests(unittest.TestCase):
 
     def test_les_dates_existantes_sont_reprises_et_le_choix_est_simple(self):
         init = ast.unparse(method_body("DialogChoixPeriodeCommande", "__init__"))
-        self.assertIn('"page": 3', init)
-        self.assertIn('"dateDebut": bornes_actuelles[0]', init)
-        self.assertIn('"dateFin": bornes_actuelles[1]', init)
+        self.assertIn("'page': 3", init)
+        self.assertIn("'dateDebut': bornes_actuelles[0]", init)
+        self.assertIn("'dateFin': bornes_actuelles[1]", init)
         valider = ast.unparse(method_body("DialogChoixPeriodeCommande", "OnValider"))
         self.assertIn("VerifierSelectionDatesCommande(", valider)
         self.assertIn("self.EndModal(wx.ID_OK)", valider)
