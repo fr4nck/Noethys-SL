@@ -4,14 +4,13 @@
 
 Le module **Facturation > Situation des communes (ALSH)** distingue :
 
-- les journees-enfants **presentes** (`present`), toujours en frequentation reelle ;
-- les **absences injustifiees** (`absenti`), comptabilisees **sur choix explicite** de l'utilisateur ;
+- les journees-enfants **presentes** (`present`), et les reservations passees ou absences injustifiees **facturees** : toutes dans la meme categorie de frequentation ;
+- les **absences injustifiees non facturees** (`absenti`), comptabilisees uniquement sur choix explicite de l'utilisateur, en simulation ;
 - les reservations `reservation` du futur, isolees dans les previsions ;
-- les absences justifiees `absentj`, attentes `attente` et refus `refus`, non retenus.
+- les absences justifiees `absentj` (meme facturees), attentes `attente` et refus `refus`, non retenus pour le bilan communal.
 
 Le choix se fait par **commune, annee et dossier** avec la case « Compter les absences
-injustifiees », **decochee par defaut**. Les dossiers enregistres avant cette version
-continuent a exclure ces absences. Le choix est enregistre dans le JSON local du dossier.
+injustifiees », **decochee par defaut**. Les factures des absences injustifiees sont prises en compte par defaut, meme dans un ancien dossier. L'option permet seulement d'ajouter des absences non facturees. Le choix est enregistre dans le JSON local du dossier.
 
 Lorsque l'option change apres un premier releve, le logiciel demande une confirmation
 avant de supprimer les lignes mensuelles pour recalculer les journees. Les acomptes
@@ -21,23 +20,18 @@ et le parametre est transmis sans utiliser de controle wx dans un thread seconda
 ## Calcul
 
 ```
-Participation = journees reellement presentes * tarif conventionnel
-              + absences injustifiees retenues * tarif conventionnel [option]
+Participation = (journees presentes + reservations passees facturees + absences injustifiees facturees) * tarif conventionnel
+              + absences injustifiees non facturees * tarif conventionnel [simulation optionnelle]
               + journees futures reservees * tarif conventionnel
 Solde indicatif = participation - acomptes communaux recus et affectes a N
 ```
 
-Les deux formes de journees retenues sont **toujours distinguees** dans la synthese
-Noethys et dans les exports PDF, CSV et Excel ; les absences facturees aux familles ne
-sont jamais appelees "presences reelles". Les montants familiaux ne sont pas utilises.
+Les jours presents et les jours factures admissibles alimentent **un seul compteur de frequentation** dans l'ecran et les exports PDF, CSV et Excel. L'option non facturee reste isolee car elle est une simulation. Les montants familiaux ne sont pas utilises.
 Le moteur refuse qu'une meme journee-enfant soit comptee deux fois a partir d'etats
 ou d'unites contradictoires. Les etats inconnus restent des erreurs explicites.
 
 **Reserve contractuelle :** les conventions mises a disposition font reference aux
-journees-enfants realisees. La facturation des absences injustifiees aux familles ne
-prouve pas qu'elles peuvent etre financees par la commune. Un rapport qui inclut
-`absenti` porte donc le statut **PROVISOIRE - ABSENCES A VALIDER**, meme si les autres
-controles ont ete coches ; le solde certifie n'est pas emis. Une validation ecrite de
+journees-enfants realisees. La facturation aux familles ne remplace pas la verification de la convention communale. Le moteur ne modifie ni la base de consommations ni les factures. La validation des clauses locales reste sous la responsabilite de l'operateur. Une validation ecrite de
 la commune/convention doit etre apportee avant la transmission comme solde definitif.
 
 ## Qualification
