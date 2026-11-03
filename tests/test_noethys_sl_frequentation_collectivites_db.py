@@ -37,6 +37,9 @@ class SqliteLectureSeule:
           INSERT INTO consommations VALUES (4,20,'2026-03-03',1,101,'reservation');
           INSERT INTO consommations VALUES (5,30,'2026-03-02',1,101,'present');
           INSERT INTO consommations VALUES (6,40,'2026-03-02',1,101,'present');
+          ALTER TABLE consommations ADD COLUMN IDprestation INTEGER;
+          CREATE TABLE factures (IDfacture INTEGER PRIMARY KEY, etat TEXT);
+          CREATE TABLE prestations (IDprestation INTEGER PRIMARY KEY, IDfacture INTEGER, montant REAL);
         """)
         self.queries = []
         self.cursor = None
