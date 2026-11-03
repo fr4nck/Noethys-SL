@@ -101,6 +101,7 @@ def InspecterArchive(chemin):
     try:
         with zipfile.ZipFile(os.fspath(chemin), "r") as archive:
             categorise = {}
+            annexes = []
             noms = set()
             for item in archive.infolist():
                 nom = item.filename.replace("\\", "/")
@@ -119,6 +120,7 @@ def InspecterArchive(chemin):
                 if item.flag_bits & 1:
                     raise ArchiveNoethysInvalide("entree ZIP chiffree, inspection impossible")
                 if not nom.lower().endswith(".sql"):
+                    annexes.append(item)
                     continue
                 if "/" in nom:
                     raise ArchiveNoethysInvalide("SQL hors racine du ZIP")
@@ -129,6 +131,13 @@ def InspecterArchive(chemin):
             if set(categorise) != set(_CATEGORIES):
                 manque = sorted(set(_CATEGORIES) - set(categorise))
                 raise ArchiveNoethysInvalide("bases manquantes : " + ", ".join(manque))
+            # Verifier aussi le CRC des pieces non-SQL. Une ZIP peut avoir
+            # trois dumps integres tout en contenant une annexe corrompue.
+            # Lecture en flux : aucune extraction, aucun stockage en RAM.
+            for item in annexes:
+                with archive.open(item, "r") as flux:
+                    while flux.read(_BLOC):
+                        pass
             for cat in _CATEGORIES:
                 item = categorise[cat]
                 with archive.open(item, "r") as flux:
