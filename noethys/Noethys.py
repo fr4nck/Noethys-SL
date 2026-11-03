@@ -430,6 +430,11 @@ class MainFrame(wx.Frame):
             if resultat == wx.ID_CANCEL :
                 return False
 
+        # La fermeture a ete acceptee : arreter le worker Connecthys non
+        # daemon maintenant, et jamais avant une sauvegarde annulee.
+        if hasattr(self, "ctrl_serveur_portail"):
+            self.ctrl_serveur_portail.StopServeur()
+
         # Vidage des répertoires Temp
         if videRepertoiresTemp == True :
             FonctionsPerso.VideRepertoireTemp()
