@@ -78,6 +78,7 @@ VALEURS_DEFAUT = {
     "ssh_port" : "22",
     "ssh_key_file" : "",
     "ssh_host_key_sha256" : "",
+    "models_sha256" : "",
     "ssh_utilisateur" : "",
     "ssh_mdp" : "",
     "ssh_repertoire" : "/tmp/connecthys",
@@ -504,6 +505,14 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
 
         # Catégorie
         self.Append( wxpg.PropertyCategory(_(u"Sécurité")) )
+
+        # Empreinte du seul models.py : opt-in, compatible avec Connecthys Ivan Lucas.
+        # Ne couvre pas les autres modules que models.py pourrait importer.
+        nom = "models_sha256"
+        propriete = wxpg.StringProperty(label=_(u"Empreinte du modele Connecthys (SHA256)"),
+                                       name=nom, value=VALEURS_DEFAUT[nom])
+        propriete.SetHelpString(_(u"Facultatif. SHA256 hexadecimale sur 64 caracteres du fichier models.py, verifiee aupres d'une source independante. Une modification du modele bloquera son execution. Laissez vide pour le mode historique. Ne protege pas les modules Python annexes importes par le modele."))
+        self.Append(propriete)
 
         # Clé secrète
         nom = "secret_key"
