@@ -212,6 +212,38 @@ class ConventionTests(unittest.TestCase):
         d["jours"][0]["justificatif"] = ""
         self.assertIsNone(calculer(d)["totaux"]["solde_verifie"])
 
+    def test_journee_facturee_sans_presence_est_ajoutee_au_financier(self):
+        d = fixture()
+        d["jours"].append({
+            "id": "FACT-MAR", "convention": "ALSH-2025-2026", "mois": 3,
+            "nature": "facturee_non_presente", "nombre": "2",
+            "justificatif": "factures fictives de mars",
+        })
+        r = calculer(d)
+        t = r["totaux"]
+        self.assertEqual(t["journees_reelles"], 12)
+        self.assertEqual(t["journees_facturees_non_presentes"], 2)
+        self.assertEqual(t["journees_retenues"], 14)
+        self.assertEqual(t["participation_facturee_non_presente"], 2308)
+        self.assertEqual(t["participation_estimee"], 23175 + 2308)
+        self.assertEqual(t["solde_indicatif"], 13175 + 2308)
+        self.assertIsNone(t["solde_verifie"])
+        self.assertEqual(r["mensuel"]["3"]["facturee_non_presente"], 2)
+        with tempfile.TemporaryDirectory() as temp:
+            p = Path(temp)
+            exporter_csv(r, p / "facturees.csv")
+            with (p / "facturees.csv").open(encoding="utf-8-sig") as f:
+                rows = list(csv.reader(f, delimiter=";"))
+            self.assertIn(["journees_facturees_non_presentes", "2"], rows)
+            self.assertIn(["participation_facturee_non_presente", "23.08"], rows)
+            exporter_xlsx(r, p / "facturees.xlsx", d)
+            with ZipFile(p / "facturees.xlsx") as archive:
+                self.assertEqual(self.cellule_xlsx(archive, 1, "O9")[1], "2")
+                self.assertEqual(self.cellule_xlsx(archive, 1, "P9")[1], "23.08")
+                self.assertEqual(self.cellule_xlsx(archive, 1, "H9")[1], "196.24")
+            exporter_pdf(r, p / "facturees.pdf", fictif=True)
+            self.assertTrue((p / "facturees.pdf").read_bytes().startswith(b"%PDF"))
+
     def test_format_10_jours_ne_devient_pas_1(self):
         self.assertEqual(_fr_jours(10), "10")
         self.assertEqual(_fr_jours(100), "100")
