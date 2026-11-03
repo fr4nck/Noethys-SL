@@ -22,9 +22,9 @@ TABLES = (
     "questionnaire_questions", "questionnaire_choix", "questionnaire_reponses",
     "tarifs", "combi_tarifs", "combi_tarifs_unites", "prestations",
 )
-CREATE_RE = re.compile(rb"(?im)^CREATE TABLE\s+``([A-Za-z0-9_]+)``\s*\(")
+CREATE_RE = re.compile(rb"(?im)^CREATE TABLE\s+`([A-Za-z0-9_]+)`\s*\(")
 INSERT_RE = re.compile(
-    rb"(?im)^INSERT INTO\s+``([A-Za-z0-9_]+)``\s+(?:\([^\n;]*\)\s+)?VALUES\s*"
+    rb"(?im)^INSERT INTO\s+`([A-Za-z0-9_]+)`\s+(?:\([^\n;]*\)\s+)?VALUES\s*"
 )
 
 
