@@ -127,7 +127,7 @@ def _page1(c, data):
               p.get("telephone", ""), largeur=w - 20)
         top -= 79
 
-    _boite(c, x, top, w, 92, SECTIONS_P1[3])
+    _boite(c, x, top, w, 130, SECTIONS_P1[3])
     c.setFont("Helvetica-Bold", 7.5)
     for i, nom in enumerate((u"Nom", u"Prénom", u"Lien de parenté", u"N° téléphone")):
         c.drawCentredString(x + 63 + i * (w / 4), top - 39, nom)
@@ -136,25 +136,25 @@ def _page1(c, data):
     for i in range(1, 4):
         cx = x + i * (w / 4)
         c.line(cx, top - 27, cx, top - 90)
-    for y in (top - 58, top - 73):
+    for y in (top - 58, top - 73, top - 88, top - 103, top - 118):
         c.line(x + 5, y, x + w - 5, y)
     accompagnants = list(data.get("accompagnants") or [])
-    for i, personne in enumerate(accompagnants[:3]):
+    for i, personne in enumerate(accompagnants[:5]):
         valeurs = (
             personne.get("nom", ""), personne.get("prenom", ""),
             personne.get("lien", ""),
             personne.get("telephone_court") or personne.get("telephone", ""),
         )
-        if i == 2 and len(accompagnants) > 3:
+        if i == 4 and len(accompagnants) > 5:
             valeurs = (valeurs[0], valeurs[1],
-                       u"%s (+%d autres)" % (valeurs[2], len(accompagnants) - 3),
+                       u"%s (+%d autres)" % (valeurs[2], len(accompagnants) - 5),
                        valeurs[3])
         for j, valeur in enumerate(valeurs):
             c.setFont("Helvetica", 7.3)
             c.drawString(
                 x + 9 + j * (w / 4), top - 54 - i * 15,
                 _tronc(valeur, "Helvetica", 7.3, w / 4 - 16))
-    top -= 100
+    top -= 138
 
     _boite(c, x, top, w, 54, SECTIONS_P1[4])
     _cell(c, x + 10, top - 38, u"Dernier DT Polio / vaccins :",
