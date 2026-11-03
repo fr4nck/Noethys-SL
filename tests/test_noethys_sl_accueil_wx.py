@@ -23,7 +23,8 @@ class EcranAccueilTests(unittest.TestCase):
                   SetSelection=Mock(), Enable=Mock())
 
     def base(self, acces=True, ecriture=True):
-        controles = {code: self.controle() for code, label in self.UI.PRINCIPALES}
+        controles = {code: self.controle()
+                     for code, label in self.UI.PRINCIPALES + self.UI.DEPART_AUTONOME}
         return NS(
             IDindividu=10, acces=acces, ecriture=ecriture,
             administrateur=ecriture, registre_pret=False, historique=[],
@@ -172,6 +173,72 @@ class EcranAccueilTests(unittest.TestCase):
         self.assertEqual(args[2][0]["IDsignataire"], 99)
         self.assertTrue(kwargs["autorise"])
         f.OnActualiser.assert_called_once()
+
+    def test_depart_seul_visible_et_enregistre_comme_decision_distincte(self):
+        self.assertEqual(self.UI.DEPART_AUTONOME,
+                         (("depart_seul", "Autorisé à partir seul de l'ALSH"),))
+        self.assertIn("depart_seul", self.UI.registre.TYPES)
+        f = self.base()
+        f.registre_pret = True
+        f.choix_autorisations["depart_seul"].GetSelection.return_value = 1
+        f.signataire = NS(GetSelection=Mock(return_value=1))
+        f.source = NS(GetSelection=Mock(return_value=0))
+        f.date_signature = NS(GetValue=Mock(return_value="2026-11-03"))
+        f.date_debut = NS(GetValue=Mock(return_value="2026-11-03"))
+        f.date_fin = NS(GetValue=Mock(return_value="2027-08-31"))
+        f.autorite = NS(GetValue=Mock(return_value=True))
+        f.texte_version = NS(GetValue=Mock(return_value="Fiche Enfant 2026-11"))
+        f.reference_preuve = NS(GetValue=Mock(return_value="fiche-fictive-11"))
+        with patch.object(self.UI.wx, "MessageBox", return_value=wx.YES), \
+             patch.object(self.UI.registre, "EnregistrerLot") as sauver:
+            self.assertTrue(self.UI.Dialog.OnEnregistrer(f))
+        args, kwargs = sauver.call_args
+        self.assertEqual(len(args[2]), 1)
+        self.assertEqual(args[2][0]["type"], "depart_seul")
+        self.assertEqual(args[2][0]["valeur"], 1)
+        self.assertEqual(args[2][0]["IDsignataire"], 99)
+        self.assertEqual(args[3][("depart_seul", "ALSH 2026-2027")], None)
+        self.assertTrue(kwargs["autorise"])
+
+    def test_depart_seul_non_renseigne_ne_produit_aucune_autorisation(self):
+        f = self.base()
+        f.registre_pret = True
+        f.signataire = NS(GetSelection=Mock(return_value=1))
+        with patch.object(self.UI.wx, "MessageBox"), \
+             patch.object(self.UI.registre, "EnregistrerLot") as sauver:
+            self.assertFalse(self.UI.Dialog.OnEnregistrer(f))
+        sauver.assert_not_called()
+
+    def test_impression_reprend_depart_seul_depuis_registre(self):
+        f = self.base()
+        f.registre_pret = True
+        f.lecture_medicale = False
+        f.medical = None
+        f.inclure_medical = NS(GetValue=Mock(return_value=False))
+        f.entete = {"nom": "ENFANT", "prenom": "Test"}
+        f.repas_existant = "non_renseigne"
+        f.signataire = NS(GetSelection=Mock(return_value=0))
+        f.date_signature = NS(GetValue=Mock(return_value=""))
+        fenetre = NS(ShowModal=Mock(return_value=wx.ID_OK),
+                     GetPath=Mock(return_value="enfant-depart-fictif.pdf"),
+                     Destroy=Mock())
+        def lire_etat(_historique, _enfant, code, _perimetre, _au):
+            return ((1, "oui") if code == "depart_seul"
+                    else (0, "non_renseigne"))
+        with patch.object(self.UI.wx, "FileDialog", return_value=fenetre), \
+             patch.object(self.UI.wx, "MessageBox"), \
+             patch.object(self.UI, "EtatChoix", side_effect=lire_etat), \
+             patch.object(self.UI.contacts, "LireContactsEnfant",
+                          return_value={"responsables": [], "accompagnants": []}), \
+             patch.object(self.UI.scolarite, "LireScolariteActuelle",
+                          return_value={"classe": "CE2"}), \
+             patch.object(self.UI.impression, "GenererPDF") as imprimer:
+            self.assertTrue(self.UI.Dialog.OnImprimer(f))
+        info = imprimer.call_args.args[1]
+        self.assertEqual(info["autorisations"]["depart_seul"], "oui")
+        self.assertEqual(info["autorisations"]["piscine_baignade"],
+                         "non_renseigne")
+        self.assertEqual(info["autorisation_modele"], "Fiche Enfant 2026-11")
 
     def test_impression_interdite_sans_acces(self):
         f = self.base(acces=False)
