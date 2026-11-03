@@ -1,0 +1,37 @@
+name: Noethys SL Qt - C19b garde factures fictives
+
+on:
+  push:
+    branches:
+      - qt
+    paths:
+      - "noethys_qt/c19b_operational_guard.py"
+      - "tests_qt/test_c19b_operational_guard.py"
+      - ".github/workflows/qt-c19b-guard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c19b-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests-sans-qt:
+    name: Verification des gardes C19b sur ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Gardes de demonstration et absence d'acces aux vraies bases
+        run: python -m unittest discover -s tests_qt -p "test_c19b_operational_guard.py" -v
