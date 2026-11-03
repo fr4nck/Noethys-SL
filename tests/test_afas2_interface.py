@@ -184,6 +184,18 @@ class DialogueTests(unittest.TestCase):
         dlg.OnReprendre(None)
         self.assertEqual(dlg.GetClassement(), ({101: "accueil", 201: "annexe"}, {101: "07:30-08:45"}))
 
+    def test_minicamp_la_guerche_propose_sans_ecraser_un_ancien_choix(self):
+        from Utils import UTILS_AFAS2_Referentiel as R
+        ref = R.ChargerReferentiel()
+        ref["sites"][R.MINICAMPS_6_8]["equipement"] = None
+        dlg = self.module.DialogReferentiel(self.dlg, ref)
+        self.addCleanup(dlg.Destroy)
+        self.assertEqual(dlg.LireSites()[R.MINICAMPS_6_8]["equipement"], "LA_GUERCHE_MOUTIERS")
+        # Un rattachement déjà enregistré reste inchangé à l'ouverture.
+        historique = self.module.DialogReferentiel(self.dlg, R.ChargerReferentiel())
+        self.addCleanup(historique.Destroy)
+        self.assertEqual(historique.LireSites()[R.MINICAMPS_6_8]["equipement"], "BAIS")
+
     def test_referentiel_samedis_justificatifs_regularisations(self):
         from Utils import UTILS_AFAS2_Referentiel as R
         dlg = self.module.DialogReferentiel(self.dlg, R.ChargerReferentiel())
