@@ -1,4 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
+## ALSH-C2 — adresses et calcul communal automatiques (03/11/2026)
+
+- Publication sur `main` : commit `d807be2`, fichiers `UTILS_ALSH_AdresseAuto.py`, triggers C2 SQLite/MySQL 5.7 proposes, tests `test_alsh_communes_c2.py` et rapport `docs/dev/ALSH_COMMUNES_C2_IMPLEMENTATION.md`. Extension compatible de C1 par `fournisseur_domiciles` (le parcours manuel historique continue de fonctionner).
+- Automatisation **apres installation des triggers** : chaque changement des champs adresse de `individus` est observe dans la meme transaction que l'ecriture Noethys, y compris imports/SQL ; `adresse_auto` de l'enfant suit le representant. Recalcul a la lecture avec un profil enregistre de couples activite/groupe, unites et tarifs ; correspondances CP/ville -> code INSEE verifiees.
+- **92 tests fictifs SQLite PASS**, 0 echec (52 C1 + 40 C2), incluant adresse parent/enfant, trois communes, demi-journees, exports communaux, donnees contradictoires, rollback, acces et concurrence SQLite. Pas d'etat de production, pas de tests MySQL reels.
+- Limite non negociable : la sauvegarde MAD actuelle ne permet pas de retrouver **a posteriori toutes les dates d'effet** des anciennes adresses. L'horodatage d'edition n'est pas une preuve de demenagement ; une correction datee et justifiee reste possible. Ni la base MAD, ni les factures Noethys n'ont ete modifiees.
+- **STOP-GATE** : recette MySQL, installation C1/C2 sur copie, parametrage des codes communes/contrats, ecran wx/Qt, verification des residences et de leurs periodes avant toute piece exigeable. `liquidable=False` impose au brouillon C2. Aucun second facturier.
+
+
 ## ALSH-C1 — attribution communale des présences (03/11/2026)
 
 - Premier moteur technique publié sur `main` : `noethys/Utils/UTILS_ALSH_Commune.py`, deux DDL proposés `alsh_communes_c1_{sqlite,mysql57}.sql`, `tests/test_alsh_communes_c1.py` et rapport `docs/dev/ALSH_COMMUNES_C1_IMPLEMENTATION.md`. Utilise les identifiants/consommations Noethys et **n'ajoute aucun facturier**.
