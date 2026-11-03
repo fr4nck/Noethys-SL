@@ -209,6 +209,47 @@ class OutilsRecetteTests(unittest.TestCase):
                                            ["2026-10", "Bais -6 ans", "0,00", "8,00", "1"]])
 
 
+    def test_arrete_septembre_compare_uniquement_janvier_septembre(self):
+        """Les consommations d'octobre n'entrent pas dans le relevé arrêté."""
+        extrait = os.path.join(self.dossier.name, "extrait_2026.dat")
+        self.outils.Extraire(self.source, extrait, F.ANNEE)
+        sortie = os.path.join(self.dossier.name, "arrete_septembre")
+        rapport, chemins = self.outils.ExecuterRapprochement(
+            extrait, F.ANNEE, "arrete_septembre", "Bais périscolaire (fictif)",
+            {"heures_realisees": 6.0}, sortie, date_reference=F.DATE_REFERENCE)
+        self.assertEqual(rapport["periode_realise"], ["2026-01-01", "2026-09-30"])
+        self.assertIsNone(rapport["periode_prevision"])
+        self.assertFalse(rapport["validable"])
+        self.assertTrue(any("Contrôle interne" in s for s in rapport["motifs_non_validable"]))
+        self.assertTrue(all(str(j["date"]) <= "2026-09-30" for j in rapport["jours"]))
+        indicateurs = {l["cle"]: l for l in rapport["indicateurs"]}
+        self.assertEqual(indicateurs["heures_realisees"]["realise"], 6 * 3600)
+        self.assertIsNone(indicateurs["heures_realisees"]["total"])
+        with open(chemins["rapprochement"], encoding="utf-8-sig") as fichier:
+            lignes = {l[0]: l for l in csv.reader(fichier, delimiter=";")}
+        self.assertEqual(lignes["heures_realisees"][2:], ["6,00", "6,00", "0,00", "0,00"])
+        with open(chemins["ventilation"], encoding="utf-8-sig") as fichier:
+            ventilation = list(csv.reader(fichier, delimiter=";"))
+        self.assertTrue(all("2026-10" not in str(l) for l in ventilation))
+
+    def test_une_actualisation_ne_compare_jamais_total_avec_prevision(self):
+        """6 h réalisées, 5 h prévues : référence de 6 h, écart zéro."""
+        rapport = {"phase": "actualisation_septembre", "indicateurs": [
+            {"cle": "heures_realisees", "libelle": "Réalisé",
+             "realise": 6 * 3600, "prevision": 5 * 3600, "total": 11 * 3600}]}
+        lignes = self.outils.Rapprocher(rapport, {"heures_realisees": 6.0})
+        self.assertEqual(lignes[0], ("heures_realisees", "Réalisé", 6.0, 6.0, 0.0, 0.0))
+
+    def test_archive_nod_refusee_sans_restaurer_sur_copie(self):
+        faux = os.path.join(self.dossier.name, "sauvegarde.nod")
+        with open(faux, "wb") as fichier:
+            fichier.write(b"Fausse archive de recette - pas une base")
+        cible = os.path.join(self.dossier.name, "non_cree.dat")
+        with self.assertRaisesRegex(SystemExit, r"archive \.nod"):
+            self.outils.Extraire(faux, cible, F.ANNEE)
+        self.assertFalse(os.path.exists(cible))
+
+
 @unittest.skipUnless(_garde_reseau.ParametresMySQLDeTest(), "serveur MySQL local jetable non déclaré")
 class MySQLQualificationTests(_Scenario, unittest.TestCase):
     @classmethod
