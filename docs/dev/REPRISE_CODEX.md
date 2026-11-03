@@ -2125,3 +2125,12 @@ familial à 0 EUR de facturation reste explicitement bloqué
 tant que la tarification 2C-3 n'est pas raccordée et qualifiée.
 Recette graphique Windows sur base fictive et contrôle MySQL jetable
 à effectuer avant installation terrain.
+
+## 03/11/2026 — Lot C ALSH, qualification Windows et prevol tarifaire
+
+- **Fiche enfant / autorisations / depart seul / Club ados** : recette Windows ciblee independante de la suite globale, workflow `.github/workflows/noethys-sl-alsh-windows.yml`, run [41669925212](https://github.com/fr4nck/Noethys-SL/actions/runs/41669925212) sur `5719d322` : **134 tests PASS, 0 FAIL**. Une occurrence anterieure a echoue sur l'ancien compteur du catalogue (8 au lieu de 9 apres ajout de `transport_ados`) ; test corrige `2d6d5a8`. La suite ciblee a ensuite passe.
+- **Repas/commandes et panier familial** : workflow `.github/workflows/noethys-sl-repas-windows.yml`, run [41669582558](https://github.com/fr4nck/Noethys-SL/actions/runs/41669582558) sur `d04ffa339` : **204 tests PASS, 3 SKIP, 0 FAIL**. Simulation de la grille 2026-27 avec repas 4,25 EUR separe ; non raccordee aux prestations/factures.
+- **Tarifs/archives** : `tarif 26-27.pdf` distingue repas 4,25 EUR et tarifs accueil. Archive `Noethys_20260910_1040.nod` lue sans modification : activites uniquement encadrement sportif IDs 5, 6, 7, 11 ; aucun ALSH La Guerche/Moutiers/Bais ; aucun restaurateur, modele ni commande. **Impossible de qualifier le parametrage tarifaire et fournisseur des trois ALSH sur cette archive.** Source et limites documentees dans `docs/metier/REPAS_LOT_2C_WX.md`.
+- **Publication** : aucune release/installateur ni migration. Recette utilisateur sur Windows Noethys reel a effectuer pour la fiche, les commandes sont en simulation ; l'exoneration effective des paniers sur les factures reste NON RACCORDÉE. L'incident sauvegarde PMSL `#437` reste P0 ouvert jusqu'a export complet et restauration sur serveur de recette.
+- Les campagnes globales et les candidats de release sont independants de ces deux qualifications ciblees ; aucune conclusion sur leur statut n'est deduite des tests ALSH.
+
