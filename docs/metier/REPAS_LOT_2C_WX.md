@@ -63,3 +63,20 @@ Contre-epreuves : `tests/test_noethys_sl_repas_2c_wx_integration.py`
 (deux sites simultanes bloques en opt-in, levee apres correction,
 ancien modele inchange). Recette Windows native et verifications sur copie
 ALSH a effectuer avant toute livraison.
+
+## Separation des etats internes et de la commande fournisseur (03/11/2026)
+
+Le PDF historique imprime **toutes les colonnes du modele**. Une colonne
+`texte_infos` peut contenir nom, messages et informations medicales : ce
+comportement ne convient pas a un modele fournisseur type. La prevalidation
+des nouveaux modeles classes par role rejette desormais toute colonne
+`texte_infos`, avant la creation du PDF et de la piece jointe email.
+Les listes enfant, PAI, allergies et consignes doivent rester dans un
+**etat interne distinct** avec controle d'habilitation. Les anciens modeles
+non classes ne sont pas modifies par cette garde de compatibilite.
+
+**Limites :** ce blocage cible l'insertion automatique d'informations
+individuelles dans `texte_infos` ; il ne peut pas garantir le contenu
+de commentaires libres saisis manuellement ni les anciens modeles. Ces flux
+restent a auditer avant la livraison complete du Lot C. Test ajoute :
+`tests/test_noethys_sl_repas_validation.py` (refus avant PDF/email).
