@@ -97,9 +97,9 @@ class ModelesSSHCompatTests(unittest.TestCase):
         annexe.write_text("VALEUR = 'v1'\n", encoding="utf-8")
         v1 = self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
         self.assertEqual(v1.VALEUR, "v1")
-        annexe.write_text("VALEUR = 'v2'\n", encoding="utf-8")
+        annexe.write_text("VALEUR = 'v2_changee'\n", encoding="utf-8")
         v2 = self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
-        self.assertEqual(v2.VALEUR, "v2")
+        self.assertEqual(v2.VALEUR, "v2_changee")
 
     def test_option_desactivee_par_defaut(self):
         self.assertEqual(DLG_Portail_config.VALEURS_DEFAUT.get("models_sha256"), "")
