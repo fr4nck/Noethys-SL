@@ -21,7 +21,8 @@ class Base:
             CREATE TABLE individus (
               IDindividu INTEGER PRIMARY KEY, IDmedecin INTEGER);
             CREATE TABLE medecins (
-              IDmedecin INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, tel_cabinet TEXT);
+              IDmedecin INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, tel_cabinet TEXT,
+              cp_resid TEXT, ville_resid TEXT);
             CREATE TABLE vaccins (
               IDvaccin INTEGER PRIMARY KEY, IDindividu INTEGER);
             CREATE TABLE questionnaire_reponses (
@@ -37,7 +38,7 @@ class Base:
         self.connexion.executemany(
             "INSERT INTO individus VALUES (?,?)", [(10, 23), (11, None)])
         self.connexion.execute(
-            "INSERT INTO medecins VALUES (23,'FICTIF','Docteur','0000000000')")
+            "INSERT INTO medecins VALUES (23,'FICTIF','Docteur','0000000000','35130','La Guerche')")
         self.connexion.executemany(
             "INSERT INTO vaccins VALUES (?,?)", [(1,10),(2,10)])
         self.connexion.execute(
@@ -76,6 +77,9 @@ class SourceMedicaleTests(unittest.TestCase):
     def test_medecin_vaccins_et_sante_source_unique(self):
         data = S.LireMedicalExistant(10, ADMIN, DB=self.db)
         self.assertEqual(data["medecin"]["nom"], "FICTIF")
+        self.assertEqual(data["medecin"]["ville"], "La Guerche")
+        self.assertEqual(S.FormaterMedecin(data["medecin"]),
+                         "FICTIF Docteur — 35130 La Guerche — 0000000000")
         self.assertEqual(data["vaccins_enregistres"], 2)
         self.assertEqual(len(data["problemes"]), 1)
         self.assertEqual(data["problemes"][0]["intitule"], "PAI-fictif")
@@ -150,6 +154,25 @@ class SourceMedicaleTests(unittest.TestCase):
         r = S.PreparerRubriquesMedicales(historique, "2026-11-03")
         self.assertEqual(r["pai"], "Non renseigné dans Noethys")
         self.assertEqual(r["allergies"], "Non renseigné dans Noethys")
+
+    def test_consignes_pai_sans_traitement_reprises(self):
+        donnees = {"problemes": [
+            {"intitule": "PAI - Allergie fictive",
+             "categorie": "Allergie", "date_debut": "2026-09-01",
+             "description": "Précautions fictives",
+             "traitement_medical": False,
+             "description_traitement": "Éviter le contact avec X"},
+        ]}
+        rubriques = S.PreparerRubriquesMedicales(donnees, "2026-11-03")
+        self.assertIn("PAI - Allergie fictive", rubriques["pai"])
+        self.assertIn("PAI - Allergie fictive", rubriques["allergies"])
+        self.assertIn("Consignes : Éviter le contact avec X", rubriques["medical"][0])
+        self.assertEqual(rubriques["traitement"], "Non renseigné dans Noethys")
+
+    def test_formater_medecin_champs_absents(self):
+        self.assertEqual(S.FormaterMedecin(None), "")
+        self.assertEqual(S.FormaterMedecin({"nom": "TEST", "prenom": "Médecin"}),
+                         "TEST Médecin")
 
     def test_pas_d_ajout_ni_de_modification(self):
         avant = self.db.connexion.total_changes
