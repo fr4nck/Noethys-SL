@@ -19,6 +19,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "noethys/Utils"))
 import UTILS_SQL_Integrite as integrite
 
 
+
+def ExigerTrioSauvegarde(bases):
+    """Refuser toute preuve de restauration partielle du lot A.
+
+    Les noms historiques peuvent etre sous forme `organisation.sql`,
+    `organisation_PHOTOS.sql` et `organisation_DOCUMENTS.sql`.
+    """
+    categories = []
+    for base in bases:
+        nom = base.upper()
+        if nom == "PHOTOS" or nom.endswith("_PHOTOS"):
+            categories.append("PHOTOS")
+        elif nom == "DOCUMENTS" or nom.endswith("_DOCUMENTS"):
+            categories.append("DOCUMENTS")
+        else:
+            categories.append("DATA")
+    if len(bases) != 3 or set(categories) != {"DATA", "PHOTOS", "DOCUMENTS"}:
+        raise RuntimeError("Archive incomplete : trio DATA/PHOTOS/DOCUMENTS obligatoire")
+
+
+
 def verifier(runtime, archive):
     runtime, archive = Path(runtime).resolve(), Path(archive).resolve()
     commande = [str(runtime / "mysql-5.7.44-winx64/bin/mysql.exe"), "--no-defaults",
@@ -50,6 +71,7 @@ def verifier(runtime, archive):
                 not re.fullmatch(r"[A-Za-z0-9_$]+\.sql", n) for n in membres):
             raise RuntimeError("Membres SQL invalides")
         bases = [n[:-4] for n in membres]
+        ExigerTrioSauvegarde(bases)
         existantes = sql("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN (%s);"
                          % ",".join("'%s'" % b for b in bases)).strip()
         if existantes:
