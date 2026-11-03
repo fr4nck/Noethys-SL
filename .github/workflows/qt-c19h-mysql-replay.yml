@@ -1,0 +1,65 @@
+name: Noethys SL Qt - C19h replay wx sur MySQL exclusivement fictif
+
+on:
+  push:
+    branches: [qt]
+    paths:
+      - 'tests_mysql/test_c19h_mysql_wx_replay.py'
+      - 'tests_mysql/test_c19h_wx_original_semantics.py'
+      - 'noethys/GestionDB.py'
+      - 'noethys/Dlg/DLG_Factures_generation_selection.py'
+      - '.github/workflows/qt-c19h-mysql-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19h-mysql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wx-mysql-replay:
+    name: C19h enregistrement wx fictif sur MySQL ${{ matrix.mysql }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ['5.7.44', '8.0.40']
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: c19h_root_only_disposable_ci
+          MYSQL_DATABASE: qt_c19h_lab
+          MYSQL_USER: qt_c19h
+          MYSQL_PASSWORD: c19h_password_only_disposable_ci
+        ports:
+          - '33069:3306'
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pc19h_root_only_disposable_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=25
+    env:
+      C19H_DISPOSABLE_MYSQL: 'yes'
+      C19H_MYSQL_HOST: '127.0.0.1'
+      C19H_MYSQL_PORT: '33069'
+      C19H_MYSQL_DATABASE: qt_c19h_lab
+      C19H_MYSQL_USER: qt_c19h
+      C19H_MYSQL_PASSWORD: c19h_password_only_disposable_ci
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Installer uniquement le client SQL sur runner
+        run: python -m pip install --disable-pip-version-check "PyMySQL[rsa]==1.1.1"
+      - name: Compiler les deux bancs sans GUI
+        run: python -m compileall -q tests_mysql/test_c19h_wx_original_semantics.py tests_mysql/test_c19h_mysql_wx_replay.py
+      - name: Rejouer vrai code wx par AST sur MySQL local fictif
+        run: python -m unittest discover -s tests_mysql -p "test_c19h_mysql_wx_replay.py" -v

@@ -1,0 +1,43 @@
+name: Noethys SL Qt - C19h contre-examen wx de la facturation
+
+on:
+  push:
+    branches: [qt]
+    paths:
+      - 'tests_mysql/test_c19h_wx_original_semantics.py'
+      - 'noethys/GestionDB.py'
+      - 'noethys/Dlg/DLG_Factures_generation_selection.py'
+      - 'noethys/Utils/UTILS_Decimal.py'
+      - 'noethys/Utils/UTILS_Facturation.py'
+      - 'noethys/Ctrl/CTRL_Grille_cases.py'
+      - 'noethys/Data/DATA_Tables.py'
+      - '.github/workflows/qt-c19h-wx-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19h-wx-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-replay:
+    name: C19h reproduction wx sans interface sur ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compiler les tests sans wx et sans SQL distant
+        run: python -m compileall -q tests_mysql/test_c19h_wx_original_semantics.py
+      - name: Extraire et executer les fonctions wx sur SQLite en memoire uniquement
+        run: python -m unittest discover -s tests_mysql -p "test_c19h_wx_original_semantics.py" -v
