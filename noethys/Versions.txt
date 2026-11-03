@@ -5,6 +5,7 @@ Version Noethys SL 0.1.0 RC10.5 (03/11/2026) :
 - Securite Connecthys : empreinte SHA256 facultative de la cle hote SSH, validee avant authentification dans la synchronisation et les commandes serveur ; mode historique conserve si le champ est vide.
 - Securite Connecthys : comparaison facultative du SHA256 du fichier models.py avant execution, avec verification des memes octets ; sans empreinte, chargement historique inchange. Les imports de modules annexes restent hors perimetre de ce controle.
 - Confidentialite Connecthys : les journaux de synchronisation et les commandes distantes ne revelent plus les URL contenant des jetons d'authentification.
+- Securite Connecthys : config.py genere en temporaire prive (0600 sur POSIX), efface apres transfert et refus des envois FTP/SFTP manques. L'option `ssh_config_prive` (OFF par defaut) demande chmod 0600 distant uniquement apres verification des droits WSGI ; compatibilite historique preservee.
 - Fermeture de Noethys : arret interruptible du worker Connecthys en veille et pendant les delais de demarrage ; une sauvegarde annulee ne declenche pas cet arret (#438).
 - Sauvegardes MySQL : maintien des exports surveilles, de l'integrite SQL et de la protection des anciennes archives ; la sauvegarde PMSL complete et restaurable reste a valider sur le terrain (#437).
 - Facturation, fiches enfant et situations des communes : maintien des correctifs deja integres en RC10.4, sans ecrasement des donnees ni migration de schema.
