@@ -38,8 +38,14 @@ de repas et des pointages. Ce décompte n'est pas une durée CAF.
   facturé reste soumis aux règles de factures et de journées/demi-journées.
 - Rien n'est écrit automatiquement dans la sauvegarde ou dans MySQL ;
   l'administrateur doit vérifier et enregistrer volontairement son preset.
-- Les plages d'exemple `12:30-13:30` / `12:00-13:30` des tests sont
-  **fictives** et NE constituent PAS une valeur applicable à PMSL.
+- La direction a confirmé le 03/11/2026 la plage **12:30-13:30**
+  pour le repas sur la base ALSH étudiée. La plage `12:00-13:30`
+  des tests demeure fictive ; aucune valeur n'est écrite dans MySQL.
+- Un repas présent **sans autre unité d'accueil présente sur le même
+  site et le même jour** produit une anomalie bloquante. Le calcul
+  numérique peut rester visible pour contrôle, mais ne peut pas faire
+  l'objet d'une déclaration CAF validable tant que le pointage
+  correspondant n'est pas vérifié.
 
 ## Recette restant nécessaire
 

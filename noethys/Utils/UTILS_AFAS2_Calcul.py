@@ -342,6 +342,24 @@ class Calculateur(object):
                 retenues.append(conso)
         if not retenues:
             return None
+        # Une consommation "Repas" seule peut contenir une plage déclarée
+        # explicite sans qu'une présence en accueil soit établie ce jour-là.
+        # Ne pas la rendre déclarable par simple attribution d'une heure :
+        # vérifier le pointage dans le même site (pas celui d'un autre site).
+        accueils_presents = {
+            (c["IDactivite"], c["IDgroupe"]) for c in retenues
+            if c.get("etat") in self.etats_realise
+            and self.unites[c["IDunite"]]["categorie"] in CATEGORIES_OUVERTURE
+            and self.unites[c["IDunite"]]["categorie"] != "repas"
+        }
+        for c in retenues:
+            if (self.unites[c["IDunite"]]["categorie"] == "repas"
+                    and c.get("etat") in self.etats_realise
+                    and (c["IDactivite"], c["IDgroupe"]) not in accueils_presents):
+                self._anomalie(
+                    anomalies, c,
+                    "Repas présent sans accueil attesté le même jour et sur le même site",
+                    "Validation CAF bloquée : vérifier le pointage d'accueil ou qualifier la présence du repas")
         self._Doublons(retenues, anomalies)
         if self.mode == PERI:
             return self._JourPeri(IDindividu, date, retenues, anomalies)

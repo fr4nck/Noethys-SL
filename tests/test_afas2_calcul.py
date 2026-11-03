@@ -493,6 +493,33 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_realisees"], 5 * H)
         self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)
 
+    def test_repas_seul_non_validable_sans_pointage_accueil(self):
+        unites = self.unites(104, heure_debut=None, heure_fin=None,
+                             plage_declaree="12:30-13:30")
+        r = calculer(M.PERI, [self.repas(LUNDI_SCOLAIRE)], unites=unites)
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+        # Une durée mathématique ne constitue pas une heure déclarable si
+        # une anomalie bloquante subsiste dans le rapport.
+        self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+
+    def test_repas_avec_seulement_une_absence_accueil_est_non_validable(self):
+        unites = self.unites(104, heure_debut=None, heure_fin=None,
+                             plage_declaree="12:30-13:30")
+        consos = [conso(LUNDI_SCOLAIRE, 107, etat="absentj"),
+                  self.repas(LUNDI_SCOLAIRE)]
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+
+    def test_repas_et_matin_de_meme_site_reste_admis(self):
+        unites = self.unites(104, heure_debut=None, heure_fin=None,
+                             plage_declaree="12:30-13:30")
+        consos = [conso(LUNDI_SCOLAIRE, 102), self.repas(LUNDI_SCOLAIRE)]
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertFalse(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+        self.assertFalse(r["bloquant"])
+
     def test_aucun_passe_droit_pour_journee_ou_horaire_incomplet(self):
         for IDunite, modifications in (
                 (201, {"heure_debut": None, "heure_fin": None, "plage_declaree": "08:30-17:30"}),
