@@ -1,6 +1,34 @@
 # Recadrage du Lot D : conventions ALSH et participation des communes
 
 
+## Classification dans la fiche famille Noethys (decision metier du 03/11/2026)
+
+La table `familles` est utilisee comme fiche de reference d'une **entite de dossier** :
+famille, ecole, association, association sportive, commune/collectivite,
+institution/organisme public, entreprise/organisme prive ou autre entite.
+Ce classement est **fonctionnel**, independant des classifications fiscales
+et du referentiel comptable Helios.
+
+Un champ facultatif `familles.type_structure` est propose dans l'onglet
+**Divers** de la fiche famille. `NULL` signifie `Famille / particulier`.
+Aucune nouvelle famille, aucun nouveau tiers comptable, aucun compte payeur
+n'est cree : identifiants, activites, inscriptions, reservations, consommations,
+prestations et factures restent associes aux memes dossiers.
+
+Le choix est **desactive** sur une base non migree. La migration SQL
+SQLite/MySQL est a effectuer explicitement sur copie sauvegardee, puis
+apres qualification ; elle n'est pas appliquee automatiquement a MAD.
+Un type inconnu est preserve (selection desactivee), jamais remplace.
+
+Fichiers :
+- `noethys/Utils/UTILS_Type_structure.py` (codes et libelles).
+- `noethys/Dlg/DLG_Famille_divers.py` (choix dans la fiche existante).
+- `noethys/Data/DATA_Tables.py` (schema des nouvelles bases).
+- `noethys/Data/Migrations/familles_type_structure_{sqlite,mysql57}.sql` (mise a jour facultative).
+- `tests/test_type_structure_familles.py` (tests isoles).
+
+
+
 ## Séances sportives : s'appuyer sur Noethys et sur la base MAD
 
 **Précision métier du 03/11/2026 :** les séances de sport ne justifient pas la création d'un moteur de programmation distinct. La base MAD utilise déjà les activités « Encadrements sportifs adultes », « Encadrements sportifs enfants » et « Encadrements sportifs scolaires ». La chaîne de référence est **activité Noethys → groupes/inscriptions → réservations/consommations → prestations/tarifs → facturation existante**.

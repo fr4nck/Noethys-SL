@@ -15,6 +15,7 @@ from Utils.UTILS_Traduction import _
 import wx
 import GestionDB
 from Utils import UTILS_Utilisateurs
+from Utils import UTILS_Type_structure
 import wx.propgrid as wxpg
 from Ctrl import CTRL_Compte_internet
 
@@ -89,6 +90,17 @@ class CTRL_Parametres(wxpg.PropertyGrid) :
         # Définition des éditeurs personnalisés
         self.SetExtraStyle(wxpg.PG_EX_HELP_AS_TOOLTIPS)
         
+        # Type du dossier Noethys : une meme fiche peut etre famille, ecole,
+        # association, commune ou institution. Aucune incidence sur Helios.
+        self.Append(wxpg.PropertyCategory(_(u"Nature de l'entite")))
+        types = UTILS_Type_structure.TYPES_STRUCTURE
+        propriete = wxpg.EnumProperty(
+            label=_(u"Type d'entite"), name="type_structure",
+            labels=[_(libelle) for _code, libelle in types],
+            values=list(range(len(types))), value=0)
+        propriete.SetHelpString(_(u"Classification du dossier existant, sans creer un autre tiers ou compte payeur."))
+        self.Append(propriete)
+
         # Données Tiers pour Hélios
         self.Append( wxpg.PropertyCategory(_(u"Données tiers pour Hélios")) )
         
@@ -316,6 +328,8 @@ class Panel(wx.Panel):
         self.IDfamille = IDfamille
         
         self.majEffectuee = False
+        self.type_structure_disponible = False
+        self.type_structure_modifiable = False
         
         # Compte internet
         self.staticBox_param = wx.StaticBox(self, -1, _(u"Portail internet"))
@@ -391,14 +405,29 @@ class Panel(wx.Panel):
         if self.majEffectuee == False :
             self.ctrl_parametres.MAJ() 
             DB = GestionDB.DB()
-            req = """SELECT internet_actif, internet_identifiant, internet_mdp, titulaire_helios, tiers_solidaire, code_comptable, idtiers_helios, natidtiers_helios, reftiers_helios, cattiers_helios, natjur_helios, autre_adresse_facturation
+            # Base historique non migree : affichage du choix sans ecriture.
+            self.type_structure_disponible = any(
+                champ[0] == "type_structure" for champ in DB.GetListeChamps2("familles"))
+            self.type_structure_modifiable = self.type_structure_disponible
+            colonne_type = ", type_structure" if self.type_structure_disponible else ""
+            req = """SELECT internet_actif, internet_identifiant, internet_mdp, titulaire_helios, tiers_solidaire, code_comptable, idtiers_helios, natidtiers_helios, reftiers_helios, cattiers_helios, natjur_helios, autre_adresse_facturation%s
             FROM familles
-            WHERE IDfamille=%d;""" % self.IDfamille
+            WHERE IDfamille=%d;""" % (colonne_type, self.IDfamille)
             DB.ExecuterReq(req)
             listeDonnees = DB.ResultatReq()
             DB.Close()
             if len(listeDonnees) > 0 :
-                internet_actif, internet_identifiant, internet_mdp, titulaire_helios, tiers_solidaire, code_comptable, idtiers_helios, natidtiers_helios, reftiers_helios, cattiers_helios, natjur_helios, autre_adresse_facturation = listeDonnees[0]
+                infos = listeDonnees[0]
+                internet_actif, internet_identifiant, internet_mdp, titulaire_helios, tiers_solidaire, code_comptable, idtiers_helios, natidtiers_helios, reftiers_helios, cattiers_helios, natjur_helios, autre_adresse_facturation = infos[:12]
+                if self.type_structure_disponible:
+                    try:
+                        indice = UTILS_Type_structure.IndexDepuisCode(infos[12])
+                    except ValueError:
+                        # Un futur code inconnu n'est jamais remplace par famille.
+                        self.type_structure_modifiable = False
+                    else:
+                        self.ctrl_parametres.SetPropertyValue("type_structure", indice)
+            self.ctrl_parametres.EnableProperty("type_structure", self.type_structure_modifiable)
 
                 # Compte internet
                 self.ctrl_compte_internet.SetDonnees({"internet_actif": internet_actif, "internet_identifiant": internet_identifiant, "internet_mdp": internet_mdp})
@@ -490,6 +519,11 @@ class Panel(wx.Panel):
                 ("natjur_helios", natjur_helios),
                 ("autre_adresse_facturation", autre_adresse_facturation),
                 ]
+        # Respecte les bases MAD/Noethys avant migration et les types
+        # inconnus qui auraient ete ajoutes par d'autres versions.
+        if self.type_structure_modifiable:
+            indice = int(self.ctrl_parametres.GetPropertyValue("type_structure"))
+            listeDonnees.append(("type_structure", UTILS_Type_structure.CodeDepuisIndex(indice)))
         DB.ReqMAJ("familles", listeDonnees, "IDfamille", self.IDfamille)
         DB.Close()
 

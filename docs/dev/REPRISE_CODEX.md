@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D — type d'entite dans les fiches familles (03/11/2026)
+
+- **Decision metier** : un dossier `familles` est l'entite de reference (famille, ecole, association, institution, commune, entreprise...). Conserver ses activites, inscriptions, reservations, consommations et factures Noethys/MAD ; aucune nouvelle famille, aucun deuxieme annuaire et aucune codification juridique ou fiscale imposee.
+- Code `UTILS_Type_structure.py` : huit choix, dont `NULL` = famille/particulier, ecole, association, association sportive, collectivite, institution, entreprise et autre. Classification distincte des champs Helios.
+- Champ natif `familles.type_structure` dans `DATA_Tables.py`, option `Type d'entite` dans `Fiche famille > Divers`; detection du schema existant avant SELECT/UPDATE, champ desactive si migration absente ou code inconnu. Migrations SQLite et MySQL 5.7 proposees **non appliquees** ; les bases MAD et production n'ont pas ete modifiees.
+- Qualification locale : helper Python compile, types/codes aller-retour et migration SQLite en memoire PASS avec conservation des fiches existantes. Sept tests automatises commites, mais **pas de validation sur runtime wx/Qt ni MySQL**. Le module ne prend effet sur une base existante qu'apres recette de migration.
+- Suite : qualification sur **copie** de MAD, integration UI wx/Qt distribuee et arbitrage d'eventuelles fiches de structures existantes. Les prototypes D1/D3-D4 non raccordes sont a auditer separement, sans nouvelle duplication.
+
+
+
 ## Lot D — recadrage ALSH communes / retrait D5-D7 (2026-11-03)
 
 - Decision metier : **suppression du registre de facturation parallele D5-D7**. Les 15 chemins des anciens moteurs/migrations/tests/docs sont retires de `main` sans toucher aux tables, factures et paiements existants ni a l'historique Git. La relecture de l'architecture montre que D5 reposait sur des **interventions sportives** et ne couvrait pas les **journees-enfants ALSH**.
