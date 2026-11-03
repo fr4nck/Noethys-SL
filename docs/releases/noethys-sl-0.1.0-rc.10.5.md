@@ -28,6 +28,22 @@ Windows deja diffusee, ni la resolution des incidents de production.
   **Limite importante** : la verification couvre seulement `models.py`,
   et non les modules Python annexes qu'il peut importer. Elle ne
   constitue ni un bac a sable ni une signature d'origine.
+- **S1 — secrets de config.py** : generation du fichier temporaire
+  avec droits restreints (0600 sur POSIX), puis effacement apres tentative
+  d'envoi, meme si l'upload echoue. Un transfert ou un reload WSGI connu
+  en echec n'est plus annonce comme succes. La copie telechargee du
+  serveur pour comparaison est aussi supprimee apres lecture.
+  Aucun changement du contenu attendu par Connecthys Ivan Lucas.
+- **S1 — droits distants facultatifs** : `ssh_config_prive` est
+  **desactive par defaut**. Si explicitement active en SSH/SFTP,
+  `application/data/config.py` est passe en mode `0600`, meme lorsque
+  le contenu est inchange ; un echec des permissions est signale.
+  `0644` reste le comportement historique sans cette option.
+  Cette option exige une validation prealable de l'utilisateur
+  qui fait tourner le serveur web (WSGI) : si ce compte n'est pas
+  proprietaire, Connecthys peut devenir inaccessible. Le transfert
+  historique n'etant pas atomique, les droits peuvent rester plus
+  ouverts pendant la copie : **ceci n'est pas un remede complet**.
 - **#437 — sauvegardes MySQL** : conservation de l'export `mysqldump` surveille
   (sans `shell=True`, delais bornes et diagnostic), de la verification SQL et
   de la protection des anciennes archives. Le blocage `*_DOCUMENTS` de
@@ -79,6 +95,9 @@ une mise a jour du serveur Connecthys de l'association.
 - Conserver le protocole des synchronisations ascendantes/descendantes,
   les URL et commandes du Connecthys existant, les noms de fichiers et
   bases, les formats `models.py`, `config.py` et le format chiffre `SV2`.
+- Ne jamais activer `ssh_config_prive` sur PMSL sans
+  avoir teste sur un serveur isole les droits de lecture de WSGI et la
+  procedure de retour arriere.
 - Conserver les modes d'hebergement deja pris en charge : local, FTP et
   SSH/SFTP. Ne pas imposer unilateralement HTTPS, un nouveau port ou un
   nouveau mode d'authentification au serveur historique.
