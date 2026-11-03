@@ -183,6 +183,14 @@ def _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, listeAdresses, visibl
     if dictChamps in (False, None) :
         return False, None
 
+    # Lot B RC10.5 : un recu genere mais vide, absent ou tronque n'est
+    # pas un document transmissible. Ne concerne que les recus, pas les
+    # autres types de pieces jointes ni les formats historiques du portail.
+    if categorie == "recu_reglement" and nomDoc not in (False, None, ""):
+        from Utils import UTILS_Documents_Controle_RC105
+        if not UTILS_Documents_Controle_RC105.PDFPretPourEnvoi(nomDoc):
+            return False, None
+
     if nomDoc != False :
         liste_pieces = [nomDoc,]
     else :
