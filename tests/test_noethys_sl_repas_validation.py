@@ -93,6 +93,22 @@ class ControleRepasTests(unittest.TestCase):
         self.assertEqual(resume[0]["non_renseignes"], 3)
         self.assertEqual(resume[0]["totaux"]["total_repas"], 55)
 
+    def test_refuse_informations_individuelles_dans_pdf_fournisseur_type(self):
+        # Les colonnes texte_infos peuvent contenir des noms, messages,
+        # traitements et PAI. Elles restent destinees aux etats internes.
+        from Utils.UTILS_Repas_validation import ResumeDepuisDonnees
+        self.donnees["liste_colonnes"].append({
+            "nom_colonne": "Informations enfants",
+            "categorie": "texte_infos",
+            "parametres": {"infos_medicales": True,
+                           "messages_individuels": True},
+        })
+        with self.assertRaisesRegex(ValueError, "informations individuelles"):
+            ConstruireControle(self.donnees)
+        with self.assertRaisesRegex(ValueError, "informations individuelles"):
+            ResumeDepuisDonnees(self.donnees)
+        self.assertTrue(all(not c.saisies for c in self.cases))
+
     def test_pas_decriture_si_validation_refusee(self):
         rows = ConstruireControle(self.donnees)
         rows[0]["valeurs"]["sans_porc"] = 100
