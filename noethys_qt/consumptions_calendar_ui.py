@@ -52,6 +52,10 @@ class _CalendarWorker(QRunnable):
 class ConsumptionCalendarPage(QWidget):
     """Filtres synchronisés, lecture seule et accès direct au jour choisi."""
 
+    # L'identifiant de la famille n'est jamais inféré depuis un individu.
+    # Il ne peut venir que d'une inscription résolue sur les clés SQL.
+    familyInvoicesRequested = Signal(int)
+
     def __init__(self, repository, parent=None, *, background=True):
         super().__init__(parent)
         self.repository = repository
@@ -66,6 +70,7 @@ class ConsumptionCalendarPage(QWidget):
         self._activity_loaded = False
         self._record_individual_id: int | None = None
         self._record_inscription_id: int | None = None
+        self._record_family_id: int | None = None
         self._date_counts: tuple[DayCount, ...] = ()
         self._marked_dates: set[QDate] = set()
 
@@ -97,6 +102,17 @@ class ConsumptionCalendarPage(QWidget):
         self.clear_record_button = QPushButton("Retirer le filtre de fiche", left)
         self.clear_record_button.hide()
         controls.addWidget(self.clear_record_button)
+        # Aucun rapprochement facture/consommation n'est créé. Le lien
+        # "famille" vient exclusivement de l'inscription enregistrée.
+        self.family_invoices_button = QPushButton(
+            "Factures de la famille (consultation)", left
+        )
+        self.family_invoices_button.setToolTip(
+            "Factures de la famille de l'inscription ; aucune facture n'est "
+            "attribuée automatiquement à cette consommation."
+        )
+        self.family_invoices_button.hide()
+        controls.addWidget(self.family_invoices_button)
 
         self.calendar = QCalendarWidget(left)
         self.calendar.setObjectName("consumptionsCalendar")
@@ -151,6 +167,7 @@ class ConsumptionCalendarPage(QWidget):
         root.addWidget(right, 1)
 
         self.clear_record_button.clicked.connect(self.clear_record_context)
+        self.family_invoices_button.clicked.connect(self._request_family_invoices)
         self.activity_combo.currentIndexChanged.connect(self.refresh)
         self.calendar.selectionChanged.connect(self._day_changed)
         self.calendar.currentPageChanged.connect(self._page_changed)
@@ -190,6 +207,7 @@ class ConsumptionCalendarPage(QWidget):
 
     def focus_record(self, *, individual_id: int | None = None,
                      inscription_id: int | None = None,
+                     family_id: int | None = None,
                      year: int | None = None) -> None:
         """C11 : ID exact, état de filtres cohérent, une seule actualisation."""
         for label, ident in (("individu", individual_id), ("inscription", inscription_id)):
@@ -197,6 +215,11 @@ class ConsumptionCalendarPage(QWidget):
                 not isinstance(ident, int) or isinstance(ident, bool) or ident <= 0
             ):
                 raise ValueError(f"Identifiant {label} de fiche invalide")
+        if family_id is not None and (
+            not isinstance(family_id, int) or isinstance(family_id, bool)
+            or family_id <= 0 or inscription_id is None or individual_id is None
+        ):
+            raise ValueError("Famille exigée depuis une inscription et un individu valides")
         if year is not None and (
             not isinstance(year, int) or isinstance(year, bool)
             or not 1900 <= year <= 2098
@@ -229,6 +252,9 @@ class ConsumptionCalendarPage(QWidget):
 
         self._record_individual_id = individual_id
         self._record_inscription_id = inscription_id
+        self._record_family_id = family_id
+        self.family_invoices_button.setVisible(family_id is not None)
+        self.family_invoices_button.setEnabled(family_id is not None)
         parts = []
         if individual_id is not None:
             parts.append(f"Individu #{individual_id}")
@@ -244,6 +270,10 @@ class ConsumptionCalendarPage(QWidget):
 
     def clear_record_context(self) -> None:
         self.focus_record()
+
+    def _request_family_invoices(self) -> None:
+        if self._record_family_id is not None and self._record_inscription_id is not None:
+            self.familyInvoicesRequested.emit(self._record_family_id)
 
     def activate(self) -> None:
         if not self._loaded:
