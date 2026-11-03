@@ -462,6 +462,16 @@ class Dialog(wx.Dialog):
         
         menuPop.AppendSeparator() 
 
+        # Fiches famille Pêle-Mêle : deux modèles distincts, sans nouvelle
+        # saisie de dossier ni création automatique d'autorisation.
+        item = wx.MenuItem(menuPop, 451, _(u"Éditer la fiche famille ALSH (PDF)"))
+        menuPop.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.MenuFicheFamilleALSH, id=451)
+        item = wx.MenuItem(menuPop, 452, _(u"Éditer la fiche famille Club ados (PDF)"))
+        menuPop.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.MenuFicheFamilleAdos, id=452)
+        menuPop.AppendSeparator()
+
         # Item Editer un revelé de compte
         item = wx.MenuItem(menuPop, 90, _(u"Editer un relevé des prestations"))
         bmp = wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Euro.png"), wx.BITMAP_TYPE_PNG)
@@ -620,6 +630,118 @@ class Dialog(wx.Dialog):
             return None
         IDcompte_payeur = listeDonnees[0][0]
         return IDcompte_payeur
+
+    def MenuFicheFamilleALSH(self, event=None):
+        return self._EditionFicheFamillePMSL("alsh")
+
+    def MenuFicheFamilleAdos(self, event=None):
+        return self._EditionFicheFamillePMSL("ados")
+
+    def _EditionFicheFamillePMSL(self, modele):
+        """Préremplir depuis la famille puis choisir les enfants concernés.
+
+        Cette opération est une lecture des données ENREGISTRÉES ;
+        elle n'enregistre pas des modifications en cours ni une signature.
+        """
+        from Utils import UTILS_Accueil_familles as familles_pmsl
+        from Utils import UTILS_Accueil_familles_impression as impressions_pmsl
+        try:
+            donnees = familles_pmsl.LireFamille(self.IDfamille)
+        except Exception as exc:
+            wx.MessageBox(
+                _(u"Impossible de lire cette famille : %s") % exc,
+                _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        enfants = donnees.get("enfants", [])
+        if not enfants:
+            wx.MessageBox(
+                _(u"Aucun enfant rattaché à cette famille."),
+                _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        noms = [u"%s %s — %s" % (
+            enfant.get("nom", ""), enfant.get("prenom", ""),
+            enfant.get("date_naiss", "")) for enfant in enfants]
+        dlg = wx.MultiChoiceDialog(
+            self, _(u"Sélectionnez les enfants à inscrire sur cette fiche :"),
+            _(u"Fiche famille Club ados" if modele == "ados"
+              else u"Fiche famille ALSH"), noms)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            selection = list(dlg.GetSelections())
+        finally:
+            dlg.Destroy()
+        if not selection:
+            wx.MessageBox(
+                _(u"Sélectionnez au moins un enfant."),
+                _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            donnees = familles_pmsl.SelectionnerEnfants(
+                donnees, [enfants[i]["IDindividu"] for i in selection])
+        except (ValueError, IndexError) as exc:
+            wx.MessageBox(str(exc), _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        if len(donnees["enfants"]) > 4:
+            wx.MessageBox(
+                _(u"Le formulaire actuel comporte quatre lignes d'enfants. "
+                  u"Répartissez les inscriptions sur plusieurs éditions."),
+                _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        site = "BAIS"
+        if modele == "alsh":
+            dlg = wx.SingleChoiceDialog(
+                self, _(u"Sélectionnez l'ALSH fréquenté :"),
+                _(u"Fiche famille ALSH"), list(impressions_pmsl.SITES_ALSH))
+            try:
+                if dlg.ShowModal() != wx.ID_OK:
+                    return False
+                site = dlg.GetStringSelection()
+            finally:
+                dlg.Destroy()
+
+        aujourd_hui = datetime.date.today()
+        debut = (aujourd_hui.year if aujourd_hui.month >= 9
+                 else aujourd_hui.year - 1)
+        annee_proposee = "%d-%d" % (debut, debut + 1)
+        dlg = wx.TextEntryDialog(
+            self, _(u"Année scolaire à afficher :"), _(u"Fiche famille"),
+            value=annee_proposee)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            annee = dlg.GetValue().strip()
+        finally:
+            dlg.Destroy()
+
+        nom = (u"Fiche_Famille_Ados_%d.pdf" if modele == "ados"
+               else u"Fiche_Famille_ALSH_%d.pdf") % self.IDfamille
+        dlg = wx.FileDialog(
+            self, _(u"Enregistrer la fiche famille préremplie"),
+            defaultFile=nom, wildcard=u"Documents PDF (*.pdf)|*.pdf",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            chemin = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+        try:
+            impressions_pmsl.GenererPDF(
+                chemin, donnees, modele=modele, site=site, annee=annee)
+        except Exception as exc:
+            wx.MessageBox(
+                _(u"Échec de création du PDF : %s") % exc,
+                _(u"Fiche famille"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        wx.MessageBox(
+            _(u"Fiche famille PDF enregistrée. Vérifiez les champs manquants "
+              u"et faites signer le document avant de le classer."),
+            _(u"Fiche famille"), wx.OK | wx.ICON_INFORMATION, self)
+        return True
 
     def MenuImprimerReleve(self, event):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("familles_releve_prestations", "creer") == False : return
