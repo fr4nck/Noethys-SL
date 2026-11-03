@@ -44,13 +44,16 @@ class BackupMySQL437ReelTests(unittest.TestCase):
         self.assertTrue(retour[2].startswith("5.7."))
         datadir = Path(retour[1].replace("\\\\", "\\")).resolve()
         self.assertEqual(datadir, (runtime / "mysql-data").resolve())
-        bases = ["noe437_synth_data", "noe437_synth_documents"]
+        bases = ["noe437_synth_data", "noe437_synth_photos", "noe437_synth_documents"]
         existantes = sql("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN "
-                         "('noe437_synth_data','noe437_synth_documents');")
+                         "('noe437_synth_data','noe437_synth_photos','noe437_synth_documents');")
         self.assertEqual(existantes, b"", "Ne jamais réutiliser une base existante")
         try:
             sql("CREATE DATABASE noe437_synth_data; CREATE TABLE noe437_synth_data.temoin (id INT); "
                 "INSERT INTO noe437_synth_data.temoin VALUES (437); "
+                "CREATE DATABASE noe437_synth_photos; "
+                "CREATE TABLE noe437_synth_photos.images (id INT, photo MEDIUMBLOB); "
+                "INSERT INTO noe437_synth_photos.images VALUES (1, UNHEX('00FF5C3B')); "
                 "CREATE DATABASE noe437_synth_documents; "
                 "CREATE TABLE noe437_synth_documents.documents (id INT, document LONGBLOB); "
                 "INSERT INTO noe437_synth_documents.documents VALUES "
@@ -58,6 +61,8 @@ class BackupMySQL437ReelTests(unittest.TestCase):
             attendu = sql("SELECT COUNT(*), MAX(OCTET_LENGTH(document)), MIN(SHA2(document,256)) "
                           "FROM noe437_synth_documents.documents;")
             self.assertGreater(int(attendu.split(b"\t")[1]), 24 * 1024 * 1024)
+            photo_attendue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
+                                 "FROM noe437_synth_photos.images;")
             with tempfile.TemporaryDirectory(prefix="noe437-vrai-") as rep:
                 rep = Path(rep)
                 login = rep / "client.cnf"
@@ -66,7 +71,7 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                 with open(rep / "historique.sql", "wb") as sortie:
                     ancien = subprocess.run([str(binary / "mysqldump.exe"),
                         "--defaults-file=" + str(login), "--opt", "--single-transaction",
-                        "--skip-lock-tables", "--databases", bases[1]],
+                        "--skip-lock-tables", "--databases", bases[-1]],
                         stdout=sortie, stderr=subprocess.PIPE, timeout=60)
                 self.assertNotEqual(ancien.returncode, 0, "La contre-épreuve doit échouer")
                 self.assertIn(b"2020", ancien.stderr)
@@ -82,16 +87,21 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                         z.extract(base + ".sql", rep)
                 # Retirer les sources du serveur jetable prouve une restauration,
                 # et non une relecture accidentelle de tables restées en place.
-                sql("DROP DATABASE noe437_synth_data; DROP DATABASE noe437_synth_documents;")
+                sql("DROP DATABASE noe437_synth_data; DROP DATABASE noe437_synth_photos; "
+                    "DROP DATABASE noe437_synth_documents;")
                 for base in bases:
                     sql(fichier=rep / (base + ".sql"))
                 obtenu = sql("SELECT COUNT(*), MAX(OCTET_LENGTH(document)), MIN(SHA2(document,256)) "
                              "FROM noe437_synth_documents.documents;")
                 self.assertEqual(obtenu, attendu)
+                photo_obtenue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
+                                   "FROM noe437_synth_photos.images;")
+                self.assertEqual(photo_obtenue, photo_attendue)
                 self.assertEqual(sql("SELECT id FROM noe437_synth_data.temoin;").strip(), b"437")
                 preuve = {"mysql": retour[2], "historique_code": ancien.returncode,
                           "blob_octets": int(attendu.split(b"\t")[1]), "archive_crc": "OK",
                           "fin_dumps": True, "restauration_sha256_identique": True,
+                          "photos_sha256_identique": True, "trois_categories": True,
                           "bases": bases, "reseau": "127.0.0.1:3407 uniquement"}
                 (runtime / "preuve-recette-synthetique.json").write_text(
                     json.dumps(preuve, indent=2), encoding="utf-8")
