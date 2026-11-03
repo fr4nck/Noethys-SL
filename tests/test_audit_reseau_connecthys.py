@@ -1068,7 +1068,7 @@ class UploadDataReponsePerdueTests(unittest.TestCase):
         restes = os.listdir(self.temp)
         self.assertEqual(len([f for f in restes if f.startswith("import_") and f.endswith(".db")]), 2)
         self.assertEqual(len([f for f in restes if f.startswith("import_") and f.endswith(".crypt")]), 2)
-        self.assertIn("config.py", restes)
+        self.assertNotIn("config.py", restes)  # secret temporaire retire en RC10.5
 
     def test_reponse_true_avec_saut_de_ligne_consideree_comme_echec(self):
         with ServeurHTTPLocal(lambda h: repondre(h, 200, b"True\n")) as srv, \
