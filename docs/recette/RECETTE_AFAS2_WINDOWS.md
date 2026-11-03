@@ -73,9 +73,19 @@ Ces valeurs sont aussi vérifiées automatiquement (`tests/test_afas2_qualificat
    heures_facturees;9876
    heures_realisees_aeeh;120
    ```
-4. **Rapprochement** :
+4. **Rapprochement annuel clôturé** :
    `python tests/recette_afas2.py rapprocher <extrait>.dat --annee 2025 --phase reel --preset "<nom du preset>" --attendus attendus.csv --sortie <dossier>`
+
+   **Contrôle Bais/La Guerche arrêté au 30 septembre 2026 :**
+   `python tests/recette_afas2.py rapprocher <extrait>.dat --annee 2026 --phase arrete_septembre --preset "<nom du preset>" --attendus attendus.csv --sortie <dossier>`
+
+   Ce mode utilise le moteur V2 pour calculer **uniquement les heures réalisées du 1er janvier au 30 septembre**, avec conservation des anomalies ; aucune prévision octobre-décembre n'est générée. Il ne produit pas de déclaration CAF validable. Un contrôle au 30 juin existe avec `--phase arrete_juin`. Le résultat et les références manuelles doivent concerner le même équipement, le même mode (péri/extrascolaire) et les mêmes groupes.
    Produit : `rapprochement_2025_indicateurs.csv` (calculé, référence, écart en heures et en %), `rapprochement_2025_mois_sites.csv` (réalisé, facturé et jours-enfants par mois et par site) et l'export de contrôle complet (détail, jours, anomalies).
-5. **Analyse** : expliquer chaque écart supérieur au seuil fixé par la direction à partir de la ventilation mensuelle et des anomalies (calendrier incomplet, plages, régularisations, forfaits, séjours). Aucun chiffre réel n'est versé dans le dépôt.
+5. **Analyse** : expliquer chaque écart supérieur au seuil fixé par la direction à partir de la ventilation mensuelle et des anomalies (calendrier incomplet, plages, régularisations, forfaits, séjours). **Seules les heures réalisées sont rapprochées du contrôle manuel**, jamais un total réalisé + prévisionnel. Aucun chiffre réel n'est versé dans le dépôt. Les identifiants numériques restent stables et les justificatifs des profils peuvent comporter des informations sensibles : **ne pas partager ou publier l'extrait et ses exports sur GitHub**.
 
 Outils testés sur le jeu fictif : extraction sans modification de la source (empreinte SHA-256 identique), pseudonymisation, résultats identiques avant et après extraction, rapprochement et ventilation (`OutilsRecetteTests`).
+
+
+### Archives .nod
+
+Le script `extraire` n'ouvre pas directement une archive `.nod`. Restaurer la sauvegarde sur une **copie isolée** du fichier Noethys ou sur un serveur MySQL local de recette, jamais sur la production. L'archive d'encadrements sportifs de septembre ne contient pas les consommations ALSH nécessaires au rapprochement de Bais.
