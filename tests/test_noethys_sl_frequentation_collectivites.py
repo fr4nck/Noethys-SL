@@ -212,34 +212,31 @@ class ConventionTests(unittest.TestCase):
         d["jours"][0]["justificatif"] = ""
         self.assertIsNone(calculer(d)["totaux"]["solde_verifie"])
 
-    def test_journee_facturee_sans_presence_est_ajoutee_au_financier(self):
+    def test_facturation_ajoute_des_journees_de_frequentation_sans_categorie_distincte(self):
         d = fixture()
         d["jours"].append({
             "id": "FACT-MAR", "convention": "ALSH-2025-2026", "mois": 3,
-            "nature": "facturee_non_presente", "nombre": "2",
+            "nature": "realise", "nombre": "2",
             "justificatif": "factures fictives de mars",
         })
         r = calculer(d)
         t = r["totaux"]
-        self.assertEqual(t["journees_reelles"], 12)
-        self.assertEqual(t["journees_facturees_non_presentes"], 2)
+        self.assertEqual(t["journees_reelles"], 14)
         self.assertEqual(t["journees_retenues"], 14)
-        self.assertEqual(t["participation_facturee_non_presente"], 2308)
+        self.assertEqual(t["participation_reelle"], 10 * 1154 + 2 * 1955 + 2 * 1154)
         self.assertEqual(t["participation_estimee"], 23175 + 2308)
         self.assertEqual(t["solde_indicatif"], 13175 + 2308)
-        self.assertIsNone(t["solde_verifie"])
-        self.assertEqual(r["mensuel"]["3"]["facturee_non_presente"], 2)
+        self.assertEqual(t["solde_verifie"], 13175 + 2308)
+        self.assertEqual(r["mensuel"]["3"]["realise"], 2)
         with tempfile.TemporaryDirectory() as temp:
             p = Path(temp)
             exporter_csv(r, p / "facturees.csv")
             with (p / "facturees.csv").open(encoding="utf-8-sig") as f:
                 rows = list(csv.reader(f, delimiter=";"))
-            self.assertIn(["journees_facturees_non_presentes", "2"], rows)
-            self.assertIn(["participation_facturee_non_presente", "23.08"], rows)
+            self.assertIn(["journees_reelles", "14"], rows)
+            self.assertNotIn("facturee_non_presente", str(rows))
             exporter_xlsx(r, p / "facturees.xlsx", d)
             with ZipFile(p / "facturees.xlsx") as archive:
-                self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "O9")[1], "2")
-                self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "P9")[1], "23.08")
                 self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "H9")[1], "196.18")
             exporter_pdf(r, p / "facturees.pdf", fictif=True)
             self.assertTrue((p / "facturees.pdf").read_bytes().startswith(b"%PDF"))
