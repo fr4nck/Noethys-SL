@@ -56,6 +56,31 @@ Pour les collectivités, le besoin restant est le suivi financier des **conventi
 4. Tenir un registre de **situation annuelle** : nombre de journées-enfants, montant conventionnel, acomptes réellement appelés/reçus, solde à régulariser, références documentaires et justificatifs. Ne jamais imputer automatiquement les acomptes aux factures des familles.
 5. Produire une **situation contrôlable** (CSV, export et état imprimable), puis, seulement après l'audit d'intégration, utiliser **le module de facturation existant** pour l'émission/numérotation et l'édition de la facture destinée à la commune. Si l'architecture historique ne sait pas facturer un tiers sans compte familial, identifier et corriger ce point : **ne jamais créer une fausse famille** ni un second registre de factures.
 
+## État détaillé et nominatif de fréquentation par enfant
+
+**Exigence métier complémentaire du 03/11/2026 :** pouvoir fournir à chaque commune, en pièce justificative de sa situation annuelle, **la liste nominative et datée des fréquentations de ses enfants**. Ce n'est ni une nouvelle activité, ni une nouvelle réservation : cet état lit les `consommations` existantes de Noethys.
+
+L'écran **Facturation → Situation des communes (ALSH)** proposera trois niveaux du **même calcul** :
+
+1. **Synthèse communale** : période, commune, site(s), enfants distincts, journées et demi-journées réellement réalisées, équivalents journées-enfants retenus par la convention, montants, acomptes et solde.
+2. **Récapitulatif par enfant** : nom/prénom, identifiant interne de traçabilité, commune de rattachement retenue, site(s), nombre de journées complètes, demi-journées, équivalents-journées éligibles et montant de participation attribuable. Une ligne par enfant et par périmètre contractuel ; total strictement égal à la synthèse.
+3. **Annexe détaillée datée** : une ligne par enfant, date, centre ALSH, activité/groupe, unité (journée, matin, après-midi, etc.), état réel (présent, absence, annulation, etc.), quantité source, équivalent-journée retenu, éligibilité communale, éventuel motif d'exclusion et référence `IDconso`. Permet de justifier chaque total, de voir une journée en détail et de répondre à une contestation.
+
+**Filtres** : commune, année ou dates libres, site(s), activité/groupe, éventuellement uniquement les présences éligibles ou la totalité des lignes annotées. Prévoir recherche d'un enfant, tri par nom ou date et ouverture du détail depuis le récapitulatif.
+
+**Export** : PDF imprimable (synthèse et annexe nominative) et tableur Excel ou CSV pour les vérifications. L'édition doit afficher la commune, la période, la date d'édition, le site et les règles de calcul utilisées ; les totaux de l'export doivent correspondre à ceux visibles à l'écran. Un export sans noms doit être disponible pour les bilans statistiques.
+
+**Calculs et intégrité** :
+- La **présence effective** et la **facturation familiale** sont deux notions distinctes : une prestation payée ne prouve pas une présence et n'est pas automatiquement éligible à la participation communale.
+- Les deux demi-journées d'un même enfant le même jour ne doivent pas créer deux journées complètes ; les repas, garderies et unités superposées ne doivent jamais être additionnés comme des journées ALSH. La conversion en journée-enfant dépend des termes de la convention.
+- Dédupliquer par `IDconso` et contrôler les chevauchements enfant/date/site/unité ; mettre en évidence les anomalies au lieu de masquer les cas ambigus.
+- **Commune du dossier enfant** : contrôler la résidence applicable sur la période ; si plusieurs responsables ont des adresses différentes, ou si une adresse manque, signaler le cas pour validation plutôt que choisir automatiquement l'adresse du payeur. Mémoriser la commune et la convention retenues lors de la validation d'une situation pour que les déménagements ultérieurs ne modifient pas les justificatifs déjà arrêtés.
+- Une situation finalisée garde une **trace des consommations sources et des critères** ; une correction crée une révision explicite, jamais une modification silencieuse des pièces transmises.
+
+**Confidentialité** : annexe nominative accessible aux personnels habilités et exportée uniquement pour la commune concernée et le besoin justifié par la convention. Limiter les données transmises (pas de PAI, données médicales, coordonnées familiales ou détails financiers familiaux), permettre l'export agrégé sans identité, et journaliser les éditions nominatives.
+
+**Statut** : spécification validée comme besoin, **non implémentée**. Recette requise sur copie ALSH représentative : rapprochement des trois niveaux, plusieurs centres, demi-journées, annulations, absences, enfants de communes différentes, multi-residence, changement d'adresse et écart de total. Aucune écriture sur MAD ou la production.
+
 ## Paramètres conventionnels à qualifier
 
 Les valeurs de travail recueillies précédemment sont **11,54 € par journée-enfant pour l'ALSH classique 2025-2026** et **19,55 € pour l'ALSH Ados Bais 2024-2026**. Elles ne sont **ni généralisables à tous les sites** ni automatiquement reconductibles pour 2026-2027 ; seule une convention applicable signée fait foi.
