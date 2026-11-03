@@ -240,6 +240,82 @@ class EcranAccueilTests(unittest.TestCase):
                          "non_renseigne")
         self.assertEqual(info["autorisation_modele"], "Fiche Enfant 2026-11")
 
+    def test_bouton_fiche_ados_ouvre_le_meme_dossier(self):
+        f = NS(IDindividu=10)
+        methode = self.UI.Dialog.OnOuvrirAdos
+        with patch.object(self.UI, "Dialog") as fenetre:
+            fenetre.return_value.ShowModal.return_value = wx.ID_OK
+            resultat = methode(f)
+        fenetre.assert_called_once_with(f, 10, modele="ados")
+        self.assertEqual(resultat, wx.ID_OK)
+        fenetre.return_value.Destroy.assert_called_once()
+
+    def test_transport_club_ados_enregistre_separement(self):
+        self.assertEqual(self.UI.ADOS_SPECIFIQUES,
+                         (("transport_ados", "Transport (Club ados)"),))
+        f = self.base()
+        f.modele = "ados"
+        f.registre_pret = True
+        f.perimetre.GetValue.return_value = "Club ados 2026-2027"
+        f.perimetre_charge = "Club ados 2026-2027"
+        f.choix_autorisations["transport_ados"] = self.controle(2)
+        f.etats_initiaux["transport_ados"] = 0
+        f.attendus[("transport_ados", "Club ados 2026-2027")] = None
+        f.signataire = NS(GetSelection=Mock(return_value=1))
+        f.source = NS(GetSelection=Mock(return_value=0))
+        f.date_signature = NS(GetValue=Mock(return_value="2026-11-03"))
+        f.date_debut = NS(GetValue=Mock(return_value="2026-11-03"))
+        f.date_fin = NS(GetValue=Mock(return_value="2027-08-31"))
+        f.autorite = NS(GetValue=Mock(return_value=True))
+        f.texte_version = NS(GetValue=Mock(return_value="Fiche Ados 2026-11"))
+        f.reference_preuve = NS(GetValue=Mock(return_value="fiche-ados-test"))
+        with patch.object(self.UI.wx, "MessageBox", return_value=wx.YES), \
+             patch.object(self.UI.registre, "EnregistrerLot") as enregistrer:
+            self.assertTrue(self.UI.Dialog.OnEnregistrer(f))
+        args, _kwargs = enregistrer.call_args
+        self.assertEqual(len(args[2]), 1)
+        self.assertEqual(args[2][0]["type"], "transport_ados")
+        self.assertEqual(args[2][0]["valeur"], 0)
+        self.assertEqual(args[2][0]["perimetre"], "Club ados 2026-2027")
+
+    def test_imprimer_ados_avec_transport_et_depart_seul_signes(self):
+        f = self.base()
+        f.modele = "ados"
+        f.perimetre.GetValue.return_value = "Club ados 2026-2027"
+        f.perimetre_charge = "Club ados 2026-2027"
+        f.registre_pret = True
+        f.lecture_medicale = False
+        f.medical = None
+        f.inclure_medical = NS(GetValue=Mock(return_value=False))
+        f.entete = {"nom": "ADO", "prenom": "Fictif"}
+        f.repas_existant = "non_renseigne"
+        f.signataire = NS(GetSelection=Mock(return_value=0))
+        f.date_signature = NS(GetValue=Mock(return_value=""))
+        fichier = NS(ShowModal=Mock(return_value=wx.ID_OK),
+                     GetPath=Mock(return_value="ado-fictif.pdf"), Destroy=Mock())
+        def lire(_hist, _enfant, code, perimetre, _date):
+            self.assertEqual(perimetre, "Club ados 2026-2027")
+            return ((1, "oui") if code == "transport_ados"
+                    else (2, "non") if code == "depart_seul"
+                    else (0, "non_renseigne"))
+        with patch.object(self.UI.wx, "FileDialog", return_value=fichier), \
+             patch.object(self.UI.wx, "MessageBox"), \
+             patch.object(self.UI, "EtatChoix", side_effect=lire), \
+             patch.object(self.UI.contacts, "LireContactsEnfant",
+                          return_value={"responsables": [], "accompagnants": []}), \
+             patch.object(self.UI.scolarite, "LireScolariteActuelle",
+                          return_value={"classe": "Troisième"}), \
+             patch.object(self.UI.impression, "GenererPDFAdos") as imprimer_ados, \
+             patch.object(self.UI.impression, "GenererPDF") as imprimer_enfant:
+            self.assertTrue(self.UI.Dialog.OnImprimer(f))
+        imprimer_enfant.assert_not_called()
+        donnees = imprimer_ados.call_args.args[1]
+        self.assertEqual(donnees["autorisation_modele"], "Fiche Ados 2026-11")
+        self.assertEqual(donnees["autorisations"]["transport_ados"], "oui")
+        self.assertEqual(donnees["autorisations"]["depart_seul"], "non")
+        self.assertEqual(donnees["classe"], "Troisième")
+        self.assertEqual(donnees["annee"], "Club ados 2026-2027")
+
     def test_impression_interdite_sans_acces(self):
         f = self.base(acces=False)
         with patch.object(self.UI.impression, "GenererPDF") as pdf:
