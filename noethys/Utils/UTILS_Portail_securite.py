@@ -89,7 +89,7 @@ def LireModeleVerifie(chemin, empreinte):
     Sans empreinte, renvoie None et ne change pas le chargement historique.
     Le SHA256 doit etre releve depuis une source independante de l'echange :
     une somme fournie avec le fichier par le meme serveur non fiable ne
-    prouve rien. Seul models.py est couvert, pas les imports relatifs.
+    prouve rien. En mode epingle, les imports relatifs annexes sont refuses.
     """
     if not isinstance(empreinte, str):
         raise ModuleConnecthysNonFiable("Empreinte du modele Connecthys invalide")
