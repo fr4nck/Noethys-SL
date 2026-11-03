@@ -115,7 +115,13 @@ class AnnuairePartenaires:
                  reference_existe=None):
         if dialecte not in ("sqlite", "mysql") or connexion is None:
             raise PartenairesErreur("Connexion ou dialecte invalide")
+        if dialecte == "mysql":
+            get_auto = getattr(connexion, "get_autocommit", None)
+            demarrer = getattr(connexion, "begin", None)
+            if not callable(get_auto) or get_auto() is not False or not callable(demarrer):
+                raise PartenairesErreur("MySQL : connexion dediee, autocommit OFF et begin() requis")
         self.connexion = connexion
+        self.dialecte = dialecte
         self.param = "?" if dialecte == "sqlite" else "%s"
         self.autoriser = autoriser
         self.reference_existe = reference_existe
@@ -135,6 +141,10 @@ class AnnuairePartenaires:
         return self._executer(sql, params, lecture=True)
 
     def _mutation(self, operation):
+        # Une session MySQL autocommit OFF ne suffit pas a prouver qu'une
+        # operation atomique vient de commencer. D1 possede sa connexion.
+        if self.dialecte == "mysql":
+            self.connexion.begin()
         try:
             resultat = operation()
             self.connexion.commit()
