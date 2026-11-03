@@ -11,6 +11,7 @@ adresses example.org uniquement. Dialogues wx remplacés par des doublures.
 """
 from __future__ import annotations
 
+import ast
 import os
 import sys
 import tempfile
@@ -173,6 +174,35 @@ class ContratsSourceTests(unittest.TestCase):
         self.assertLess(bloc.index("if dictChamps in (False, None) :"), bloc.index("DLG_Mailer.Dialog("))
         self.assertIn(u"Le reçu n'a pas été envoyé : %s", bloc)
         self.assertEqual(bloc.count("dlg1.Destroy()"), 1)
+
+    def test_dialogue_mailer_nettoye_meme_sur_exception(self):
+        # Controle de structure AST, independant de l'indentation ou de la
+        # longueur du bloc. La destruction doit relever du finally du try
+        # qui effectue l'envoi, pas uniquement du chemin de succes.
+        source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_reglement.py").read_text(encoding="utf-8")
+        arbre = ast.parse(source)
+        essais = []
+        for noeud in ast.walk(arbre):
+            if not isinstance(noeud, ast.Try):
+                continue
+            envois = [
+                appel for etape in noeud.body for appel in ast.walk(etape)
+                if isinstance(appel, ast.Call)
+                and isinstance(appel.func, ast.Attribute)
+                and appel.func.attr == "OnBoutonEnvoyer"
+            ]
+            if envois:
+                essais.append(noeud)
+        self.assertEqual(len(essais), 1, "Un seul parcours direct d'envoi du recu attendu")
+        destructions = [
+            appel for etape in essais[0].finalbody for appel in ast.walk(etape)
+            if isinstance(appel, ast.Call)
+            and isinstance(appel.func, ast.Attribute)
+            and isinstance(appel.func.value, ast.Name)
+            and appel.func.value.id == "dlg2"
+            and appel.func.attr == "Destroy"
+        ]
+        self.assertEqual(len(destructions), 1, "DLG_Mailer doit etre detruit en finally")
 
     def test_creation_pdf_echouee_ne_laisse_rien_a_memoriser(self):
         source = (NOETHYS_DIR / "Dlg" / "DLG_Impression_recu.py").read_text(encoding="utf-8")
