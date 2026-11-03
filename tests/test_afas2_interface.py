@@ -149,6 +149,8 @@ class DialogueTests(unittest.TestCase):
         d.ctrl_mode.SetSelection(1)
         d.OnContexte(None)
         sites = [d.ctrl_sites.GetString(i) for i in range(d.ctrl_sites.GetCount())]
+        self.assertIn("Minicamps 9/11", sites)
+        self.assertIn("Minicamps 8/10", sites)  # ancien preset conservé
         d.ctrl_sites.Check(sites.index("Minicamps 6/8"), True)
         d.ctrl_mode.SetSelection(0)
         d.OnContexte(None)
