@@ -404,8 +404,14 @@ class Synchro():
                 fichier_wsgi.write(ligne)
             fichier_wsgi.close()
 
-            # Envoi du nouveau fichier wsgi
-            self.UploadFichier(ftp=ftp, nomFichierComplet=nomFichierComplet, repDest="")
+            # Un echec de rechargement WSGI doit remonter au client :
+            # ne pas annoncer une synchronisation reussie sans le fichier.
+            if self.UploadFichier(
+                    ftp=ftp, nomFichierComplet=nomFichierComplet,
+                    repDest="") is not True:
+                self.log.EcritLog(_(u"[ERREUR] Rechargement WSGI non envoye."))
+                return False
+            return True
         finally:
             if connexion_provisoire:
                 self.Deconnexion(ftp, ssh)
