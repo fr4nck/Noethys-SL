@@ -151,6 +151,36 @@ class ConfigTemporaireTests(unittest.TestCase):
             reload.assert_called_once()
             self.assertEqual(os.listdir(tmp), [])
 
+    def test_auto_reload_wsgi_propage_echec_de_l_envoi(self):
+        s = self._contexte(serveur_type=2)
+        with tempfile.TemporaryDirectory(prefix="wsgi-fictif-") as tmp:
+            Path(tmp, "wsgi-original").write_text(
+                "# Connecthys WSGI fictif\\n# lastupdate = ancienne valeur\\n",
+                encoding="utf8")
+            with mock.patch.object(U.UTILS_Fichiers, "GetRepTemp",
+                                   side_effect=lambda fichier="": os.path.join(tmp, fichier)), \
+                 mock.patch.object(s, "TelechargeFichier",
+                                   return_value=(tmp, "wsgi-original")), \
+                 mock.patch.object(s, "UploadFichier", return_value=False) as upload:
+                self.assertFalse(s.AutoReloadWSGI(ftp=mock.MagicMock()))
+            upload.assert_called_once()
+            self.assertTrue(any("Rechargement WSGI non envoye" in t
+                                for t in s.log.messages))
+
+    def test_auto_reload_wsgi_confirme_le_transfert(self):
+        s = self._contexte(serveur_type=2)
+        with tempfile.TemporaryDirectory(prefix="wsgi-fictif-") as tmp:
+            Path(tmp, "wsgi-original").write_text(
+                "# Connecthys WSGI fictif\\n# lastupdate = ancienne valeur\\n",
+                encoding="utf8")
+            with mock.patch.object(U.UTILS_Fichiers, "GetRepTemp",
+                                   side_effect=lambda fichier="": os.path.join(tmp, fichier)), \
+                 mock.patch.object(s, "TelechargeFichier",
+                                   return_value=(tmp, "wsgi-original")), \
+                 mock.patch.object(s, "UploadFichier", return_value=True) as upload:
+                self.assertTrue(s.AutoReloadWSGI(ftp=mock.MagicMock()))
+            upload.assert_called_once()
+
     def test_config_inchangee_mode_prive_applique_droits_et_supprime_les_copies(self):
         s = self._contexte(prive=True)
         ftp = mock.MagicMock()
