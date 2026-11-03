@@ -77,3 +77,16 @@ Sur la branche `wx`, le formulaire enfant affiche et imprime désormais les coor
 - **Impact** : aucun doublon d'enregistrement, aucune nouvelle table, aucune modification d'une famille, aucun export automatique et aucun changement à la facturation.
 - **Tests** : `test_noethys_sl_accueil_contacts` (SQLite fictive), `test_noethys_sl_accueil_impression` (contenu page 1) et `test_noethys_sl_accueil_wx` (liste signataire et impression simulée) ; inclus dans la CI wx. La recette visuelle Windows et l'utilisation sur un dossier fictif complet restent nécessaires avant livraison.
 
+
+## 03/11/2026 — Scolarité, sexe et ALSH fréquenté (Lot C)
+
+La fiche d'accueil reprend désormais automatiquement :
+- **Sexe** depuis `individus.IDcivilite` et `DATA_Civilites` ; aucune déduction depuis le prénom.
+- **Classe et niveau actuels** depuis `scolarite`, `classes`, `niveaux_scolaires`, `ecoles`, à la date de consultation. La dernière scolarité achevée n'est pas présentée comme actuelle ; deux scolarités simultanées sont affichées « à vérifier ».
+- **ALSH fréquenté** : choix par clic entre La Guerche-de-Bretagne, Moutiers et Bais sur la fiche wx. Aucune correspondance fiable et générale avec l'ALSH n'étant établie dans la source scolarité, ce champ n'est pas prérempli par une supposition. Il sert uniquement à la fiche imprimée.
+
+La lecture de l'identité est indépendante du champ facultatif `individus.aeeh` : l'archive historique du 10/09/2026 ne contient pas cette colonne ; son absence ne masque plus nom, prénom, date de naissance ou sexe. Les informations AEEH restent « non renseigné » dans ce cas, sans créer ni modifier de données.
+
+**Tests fictifs** : `test_noethys_sl_accueil_scolarite.py` (SQLite jetable : années, bornes, doubles scolarités, absence, lecture seule), `test_noethys_sl_accueil_wx.py` (identité ancienne/nouvelle base, liste des trois ALSH, PDF simulé), `test_noethys_sl_accueil_impression.py` (valeurs affichées page 1). CI rapide wx déclenchée, verdict Windows à confirmer.
+
+L'impression utilise toujours le modèle papier PMSL à deux pages. Aucun nouveau questionnaire, aucune donnée en base, aucun tarif, aucune facture et aucune commande fournisseur modifiés.
