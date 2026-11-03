@@ -427,8 +427,6 @@ class Panel(wx.Panel):
                         self.type_structure_modifiable = False
                     else:
                         self.ctrl_parametres.SetPropertyValue("type_structure", indice)
-            self.ctrl_parametres.EnableProperty("type_structure", self.type_structure_modifiable)
-
                 # Compte internet
                 self.ctrl_compte_internet.SetDonnees({"internet_actif": internet_actif, "internet_identifiant": internet_identifiant, "internet_mdp": internet_mdp})
 
@@ -446,6 +444,9 @@ class Panel(wx.Panel):
 
                 # Code comptable
                 self.ctrl_parametres.SetPropertyValue("code_comptable", code_comptable)
+            else:
+                self.type_structure_modifiable = False
+            self.ctrl_parametres.EnableProperty("type_structure", self.type_structure_modifiable)
             self.MAJaffichage()
         
         else :
