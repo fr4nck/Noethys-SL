@@ -159,6 +159,23 @@ class PeriscolaireTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["garderie_total"], H)
         self.assertEqual(r["indicateurs"]["heures_realisees"], 3 * H + 15 * 60)  # garderies non ajoutées
 
+    def test_garderie_facturee_aux_familles_reste_hors_heures_caf(self):
+        # Garderie = temps réel et tarifé par Noethys, mais non financé CAF
+        # dans les profils ALSH PMSL (inclure_garderie_caf=False).
+        consos = [
+            conso(LUNDI_SCOLAIRE, 101),
+            conso(LUNDI_SCOLAIRE, 105, IDprestation=81001, IDfacture=1),
+            conso(LUNDI_SCOLAIRE, 106, IDprestation=81002, IDfacture=1),
+        ]
+        r = calculer(M.PERI, consos, options={"inclure_garderie_caf": False})
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], H + 15 * 60)
+        self.assertIsNone(r["indicateurs"]["heures_facturees"])
+        self.assertEqual(r["indicateurs"]["garderie_matin"], 30 * 60)
+        self.assertEqual(r["indicateurs"]["garderie_soir"], 30 * 60)
+        self.assertEqual(r["indicateurs"]["garderie_total"], H)
+        self.assertEqual(r["indicateurs"]["heures_physiques"], 2 * H + 15 * 60)
+
     def test_16b_garderie_incluse_si_choix_explicite(self):
         consos = [conso(LUNDI_SCOLAIRE, u) for u in (105, 101)]
         r = calculer(M.PERI, consos, options={"inclure_garderie_caf": True})
@@ -208,6 +225,22 @@ class ExtrascolaireTests(unittest.TestCase):
         consos = [self.facturee(LUNDI_VACANCES, 207)]
         r = calculer(M.EXTRA, consos, ouvertures=ouvert(consos, [(BAIS_PLUS, 206, LUNDI_VACANCES)]))
         self.assertEqual(r["indicateurs"]["heures_facturees"], 3 * H)
+
+    def test_garderie_familles_hors_actes_caf_extra(self):
+        # Les factures de garderie familles ne sont pas des actes facturés CAF.
+        # La durée de garderie est conservée dans ses compteurs propres.
+        consos = [
+            conso(LUNDI_VACANCES, 201, IDprestation=82001, IDfacture=1),
+            conso(LUNDI_VACANCES, 105, IDprestation=82002, IDfacture=1),
+            conso(LUNDI_VACANCES, 106, IDprestation=82003, IDfacture=1),
+        ]
+        r = calculer(M.EXTRA, consos, options={"inclure_garderie_caf": False})
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 9 * H)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+        self.assertEqual(r["indicateurs"]["garderie_total"], H)
+        self.assertEqual(r["indicateurs"]["garderie_matin"], 30 * 60)
+        self.assertEqual(r["indicateurs"]["garderie_soir"], 30 * 60)
 
     def test_08_absence_facturee_sans_presence(self):
         r = calculer(M.EXTRA, [self.facturee(LUNDI_VACANCES, 201, etat="absenti")])
