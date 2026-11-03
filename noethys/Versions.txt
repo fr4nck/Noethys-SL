@@ -1,3 +1,11 @@
+Version Noethys SL 0.1.0 RC10.5 (03/11/2026) :
+
+- Connecthys : fermeture explicite des connexions SSH et SFTP, y compris apres un echec de transfert, pour eviter les sessions distantes residuelles (#438).
+- Fermeture de Noethys : arret interruptible du worker Connecthys en veille et pendant les delais de demarrage ; une sauvegarde annulee ne declenche pas cet arret (#438).
+- Sauvegardes MySQL : maintien des exports surveilles, de l'integrite SQL et de la protection des anciennes archives ; la sauvegarde PMSL complete et restaurable reste a valider sur le terrain (#437).
+- Facturation, fiches enfant et situations des communes : maintien des correctifs deja integres en RC10.4, sans ecrasement des donnees ni migration de schema.
+- Candidat cumulatif Windows : avant toute publication, controles de demarrage et de sauvegarde sur MySQL jetable, essais du ZIP portable et tests de fermeture du processus entier.
+
 Version Noethys SL 0.1.0 RC10.4 (29/10/2026) :
 
 - Facturation : diagnostic explicite des erreurs SQL d'adhesions et possibilite de preparer un apercu avec les seules prestations existantes, uniquement apres confirmation ; aucune nouvelle cotisation creee en cas d'echec du controle (#426).
