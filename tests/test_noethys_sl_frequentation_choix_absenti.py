@@ -42,6 +42,9 @@ class FakeDB:
             INSERT INTO consommations VALUES (7,3,'2026-03-01',1,10,'absenti');
             INSERT INTO consommations VALUES (8,2,'2026-03-06',1,11,'absenti');
             INSERT INTO consommations VALUES (9,2,'2026-11-03',1,10,'absenti');
+            ALTER TABLE consommations ADD COLUMN IDprestation INTEGER;
+            CREATE TABLE factures (IDfacture INTEGER PRIMARY KEY, etat TEXT);
+            CREATE TABLE prestations (IDprestation INTEGER PRIMARY KEY, IDfacture INTEGER, montant REAL);
         ''')
         self.cursor = None
         self.queries = []
