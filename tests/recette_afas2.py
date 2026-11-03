@@ -15,13 +15,12 @@
         supprimés, montants réduits à leur signe. La source n'est lue qu'en
         SELECT ; l'extrait est un nouveau fichier SQLite.
 
-    python tests/recette_afas2.py rapprocher <extrait.dat> --annee AAAA --phase reel
+    python tests/recette_afas2.py rapprocher <extrait.dat> --annee AAAA --phase arrete_septembre
             --preset <nom du preset> --attendus <attendus.csv> --sortie <dossier>
-        Calcule la déclaration sur l'extrait et la rapproche des chiffres de
-        référence (attendus.csv : « indicateur;heures », par exemple les heures
-        déclarées à la Caf pour cette année). Écrit le rapprochement par
-        indicateur, la ventilation par mois et par site, et l'export de
-        contrôle complet.
+        Contrôle le réalisé du 01/01 au 30/09 sans prévision Oct-Dec et sans
+        déclaration CAF. --phase arrete_juin est également disponible.
+        --phase reel reste l'année entière. Le rapprochement utilise
+        toujours les heures réalisées, jamais le total prévisionnel.
 """
 import argparse
 import csv
@@ -36,6 +35,8 @@ for chemin in (os.path.join(RACINE, "noethys"), os.path.join(RACINE, "tests")):
 
 DELAI_REGULARISATIONS = datetime.timedelta(days=92)
 CATEGORIES_PROFILS_COPIES = ("afas_v2_referentiel", "afas_v2_preset")
+PHASES_ARRETE = {"arrete_juin": ("actualisation_juin", "30 juin"),
+                 "arrete_septembre": ("actualisation_septembre", "30 septembre")}
 
 
 # --------------------------------------------------------------------------
@@ -47,6 +48,9 @@ class SourceLectureSeule(object):
 
     def __init__(self, nom):
         import GestionDB
+        if str(nom).lower().endswith(".nod"):
+            raise SystemExit("Une archive .nod doit être restaurée dans une copie locale isolée "
+                             "avant extraction. Ne jamais restaurer sur la base de production.")
         if "[RESEAU]" not in nom and not os.path.isfile(nom):
             raise SystemExit("Source introuvable : %s" % nom)
         self.db = GestionDB.DB(nomFichier=nom, suffixe=None)
@@ -165,7 +169,9 @@ def Rapprocher(rapport, attendus):
     """Lignes (indicateur, libellé, calculé, attendu, écart, écart %) en heures décimales."""
     lignes = []
     for ligne in rapport["indicateurs"]:
-        calcule = ligne["total"]
+        # Une actualisation contient aussi du prévisionnel : la référence
+        # du relevé de présence doit être rapprochée du réalisé uniquement.
+        calcule = ligne["realise"]
         if not isinstance(calcule, int):
             continue
         heures = calcule / 3600.0
@@ -200,6 +206,43 @@ def _ecrire(chemin, entete, lignes):
             writer.writerow(["" if v is None else (("%.2f" % v).replace(".", ",") if isinstance(v, float) else v) for v in ligne])
 
 
+def ConstruireRapportArrete(annee, phase, preset, referentiel, date_reference=None):
+    """Contrôle interne Jan-Jun/Jan-Sep via le moteur V2, sans prévision.
+
+    Ne modifie ni profils ni production ; ne constitue jamais une
+    déclaration CAF et reste non validable par construction.
+    """
+    from Utils import UTILS_AFAS2_Calcul as Calcul
+    from Utils import UTILS_AFAS2_Declaration as DECL
+    from Utils import UTILS_AFAS2_Referentiel as R
+    if phase not in PHASES_ARRETE:
+        raise ValueError("Phase d'arrêté inconnue : %r" % (phase,))
+    code, libelle = PHASES_ARRETE[phase]
+    source = DECL.Source()
+    referentiel = R.ValiderReferentiel(referentiel, source.Groupes())
+    preset, couples, motifs = DECL.Perimetre(preset, referentiel)
+    debut, fin, _, _ = DECL.Periodes(annee, code)
+    reference = date_reference or datetime.date.today()
+    if reference <= fin:
+        motifs.append("Arrêté non clos à la date de référence %s" % reference)
+    periode = DECL.CalculerPeriode(preset, referentiel, couples, source, debut, fin, reference)
+    if periode["bloquant"]:
+        motifs.append("Anomalies bloquantes dans les consommations")
+    indicateurs = []
+    for cle, nom in Calcul.INDICATEURS:
+        indicateurs.append({"cle": cle, "libelle": nom, "nature": Calcul.NATURES_INDICATEURS[cle],
+                            "realise": periode["indicateurs"][cle], "prevision": None, "total": None})
+    return {
+        "annee": annee, "phase": phase,
+        "libelle_phase": "Contrôle du réalisé au %s" % libelle,
+        "periode_realise": [str(debut), str(fin)], "periode_prevision": None,
+        "indicateurs": indicateurs, "jours": periode["jours"], "lignes": periode["lignes"],
+        "anomalies": periode["anomalies"], "bloquant": periode["bloquant"], "preset": preset,
+        "validable": False,
+        "motifs_non_validable": ["Contrôle interne : ne constitue pas une déclaration CAF."] + motifs,
+    }
+
+
 def ExecuterRapprochement(extrait, annee, phase, nom_preset, attendus, sortie, date_reference=None):
     from _fixtures_noethys_db import RedirectionGestionDB
     from Utils import UTILS_AFAS2_Declaration as DECL
@@ -212,10 +255,13 @@ def ExecuterRapprochement(extrait, annee, phase, nom_preset, attendus, sortie, d
         if len(choix) != 1:
             raise SystemExit("Preset introuvable dans l'extrait : %s" % nom_preset)
         preset = P.ChargerPreset(choix[0])
-        rapport = DECL.Executer(preset, referentiel, annee, phase, date_reference=date_reference)
+        if phase in PHASES_ARRETE:
+            rapport = ConstruireRapportArrete(annee, phase, preset, referentiel, date_reference)
+        else:
+            rapport = DECL.Executer(preset, referentiel, annee, phase, date_reference=date_reference)
     chemins = DECL.ExporterControle(sortie, rapport, "rapprochement_%d" % annee)
     chemins["rapprochement"] = os.path.join(sortie, "rapprochement_%d_indicateurs.csv" % annee)
-    _ecrire(chemins["rapprochement"], ["Indicateur", "Libellé", "Calculé (h)", "Référence (h)", "Écart (h)", "Écart (%)"],
+    _ecrire(chemins["rapprochement"], ["Indicateur", "Libellé", "Réalisé calculé (h)", "Référence (h)", "Écart (h)", "Écart (%)"],
             Rapprocher(rapport, attendus))
     chemins["ventilation"] = os.path.join(sortie, "rapprochement_%d_mois_sites.csv" % annee)
     _ecrire(chemins["ventilation"], ["Mois", "Site", "Réalisé (h)", "Facturé (h)", "Jours-enfants"], Ventilation(rapport))
@@ -263,7 +309,9 @@ def main(arguments=None):
     rapprocher = commandes.add_parser("rapprocher")
     rapprocher.add_argument("extrait")
     rapprocher.add_argument("--annee", type=int, required=True)
-    rapprocher.add_argument("--phase", default="reel")
+    rapprocher.add_argument("--phase", default="reel",
+                           choices=("reel", "actualisation_juin", "actualisation_septembre",
+                                    "arrete_juin", "arrete_septembre"))
     rapprocher.add_argument("--preset", required=True)
     rapprocher.add_argument("--attendus", required=True)
     rapprocher.add_argument("--sortie", required=True)
