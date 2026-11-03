@@ -10,11 +10,11 @@ revérifiées contre la table `groupes` à chaque chargement : aucun
 identifiant n'est supposé.
 
 Format 2 : calendrier daté des samedis avec école par année scolaire
-(`samedis_avec_ecole`) et justificatifs des rattachements non documentés
-par l'intitulé des conventions (`justificatifs` : Moutiers, minicamps).
-Le rattachement d'un minicamp ou de Moutiers n'est jamais déduit du nom du
-groupe : il est validable seulement avec la référence du document officiel
-qui le fonde (formulaire d'implantation, déclaration de l'accueil).
+(`samedis_avec_ecole`) et justificatifs des minicamps (`justificatifs`).
+Moutiers est rattaché à l'équipement « La Guerche-Moutiers » dans AFAS :
+ce rattachement a été confirmé par la direction le 03/11/2026.
+Les identifiants de groupe restent vérifiés contre Noethys ; seul le
+rattachement des minicamps exige un justificatif distinct.
 Régularisations qualifiées (`regularisations`) : pour chaque prestation
 négative non rattachée à une consommation (avoir, régularisation), la liste
 des consommations dont elle annule la facturation (éventuellement aucune)
@@ -60,8 +60,11 @@ EQUIPEMENT_DOCUMENTE = {
 FORMAT_REFERENTIEL = 2
 CLES_REFERENTIEL = {"format", "sites", "moutiers_rattachement_confirme", "sejours", "samedis_avec_ecole", "justificatifs",
                     "regularisations"}
-# Sites dont le rattachement exige un justificatif (non documenté par l'intitulé des conventions).
-SITES_A_JUSTIFIER = (MOUTIERS,) + MINICAMPS
+# Seuls les minicamps exigent une pièce de rattachement distincte.
+# Les justificatifs Moutiers historiques restent acceptés en lecture
+# pour ne pas rendre invalides les référentiels déjà sauvegardés.
+SITES_A_JUSTIFIER = MINICAMPS
+SITES_JUSTIFICATIFS_ACCEPTES = (MOUTIERS,) + MINICAMPS
 TAILLE_MAX_JUSTIFICATIF = 300
 CATEGORIE_PROFIL = "afas_v2_referentiel"
 NOM_PARAMETRE = "referentiel_json"
@@ -83,7 +86,7 @@ def NomNormalise(texte):
 
 
 def ReferentielVide():
-    return {"format": FORMAT_REFERENTIEL, "sites": {}, "moutiers_rattachement_confirme": False, "sejours": [],
+    return {"format": FORMAT_REFERENTIEL, "sites": {}, "moutiers_rattachement_confirme": True, "sejours": [],
             "samedis_avec_ecole": {}, "justificatifs": {}, "regularisations": {}}
 
 
@@ -206,7 +209,7 @@ def ValiderReferentiel(referentiel, groupes):
     if not isinstance(justificatifs, dict):
         raise ReferentielInvalide("Justificatifs invalides")
     for label, texte in justificatifs.items():
-        if label not in SITES_A_JUSTIFIER:
+        if label not in SITES_JUSTIFICATIFS_ACCEPTES:
             raise ReferentielInvalide("Justificatif sans objet pour %r (rattachement documenté par la convention)" % (label,))
         if not isinstance(texte, str) or not texte.strip() or len(texte) > TAILLE_MAX_JUSTIFICATIF:
             raise ReferentielInvalide("%s : référence du justificatif requise (%d caractères maximum)"
@@ -294,9 +297,9 @@ def StatutSite(referentiel, label, mode):
     equipement = referentiel["sites"][label]["equipement"]
     if equipement is None:
         return False, "équipement de rattachement non choisi"
-    if label == MOUTIERS and not referentiel["moutiers_rattachement_confirme"]:
-        return False, ("rattachement de Moutiers à la convention La Guerche-Moutiers non confirmé "
-                       "(référence contractuelle provisoire : formulaire d'implantation à vérifier)")
+    # Moutiers est conventionnellement dans l'équipement La Guerche-Moutiers.
+    # L'ancien booléen est conservé pour lire les anciens référentiels,
+    # mais n'a plus d'effet sur la validabilité.
     if label in SITES_A_JUSTIFIER and not referentiel.get("justificatifs", {}).get(label):
         return False, ("justificatif du rattachement non renseigné (formulaire d'implantation ou déclaration "
                        "de l'accueil désignant l'équipement organisateur)")

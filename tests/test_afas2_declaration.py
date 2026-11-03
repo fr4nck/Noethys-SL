@@ -194,20 +194,22 @@ class PhasesTests(unittest.TestCase):
 
 
 class ValidabiliteTests(unittest.TestCase):
-    def test_28_moutiers_sans_rattachement_confirme(self):
+    def test_28_moutiers_eligible_sans_formulaire_supplementaire(self):
         p = preset(sites=("Moutiers",), equipement="LA_GUERCHE_MOUTIERS")
-        r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13))
-        self.assertFalse(r["validable"])
-        self.assertTrue(any("Moutiers" in m for m in r["motifs_non_validable"]))
-        # Confirmation sans formulaire d'implantation référencé : toujours non validable.
-        r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13),
+        source = source_peri([D(2026, 3, 3)], groupe=13)
+        # Le groupe Moutiers appartient à l'équipement CAF La Guerche-Moutiers.
+        # Aucun second accord ni document supplémentaire n'est requis.
+        r = executer(p, 2026, AFAS.PHASE_REEL, source)
+        self.assertTrue(r["validable"], r["motifs_non_validable"])
+        self.assertEqual(r["justificatifs"], {})
+        r = executer(p, 2026, AFAS.PHASE_REEL, source,
                      ref=referentiel(moutiers_rattachement_confirme=True))
-        self.assertFalse(r["validable"])
-        r = executer(p, 2026, AFAS.PHASE_REEL, source_peri([D(2026, 3, 3)], groupe=13),
-                     ref=referentiel(moutiers_rattachement_confirme=True,
-                                     justificatifs={"Moutiers": "Formulaire d'implantation fictif"}))
-        self.assertTrue(r["validable"])
-        self.assertEqual(r["justificatifs"], {"Moutiers": "Formulaire d'implantation fictif"})
+        self.assertTrue(r["validable"], r["motifs_non_validable"])
+        # Une référence de pièce existante reste conservée si elle existe.
+        r = executer(p, 2026, AFAS.PHASE_REEL, source,
+                     ref=referentiel(justificatifs={"Moutiers": "Pièce historique fictive"}))
+        self.assertTrue(r["validable"], r["motifs_non_validable"])
+        self.assertEqual(r["justificatifs"], {"Moutiers": "Pièce historique fictive"})
 
     def test_minicamp_sans_equipement_non_validable(self):
         p = preset(mode="extrascolaire", sites=("Bais +6 ans", "Minicamps 6/8"))

@@ -98,14 +98,18 @@ class ReferentielTests(unittest.TestCase):
         with self.assertRaises(R.ReferentielInvalide):
             R.ValiderReferentiel(ref, groupes_dict())
 
-    def test_28_moutiers_non_validable_sans_confirmation(self):
+    def test_28_moutiers_rattache_a_la_guerche_sans_verrou_inutile(self):
         ref = R.ValiderReferentiel(referentiel(), groupes_dict())
-        self.assertEqual(R.StatutSite(ref, R.MOUTIERS, "periscolaire")[0], False)
+        for mode in ("periscolaire", "extrascolaire"):
+            with self.subTest(mode=mode):
+                # L'ancien champ False ne doit plus bloquer Moutiers.
+                self.assertEqual(R.StatutSite(ref, R.MOUTIERS, mode), (True, ""))
         ref["moutiers_rattachement_confirme"] = True
-        # Confirmation seule : le formulaire d'implantation doit être référencé.
-        self.assertFalse(R.StatutSite(ref, R.MOUTIERS, "periscolaire")[0])
-        ref["justificatifs"][R.MOUTIERS] = "Formulaire d'implantation fictif"
         self.assertEqual(R.StatutSite(ref, R.MOUTIERS, "periscolaire"), (True, ""))
+        # Compatibilité des justificatifs historiques, sans obligation.
+        ref["justificatifs"][R.MOUTIERS] = "Ancien formulaire d'implantation"
+        self.assertEqual(R.StatutSite(R.ValiderReferentiel(ref, groupes_dict()),
+                                      R.MOUTIERS, "extrascolaire"), (True, ""))
 
     def test_minicamp_sans_equipement_non_validable(self):
         ref = R.ValiderReferentiel(referentiel(), groupes_dict())

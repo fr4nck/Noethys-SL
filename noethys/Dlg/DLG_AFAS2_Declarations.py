@@ -585,9 +585,9 @@ class DialogReferentiel(wx.Dialog):
                 grille.Add(equipement)
                 self.ctrl_equipements[site] = equipement
         grille.AddGrowableCol(1)
-        self.ctrl_moutiers = wx.CheckBox(self, label="Rattachement de Moutiers à la convention « La Guerche-Moutiers » confirmé "
-                                                     "(formulaire d'implantation vérifié)")
-        self.ctrl_moutiers.SetValue(referentiel["moutiers_rattachement_confirme"])
+        self.label_moutiers = wx.StaticText(
+            self, label="Moutiers : rattaché à l'équipement La Guerche-Moutiers dans AFAS "
+                        "(périscolaire et extrascolaire).")
         grille_justif = wx.FlexGridSizer(cols=2, vgap=4, hgap=10)
         self.ctrl_justificatifs = {}
         for site in Referentiel.SITES_A_JUSTIFIER:
@@ -617,7 +617,7 @@ class DialogReferentiel(wx.Dialog):
         self.MajSejours()
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(grille, 0, wx.EXPAND | wx.ALL, 8)
-        sizer.Add(self.ctrl_moutiers, 0, wx.ALL, 8)
+        sizer.Add(self.label_moutiers, 0, wx.ALL, 8)
         sizer.Add(grille_justif, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
         sizer.Add(wx.StaticText(self, label="Samedis avec école par année scolaire (« 2026 : 2026-11-28, 2027-03-13 » ou "
                                             "« 2026 : aucun ») — une année non saisie bloque ses samedis hors vacances"), 0, wx.ALL, 8)
@@ -657,11 +657,17 @@ class DialogReferentiel(wx.Dialog):
         return sites
 
     def LireReferentiel(self):
+        # Conservation facultative du justificatif Moutiers historique.
+        # Seuls les justificatifs des minicamps sont exigés désormais.
+        justificatifs = {
+            Referentiel.MOUTIERS: self.referentiel["justificatifs"][Referentiel.MOUTIERS]
+        } if self.referentiel.get("justificatifs", {}).get(Referentiel.MOUTIERS) else {}
+        justificatifs.update({site: ctrl.GetValue().strip() for site, ctrl in self.ctrl_justificatifs.items()
+                              if ctrl.GetValue().strip()})
         return {"format": Referentiel.FORMAT_REFERENTIEL, "sites": self.LireSites(),
-                "moutiers_rattachement_confirme": self.ctrl_moutiers.GetValue(), "sejours": list(self.sejours),
+                "moutiers_rattachement_confirme": True, "sejours": list(self.sejours),
                 "samedis_avec_ecole": Referentiel.LireSamedisTexte(self.ctrl_samedis.GetValue()),
-                "justificatifs": {site: ctrl.GetValue().strip() for site, ctrl in self.ctrl_justificatifs.items()
-                                  if ctrl.GetValue().strip()},
+                "justificatifs": justificatifs,
                 "regularisations": dict(self.regularisations)}
 
     def MajRegularisations(self):
