@@ -22,6 +22,7 @@ from .consumptions_calendar_core import (
 from .consumptions_core import format_date, state_label
 from .consumptions_ui import ConsumptionPage
 from .consumptions_preparation_ui import ConsumptionPreparationPanel
+from .billing_preflight_ui import BillingPreflightPanel
 
 
 class _BackgroundSignals(QObject):
@@ -57,7 +58,7 @@ class ConsumptionCalendarPage(QWidget):
     familyInvoicesRequested = Signal(int)
 
     def __init__(self, repository, parent=None, *, background=True,
-                 invoices_available=True):
+                 invoices_available=True, billing_preflight_sqlite_path=None):
         super().__init__(parent)
         self.repository = repository
         self.invoices_available = bool(invoices_available)
@@ -166,6 +167,15 @@ class ConsumptionCalendarPage(QWidget):
             repository, right, background=background,
         )
         right_layout.addWidget(self.preparation_panel)
+        # C19c : module de precontrole strictement reserve aux donnees
+        # inventees C8+C13, jamais presente en utilisation PMSL normale.
+        self.billing_preflight_panel = (
+            BillingPreflightPanel(billing_preflight_sqlite_path, right)
+            if invoices_available and billing_preflight_sqlite_path is not None
+            else None
+        )
+        if self.billing_preflight_panel is not None:
+            right_layout.addWidget(self.billing_preflight_panel)
         root.addWidget(right, 1)
 
         self.clear_record_button.clicked.connect(self.clear_record_context)
@@ -255,6 +265,11 @@ class ConsumptionCalendarPage(QWidget):
         self._record_individual_id = individual_id
         self._record_inscription_id = inscription_id
         self._record_family_id = family_id
+        if self.billing_preflight_panel is not None:
+            self.billing_preflight_panel.set_context(
+                individual_id=individual_id, inscription_id=inscription_id,
+                family_id=family_id,
+            )
         show_invoices = family_id is not None and self.invoices_available
         self.family_invoices_button.setVisible(show_invoices)
         self.family_invoices_button.setEnabled(show_invoices)
@@ -484,6 +499,8 @@ class ConsumptionCalendarPage(QWidget):
             return
         row = self.list_page.model.rows[selected[0].row()]
         self.preparation_panel.set_row(row)
+        if self.billing_preflight_panel is not None:
+            self.billing_preflight_panel.set_row(row)
         event_label = (
             f"Événement #{row.event_id} : {row.event_name or 'sans libellé'}"
             if row.event_id is not None else
@@ -502,4 +519,6 @@ class ConsumptionCalendarPage(QWidget):
 
     def _clear_detail(self) -> None:
         self.preparation_panel.set_row(None)
+        if self.billing_preflight_panel is not None:
+            self.billing_preflight_panel.set_row(None)
         self.details_label.setText("Sélectionnez une consommation pour afficher son détail.")

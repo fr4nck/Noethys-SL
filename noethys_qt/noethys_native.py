@@ -487,6 +487,9 @@ class NoethysQtWindow(QMainWindow):
             self.consumptions_repository, self.stack,
             background=self.background_queries,
             invoices_available=self.operational_route_enabled,
+            billing_preflight_sqlite_path=(
+                editor_sqlite_path if self.operational_route_enabled else None
+            ),
         )
         self.consumptions_page.familyInvoicesRequested.connect(
             self._consumption_family_invoices_requested

@@ -1,4 +1,4 @@
-name: Noethys SL Qt - C19b recette ciblee
+name: Noethys SL Qt - C19b et C19c recette ciblee
 
 on:
   push:
@@ -11,6 +11,10 @@ on:
       - 'noethys_qt/c19b_operational_guard.py'
       - 'tests_qt/test_c19b_inscription_consumption_invoices.py'
       - 'tests_qt/test_c19b_operational_guard.py'
+      - 'noethys_qt/billing_preflight_core.py'
+      - 'noethys_qt/billing_preflight_ui.py'
+      - 'tests_qt/test_c19c_billing_preflight_core.py'
+      - 'tests_qt/test_c19c_billing_preflight_qt.py'
       - 'tests_qt/test_ci_sharding.py'
       - 'tests_qt/test_c19_financial_organisation_registries.py'
       - 'tests_qt/test_native_c12_shell_routes.py'
@@ -26,7 +30,7 @@ concurrency:
 
 jobs:
   windows-c19b:
-    name: Windows - quatre correctifs C19 et parcours C19b
+    name: Windows - quatre correctifs C19, C19b et C19c
     runs-on: windows-latest
     timeout-minutes: 15
     env:
@@ -50,6 +54,8 @@ jobs:
           python -m unittest -v `
             test_c19b_inscription_consumption_invoices `
             test_c19b_operational_guard `
+            test_c19c_billing_preflight_core `
+            test_c19c_billing_preflight_qt `
             test_ci_sharding.QtCiShardingContractTests.test_three_heavy_modules_have_distinct_shards `
             test_c19_financial_organisation_registries.C19SqlContractTests.test_bank_sensitive_identifiers_are_never_fetched_or_displayed `
             test_c19_financial_organisation_registries.C19QtModulesTests.test_budget_context_does_not_leak_when_menu_reopened `
