@@ -480,6 +480,10 @@ class NoethysQtWindow(QMainWindow):
         self.consumptions_page = ConsumptionCalendarPage(
             self.consumptions_repository, self.stack,
             background=self.background_queries,
+            invoices_available=self.finance_enabled,
+        )
+        self.consumptions_page.familyInvoicesRequested.connect(
+            self._consumption_family_invoices_requested
         )
         self.stack.addWidget(self.consumptions_page)
         self.finance_pages = {}
@@ -994,6 +998,8 @@ class NoethysQtWindow(QMainWindow):
             )
         elif value[0] == "inscriptions":
             self.context_label.setText("Retour à la liste des inscriptions")
+        elif value[0] == "consumptions":
+            self.context_label.setText("Retour aux consommations de l'inscription")
         elif value[0] == "finance":
             self.context_label.setText(
                 f"Retour à {MODULES[value[1]][0]}"
@@ -1022,6 +1028,26 @@ class NoethysQtWindow(QMainWindow):
             raise ValueError("Lien vers une famille non autorisé")
         self._set_return_context(("finance", origin))
         self._open_detail("family", family_id)
+
+    def _consumption_family_invoices_requested(self, family_id: int) -> None:
+        """Lien par inscription exacte ; pas de rapprochement consommation/facture."""
+        calendar = self.consumptions_page
+        validate_finance_id(family_id, "famille")
+        if (
+            not self.finance_enabled
+            or calendar._record_family_id is None
+            or calendar._record_family_id != family_id
+            or calendar._record_individual_id is None
+            or calendar._record_inscription_id is None
+        ):
+            raise PermissionError("Factures non accessibles hors du contexte de l'inscription")
+        origin = (
+            "consumptions", calendar._record_individual_id,
+            calendar._record_inscription_id, family_id,
+        )
+        self.finance_pages["billing"].set_family_context(family_id)
+        self._navigate_with_context("billing")
+        self._set_return_context(origin)
 
     def _finance_related_requested(self, origin: str, target: str, record_id: int) -> None:
         if origin != "accounting" or target != "deposit_payments":
@@ -1153,19 +1179,21 @@ class NoethysQtWindow(QMainWindow):
         self._show_consumptions(
             individual_id=link.individual_id,
             inscription_id=link.inscription_id,
+            family_id=link.family_id,
             origin=("inscriptions",),
         )
 
     def _show_consumptions(
         self, *, individual_id: int, inscription_id: int | None = None,
-        origin: tuple | None = None,
+        family_id: int | None = None, origin: tuple | None = None,
     ) -> None:
         # Aucun recalcul financier ; les filtres exacts sont appliqués en
         # lecture seule sur la même page que la navigation principale.
         if not isinstance(individual_id, int) or isinstance(individual_id, bool) or individual_id <= 0:
             raise ValueError("Identifiant individu invalide")
         self.consumptions_page.focus_record(
-            individual_id=individual_id, inscription_id=inscription_id
+            individual_id=individual_id, inscription_id=inscription_id,
+            family_id=family_id,
         )
         self._navigate_with_context("consumptions")
         self._set_return_context(origin)
@@ -1178,6 +1206,12 @@ class NoethysQtWindow(QMainWindow):
         self._render_context_back()
         if origin[0] == "inscriptions":
             self._navigate_with_context("inscriptions")
+        elif origin[0] == "consumptions":
+            self.consumptions_page.focus_record(
+                individual_id=origin[1], inscription_id=origin[2],
+                family_id=origin[3],
+            )
+            self._navigate_with_context("consumptions")
         elif origin[0] == "details":
             self.navigate("people")
             self._open_detail(origin[1], origin[2])
