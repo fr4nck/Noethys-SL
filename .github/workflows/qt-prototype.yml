@@ -355,6 +355,10 @@ jobs:
           QT_SCALE_FACTOR: "1.5"
         run: python tools/qt_c18_native_demo.py --smoke --theme dark --profile 150
 
+      - name: Verifier les 36 PNG et les deux traces C18 fictives
+        shell: pwsh
+        run: python tools/qt_c18_artifact_gate.py
+
       - name: Publier captures de la coque Qt C18 (fictives)
         uses: actions/upload-artifact@v4
         with:
