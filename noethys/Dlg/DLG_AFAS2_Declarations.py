@@ -511,10 +511,16 @@ class DialogUnites(wx.Dialog):
             self.choix[IDunite] = choix
             self.plages[IDunite] = plage
         panneau.SetSizer(grille)
+        conseil = wx.StaticText(self, label=(
+            "Repas UNITAIRE sans horaires Noethys : saisir une plage de repas "
+            "uniquement si ses horaires réels sont confirmés par l'organisation. "
+            "Aucune durée automatique ; sans plage, la consommation reste bloquante."))
+        conseil.Wrap(850)
         reprendre = wx.Button(self, label="Reprendre les horaires Noethys dans les plages vides (après vérification)")
         reprendre.Bind(wx.EVT_BUTTON, self.OnReprendre)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(panneau, 1, wx.EXPAND | wx.ALL, 8)
+        sizer.Add(conseil, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         sizer.Add(reprendre, 0, wx.LEFT | wx.RIGHT, 8)
         sizer.Add(self.CreateButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 8)
         self.SetSizer(sizer)

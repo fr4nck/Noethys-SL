@@ -450,6 +450,64 @@ class PlagesDeclareesTests(unittest.TestCase):
         self.assertTrue(any(n.startswith("Amplitude d'ouverture indéterminable") for n in natures(r)))
 
 
+class RepasUnitaireSansHorairesTests(unittest.TestCase):
+    """Noethys: repas Unitaire sans horaires. Jamais de durée implicite."""
+
+    @staticmethod
+    def unites(IDunite=104, **modif):
+        unites = {cle: dict(valeur) for cle, valeur in UNITES.items()}
+        unites[IDunite].update(modif)
+        return unites
+
+    @staticmethod
+    def repas(date, IDunite=104):
+        # La présence est attestée, mais le repas n'a pas de pointage horaire.
+        return conso(date, IDunite, hd="", hf="")
+
+    def test_sans_plage_explicite_le_repas_unitaire_reste_bloquant(self):
+        unites = self.unites(104, heure_debut=None, heure_fin=None, plage_declaree=None)
+        consos = [conso(LUNDI_SCOLAIRE, 107), self.repas(LUNDI_SCOLAIRE)]
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any("plage réellement organisée non déclarée" in n for n in natures(r)))
+
+    def test_repas_et_journee_union_sans_double_comptage(self):
+        unites = self.unites(104, heure_debut=None, heure_fin=None,
+                             plage_declaree="12:30-13:30")
+        consos = [conso(MERCREDI_SCOLAIRE, 107), self.repas(MERCREDI_SCOLAIRE)]
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 9 * H)
+        self.assertEqual(M.Calculateur._preparer_unite(unites[104])["plage_validee_par_noethys"], False)
+
+    def test_repas_apres_demi_journee_en_extra_avec_plage_attestee(self):
+        unites = self.unites(211, heure_debut=None, heure_fin=None,
+                             plage_declaree="12:00-13:30")
+        consos = [conso(LUNDI_VACANCES, 202, IDprestation=990, IDfacture=1),
+                  self.repas(LUNDI_VACANCES, IDunite=211)]
+        # Ouverture réelle du site continue 08:30-17:30 avec l'après-midi.
+        # La durée physique de l'enfant est 08:30-13:30, soit 5 h.
+        ouv = ouvert(consos, [(BAIS_PLUS, 203, LUNDI_VACANCES)])
+        r = calculer(M.EXTRA, consos, ouvertures=ouv, unites=unites)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 5 * H)
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)
+
+    def test_aucun_passe_droit_pour_journee_ou_horaire_incomplet(self):
+        for IDunite, modifications in (
+                (201, {"heure_debut": None, "heure_fin": None, "plage_declaree": "08:30-17:30"}),
+                (104, {"heure_debut": "12:30", "heure_fin": None, "plage_declaree": "12:30-13:30"}),
+                (104, {"heure_debut": None, "heure_fin": None, "type": "Horaire",
+                       "plage_declaree": "12:30-13:30"}),
+                (104, {"heure_debut": None, "heure_fin": None, "plage_declaree": "14:00-12:30"}),
+        ):
+            with self.subTest(IDunite=IDunite, modifications=modifications):
+                unite = self.unites(IDunite, **modifications)[IDunite]
+                donnees = M.Calculateur._preparer_unite(unite)
+                self.assertIsNone(donnees["plage"])
+                self.assertTrue(donnees["motif_plage"])
+
+
 class AmplitudeTests(unittest.TestCase):
     """Décision 2 : amplitude = ouverture effective continue du site de l'enfant."""
 

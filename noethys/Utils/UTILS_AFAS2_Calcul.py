@@ -194,14 +194,29 @@ class Calculateur(object):
         declaree = unite.get("plage_declaree")
         if not declaree:
             unite["motif_plage"] = "plage réellement organisée non déclarée dans le preset"
-        elif reelle is None:
-            unite["motif_plage"] = "horaires de l'unité absents ou incohérents dans Noethys"
         else:
             try:
-                attendue = tuple(Secondes(h) for h in declaree.split("-"))
-            except ValueError:
+                heures = declaree.split("-")
+                attendue = _intervalle(*(Secondes(h) for h in heures)) if len(heures) == 2 else None
+            except (ValueError, TypeError):
                 attendue = None
-            if attendue != reelle:
+            if attendue is None:
+                unite["motif_plage"] = "plage déclarée invalide dans le preset"
+            elif reelle is None:
+                # Un repas Unitaire peut n'avoir aucun horaire dans Noethys.
+                # Une plage EXPLICITE dans le preset, vérifiée par la structure,
+                # est alors la seule source admise. Aucun horaire n'est inventé.
+                # Les unités Journée/Matin/Après-midi et les plages partielles
+                # restent soumises à la comparaison stricte avec Noethys.
+                sans_horaires = (unite.get("heure_debut") in (None, "") and
+                                 unite.get("heure_fin") in (None, ""))
+                if (unite["categorie"] == "repas" and
+                        str(unite.get("type", "")).lower() == "unitaire" and sans_horaires):
+                    unite["plage"] = attendue
+                    unite["plage_validee_par_noethys"] = False
+                else:
+                    unite["motif_plage"] = "horaires de l'unité absents ou incohérents dans Noethys"
+            elif attendue != reelle:
                 unite["motif_plage"] = "horaires Noethys %s différents de la plage déclarée %s" % (TextePlage(reelle), declaree)
             else:
                 unite["plage"] = reelle
@@ -439,6 +454,13 @@ class Calculateur(object):
         intervalles = []
         for conso in consos:
             horaire = self._horaires(conso)
+            # Pas de pointage horaire sur le repas unitaire, mais présence
+            # attestée (état "present") et plage vérifiée dans le preset.
+            # Les autres unités sans horaires de consommation restent bloquées.
+            unite = self.unites.get(conso["IDunite"], {})
+            if (horaire is None and unite.get("categorie") == "repas" and
+                    unite.get("plage_validee_par_noethys") is False):
+                horaire = unite.get("plage")
             if horaire is None:
                 if bloquant_si_absent:
                     self._anomalie(anomalies, conso, "Présence effective sans horaires valides",
