@@ -108,7 +108,7 @@ def LireModeleVerifie(chemin, empreinte):
 
 
 class PublicationConfigSFTPEchouee(IOError):
-    """Le transfert fiable n'a pas ete confirme : ancien fichier preserve."""
+    """Le transfert fiable n'a pas ete confirme : etat distant a verifier."""
 
 
 def PublierConfigAtomiqueSFTP(sftp, source, mode=0o644):
