@@ -6,11 +6,9 @@ Pas de migration de base, de facturation des familles ni de modification des pr�
 
 ## La règle métier (correction de la première proposition)
 
-Ce module ne calcule **pas des prestations facturées**. Il calcule la **participation
-financière conventionnelle** d'une commune à partir des journées-enfants des
-habitants qui fréquentent l'ALSH :
+Ce module ne convertit pas les montants des factures familiales en participation communale. Il utilise **la présence ou l'existence d'une facture valide** pour déterminer les journées-enfants retenues dans la participation conventionnelle de la commune :
 
-`participation annuelle = somme(journées-enfants réellement effectuées × montant communal par journée)`
+`participation annuelle = somme(journées-enfants retenues × montant communal par journée)`
 
 Pour l'estimation de fin d'année, ajouter séparément les **journées futures réservées**,
 non certaines. Le **solde prévisionnel** correspond au total annuel estimé **moins les
@@ -46,8 +44,8 @@ acomptes théoriques comme encaissés.
 - Base : **année civile**, du 1er janvier au 31 décembre, même si les inscriptions
   couvrent deux années scolaires.
 - Commune : **domicile de l'enfant** à justifier, **pas la commune du site d'accueil**.
-- Compter les jours **présents** ; les réservations futures constituent un prévisionnel,
-  jamais un réalisé. Ne pas transformer une réservation passée en présence.
+- Compter ensemble, sous la même rubrique **journées de fréquentation**, les états `present`, les réservations passées **facturées** et les absences injustifiées **facturées**.
+- Les absences justifiées (`absentj`) restent exclues du bilan communal, même facturées. Les réservations passées non facturées sont exclues. Les réservations futures constituent un prévisionnel.
 - Un enfant / un jour / un accueil compte **au maximum une journée**. Repas et
   garderies ne sont pas des journées supplémentaires. Les doublons sont rejetés.
 - Demi-journées : **aucune conversion implicite**. Le coefficient 0,5 est disponible
@@ -70,13 +68,13 @@ un premier état sans importer des données nominatives.
 **Connexion à Noethys-SL wx intégrée** : dans `Facturation → Situation des communes
 (ALSH)`, le bouton « Charger les présences Noethys... » interroge `GestionDB`
 en lecture seule, après sélection manuelle des unités qui correspondent à des
-journées-enfants entières. Les adresses `adresse_auto` des enfants sont résolues
+journées-enfants entières. Les factures valides rattachées aux prestations des consommations sont lues sans aucune modification de facturation. Les adresses `adresse_auto` des enfants sont résolues
 sur l'état **actuel** du fichier. Aucun extrait nominatif n'est conservé dans le
 JSON ni dans l'état de synthèse. Les versements communaux restent saisis
 séparément sur justification, sans déduction des paiements familiaux.
 
 La sélection des unités n'est jamais devinée à partir de leur libellé. Les
-absences et anciennes réservations ne constituent pas un réalisé. Les unités
+absences justifiées et anciennes réservations non facturées sont exclues. Les réservations passées facturées et absences injustifiées facturées entrent dans les journées de fréquentation. Les unités
 non sélectionnées sont exclues et empêchent la certification si leur sélection
 n'a pas été explicitement qualifiée exhaustive. Tout domicile non résolu est
 écarté et signale un total potentiellement incomplet. Le changement d'adresse
@@ -90,7 +88,7 @@ L'utilitaire `consolider_export_consommations` est le noyau technique du futur
 raccordement : il accepte les consommations Noethys et un mapping **explicite**
 `IDactivite:IDunite` → convention, poids 0 / 0,5 / 1. Il rejette les unités
 non qualifiées et les chevauchements, regroupe au plus une journée par enfant
-et par jour, ignore les absences, filtre la commune de résidence. Il **ne lit
+et par jour, ignore les absences justifiées, intègre les réservations et absences injustifiées facturées au même total que les présences, et filtre la commune de résidence. Il **ne lit
 pas** `GestionDB` et il ne prétend pas régler le suivi historique des adresses.
 
 ### Structure JSON
