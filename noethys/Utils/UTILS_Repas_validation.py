@@ -40,6 +40,15 @@ def ConstruireControle(donnees):
     source. N'ecrit aucune donnee et n'infere pas les noms des colonnes.
     """
     colonnes = donnees.get("liste_colonnes", [])
+    # Les colonnes historiques de texte_infos injectent des noms, messages
+    # et eventuellement des donnees medicales dans le tableau du PDF.
+    # Le nouveau modele fournisseur type ne peut pas les exporter :
+    # ces informations relevent d'un etat ALSH interne et habilite.
+    if EstModeleType(donnees) and any(
+            colonne.get("categorie") == "texte_infos" for colonne in colonnes):
+        raise ValueError(
+            "Colonne d'informations individuelles interdite dans une "
+            "commande fournisseur : utilisez un etat ALSH interne")
     dates = [d for d in donnees.get("liste_dates", []) if isinstance(d, date)]
     cases = donnees.get("cases", {})
     if donnees.get("erreurs_sans_porc"):
