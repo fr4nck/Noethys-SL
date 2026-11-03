@@ -1235,6 +1235,7 @@ class Dialog(wx.Dialog):
                             if not UTILS_Documents_Controle_RC105.PDFPretPourEnvoi(nomDoc):
                                 erreur = _(u"le fichier PDF du reçu est absent, vide ou incomplet")
                         if erreur is None :
+                            dlg2 = None
                             try :
                                 listeDonnees = [{"adresse" : adresse, "pieces" : [nomDoc,], "champs" : dictChamps,}]
                                 from Dlg import DLG_Mailer
@@ -1246,10 +1247,14 @@ class Dialog(wx.Dialog):
                                 # (DLG_Mailer.listeSucces) : listeAnomalies n'est
                                 # jamais alimentée par le Mailer et ne prouvait rien.
                                 succes = RecuAccepte(dlg2.listeSucces, adresse)
-                                dlg2.Destroy()
                             except Exception as err :
                                 print(("Erreur lors de l'envoi du reçu par email : %s" % err))
                                 erreur = err
+                            finally :
+                                # Fermer aussi le dialogue si sa preparation ou
+                                # son envoi leve une exception.
+                                if dlg2 is not None :
+                                    dlg2.Destroy()
 
                         if erreur is not None :
                             dlg = wx.MessageDialog(self, _(u"Le reçu n'a pas été envoyé : %s") % erreur, _(u"Envoi du reçu par Email"), wx.OK | wx.ICON_ERROR)
