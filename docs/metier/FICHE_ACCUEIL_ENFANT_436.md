@@ -104,3 +104,14 @@ La sauvegarde PMSL du 10/09/2026 contient six types DT Polio et leurs correspond
 - Contrôle PDF réalisé avec le générateur ReportLab en vigueur et des données entièrement fictives : deux pages A4, rubriques attendues visibles, texte dans les limites des pages, sans chevauchement constaté. Les tests Windows GitHub et l'essai utilisateur sur Noethys installé restent des qualifications distinctes.
 
 Aucune écriture ou migration de la base PMSL ; les fonctions de facturation, commandes repas et autorisations restent inchangées dans ce correctif.
+
+## 03/11/2026 — Autorisation complémentaire de départ seul (Lot C)
+
+À la demande de PMSL, la fiche enfant ajoute **« Autorisé(e) à quitter l'ALSH seul(e) : Oui / Non »**, sous le tableau des accompagnants en page 1. Cette ligne **n'existe pas sur le formulaire papier d'origine** : elle constitue une extension de la version `Fiche Enfant 2026-11`. Les quatre autorisations du formulaire 2026-06 (photos, maquillage, baignade, activités physiques) restent identiques sur la page 2.
+
+- **Interface wx** : nouvelle ligne `depart_seul` dans les autorisations, choix `Non renseigné / Oui / Non`. La présence de contacts autorisés à récupérer l'enfant ne présume pas d'une autorisation de sortie autonome.
+- **Persistance** : réemploi du registre `accueil_autorisations` déjà en place. Identifiant enfant, périmètre, dates, signataire et référence du document signé sont conservés selon les règles existantes ; historique sans écrasement. Aucun changement de schéma ni de migration.
+- **Impression** : case Oui, case Non, ou les deux vierges tant qu'aucune réponse signée n'est enregistrée. Les conflits et expirations apparaissent « À vérifier » et ne cochent aucune des deux cases. Le pied de page porte la version `Fiche Enfant 2026-11` ; la signature prévue en page 2 vaut pour l'ensemble du document.
+- **Règle métier** : `depart_seul` reste totalement indépendant des personnes habilitées au raccompagnement et des quatre autorisations historiques. Aucun Oui implicite.
+- **Qualification** : tests sur SQLite fictif (création, Oui, Non, révocation/historique, périmètres), tests wx simulés (enregistrement et reprise sur PDF), tests ReportLab (cases Oui/Non/vide, cinq lignes d'accompagnants, version imprimée). Aucune base de familles PMSL modifiée ; recette sur l'application Windows et contrôle visuel final du PDF requis avant diffusion.
+
