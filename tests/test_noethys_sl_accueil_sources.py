@@ -27,10 +27,12 @@ class Base:
             CREATE TABLE questionnaire_reponses (
               IDreponse INTEGER PRIMARY KEY, IDindividu INTEGER,
               IDquestion INTEGER, reponse TEXT);
+            CREATE TABLE categories_medicales (IDcategorie INTEGER PRIMARY KEY, nom TEXT);
             CREATE TABLE problemes_sante (
-              IDprobleme INTEGER PRIMARY KEY, IDindividu INTEGER, intitule TEXT,
-              date_debut TEXT, date_fin TEXT, description TEXT,
-              traitement_medical INTEGER, description_traitement TEXT);
+              IDprobleme INTEGER PRIMARY KEY, IDindividu INTEGER, IDtype INTEGER,
+              intitule TEXT, date_debut TEXT, date_fin TEXT, description TEXT,
+              traitement_medical INTEGER, description_traitement TEXT,
+              date_debut_traitement TEXT, date_fin_traitement TEXT);
         """)
         self.connexion.executemany(
             "INSERT INTO individus VALUES (?,?)", [(10, 23), (11, None)])
@@ -38,9 +40,11 @@ class Base:
             "INSERT INTO medecins VALUES (23,'FICTIF','Docteur','0000000000')")
         self.connexion.executemany(
             "INSERT INTO vaccins VALUES (?,?)", [(1,10),(2,10)])
+        self.connexion.execute(
+            "INSERT INTO categories_medicales VALUES (8,'Autre')")
         self.connexion.execute("""INSERT INTO problemes_sante VALUES
-            (4,10,'PAI-fictif','2026-09-01',NULL,
-            'Renseignements de test',1,'Consignes fictives')""")
+            (4,10,8,'PAI-fictif','2026-09-01',NULL,
+            'Renseignements de test',1,'Consignes fictives',NULL,NULL)""")
         self.connexion.commit()
 
     def Close(self):
@@ -77,6 +81,66 @@ class SourceMedicaleTests(unittest.TestCase):
         self.assertEqual(data["problemes"][0]["intitule"], "PAI-fictif")
         self.assertEqual(data["problemes"][0]["description_traitement"],
                          "Consignes fictives")
+        self.assertEqual(data["problemes"][0]["categorie"], "Autre")
+
+    def test_reprise_pai_allergie_et_traitement_de_l_onglet_existant(self):
+        self.db.connexion.execute(
+            "INSERT INTO categories_medicales VALUES (4,'Allergie')")
+        self.db.connexion.execute("""INSERT INTO problemes_sante VALUES
+            (5,10,4,'Arachides','2026-09-01',NULL,
+             'Consigne alimentaire fictive',0,'',NULL,NULL)""")
+        donnees = S.LireMedicalExistant(10, ADMIN, DB=self.db)
+        resume = S.PreparerRubriquesMedicales(donnees, "2026-11-03")
+        self.assertIn("PAI-fictif", resume["pai"])
+        self.assertIn("Arachides", resume["allergies"])
+        self.assertIn("Consignes fictives", resume["traitement"])
+        self.assertEqual(len(resume["medical"]), 2)
+
+    def test_absence_de_pai_ne_devient_pas_un_refus_ou_une_validation(self):
+        data = S.LireMedicalExistant(11, ADMIN, DB=self.db)
+        resume = S.PreparerRubriquesMedicales(data, "2026-11-03")
+        self.assertEqual(resume["pai"], "Non renseigné dans Noethys")
+        self.assertEqual(resume["allergies"], "Non renseigné dans Noethys")
+        self.assertEqual(resume["traitement"], "Non renseigné dans Noethys")
+
+    def test_categories_heritees_alimentation_et_medicamentation_non_confondus(self):
+        self.db.connexion.executemany(
+            "INSERT INTO categories_medicales VALUES (?,?)",
+            ((2, "Alimentation"), (3, "Médicamentation")))
+        self.db.connexion.executemany(
+            """INSERT INTO problemes_sante VALUES
+               (?,10,?,?, '2026-01-01',NULL,?,0,NULL,NULL,NULL)""",
+            ((6,2,"Régime particulier","Commentaire fictif"),
+             (7,3,"Traitement courant","Suivi fictif")))
+        d = S.LireMedicalExistant(10, ADMIN, DB=self.db)
+        r = S.PreparerRubriquesMedicales(d, "2026-11-03")
+        self.assertEqual(r["allergies"], "Non renseigné dans Noethys")
+        self.assertIn("PAI-fictif", r["pai"])
+        self.assertEqual(len(r["medical"]), 3)
+
+    def test_pas_de_traitement_expire_pour_accueil_actuel(self):
+        historique = {"problemes": [
+            {"intitule": "Allergie fictive ancienne", "categorie": "Allergie",
+             "date_debut": "2024-01-01", "date_fin": "2024-12-31",
+             "traitement_medical": True, "description_traitement": "Ancien médicament"},
+            {"intitule": "Asthme", "categorie": "Maladie",
+             "date_debut": "2026-01-01", "date_fin": None,
+             "traitement_medical": True, "description_traitement": "Traitement terminé",
+             "date_fin_traitement": "2026-10-01"},
+        ]}
+        r = S.PreparerRubriquesMedicales(historique, "2026-11-03")
+        self.assertEqual(r["allergies"], "Non renseigné dans Noethys")
+        self.assertEqual(r["traitement"], "Non renseigné dans Noethys")
+        self.assertEqual(len(r["medical"]), 1)
+
+    def test_categories_saisie_libre_ne_creent_pas_pai_imaginaire(self):
+        historique = {"problemes": [
+            {"categorie": "Maladie", "intitule": "Asthme",
+             "description": "PAI à envisager avec la famille"}
+        ]}
+        r = S.PreparerRubriquesMedicales(historique, "2026-11-03")
+        self.assertEqual(r["pai"], "Non renseigné dans Noethys")
+        self.assertEqual(r["allergies"], "Non renseigné dans Noethys")
 
     def test_pas_d_ajout_ni_de_modification(self):
         avant = self.db.connexion.total_changes
