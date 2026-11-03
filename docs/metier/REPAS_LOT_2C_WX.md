@@ -40,3 +40,26 @@ Le module `UTILS_Repas_tarifs_audit_2c` (à partir du commit 2C-3A) expose trois
 **STOP-GATE MAINTENUE :** aucun bouton d'activation ou chemin automatique depuis `CTRL_Grille`, aucune écriture dans `prestations`, `factures`, `ventilation`, `consommations` ou `questionnaire_reponses`. Les signatures humaines de cet audit ne sont pas une authentification intégrée à Noethys. L'accord `PREVOL_MANUEL_NON_ACTIF` et la proposition `SIMULATION_SANS_ECRITURE` sont *des sorties de test*. Ne pas annoncer zéro facturation automatique aux familles. Un audit anonymisé des **vrais tarifs ALSH**, sur copie isolée, est la condition de la connexion et de la recette financière complète.
 
 Tester avec `python -m unittest tests.test_noethys_sl_repas_tarifs_audit_2c -v` dans le projet avec le chemin `noethys` chargé. Les cas de tests SQLite sont fictifs. Aucun export d'information personnelle.
+
+## Garde des presences midi multisites (Lot C, 03/11/2026)
+
+Le nouveau modele opt-in a quatre choix **refuse toute suggestion de repas**
+quand un enfant est detecte sur plusieurs sites pour la meme date et le
+meme service **dans le groupe de colonnes examine**. La lecture SQL est
+terminee avant le blocage, et aucune information nominative ne figure dans
+l'erreur. Cette erreur remonte via `erreurs_regimes` dans la grille et la
+prevalidation PDF/email. La commande ne peut pas etre emise par le flux
+type tant que les reservations contradictoires ne sont pas corrigees.
+
+Les modeles historiques a trois choix conservent le comportement existant
+(alerte de multisite sans blocage nouveau). Les autres invariants du
+lot 2C restent inchanges ; en particulier, aucun changement de facturation,
+de presence CAF/AFAS ou de base. **Limite non couverte :** un doublon reparti
+entre deux groupes de parametrage distincts (plages midi ou offres repas
+differentes, commandes separees) n'est pas detecte par cette seule garde.
+Il exige une qualification inter-commandes avant une exploitation multisite.
+
+Contre-epreuves : `tests/test_noethys_sl_repas_2c_wx_integration.py`
+(deux sites simultanes bloques en opt-in, levee apres correction,
+ancien modele inchange). Recette Windows native et verifications sur copie
+ALSH a effectuer avant toute livraison.
