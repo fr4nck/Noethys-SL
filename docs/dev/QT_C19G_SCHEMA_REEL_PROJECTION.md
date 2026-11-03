@@ -91,8 +91,18 @@ lien entre transactions C19f et véritable modèle métier Noethys n'est
   seulement dans les runners. Les tests ne sont pas ajoutés à
   `tests_qt` : le seuil de 584 tests graphiques reste inchangé.
 
-**Il faut un run GitHub Actions complet sur chaque version avant de
-déclarer C19g qualifié.** Le lot C19e est validé 584/584 tests
+**Résultat C19g confirmé :** le run
+[41694695411](https://github.com/fr4nck/Noethys-SL/actions/runs/41694695411)
+a terminé **2/2 jobs en succès** sur le commit de code
+`332967f5144d`. **27/27 tests PASS sur MySQL 5.7.44**
+(0,293 seconde) et **27/27 PASS sur MySQL 8.0.40**
+(0,558 seconde), sans erreur ni échec. La transaction
+`READ ONLY` interdit l'insertion de prestation et les liens
+entre familles, consommations, factures et ventilations restent contrôlés
+dans le schéma fictif. Ce résultat ne qualifie ni le schéma présent en
+production ni une facturation réelle.
+
+Le lot C19e est validé 584/584 tests
 [ici](https://github.com/fr4nck/Noethys-SL/actions/runs/41686340299),
 et C19f est validé 24/24 sur chaque version
 [ici](https://github.com/fr4nck/Noethys-SL/actions/runs/41688434727).
