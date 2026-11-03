@@ -31,8 +31,9 @@ def QualifierPerimetreSauvegarde(bases):
             categories.append("DOCUMENTS")
         else:
             categories.append("DATA")
-    absentes = [nom for nom in ("DATA", "PHOTOS", "DOCUMENTS") if nom not in categories]
-    return {"perimetre_complet": len(bases) == 3 and not absentes,
+    # La recette PMSL cible DATA et DOCUMENTS : PHOTOS reste facultatif.
+    absentes = [nom for nom in ("DATA", "DOCUMENTS") if nom not in categories]
+    return {"perimetre_complet": not absentes,
             "categories_absentes": absentes}
 
 
