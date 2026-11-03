@@ -1,4 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
+
+## ALSH-C3 — interface wx de fréquentation nominative (03/11/2026)
+
+- **C3 developpe** : adaptateur commun `UTILS_ALSH_C3_Session.py` sur `main` au commit `07eb213` ; copies C1/C2 et C3 de hashes identiques, nouvel ecran `DLG_ALSH_Commune_C3.py`, menu Facturation et bouton sur l'ancienne situation dans la branche `wx` au commit `45be4f2`. **Pas de fusion de branches, pas de changement de `qt`.**
+- L'ecran C3 gere le profil d'activites/groupes/unites et les clauses tarifaires datees (pas de tarification devinee), les correspondances CP/ville -> INSEE verifiees, la correction exceptionnelle d'une date de demenagement avec justificatif, les vues anonymes par commune / nominatives uniquement pour une commune selectionnee, et les exports CSV nominatifs audites sans ecrasement. Recalcul C2 direct des consommations Noethys + observations historiques.
+- **124/124 tests PASS** en environnement SQLite fictif : 52 C1, 40 C2, 22 service C3, 10 contrats source GUI C3 ; `compileall` PASS. Interface wx non executee dans le conteneur (wxPython absent), tests graphiques et MySQL 5.7 reels **non faits**.
+- Controles source sur sauvegarde MAD du 10/09/2026 : dump `mad_data.sql` MySQL 5.7.31-log ; colonnes requises des tables `individus`, `consommations`, `activites`, `groupes`, `unites` presentes et InnoDB. Voir `docs/dev/ALSH_COMMUNES_C3_QUALIFICATION_SCHEMA_MAD.md`. **Aucune adresse ni donnee nominative MAD utilisee dans les tests** ; aucune migration appliquee.
+- Ancienne situation financiere wx conservee mais son import historique utilise **les adresses actuelles** : avertissement visible et bouton d'acces C3 ; les totaux C3 ne sont **pas encore reconnectes** aux acomptes/solde/factures existants.
+- **STOP-GATE** : copie de recette MAD + migrations C1/C2 + triggers MySQL en reel, tests runtime wx avec droits, verification des profils et dates, export PDF/XLSX nominatif, controle des situations et acompte, integration facturation Noethys existante. **Etat preparatoire, NON FACTURABLE**, aucun second registre de factures.
+
 ## ALSH-C2 — adresses et calcul communal automatiques (03/11/2026)
 
 - Publication sur `main` : commit `d807be2`, fichiers `UTILS_ALSH_AdresseAuto.py`, triggers C2 SQLite/MySQL 5.7 proposes, tests `test_alsh_communes_c2.py` et rapport `docs/dev/ALSH_COMMUNES_C2_IMPLEMENTATION.md`. Extension compatible de C1 par `fournisseur_domiciles` (le parcours manuel historique continue de fonctionner).
