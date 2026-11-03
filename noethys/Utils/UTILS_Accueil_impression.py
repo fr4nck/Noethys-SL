@@ -263,7 +263,9 @@ def _page2(c, data):
     c.drawString(x + 15, 35,
                  u"4 RUE DES DEUX GARES - 35130 LA GUERCHE DE BRETAGNE")
     c.drawString(x + 15, 22,
-                 u"Document de consultation Noethys - conserver la fiche signée originale")
+                 _tronc(u"%s - conserver la fiche signée originale" %
+                        data.get("autorisation_modele", u"Fiche Enfant 2026-11"),
+                        "Helvetica", 8, w - 20))
 
 
 def GenererPDF(destination, donnees):
