@@ -22,7 +22,8 @@ from Utils import UTILS_AFAS2_Donnees as Donnees  # noqa: E402
 
 D = datetime.date
 GROUPES = [(11, 1, "Bais +6 ans"), (12, 1, "Bais -6 ans"), (13, 1, "Moutiers"), (14, 1, "La Guerche"),
-           (15, 1, "Minicamps 6/8"), (16, 1, "Minicamps 8/10"), (21, 2, "Club Ados"), (17, 1, "Bais")]
+           (15, 1, "Minicamps 6/8"), (16, 1, "Minicamps 8/10"), (18, 52, "2026 - La Rincerie"),
+           (21, 2, "Club Ados"), (17, 1, "Bais")]
 
 
 def referentiel():
@@ -32,7 +33,8 @@ def referentiel():
             "justificatifs": {R.MINICAMPS_6_8: "Déclaration fictive n° 0001"}, "regularisations": {}, "sites": {
         R.BAIS_PLUS_6: lien(11, "Bais +6 ans", "BAIS"), R.BAIS_MOINS_6: lien(12, "Bais -6 ans", "BAIS"),
         R.MOUTIERS: lien(13, "Moutiers", "LA_GUERCHE_MOUTIERS"), R.LA_GUERCHE: lien(14, "La Guerche", "LA_GUERCHE_MOUTIERS"),
-        R.MINICAMPS_6_8: lien(15, "Minicamps 6/8", "BAIS"), R.MINICAMPS_8_10: lien(16, "Minicamps 8/10", None)}}
+        R.MINICAMPS_6_8: lien(15, "Minicamps 6/8", "BAIS"), R.MINICAMPS_8_10: lien(16, "Minicamps 8/10", None),
+        R.MINICAMPS_9_11: {"IDactivite": 52, "IDgroupe": 18, "nom_groupe": "2026 - La Rincerie", "equipement": None}}}
 
 
 def groupes_dict():
@@ -110,6 +112,18 @@ class ReferentielTests(unittest.TestCase):
         ref["justificatifs"][R.MOUTIERS] = "Ancien formulaire d'implantation"
         self.assertEqual(R.StatutSite(R.ValiderReferentiel(ref, groupes_dict()),
                                       R.MOUTIERS, "extrascolaire"), (True, ""))
+
+    def test_minicamp_neuf_onze_activite_separee_et_libelle_historique(self):
+        admissibles = R.SitesAdmissibles("ALSH", "extrascolaire")
+        self.assertIn(R.MINICAMPS_9_11, admissibles)
+        self.assertIn(R.MINICAMPS_8_10, admissibles)  # ancien réglage reste lisible
+        self.assertNotIn(R.MINICAMPS_9_11, R.SitesAdmissibles("ALSH", "periscolaire"))
+        ref = R.ValiderReferentiel(referentiel(), groupes_dict())
+        self.assertEqual(R.Couples(ref, [R.MINICAMPS_9_11]), {(52, 18): R.MINICAMPS_9_11})
+        # Si un groupe d'une autre activité est sélectionné, le référentiel refuse.
+        ref["sites"][R.MINICAMPS_9_11]["IDactivite"] = 1
+        with self.assertRaisesRegex(R.ReferentielInvalide, "appartient à l'activité"):
+            R.ValiderReferentiel(ref, groupes_dict())
 
     def test_minicamps_pmsl_proposes_la_guerche_sans_forcer_les_anciens(self):
         for site in R.MINICAMPS:
