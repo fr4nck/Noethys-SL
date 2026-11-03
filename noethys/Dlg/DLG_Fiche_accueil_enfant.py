@@ -28,6 +28,9 @@ PRINCIPALES = (
 DEPART_AUTONOME = (
     ("depart_seul", u"Autorisé à partir seul de l'ALSH"),
 )
+ADOS_SPECIFIQUES = (
+    ("transport_ados", u"Transport (Club ados)"),
+)
 COMPLEMENTAIRES = (
     ("photos_prise", u"Prise de photos / vidéos"),
     ("photos_usage_interne", u"Photos : usage interne uniquement"),
@@ -107,10 +110,15 @@ def EtatChoix(historique, IDindividu, code, perimetre, au):
 
 
 class Dialog(wx.Dialog):
-    def __init__(self, parent, IDindividu):
+    def __init__(self, parent, IDindividu, modele="enfant"):
+        if modele not in ("enfant", "ados"):
+            raise ValueError("Modele de fiche inconnu")
         wx.Dialog.__init__(self, parent,
-            title=_(u"Fiche enfant - Accueil de loisirs Pêle-Mêle"),
+            title=_(u"Fiche ados - Accueil de loisirs Pêle-Mêle"
+                    if modele == "ados" else
+                    u"Fiche enfant - Accueil de loisirs Pêle-Mêle"),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.modele = modele
         self.IDindividu = IDindividu
         self.parent_individu = parent
         self.utilisateur = UtilisateurCourant()
@@ -145,13 +153,16 @@ class Dialog(wx.Dialog):
         colonne = wx.BoxSizer(wx.VERTICAL)
 
         titre = wx.StaticText(panneau, label=(
-            u"ACCUEIL DE LOISIRS PÊLE-MÊLE\nFICHE ENFANT"))
+            u"ACCUEIL DE LOISIRS PÊLE-MÊLE\n" +
+            (u"FICHE ADOS" if modele == "ados" else u"FICHE ENFANT")))
         titre.SetFont(wx.Font(15, wx.FONTFAMILY_DEFAULT,
                             wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         colonne.Add(titre, 0, wx.ALIGN_CENTER | wx.ALL, 12)
-        self.site_alsh = wx.Choice(panneau, choices=(u"-- Sélectionnez le site --",) + SITES_ALSH)
-        self.site_alsh.SetSelection(0)
-        self._champ(panneau, colonne, u"ALSH fréquenté :", self.site_alsh)
+        if modele != "ados":
+            self.site_alsh = wx.Choice(
+                panneau, choices=(u"-- Sélectionnez le site --",) + SITES_ALSH)
+            self.site_alsh.SetSelection(0)
+            self._champ(panneau, colonne, u"ALSH fréquenté :", self.site_alsh)
         self._section(panneau, colonne, u"IDENTITÉ",
              u"%s %s     Sexe : %s\nNaissance : %s     Ville : %s\nClasse : %s     École : %s" % (
                 self.entete.get("nom") or u"",
@@ -247,10 +258,15 @@ class Dialog(wx.Dialog):
         aide.Wrap(670)
         colonne.Add(aide, 0, wx.ALL, 12)
 
-        self.perimetre = wx.TextCtrl(panneau, value=u"ALSH 2026-2027")
+        self.perimetre = wx.TextCtrl(
+            panneau, value=(u"Club ados 2026-2027" if modele == "ados"
+                            else u"ALSH 2026-2027"))
         self._champ(panneau, colonne, u"ALSH / année / périmètre :", self.perimetre)
         self.choix_autorisations = {}
-        for code, libelle in PRINCIPALES + DEPART_AUTONOME + COMPLEMENTAIRES:
+        for code, libelle in (
+                PRINCIPALES + DEPART_AUTONOME +
+                (ADOS_SPECIFIQUES if modele == "ados" else ()) +
+                COMPLEMENTAIRES):
             ligne = wx.BoxSizer(wx.HORIZONTAL)
             etiquette = wx.StaticText(panneau, label=libelle)
             etiquette.SetMinSize((315, -1))
@@ -283,7 +299,9 @@ class Dialog(wx.Dialog):
         self._champ(panneau, colonne, u"Support signé :", self.source)
         self.reference_preuve = wx.TextCtrl(panneau, value=u"")
         self._champ(panneau, colonne, u"Référence de la fiche ou pièce :", self.reference_preuve)
-        self.texte_version = wx.TextCtrl(panneau, value=u"Fiche Enfant 2026-11")
+        self.texte_version = wx.TextCtrl(
+            panneau, value=(u"Fiche Ados 2026-11" if modele == "ados"
+                            else u"Fiche Enfant 2026-11"))
         self._champ(panneau, colonne, u"Modèle signé :", self.texte_version)
         self.autorite = wx.CheckBox(panneau, label=_(
             u"J'ai vérifié l'identité et l'autorité parentale du signataire."))
@@ -294,9 +312,17 @@ class Dialog(wx.Dialog):
         self.inclure_medical.Enable(self.lecture_medicale and self.medical is not None)
         colonne.Add(self.inclure_medical, 0, wx.ALL, 12)
         self.bouton_imprimer = wx.Button(
-            panneau, label=_(u"Éditer la fiche enfant PDF (2 pages)"))
+            panneau, label=_(u"Éditer la fiche ados PDF (2 pages)"
+                              if modele == "ados"
+                              else u"Éditer la fiche enfant PDF (2 pages)"))
         self.bouton_imprimer.Enable(self.acces)
         colonne.Add(self.bouton_imprimer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        if modele == "enfant":
+            self.bouton_ados = wx.Button(
+                panneau, label=_(u"Ouvrir la fiche ados du même enfant"))
+            self.bouton_ados.Enable(self.acces)
+            colonne.Add(self.bouton_ados, 0,
+                        wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
 
         outils = wx.BoxSizer(wx.HORIZONTAL)
         self.bouton_initialiser = wx.Button(
@@ -326,6 +352,8 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnActualiser, self.bouton_actualiser)
         self.Bind(wx.EVT_BUTTON, self.OnEnregistrer, self.bouton_sauver)
         self.Bind(wx.EVT_BUTTON, self.OnImprimer, self.bouton_imprimer)
+        if modele == "enfant":
+            self.Bind(wx.EVT_BUTTON, self.OnOuvrirAdos, self.bouton_ados)
         self.OnActualiser()
 
     @staticmethod
@@ -359,6 +387,14 @@ class Dialog(wx.Dialog):
 
     def OnRepas(self, event=None):
         self.EndModal(wx.ID_YES)
+
+    def OnOuvrirAdos(self, event=None):
+        """Acces au meme dossier individu, dans le perimetre Club ados."""
+        fiche = Dialog(self, self.IDindividu, modele="ados")
+        try:
+            return fiche.ShowModal()
+        finally:
+            fiche.Destroy()
 
     def OnActualiser(self, event=None):
         self.registre_pret = False
@@ -448,9 +484,12 @@ class Dialog(wx.Dialog):
                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
                     self) != wx.YES:
                 return False
+        ados = getattr(self, "modele", "enfant") == "ados"
         choix = wx.FileDialog(
-            self, _(u"Enregistrer la fiche enfant au format PDF"),
-            defaultFile=u"Fiche_Enfant_%d.pdf" % self.IDindividu,
+            self, _(u"Enregistrer la fiche ados au format PDF" if ados
+                    else u"Enregistrer la fiche enfant au format PDF"),
+            defaultFile=(u"Fiche_Ados_%d.pdf" if ados
+                         else u"Fiche_Enfant_%d.pdf") % self.IDindividu,
             wildcard=u"Documents PDF (*.pdf)|*.pdf",
             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
         try:
@@ -502,9 +541,12 @@ class Dialog(wx.Dialog):
             info.update(sources.PreparerRubriquesMedicales(self.medical))
         # PAI/AESH/allergies : ne jamais inférer Oui ou Non depuis un
         # problème de santé générique ou depuis l'absence de saisie.
-        info["autorisation_modele"] = u"Fiche Enfant 2026-11"
+        info["autorisation_modele"] = (
+            u"Fiche Ados 2026-11" if ados else u"Fiche Enfant 2026-11")
         info["autorisations"] = {}
-        for code, _libelle in PRINCIPALES + DEPART_AUTONOME:
+        for code, _libelle in (
+                PRINCIPALES + DEPART_AUTONOME +
+                (ADOS_SPECIFIQUES if ados else ())):
             if self.registre_pret:
                 _index, etat = EtatChoix(
                     self.historique, self.IDindividu, code, perimetre,
@@ -515,7 +557,8 @@ class Dialog(wx.Dialog):
                 self.signataire.GetSelection() - 1][1]
         info["date_signature"] = self.date_signature.GetValue()
         try:
-            impression.GenererPDF(destination, info)
+            (impression.GenererPDFAdos if ados
+             else impression.GenererPDF)(destination, info)
         except Exception as exc:
             wx.MessageBox(
                 _(u"Le PDF n'a pas pu être généré : %s") % exc,
