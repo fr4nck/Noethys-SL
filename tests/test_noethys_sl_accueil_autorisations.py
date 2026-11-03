@@ -3,9 +3,32 @@
 import sqlite3
 import tempfile
 import unittest
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 from Utils import UTILS_Accueil_autorisations as A
 from Utils import UTILS_Fiche_accueil_enfant as F
+
+
+
+# Les lectures historiques sont datees au 29/10/2026. Une saisie avec
+# l'heure reelle du runner est logiquement future et doit etre exclue.
+# Figer l'horloge des tests, pas les regles metier.
+class _JourFictif(date):
+    @classmethod
+    def today(cls):
+        return cls(2026, 10, 29)
+
+
+class _HorlogeFictive:
+    def __init__(self):
+        self.pas = 0
+
+    def now(self, tz=None):
+        self.pas += 1
+        heure = datetime(2026, 10, 29, 12, 0, tzinfo=timezone.utc)
+        heure += timedelta(microseconds=self.pas)
+        return heure if tz is None else heure.astimezone(tz)
 
 
 class FausseBase:
@@ -41,6 +64,12 @@ def attendu(**par_type):
 
 class AutorisationsSQLite(unittest.TestCase):
     def setUp(self):
+        self._patch_date = mock.patch.object(A, "date", _JourFictif)
+        self._patch_datetime = mock.patch.object(A, "datetime", _HorlogeFictive())
+        self._patch_date.start()
+        self.addCleanup(self._patch_date.stop)
+        self._patch_datetime.start()
+        self.addCleanup(self._patch_datetime.stop)
         self.base = FausseBase()
         self.addCleanup(self.base.Close)
     def installer(self):
