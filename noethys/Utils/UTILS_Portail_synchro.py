@@ -481,6 +481,13 @@ class Synchro():
         if not os.path.isfile(chemin_models) :
             raise ImportError(_(u"Fichier %s introuvable après téléchargement") % nomFichier)
 
+        # Verifier AVANT de charger le moindre code du modele. En mode epingle,
+        # compiler exactement les octets qui ont ete verifies : aucune
+        # seconde lecture susceptible de substituer models.py entre-temps.
+        # Valeur vide : chemin de chargement historique entierement conserve.
+        code_verifie = UTILS_Portail_securite.LireModeleVerifie(
+            chemin_models, self.dict_parametres.get("models_sha256", ""))
+
         nom_package = "noethys_connecthys_sync_%s" % uuid.uuid4().hex
         nom_module = nom_package + ".models"
         try :
@@ -508,7 +515,9 @@ class Synchro():
             models = importlib.util.module_from_spec(spec_module)
             models.__package__ = nom_package
             sys.modules[nom_module] = models
-            code_source = compile(loader.get_source(nom_module), chemin_models, "exec")
+            source = (code_verifie if code_verifie is not None
+                      else loader.get_source(nom_module))
+            code_source = compile(source, chemin_models, "exec")
             exec(code_source, models.__dict__)
             return models
         finally :
