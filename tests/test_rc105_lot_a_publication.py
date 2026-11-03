@@ -68,6 +68,9 @@ class PublicationArchiveTests(unittest.TestCase):
         source.write_bytes(b"COMPLET")
         self.module._PublierArchiveSansRemplacement(source, destination)
         self.assertEqual(destination.read_bytes(), b"COMPLET")
+        # Sous POSIX, le premier lien partage le meme inode : nettoyer la
+        # source publiee avant de creer un nouveau temporaire independant.
+        source.unlink(missing_ok=True)
         source.write_bytes(b"SECOND")
         with self.assertRaises(FileExistsError):
             self.module._PublierArchiveSansRemplacement(source, destination)
