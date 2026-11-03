@@ -56,6 +56,7 @@ class FauxSFTP:
         self.extension = extension
         self.couper_ecriture = False
         self.corrompre_lecture = False
+        self.perdre_acquittement = False
         self.chemin = "/"
 
     def chdir(self, chemin):
@@ -88,6 +89,8 @@ class FauxSFTP:
             raise FileNotFoundError(depart)
         self.fichiers[arrivee] = self.fichiers.pop(depart)
         self.modes[arrivee] = self.modes.pop(depart)
+        if self.perdre_acquittement:
+            raise OSError("confirmation de renommage perdue apres commit fictif")
 
     def remove(self, chemin):
         self.evenements.append(("remove", chemin))
@@ -163,6 +166,18 @@ class ConfigAtomiqueTests(unittest.TestCase):
         self.assertEqual(sftp.fichiers, {"config.py": b"SECRET_CONFIG_ANCIEN"})
         self.assertEqual(sftp.modes["config.py"], 0o644)
         self.assertNotIn(self.contenu.decode(), " ".join(s.log.messages))
+
+    def test_acquittement_rename_perdu_ne_permet_pas_de_promettre_ancien_intact(self):
+        sftp = FauxSFTP()
+        sftp.perdre_acquittement = True
+        s = self._synchro()
+        # Le serveur peut avoir COMMIT avant de perdre son acquittement.
+        # Le client doit signaler l'incertitude, pas un succes fictif.
+        self.assertFalse(s.UploadFichier(
+            ftp=sftp, nomFichierComplet=str(self.source),
+            repDest="application/data"))
+        self.assertEqual(sftp.fichiers["config.py"], self.contenu)
+        self.assertTrue(any("non confirmee" in msg for msg in s.log.messages))
 
     def test_coupure_pendant_envoi_conserve_config_ancien(self):
         sftp = FauxSFTP()
