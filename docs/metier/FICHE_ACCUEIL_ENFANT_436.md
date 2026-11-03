@@ -90,3 +90,17 @@ La lecture de l'identité est indépendante du champ facultatif `individus.aeeh`
 **Tests fictifs** : `test_noethys_sl_accueil_scolarite.py` (SQLite jetable : années, bornes, doubles scolarités, absence, lecture seule), `test_noethys_sl_accueil_wx.py` (identité ancienne/nouvelle base, liste des trois ALSH, PDF simulé), `test_noethys_sl_accueil_impression.py` (valeurs affichées page 1). CI rapide wx déclenchée, verdict Windows à confirmer.
 
 L'impression utilise toujours le modèle papier PMSL à deux pages. Aucun nouveau questionnaire, aucune donnée en base, aucun tarif, aucune facture et aucune commande fournisseur modifiés.
+
+## 03/11/2026 — Dernier DT Polio et contrôle visuel PDF (Lot C)
+
+La lecture médicale existante (`UTILS_Accueil_sources.LireMedicalExistant`) ajoute maintenant `dernier_dt_polio` : date ISO de la **dernière injection enregistrée** dont le type est explicitement relié, dans le référentiel Noethys, à la diphtérie, au tétanos **et** à la poliomyélite. La date la plus récente de vaccination *toutes catégories confondues* n'est pas utilisée. Dates absentes, futures, invalides ou vaccins sans les trois correspondances donnent « Non renseignée ».
+
+La sauvegarde PMSL du 10/09/2026 contient six types DT Polio et leurs correspondances, mais aucune injection individuelle enregistrée. La date a donc été qualifiée uniquement sur des jeux fictifs SQLite ; aucun état vaccinal réel d'un enfant n'a été calculé à partir de cette sauvegarde.
+
+- La fiche wx affiche « Dernier DT Polio » avec la date, lorsqu'elle existe, et le nombre total de vaccins enregistrés.
+- Le PDF enfant reporte cette même information dans le bloc **Vaccinations** de la première page.
+- Grille accompagnants : les trois séparations verticales descendent désormais jusqu'à la cinquième ligne.
+- Tests : `test_noethys_sl_accueil_sources.py` (injections multiples, triple valence, polio seule, dates futures/invalides, absence de vaccin), `test_noethys_sl_accueil_wx.py` (transfert vers le PDF), `test_noethys_sl_accueil_impression.py` (date visible et grille cinq lignes).
+- Contrôle PDF réalisé avec le générateur ReportLab en vigueur et des données entièrement fictives : deux pages A4, rubriques attendues visibles, texte dans les limites des pages, sans chevauchement constaté. Les tests Windows GitHub et l'essai utilisateur sur Noethys installé restent des qualifications distinctes.
+
+Aucune écriture ou migration de la base PMSL ; les fonctions de facturation, commandes repas et autorisations restent inchangées dans ce correctif.
