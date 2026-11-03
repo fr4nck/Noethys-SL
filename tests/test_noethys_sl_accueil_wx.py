@@ -219,6 +219,43 @@ class EcranAccueilTests(unittest.TestCase):
         classe.assert_called_once_with(10)
         fenetre.Destroy.assert_called_once()
 
+    def test_impression_reprend_allergie_pai_et_consigne_existants(self):
+        f = self.base()
+        f.lecture_medicale = True
+        f.medical = {
+            "vaccins_enregistres": 2, "medecin": None,
+            "problemes": [
+                {"intitule": "Allergie fictive aux arachides",
+                 "categorie": "Allergie", "date_debut": "2026-09-01",
+                 "description": "Précaution fictive"},
+                {"intitule": "PAI - asthme fictif", "categorie": "Autre",
+                 "date_debut": "2026-09-01", "description": "Consigne fictive",
+                 "traitement_medical": True,
+                 "description_traitement": "Médicament fictif"},
+            ],
+        }
+        f.inclure_medical = NS(GetValue=Mock(return_value=True))
+        f.entete = {"nom": "FICTIF", "prenom": "Enfant"}
+        f.registre_pret = False
+        f.signataire = NS(GetSelection=Mock(return_value=0))
+        f.date_signature = NS(GetValue=Mock(return_value=""))
+        choix = NS(ShowModal=Mock(return_value=wx.ID_OK),
+                   GetPath=Mock(return_value="enfant-fictif.pdf"),
+                   Destroy=Mock())
+        with patch.object(self.UI.wx, "MessageBox", return_value=wx.YES), \
+             patch.object(self.UI.wx, "FileDialog", return_value=choix), \
+             patch.object(self.UI.contacts, "LireContactsEnfant",
+                          return_value={"responsables": [], "accompagnants": []}), \
+             patch.object(self.UI.scolarite, "LireScolariteActuelle",
+                          return_value={"classe": "CE2"}), \
+             patch.object(self.UI.impression, "GenererPDF") as imprimer:
+            self.assertTrue(self.UI.Dialog.OnImprimer(f))
+        info = imprimer.call_args.args[1]
+        self.assertIn("PAI - asthme fictif", info["pai"])
+        self.assertIn("Allergie fictive aux arachides", info["allergies"])
+        self.assertIn("Médicament fictif", info["traitement"])
+        self.assertEqual(len(info["medical"]), 2)
+
     def test_impression_medicale_exige_accord(self):
         f = self.base()
         f.lecture_medicale = True
