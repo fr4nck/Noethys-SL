@@ -188,13 +188,13 @@ class ExcelOceaneTests(unittest.TestCase):
         def serial(date_):return (date_-date(1899,12,30)).days
         _fichier(path,{
             "Menus Mat & prim":{
-                "E3":serial(datetime(2026,5,20)),
+                "E3":serial(date(2026,5,20)),
                 "E4":"Salade coleslaw","E5":"Concombre à l'estragon",
                 "E9":"Agneau","E10":"Tarte végétarienne",
                 "E12":"Salade verte","E13":"Riz","E15":"Brie",
                 "E18":"Fruit de saison"},
             "Semaine 45":{
-                "G6":serial(datetime(2026,11,4)),
+                "G6":serial(date(2026,11,4)),
                 "G7":"Salade tropicale","G8":"Carotte & ananas",
                 "G9":"Sauté de porc","G11":"Semoule",
                 "G13":"Petit suisse","G15":"Compote"}
