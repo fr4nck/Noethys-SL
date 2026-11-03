@@ -120,7 +120,7 @@ class LectureTests(unittest.TestCase):
         self.assertEqual([(x["nature"], x["nombre"]) for x in importe["jours"]],
                          [("realise", "1"), ("prevision", "1")])
 
-    def test_absence_justifiee_facturee_exclue_de_frequentation_communale(self):
+    def test_absence_justifiee_facturee_devient_journee_de_frequentation(self):
         self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (603, "editee"))
         self.db.db.execute("INSERT INTO prestations VALUES (?, ?, ?)", (703, 603, 11.54))
         self.db.db.execute(
@@ -128,8 +128,23 @@ class LectureTests(unittest.TestCase):
             " VALUES (7,20,'2026-03-07',1,101,'absentj',703)")
         importe = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
         self.assertEqual([(x["nature"], x["nombre"]) for x in importe["jours"]],
-                         [("realise", "1"), ("prevision", "1")])
-        self.assertEqual(importe["exclusions"]["absences"], 1)
+                         [("realise", "2"), ("prevision", "1")])
+        self.assertEqual(importe["exclusions"]["absences"], 0)
+
+    def test_tous_statuts_factures_meme_compteur_sans_doublon(self):
+        etats = ("absentj", "absenti", "reservation", "attente", "refus")
+        for i, etat in enumerate(etats, 0):
+            prestation = 900 + i
+            self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (800 + i, "editee"))
+            self.db.db.execute("INSERT INTO prestations VALUES (?, ?, ?)", (prestation, 800 + i, 11.54))
+            self.db.db.execute(
+                "INSERT INTO consommations (IDconso, IDindividu, date, IDactivite, IDunite, etat, IDprestation)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (50 + i, 20, "2026-03-%02d" % (10 + i), 1, 101, etat, prestation))
+        importe = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
+        self.assertEqual([(x["mois"], x["nature"], x["nombre"]) for x in importe["jours"]],
+                         [(3, "realise", "6"), (11, "prevision", "1")])
+        self.assertEqual(importe["exclusions"]["reservations_passees"], 1)
 
     def test_absence_injustifiee_facturee_devient_journee_de_frequentation(self):
         self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (604, "editee"))
