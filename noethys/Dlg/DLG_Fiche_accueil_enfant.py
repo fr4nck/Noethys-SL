@@ -182,9 +182,10 @@ class Dialog(wx.Dialog):
                     IDindividu, self.utilisateur)
             except Exception:
                 self.medical = None
-        vaccinations = (u"%d vaccination(s) enregistrée(s) dans Noethys." %
-                       self.medical["vaccins_enregistres"]
-                       if self.medical else u"Consulter les vaccins dans l'onglet Médical.")
+        vaccinations = (u"Dernier DT Polio : %s" %
+                        sources.FormaterVaccinations(self.medical)
+                        if self.medical else
+                        u"Consulter les vaccins dans l'onglet Médical.")
         medecin = self.medical.get("medecin") if self.medical else None
         nom_medecin = (sources.FormaterMedecin(medecin) if medecin else
             u"Consulter le médecin traitant dans l'onglet Médical.")
@@ -489,10 +490,7 @@ class Dialog(wx.Dialog):
         info["medical"] = []
         info["traitement"] = u"Non renseigné"
         if inclure:
-            info["vaccinations"] = (
-                u"%d vaccination(s) enregistrée(s) dans Noethys ; "
-                u"date du dernier DT Polio non vérifiée" %
-                self.medical["vaccins_enregistres"])
+            info["vaccinations"] = sources.FormaterVaccinations(self.medical)
             medecin = self.medical.get("medecin")
             if medecin:
                 info["medecin"] = sources.FormaterMedecin(medecin)
