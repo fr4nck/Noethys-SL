@@ -53,6 +53,7 @@ class EditionDeuxPages(unittest.TestCase):
                     "maquillage": "oui",
                     "piscine_baignade": "non_renseigne",
                     "activites_physiques": "oui",
+                    "depart_seul": "non_renseigne",
                 },
             }
             self.assertEqual(Impression.GenererPDF(chemin, data), chemin)
@@ -112,6 +113,65 @@ class EditionDeuxPages(unittest.TestCase):
         self.assertEqual(sum(
             1 for x1, y1, x2, y2 in c2.traits
             if x1 == x2 and abs(y1 - y2) >= 90), 3)
+
+    def test_depart_seul_oui_non_non_renseigne_et_conflit_sur_page1(self):
+        class FauxCanvas:
+            def __init__(self):
+                self.textes = []
+                self.cases = []
+            def drawString(self, x, y, txt):
+                self.textes.append((x, y, txt))
+            def rect(self, x, y, w, h, **kwargs):
+                if w == 9 and h == 9:
+                    self.cases.append((x, y))
+            def __getattr__(self, nom):
+                return lambda *args, **kwargs: None
+
+        attentes = {
+            "oui": [393],
+            "non": [453],
+            "non_renseigne": [],
+            "expire": [],
+            "a_verifier": [],
+        }
+        for statut, x_attendus in attentes.items():
+            with self.subTest(statut=statut):
+                c = FauxCanvas()
+                Impression._page1(c, {
+                    "accompagnants": [],
+                    "autorisations": {"depart_seul": statut},
+                })
+                self.assertTrue(any("quitter l'ALSH seul" in texte
+                                    for _x, _y, texte in c.textes))
+                cases_cochees = [int(x) for x, _y, txt in c.textes if txt == "X"]
+                self.assertEqual(cases_cochees, x_attendus)
+                if statut in ("oui", "non", "non_renseigne"):
+                    self.assertEqual(len(c.cases), 2)
+                else:
+                    self.assertEqual(len(c.cases), 0)
+                    self.assertTrue(any(txt == "À vérifier"
+                                        for _x, _y, txt in c.textes))
+
+    def test_depart_seul_n_empeche_pas_cinq_accompagnants_et_vaccination(self):
+        class FauxCanvas:
+            def __init__(self):
+                self.textes = []
+            def drawString(self, x, y, txt):
+                self.textes.append(txt)
+            def __getattr__(self, nom):
+                return lambda *args, **kwargs: None
+        c = FauxCanvas()
+        Impression._page1(c, {
+            "vaccinations": "15/07/2025",
+            "accompagnants": [
+                {"nom": "NOM%d" % i, "prenom": "Test",
+                 "lien": "Parent", "telephone_court": "000"}
+                for i in range(5)],
+            "autorisations": {"depart_seul": "oui"},
+        })
+        self.assertTrue(any("NOM4" in t for t in c.textes))
+        self.assertTrue(any("15/07/2025" in t for t in c.textes))
+        self.assertTrue(any("quitter l'ALSH seul" in t for t in c.textes))
 
     def test_page2_affiche_pai_allergies_traitements_et_consignes(self):
         class FauxCanvas:
