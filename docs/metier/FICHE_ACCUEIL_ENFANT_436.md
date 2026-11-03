@@ -66,3 +66,14 @@ Chaque événement devra comporter `IDindividu`, `type`, `perimetre`, `valeur` (
 - **Aucun déploiement/migration ni traitement automatique de la base PMSL** avant tests fictifs, qualification des permissions et comparaison visuelle de l'impression avec le PDF fourni.
 
 **Critère de sortie :** pour un enfant fictif entièrement renseigné dans les écrans Noethys existants, la fiche reproduite doit présenter ses données sans ressaisie, respecter les 4 autorisations d'origine, fournir un PDF/imprimé conforme au document PMSL et une provenance fiable pour chaque modification. Le contrôle de réception de fiche enfant déjà présent dans RC10.2/RC10.3 ne suffit pas à ce critère.
+
+## 03/11/2026 — Coordonnées et accompagnants depuis les fiches existantes (Lot C)
+
+Sur la branche `wx`, le formulaire enfant affiche et imprime désormais les coordonnées disponibles des responsables (nom, adresse, téléphones) et les personnes explicitement autorisées à raccompagner l'enfant dans l'onglet Liens Noethys.
+
+- **Source unique** : `UTILS_Accueil_contacts.LireContactsEnfant` lit les tables historiques `liens`, `rattachements` et `individus`, y compris les adresses partagées `adresse_auto`. Le code d'autorisation `1` correspond au responsable légal, `3` au raccompagnement autorisé (référentiel `DATA_Liens`). Un contact ordinaire n'est pas ajouté d'office à la liste des accompagnants.
+- **Fiche imprimée** : `UTILS_Accueil_impression._page1` renseigne les deux blocs responsables et les **cinq lignes** d'accompagnants comme sur le document PMSL ; si davantage de personnes sont enregistrées, la dernière ligne signale l'existence d'autres contacts dans Noethys.
+- **Signataire** : la liste dans `DLG_Fiche_accueil_enfant.ListerResponsables` utilise le même référentiel de liens que le PDF, au lieu du vieux champ `liens.responsable` ; le choix final reste effectué par l'opérateur.
+- **Impact** : aucun doublon d'enregistrement, aucune nouvelle table, aucune modification d'une famille, aucun export automatique et aucun changement à la facturation.
+- **Tests** : `test_noethys_sl_accueil_contacts` (SQLite fictive), `test_noethys_sl_accueil_impression` (contenu page 1) et `test_noethys_sl_accueil_wx` (liste signataire et impression simulée) ; inclus dans la CI wx. La recette visuelle Windows et l'utilisation sur un dossier fictif complet restent nécessaires avant livraison.
+
