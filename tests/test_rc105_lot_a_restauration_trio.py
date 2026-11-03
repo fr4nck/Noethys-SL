@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Lot A : qualifier le perimetre sans empecher les restaurations partielles."""
+"""Lot A : DATA + DOCUMENTS sont prioritaires ; PHOTOS facultatif."""
 import importlib.util
 from pathlib import Path
 import unittest
@@ -11,29 +11,30 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RestaurationPerimetreTests(unittest.TestCase):
-    def test_trio_historique_signale_complet(self):
+    def test_data_documents_suffisent_avec_ou_sans_photos(self):
         for noms in (
+            ["association", "association_DOCUMENTS"],
             ["pelemele", "pelemele_PHOTOS", "pelemele_DOCUMENTS"],
-            ["noe437_synth_data", "noe437_synth_photos", "noe437_synth_documents"],
+            ["noe437_synth_data", "noe437_synth_documents"],
             ["DATA", "PHOTOS", "DOCUMENTS"],
+            ["DATA", "PHOTOS", "DOCUMENTS", "AUTRE"],
         ):
             with self.subTest(noms=noms):
-                resultat = MODULE.QualifierPerimetreSauvegarde(noms)
-                self.assertTrue(resultat["perimetre_complet"])
-                self.assertEqual(resultat["categories_absentes"], [])
+                retour = MODULE.QualifierPerimetreSauvegarde(noms)
+                self.assertTrue(retour["perimetre_complet"])
+                self.assertEqual(retour["categories_absentes"], [])
 
-    def test_archive_sans_photos_ne_bloque_pas(self):
-        retour = MODULE.QualifierPerimetreSauvegarde(
-            ["association", "association_DOCUMENTS"])
-        self.assertFalse(retour["perimetre_complet"])
-        self.assertEqual(retour["categories_absentes"], ["PHOTOS"])
+    def test_absence_de_photos_nest_pas_un_defaut(self):
+        retour = MODULE.QualifierPerimetreSauvegarde(["DATA", "DOCUMENTS"])
+        self.assertTrue(retour["perimetre_complet"])
+        self.assertNotIn("PHOTOS", retour["categories_absentes"])
 
-    def test_autres_configurations_restent_valides(self):
+    def test_absence_de_data_ou_documents_est_signalee_sans_bloquer(self):
         for noms, attendues in (
             (["DATA", "PHOTOS"], ["DOCUMENTS"]),
-            (["DATA"], ["PHOTOS", "DOCUMENTS"]),
-            (["DATA", "PHOTOS", "DOCUMENTS", "AUTRE"], []),
-            ([], ["DATA", "PHOTOS", "DOCUMENTS"]),
+            (["DATA"], ["DOCUMENTS"]),
+            (["DOCUMENTS"], ["DATA"]),
+            ([], ["DATA", "DOCUMENTS"]),
         ):
             with self.subTest(noms=noms):
                 retour = MODULE.QualifierPerimetreSauvegarde(noms)
