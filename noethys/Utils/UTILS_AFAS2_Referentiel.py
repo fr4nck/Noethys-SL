@@ -48,8 +48,12 @@ MATRICE = {
 SITES = MATRICE[(ACTIVITE_ALSH, EXTRA)]
 MINICAMPS = (MINICAMPS_6_8, MINICAMPS_8_10)
 
-# Rattachement documenté par l'intitulé des structures conventionnées
-# (couverture des conventions). Minicamps : à choisir par l'administrateur.
+# Rattachement documenté par l'intitulé des structures conventionnées.
+# Choix PMSL du 03/11/2026 : minicamps rattachés à La Guerche-Moutiers.
+# Proposition de sélection uniquement : une déclaration conforme et la
+# pièce de rattachement sont toujours nécessaires. Aucun choix enregistré
+# n'est modifié automatiquement.
+EQUIPEMENT_MINICAMPS_PROPOSE = Conventions.EQUIPEMENT_LA_GUERCHE_MOUTIERS
 EQUIPEMENT_DOCUMENTE = {
     BAIS_PLUS_6: Conventions.EQUIPEMENT_BAIS,
     BAIS_MOINS_6: Conventions.EQUIPEMENT_BAIS,
@@ -66,6 +70,16 @@ CLES_REFERENTIEL = {"format", "sites", "moutiers_rattachement_confirme", "sejour
 SITES_A_JUSTIFIER = MINICAMPS
 SITES_JUSTIFICATIFS_ACCEPTES = (MOUTIERS,) + MINICAMPS
 TAILLE_MAX_JUSTIFICATIF = 300
+
+
+def EquipementPropose(site, lien=None):
+    """Préselection PMSL des minicamps sans remplacer le choix existant."""
+    choix = lien.get("equipement") if isinstance(lien, dict) else None
+    if choix is not None:
+        return choix
+    return EQUIPEMENT_MINICAMPS_PROPOSE if site in MINICAMPS else None
+
+
 CATEGORIE_PROFIL = "afas_v2_referentiel"
 NOM_PARAMETRE = "referentiel_json"
 
