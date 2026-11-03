@@ -122,6 +122,19 @@ def ExporterSQL(programme, login, fichier, base, options="", progression=None,
             "diagnostic": diagnostic}
 
 
+
+def _PublierArchiveSansRemplacement(archive, destination):
+    """Publication atomique sur le volume cible sans ecraser d'archive existante.
+
+    Sur Windows, rename echoue si la destination existe et fonctionne sur exFAT.
+    Sur POSIX, link est exclusif et evite le remplacement que ferait rename.
+    """
+    if os.name == "nt":
+        os.rename(archive, destination)
+    else:
+        os.link(archive, destination)
+
+
 def CreerArchive(programme, login, fichiers, destination, integrite, progression=None, secrets=()):
     """Même export que l'interface, utilisable sans ouvrir un profil Noethys.
 
@@ -161,8 +174,8 @@ def CreerArchive(programme, login, fichiers, destination, integrite, progression
             with zipfile.ZipFile(archive) as z:
                 if z.testzip() is not None or z.namelist() != [base + ".sql" for base in fichiers]:
                     raise RuntimeError("Contrôle de l'archive échoué")
-            # Ce CLI refuse tout remplacement, y compris une création concurrente.
-            os.link(archive, destination)
+            # Conserver une cible concurrente, y compris sur exFAT Windows.
+            _PublierArchiveSansRemplacement(archive, destination)
             bilan["succes"] = True
     except Exception as exc:
         bilan["erreur"] = NettoyerDiagnostic(str(exc), secrets)
