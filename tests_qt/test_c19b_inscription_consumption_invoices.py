@@ -176,8 +176,8 @@ class C19bOperationalRouteTests(unittest.TestCase):
             db.execute(
                 "UPDATE inscriptions SET IDfamille=101 WHERE IDinscription=503"
             )
-        with self.assertRaisesRegex(PermissionError, "modifiée"):
-            self.window._consumption_family_invoices_requested(100)
+        self.window._consumption_family_invoices_requested(100)
+        self.assertIn("Inscription modifiée", self.window.statusBar().currentMessage())
         self.assertIs(self.window.stack.currentWidget(), calendar)
         self.assertNotEqual(self.window.finance_pages["billing"]._family_id, 100)
 
