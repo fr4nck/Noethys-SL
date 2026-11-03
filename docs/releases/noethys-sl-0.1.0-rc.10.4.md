@@ -4,6 +4,7 @@ Cette version reprend **toutes les modifications de la branche wx apres RC10.3**
 
 ## Nouveautes
 
+- **Facturation #426** : les erreurs de lecture MySQL des adhesions interrompent le calcul au lieu d'etre confondues avec une absence de cotisation. En cas de defaut de verification, un choix explicite permet de preparer un apercu avec les prestations deja enregistrees seulement. La cause sur base de production et les cotisations potentiellement manquantes restent a examiner avant emission.
 - **Situation des communes ALSH** : option « Compter les absences injustifiees » desactivee par defaut. Si activee, les absences injustifiees sont comptabilisees separement des presences, jamais deguisees en frequentation reelle ; leur prise en charge conventionnelle doit etre confirmee.
 - Import des consommations en lecture seule, selection explicite des unites d'accueil, gestion des acomptes et edition **PDF, CSV et Excel (.xlsx)**.
 - **Fiche enfant #436** : reprise de la fiche Pêle-Mêle et impression A4 sur deux pages ; reprise des informations existantes sans doublonner les données medicales. L'affichage et l'export des données sensibles restent soumis aux habilitations et choix explicites.

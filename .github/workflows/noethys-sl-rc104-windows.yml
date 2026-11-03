@@ -105,6 +105,7 @@ jobs:
           tests.test_noethys_sl_encadrement_dialog
           tests.test_noethys_sl_adhesions
           tests.test_noethys_sl_adhesions_echeances
+          tests.test_noethys_sl_facturation_cotisations_erreur
           tests.test_noethys_sl_adhesions_facturation_wx
           tests.test_vanilla_facture_prestation_sans_activite
           tests.test_noethys_sl_backup_zip_lifecycle
@@ -254,7 +255,7 @@ jobs:
             python tests/recette_mysql_jetable_preparer.py
             if ($LASTEXITCODE -ne 0) { throw 'Préparation du serveur de recette en échec' }
             $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
-            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql -v
+            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql -v
             if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
           }
           finally {
@@ -311,6 +312,7 @@ jobs:
             'Interface: wxPython'
             'Version publique: 0.1.0-rc.10.4'
             'Correctif: choix absences ALSH, fiche enfant #436, correctifs RC10.3 conserves'
+            'Facturation: controle SQL strict et choix explicite de continuer avec prestations existantes seulement si verification des cotisations impossible (#426)'
             'Details: Versions.txt et docs/releases/noethys-sl-0.1.0-rc.10.4.md'
             'Version interne: 1.3.4.4 ; aucune migration'
             "Commit: $env:GITHUB_SHA"

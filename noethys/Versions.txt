@@ -1,5 +1,6 @@
 Version Noethys SL 0.1.0 RC10.4 (29/10/2026) :
 
+- Facturation : diagnostic explicite des erreurs SQL d'adhesions et possibilite de preparer un apercu avec les seules prestations existantes, uniquement apres confirmation ; aucune nouvelle cotisation creee en cas d'echec du controle (#426).
 - Situation des communes ALSH : choix explicite des absences injustifiees facturables, desactive par defaut, avec jours et participations separes des presences reelles.
 - Situation des communes ALSH : maintien de l'import Noethys en lecture seule, des controles des conventions et des exports Excel, PDF et CSV.
 - Fiche enfant Pêle-Mêle : restitution de la structure papier en deux pages et consultation des informations existantes avec restrictions de droits et export confidentiel sur choix explicite (#436).
