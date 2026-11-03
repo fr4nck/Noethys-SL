@@ -25,7 +25,7 @@ from noethys_qt.people_search import PeopleSearchRepository
 from noethys_qt.inscriptions_readonly import (
     InscriptionLink, InscriptionRepository, build_inscription_query,
 )
-from tools.qt_c8_fixture import C8FictiveDatabase, EXPECTED_ROWS
+from tools.qt_c8_fixture import C8FictiveDatabase, EXPECTED_ROWS, FIRST_DAY
 
 
 class C12NativeShellTests(unittest.TestCase):
@@ -213,6 +213,9 @@ class C12NativeShellTests(unittest.TestCase):
         self.assertEqual(cal._record_individual_id, 12)
         self.assertEqual(cal._record_inscription_id, 503)
         self.assertEqual(cal.list_page.model.rowCount(), 28)
+        # Le calendrier part du mois courant : la fixture est en octobre
+        # 2026. Ne pas faire dependre ce test du jour d'execution.
+        cal.calendar.setCurrentPage(FIRST_DAY.year, FIRST_DAY.month)
         self.assertEqual(sum(d.count for d in cal._date_counts), 28)
         self.assertIn("Inscription #503", cal.record_filter_label.text())
 

@@ -266,6 +266,10 @@ class CatalogTablePage(QWidget):
             or self._activity_id != activity_id
             or self._individual_id != individual_id
             or self._budget_id != budget_id
+            # Un champ de filtre manuel ne change pas _activity_id/_budget_id.
+            # Il faut rafraichir meme quand le contexte passe de None a None.
+            or self.activity_spin.value() != (activity_id or 0)
+            or self.budget_spin.value() != (budget_id or 0)
             or bool(self.search_edit.text())
             or self.year_spin.value() != 0
         )

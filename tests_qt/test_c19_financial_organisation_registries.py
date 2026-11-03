@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextlib import closing
 import tempfile
 import time
 import unittest
@@ -165,7 +166,8 @@ class C19SqlContractTests(unittest.TestCase):
                          {"Banque A fictive", "Banque B fictive"})
         # Valeurs tests présentes seulement dans la fixture : lecture métier
         # ne doit ni les SELECT ni les copier dans les artefacts.
-        with sqlite3.connect(self.fixture.path) as db:
+        # __exit__ de Connection ne ferme pas le handle sous Windows.
+        with closing(sqlite3.connect(self.fixture.path)) as db:
             sentinel = db.execute(
                 "SELECT iban FROM comptes_bancaires WHERE IDcompte=1"
             ).fetchone()[0]
