@@ -85,7 +85,19 @@ def verifier(runtime, archive):
                         raise RuntimeError("Manifeste SQL absent ou invalide : %s" % base)
                     sql(fichier=chemin)
                     entree = {"base": base, "tables": len(sql("SHOW TABLES FROM `%s`;" % base).splitlines())}
-                    if base.lower().endswith("_documents"):
+                    if base.lower() == "photos" or base.lower().endswith("_photos"):
+                        tailles_photos = sql(
+                            "SELECT COUNT(*),COALESCE(SUM(OCTET_LENGTH(photo)),0),"
+                            "COALESCE(MAX(OCTET_LENGTH(photo)),0) FROM `%s`.`photos`;" % base)
+                        nombres = tailles_photos.decode().strip().split("\t")
+                        entree["photos"] = dict(zip(
+                            ("nombre", "octets_total", "octets_maximum"), map(int, nombres)))
+                        hashes = sql(
+                            "SELECT OCTET_LENGTH(photo),SHA2(photo,256) FROM `%s`.`photos` "
+                            "ORDER BY SHA2(photo,256),OCTET_LENGTH(photo);" % base)
+                        entree["empreinte_photos"] = hashlib.sha256(
+                            hashes.replace(b"\r\n", b"\n")).hexdigest()
+                    if base.lower() == "documents" or base.lower().endswith("_documents"):
                         tailles = sql("SELECT COUNT(*),COALESCE(SUM(OCTET_LENGTH(document)),0),"
                                       "COALESCE(MAX(OCTET_LENGTH(document)),0) FROM `%s`.`documents`;" % base)
                         valeurs = tailles.decode().strip().split("\t")
