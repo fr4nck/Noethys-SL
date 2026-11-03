@@ -12,9 +12,12 @@ activité ALSH ID 1) est de type **Unitaire** et ne contient ni
 Sur les groupes La Guerche (ID 1), Bais +6 (2), Moutiers (3) et Bais −6
 (27), entre le 01/01 et le 30/09/2026 : **4 339** lignes repas à
 l'état `present` (La Guerche 1 296 ; Bais +6 1 085 ; Moutiers 916 ;
-Bais −6 1 042). La grande majorité coexiste avec une journée présente ;
-une minorité accompagne une demi-journée ou apparaît seule. Ce décompte
-n'est pas une durée CAF.
+Bais −6 1 042). Ventilation agrégée des **4 339** repas présents, par enfant/jour/groupe :
+**4 044** accompagnent une journée complète présente ; **196** un
+matin seul ; **96** un après-midi seul ; **3** ne sont accompagnés
+d'aucune unité Journée, Matin ou Après-midi présente. Les **295** cas
+hors journée complète exigent une vérification particulière des horaires
+de repas et des pointages. Ce décompte n'est pas une durée CAF.
 
 ## Règle corrective sur wx
 
