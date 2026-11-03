@@ -111,6 +111,26 @@ class ReferentielTests(unittest.TestCase):
         self.assertEqual(R.StatutSite(R.ValiderReferentiel(ref, groupes_dict()),
                                       R.MOUTIERS, "extrascolaire"), (True, ""))
 
+    def test_minicamps_pmsl_proposes_la_guerche_sans_forcer_les_anciens(self):
+        for site in R.MINICAMPS:
+            with self.subTest(site=site):
+                self.assertEqual(R.EquipementPropose(site), "LA_GUERCHE_MOUTIERS")
+                self.assertEqual(R.EquipementPropose(site, {"equipement": None}), "LA_GUERCHE_MOUTIERS")
+                # Un choix historique stocké reste lisible, jamais réécrit.
+                self.assertEqual(R.EquipementPropose(site, {"equipement": "BAIS"}), "BAIS")
+        self.assertIsNone(R.EquipementPropose(R.BAIS_PLUS_6))
+
+    def test_deux_minicamps_lies_la_guerche_avec_justificatifs(self):
+        ref = referentiel()
+        for site in R.MINICAMPS:
+            ref["sites"][site]["equipement"] = "LA_GUERCHE_MOUTIERS"
+            ref["justificatifs"][site] = "Déclaration ACM fictive"
+        ref = R.ValiderReferentiel(ref, groupes_dict())
+        for site in R.MINICAMPS:
+            self.assertEqual(R.StatutSite(ref, site, "extrascolaire"), (True, ""))
+        del ref["justificatifs"][R.MINICAMPS_8_10]
+        self.assertFalse(R.StatutSite(ref, R.MINICAMPS_8_10, "extrascolaire")[0])
+
     def test_minicamp_sans_equipement_non_validable(self):
         ref = R.ValiderReferentiel(referentiel(), groupes_dict())
         self.assertFalse(R.StatutSite(ref, R.MINICAMPS_8_10, "extrascolaire")[0])
