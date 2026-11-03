@@ -12,6 +12,24 @@ class SimulationSansRepasTests(unittest.TestCase):
             "accueil": Decimal("14.50"), "repas": Decimal("0.00"),
             "total": Decimal("14.50"), "provenance": "panier_familial"})
 
+    def test_exemples_grille_pmsl_2026_2027_repas_separe(self):
+        # Grille 2026-2027 fournie : repas 4,25 EUR en ligne separee.
+        # Ces exemples ne prouvent PAS la configuration SQL des ALSH.
+        for accueil, total_normal in (
+            ("11.75", "16.00"),   # Journee QF >= 1000
+            ("10.50", "14.75"),   # Journee QF 700-999
+            ("7.65", "11.90"),    # Journee QF 300-699
+        ):
+            with self.subTest(accueil=accueil):
+                fournisseur = T.EvaluerPanier(
+                    "standard", "repas_separe", accueil, "4.25")
+                famille = T.EvaluerPanier(
+                    "sans_repas_pmsl", "repas_separe", accueil, "4.25")
+                self.assertEqual(fournisseur["total"], Decimal(total_normal))
+                self.assertEqual(famille["total"], Decimal(accueil))
+                self.assertEqual(famille["repas"], Decimal("0.00"))
+                self.assertEqual(famille["accueil"], Decimal(accueil))
+
     def test_repas_fournisseur_normal_facture(self):
         for regime in ("standard", "sans_porc", "vegetarien"):
             with self.subTest(regime=regime):
