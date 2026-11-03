@@ -347,14 +347,13 @@ class Dialog(wx.Dialog):
                         menus[jour].get("entree") or [u"Menu à vérifier"]))[:100])
             for jour in dates]
         dlg = wx.MultiChoiceDialog(
-            self, _(u"Sélectionnez uniquement les mercredis à importer "
-                    u"et éventuellement publier :"),
+            self, _(u"Sélectionnez uniquement les mercredis où vos "
+                    u"accueils seront ouverts. Le fichier Océane peut "
+                    u"mentionner des dates où l'ALSH est fermé :"),
             _(u"Menus Océane"), choix)
         try:
-            prochains = [i for i, jour in enumerate(dates)
-                         if jour >= datetime.date.today()][:8]
-            if prochains:
-                dlg.SetSelections(prochains)
+            # Aucune présélection : le fournisseur peut proposer un menu
+            # même pendant une fermeture ALSH (ex. semaine du Nouvel An).
             if dlg.ShowModal() != wx.ID_OK:
                 return False
             selection = [dates[i] for i in dlg.GetSelections()]
