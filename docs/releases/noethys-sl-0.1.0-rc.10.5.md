@@ -50,7 +50,11 @@ Windows deja diffusee, ni la resolution des incidents de production.
   dossier, marque `0600` avant l'ecriture des octets secrets, relu en
   entier et compare par SHA256, puis publie avec l'extension OpenSSH
   `posix-rename`. Tant que cette derniere operation n'a pas reussi,
-  l'ancien `config.py` n'est pas ecrase par ce chemin de code.
+  l'ancien `config.py` n'est pas ecrase avant la demande de publication.
+  Si le serveur confirme une erreur avant le renommage, l'ancien reste
+  intact. En revanche, si l'acquittement reseau du renommage est perdu,
+  le client ne peut pas savoir si la substitution a eu lieu : controle
+  manuel du fichier distant necessaire, aucun succes automatique annonce.
   **Pas de repli silencieux sur l'ecrasement traditionnel** : si
   l'extension n'est pas prise en charge, le transfert est declare en
   echec et une suppression du fichier de staging est tentee.
