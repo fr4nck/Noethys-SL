@@ -71,8 +71,12 @@ Le premier outil ne lance que des SELECT : version, limites, tailles, empreintes
 des documents et répertoire de « Ma sauvegarde ». Il ne transmet ni document,
 ni nom de famille, ni identifiant personnel. Le second exporte les quatre
 éléments sélectionnés ; ajouter explicitement PHOTOS si cette base existe et
-doit être incluse. Il refuse une archive cible existante. Sa destination doit
-permettre les liens physiques (NTFS dans la recette Windows). Le rapport
+doit être incluse. Il refuse une archive cible existante. Pour l'outil autonome, le lot A
+RC10.5 sur `wx` publie par `os.rename` sans remplacement sous Windows,
+y compris sur exFAT, et conserve `os.link` sous POSIX pour eviter
+l'ecrasement. Le temporaire et la destination sont sur le meme volume.
+Les tests sur Windows simule et la publication locale ne remplacent pas
+une recette sur le volume exFAT reel du i5-10400. Le rapport
 `<archive>.diagnostic.json` reste indépendant des fichiers SQL temporaires.
 
 `verifier_sauvegarde_mysql_isolee.py` ne prend aucun hôte ni profil cible : seul
