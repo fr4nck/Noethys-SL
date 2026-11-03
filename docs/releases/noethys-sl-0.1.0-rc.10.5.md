@@ -18,6 +18,16 @@ Windows deja diffusee, ni la resolution des incidents de production.
   Si le champ est vide, politique historique inchangee : le serveur
   Connecthys d'Ivan Lucas ne requiert aucune mise a jour. Les messages de
   diagnostic n'affichent plus les URL contenant les jetons de synchronisation.
+- **S1 — empreinte facultative du code `models.py`** : l'administrateur
+  peut renseigner `models_sha256` (64 caracteres hexadecimaux, releves
+  independamment du serveur de transfert). Le client compare le SHA256 des
+  octets du fichier telecharge **avant son execution**, puis compile les
+  memes octets verifies. Le champ vide preserve exactement la lecture
+  historique. Une mise a jour officielle du fichier impose de confirmer
+  puis de mettre a jour cette empreinte.
+  **Limite importante** : la verification couvre seulement `models.py`,
+  et non les modules Python annexes qu'il peut importer. Elle ne
+  constitue ni un bac a sable ni une signature d'origine.
 - **#437 — sauvegardes MySQL** : conservation de l'export `mysqldump` surveille
   (sans `shell=True`, delais bornes et diagnostic), de la verification SQL et
   de la protection des anciennes archives. Le blocage `*_DOCUMENTS` de
@@ -41,9 +51,10 @@ valides par la presente note.
 ## Barriere Windows avant publication
 
 La validation du **vrai** serveur Connecthys historique n'est pas realisee
-par les tests de cles publiques factices. Ne pas activer l'empreinte sur
-le profil PMSL tant qu'elle n'a pas ete verifiee directement aupres de
-l'hebergeur, puis qualifiee sur un profil de recette.
+par les tests de cles publiques et fichiers Python factices. Ne pas
+activer les empreintes SSH ou `models.py` sur le profil PMSL avant
+verification independante par l'hebergeur ou le distributeur du code,
+puis qualification dans un profil de recette.
 
 1. CI rapide Windows `wx` PASS sur le SHA exact retenu, y compris fermeture
    Connecthys, controle des autorisations et garde-reseau.
@@ -83,11 +94,13 @@ une mise a jour du serveur Connecthys de l'association.
   Une empreinte saisie refuse les cles differentes, sans modification du
   serveur ni de son protocole ; champ vide = compatibilite historique
   avec `AutoAddPolicy`, qui reste un risque residuel explicite.
-- Le chargement de `models.py` fait partie du protocole actuel, mais son
-  execution est une surface a risque. Etudier verification de provenance,
-  permissions minimales et isolation sans remplacer le contrat du
-  serveur. Ne pas presenter une verification de fichier seule comme
-  une protection contre l'execution de code arbitraire.
+- Le chargement de `models.py` fait partie du protocole actuel et
+  execute du code distant. Le champ facultatif `models_sha256` refuse
+  l'execution d'un **models.py** dont les octets ne correspondent pas a une
+  empreinte verifiee hors bande. Cette empreinte ne couvre **pas** les
+  imports relatifs de code annexe et n'isole pas Python. Qualifier les
+  dependances ou un ensemble de sources complet avant de presenter ce
+  mecanisme comme une preuve d'origine du code execute.
 - Moderniser le chiffrement uniquement avec **lecture/ecriture legacy
   interoperable** pour Connecthys : un nouveau format ne peut pas devenir
   obligatoire tant que le Connecthys original ne le comprend pas. Isoler
