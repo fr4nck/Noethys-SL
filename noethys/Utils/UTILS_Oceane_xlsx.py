@@ -136,7 +136,7 @@ def DateExcel(val, is1904=False):
     return _date_excel(val, is1904)
 
 
-def _poser_cellule(root, coord, valeur):
+def _poser_cellule(root, coord, valeur, strings):
     col, numero = _coord(coord)
     data = root.find(N("sheetData"))
     if data is None:
@@ -151,8 +151,14 @@ def _poser_cellule(root, coord, valeur):
         raise ValueError("Cellule %s absente du bordereau" % coord)
     if cellule.find(N("f")) is not None:
         raise ValueError("Cellule %s protégée par une formule" % coord)
-    if cellule.find(N("v")) is not None or cellule.find(N("is")) is not None:
+    existante = _valeur(cellule, strings)
+    if existante is not None and str(existante).strip():
         raise ValueError("La cellule %s du modèle n'est pas vide" % coord)
+    # Certains en-têtes du fournisseur contiennent une chaine d'espaces.
+    for enfant in list(cellule):
+        if enfant.tag in (N("v"), N("is")):
+            cellule.remove(enfant)
+    cellule.attrib.pop("t", None)
     if valeur is None:
         return
     if isinstance(valeur, bool):
@@ -188,6 +194,7 @@ def EcrireCopie(source, destination, ecritures):
     contenu = {}
     with ZipFile(source, "r") as z:
         mapping, _ = _table_onglets(z)
+        strings = _chaines(z)
         if set(ecritures) - set(mapping):
             raise ValueError("Onglets manquants dans le modèle")
         for feuille, cellules in ecritures.items():
@@ -195,7 +202,7 @@ def EcrireCopie(source, destination, ecritures):
                 raise ValueError("Données de cellules invalides")
             root = ET.fromstring(z.read(mapping[feuille]))
             for coord, val in cellules.items():
-                _poser_cellule(root, coord, val)
+                _poser_cellule(root, coord, val, strings)
             contenu[mapping[feuille]] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
         destination.parent.mkdir(parents=True, exist_ok=True)
         tmp = None
