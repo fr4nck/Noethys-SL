@@ -375,7 +375,7 @@ class BordereauxPartenaires:
                 valeur = "'" + valeur
             return valeur
         writer.writerow(['DOCUMENT PREPARATOIRE - PAS UNE FACTURE'])
-        writer.writerow(['MONTANT CONTRACTUEL EN EUR - TVA A VERIFIER'])
+        writer.writerow(['MONTANT CONTRACTUEL EN EUR - DOCUMENT PREPARATOIRE'])
         writer.writerow(['Bordereau',b['reference'],'Partenaire ID',b['IDpartenaire'],
                          'Convention ID',b['IDconvention_partenaire']])
         writer.writerow(['Periode',b['date_debut'],b['date_fin']])
@@ -398,6 +398,18 @@ class BordereauxPartenaires:
             b = self._bordereau(bid, verrou=True)
             if b['etat'] != 'valide':
                 raise BordereauConflit('Seul un bordereau valide non rapproche est eligible')
+            # D6 est facultatif : reste compatible avec les installations D5 seules.
+            if self.dialecte == 'sqlite':
+                present = self._lire("SELECT name FROM sqlite_master WHERE type='table' "
+                                    "AND name='partenaires_factures_officielles'")
+            else:
+                present = self._lire('SELECT TABLE_NAME FROM information_schema.TABLES '
+                                    'WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s',
+                                    ('partenaires_factures_officielles',))
+            if present and self._lire('SELECT IDfacture_partenaire FROM '
+                                      'partenaires_factures_officielles WHERE IDbordereau=%s'
+                                      % self.param, (bid,)):
+                raise BordereauConflit('Deja numerote dans D6 : facture externe interdite')
             # Confirm source and snapshot remain unchanged before declaring any link.
             self.lire_bordereau(bid, acteur=acteur)
             if montant != Decimal(str(b['total'])):
