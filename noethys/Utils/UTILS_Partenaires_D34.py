@@ -144,6 +144,8 @@ class InterventionsPartenaires:
             if self.connexion.in_transaction:
                 raise PlanningConflit('Transaction externe deja en cours')
             self.connexion.execute('BEGIN IMMEDIATE')
+        else:
+            self.connexion.begin()
         try:
             resultat = fonction()
             self.connexion.commit()
