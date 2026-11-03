@@ -120,6 +120,7 @@ DB_DATA = {
 
     "familles": [("IDfamille", "INTEGER PRIMARY KEY AUTOINCREMENT", u"ID de la famille"),
                  ("date_creation", "DATE", u"Date de création de la fiche famille"),
+                 ("type_structure", "VARCHAR(40)", u"Type d'entite du dossier Noethys (NULL : famille/particulier)"),
                  ("IDcompte_payeur", "INTEGER", u"ID du compte payeur"),
                  ("IDcaisse", "INTEGER", u"ID de la caisse d'allocation"),
                  ("num_allocataire", "VARCHAR(100)", u"Numéro d'allocataire"),
