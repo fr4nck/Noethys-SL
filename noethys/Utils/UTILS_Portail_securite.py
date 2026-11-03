@@ -76,3 +76,31 @@ def ConfigurerPolitiqueSSH(client, parametres):
         return False
     client.set_missing_host_key_policy(PolitiqueEmpreinteSSH(attendue))
     return True
+
+
+class ModuleConnecthysNonFiable(ValueError):
+    """Le code du portail ne correspond pas au fichier confirme hors bande."""
+
+
+def LireModeleVerifie(chemin, empreinte):
+    """Retourne les octets EXACTS a executer si un SHA256 est configure.
+
+    Sans empreinte, renvoie None et ne change pas le chargement historique.
+    Le SHA256 doit etre releve depuis une source independante de l'echange :
+    une somme fournie avec le fichier par le meme serveur non fiable ne
+    prouve rien. Seul models.py est couvert, pas les imports relatifs.
+    """
+    if not isinstance(empreinte, str):
+        raise ModuleConnecthysNonFiable("Empreinte du modele Connecthys invalide")
+    attendue = empreinte.strip()
+    if not attendue:
+        return None
+    if not re.fullmatch(r"[0-9A-Fa-f]{64}", attendue):
+        raise ModuleConnecthysNonFiable("SHA256 models.py attendu sur 64 caracteres hexadecimaux")
+    with open(chemin, "rb") as contenu:
+        octets = contenu.read()
+    recue = hashlib.sha256(octets).hexdigest()
+    if not hmac.compare_digest(recue, attendue.lower()):
+        raise ModuleConnecthysNonFiable(
+            "Le code models.py recu ne correspond pas a l'empreinte de confiance : execution refusee")
+    return octets
