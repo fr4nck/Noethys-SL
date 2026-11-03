@@ -44,8 +44,8 @@ acomptes théoriques comme encaissés.
 - Base : **année civile**, du 1er janvier au 31 décembre, même si les inscriptions
   couvrent deux années scolaires.
 - Commune : **domicile de l'enfant** à justifier, **pas la commune du site d'accueil**.
-- Compter ensemble, sous la même rubrique **journées de fréquentation**, les états `present`, les réservations passées **facturées** et les absences injustifiées **facturées**.
-- Les absences justifiées (`absentj`) restent exclues du bilan communal, même facturées. Les réservations passées non facturées sont exclues. Les réservations futures constituent un prévisionnel.
+- Compter ensemble, sous la même rubrique **journées de fréquentation**, les états `present` et **toutes les journées facturées**, quels que soient leurs statuts (`reservation`, `absentj`, `absenti`, etc.).
+- Les absences justifiées (`absentj`) sont comptées lorsqu'elles sont facturées, et exclues sinon. Les réservations passées non facturées sont exclues. Les réservations futures constituent un prévisionnel.
 - Un enfant / un jour / un accueil compte **au maximum une journée**. Repas et
   garderies ne sont pas des journées supplémentaires. Les doublons sont rejetés.
 - Demi-journées : **aucune conversion implicite**. Le coefficient 0,5 est disponible
@@ -74,7 +74,7 @@ JSON ni dans l'état de synthèse. Les versements communaux restent saisis
 séparément sur justification, sans déduction des paiements familiaux.
 
 La sélection des unités n'est jamais devinée à partir de leur libellé. Les
-absences justifiées et anciennes réservations non facturées sont exclues. Les réservations passées facturées et absences injustifiées facturées entrent dans les journées de fréquentation. Les unités
+absences non facturées et anciennes réservations non facturées sont exclues. Toutes les journées facturées entrent dans les journées de fréquentation. Les unités
 non sélectionnées sont exclues et empêchent la certification si leur sélection
 n'a pas été explicitement qualifiée exhaustive. Tout domicile non résolu est
 écarté et signale un total potentiellement incomplet. Le changement d'adresse
@@ -88,7 +88,7 @@ L'utilitaire `consolider_export_consommations` est le noyau technique du futur
 raccordement : il accepte les consommations Noethys et un mapping **explicite**
 `IDactivite:IDunite` → convention, poids 0 / 0,5 / 1. Il rejette les unités
 non qualifiées et les chevauchements, regroupe au plus une journée par enfant
-et par jour, ignore les absences justifiées, intègre les réservations et absences injustifiées facturées au même total que les présences, et filtre la commune de résidence. Il **ne lit
+et par jour, exclut les absences non facturées et intègre toutes les journées facturées au même total que les présences, et filtre la commune de résidence. Il **ne lit
 pas** `GestionDB` et il ne prétend pas régler le suivi historique des adresses.
 
 ### Structure JSON
