@@ -1,0 +1,82 @@
+name: Noethys SL wx - fiche enfant ALSH ciblee
+
+# Qualification isolee des fonctionnalites de la fiche enfant.
+# Aucun executable, publication, migration ou acces a la base PMSL.
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - 'noethys/Dlg/DLG_Fiche_accueil_enfant.py'
+      - 'noethys/Utils/UTILS_Accueil_autorisations.py'
+      - 'noethys/Utils/UTILS_Fiche_accueil_enfant.py'
+      - 'noethys/Utils/UTILS_Accueil_sources.py'
+      - 'noethys/Utils/UTILS_Accueil_contacts.py'
+      - 'noethys/Utils/UTILS_Accueil_scolarite.py'
+      - 'noethys/Utils/UTILS_Accueil_impression.py'
+      - 'tests/test_noethys_sl_fiche_accueil_enfant.py'
+      - 'tests/test_noethys_sl_fiche_enfant_modele.py'
+      - 'tests/test_noethys_sl_accueil_*.py'
+      - '.github/workflows/noethys-sl-alsh-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Ne pas annuler la qualification ALSH au prochain push d'une autre equipe.
+concurrency:
+  group: noethys-sl-wx-alsh-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  child-form:
+    name: Fiche enfant - contrats et PDF Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\\noethys;${{ github.workspace }}\\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de test (Windows)
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Verifier syntaxe de la fiche et de ses tests
+        shell: pwsh
+        run: >-
+          python -m compileall -q
+          noethys/Dlg/DLG_Fiche_accueil_enfant.py
+          noethys/Utils/UTILS_Accueil_autorisations.py
+          noethys/Utils/UTILS_Fiche_accueil_enfant.py
+          noethys/Utils/UTILS_Accueil_sources.py
+          noethys/Utils/UTILS_Accueil_contacts.py
+          noethys/Utils/UTILS_Accueil_scolarite.py
+          noethys/Utils/UTILS_Accueil_impression.py
+          tests/test_noethys_sl_fiche_accueil_enfant.py
+          tests/test_noethys_sl_fiche_enfant_modele.py
+          tests/test_noethys_sl_accueil_autorisations.py
+          tests/test_noethys_sl_accueil_sources.py
+          tests/test_noethys_sl_accueil_contacts.py
+          tests/test_noethys_sl_accueil_scolarite.py
+          tests/test_noethys_sl_accueil_impression.py
+          tests/test_noethys_sl_accueil_wx.py
+      - name: Recette fiche enfant, autorisations et impression sur donnees fictives
+        shell: pwsh
+        run: >-
+          python -m unittest -v
+          tests.test_noethys_sl_fiche_accueil_enfant
+          tests.test_noethys_sl_fiche_enfant_modele
+          tests.test_noethys_sl_accueil_autorisations
+          tests.test_noethys_sl_accueil_sources
+          tests.test_noethys_sl_accueil_contacts
+          tests.test_noethys_sl_accueil_scolarite
+          tests.test_noethys_sl_accueil_impression
+          tests.test_noethys_sl_accueil_wx
