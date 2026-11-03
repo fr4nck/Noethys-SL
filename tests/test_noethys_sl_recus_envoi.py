@@ -166,7 +166,10 @@ class ContratsSourceTests(unittest.TestCase):
         source = (NOETHYS_DIR / "Dlg" / "DLG_Saisie_reglement.py").read_text(encoding="utf-8")
         self.assertNotIn("#return False\n\n                        succes = False", source)
         debut = source.index("dictChamps = dlg1.CreationPDF(nomDoc=nomDoc, afficherDoc=False)")
-        bloc = source[debut:debut + 2500]
+        # Le parcours est delimite par la section wx suivante, non par un
+        # nombre arbitraire de caracteres (de nouvelles gardes PDF l'allongent).
+        fin = source.index("# Mémorisation du paramètre de la taille d'écran", debut)
+        bloc = source[debut:fin]
         self.assertLess(bloc.index("if dictChamps in (False, None) :"), bloc.index("DLG_Mailer.Dialog("))
         self.assertIn(u"Le reçu n'a pas été envoyé : %s", bloc)
         self.assertEqual(bloc.count("dlg1.Destroy()"), 1)
