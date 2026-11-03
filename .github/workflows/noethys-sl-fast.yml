@@ -67,6 +67,11 @@ jobs:
       - name: Qualifier le consommateur session-attendance/1 isolé
         run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery tests.test_noethys_sl_interdomain_secrets tests.test_noethys_sl_interdomain_mailbox_client
 
+      - name: Qualifier import/export Océane et publication portail sans interface
+        env:
+          PYTHONPATH: ${{ github.workspace }}/noethys:${{ github.workspace }}
+        run: python -m unittest -v tests.test_noethys_sl_repas_oceane tests.test_noethys_sl_repas_oceane_export tests.test_noethys_sl_repas_oceane_restes tests.test_noethys_sl_oceane_portail
+
   tests-windows:
     name: Contrats metier et wxPython - Windows
     needs: syntax
