@@ -56,9 +56,11 @@ class ConsumptionCalendarPage(QWidget):
     # Il ne peut venir que d'une inscription résolue sur les clés SQL.
     familyInvoicesRequested = Signal(int)
 
-    def __init__(self, repository, parent=None, *, background=True):
+    def __init__(self, repository, parent=None, *, background=True,
+                 invoices_available=True):
         super().__init__(parent)
         self.repository = repository
+        self.invoices_available = bool(invoices_available)
         self.calendar_repository = ConsumptionCalendarRepository(repository)
         self.background = background
         self._loaded = False
@@ -253,8 +255,9 @@ class ConsumptionCalendarPage(QWidget):
         self._record_individual_id = individual_id
         self._record_inscription_id = inscription_id
         self._record_family_id = family_id
-        self.family_invoices_button.setVisible(family_id is not None)
-        self.family_invoices_button.setEnabled(family_id is not None)
+        show_invoices = family_id is not None and self.invoices_available
+        self.family_invoices_button.setVisible(show_invoices)
+        self.family_invoices_button.setEnabled(show_invoices)
         parts = []
         if individual_id is not None:
             parts.append(f"Individu #{individual_id}")
@@ -272,7 +275,9 @@ class ConsumptionCalendarPage(QWidget):
         self.focus_record()
 
     def _request_family_invoices(self) -> None:
-        if self._record_family_id is not None and self._record_inscription_id is not None:
+        if (self.invoices_available and self._record_family_id is not None
+                and self._record_inscription_id is not None
+                and self._record_individual_id is not None):
             self.familyInvoicesRequested.emit(self._record_family_id)
 
     def activate(self) -> None:
