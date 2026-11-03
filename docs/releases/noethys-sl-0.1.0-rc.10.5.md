@@ -22,9 +22,12 @@ Windows deja diffusee, ni la resolution des incidents de production.
   (sans `shell=True`, delais bornes et diagnostic), de la verification SQL et
   de la protection des anciennes archives. Le blocage `*_DOCUMENTS` de
   production et la validation d'une sauvegarde PMSL restaurable restent ouverts.
-- **#426 — facturation** : controle explicite des erreurs de verification
-  des cotisations avant calcul, sans facturer silencieusement une cotisation
-  absente. La recette des donnees reelles demeure indispensable.
+- **#426 — facturation** : lecture SQL stricte (pas de faux zero), message
+  indiquant la table et la cause MySQL sans divulguer la requete complete,
+  et un unique second essai de SELECT hors pool sur rupture reseau identifiee
+  (codes 2006, 2013, 2014, 2055). Une erreur de schema ou de droits bloque
+  toujours le controle ; aucune cotisation n'est ajoutee implicitement.
+  La cause constatee sur `pelemele` n'est pas etablie sans nouvel essai terrain.
 - **#436 — fiche enfant** : conservation des formulaires, du filtrage des
   donnees sensibles selon habilitations et du registre des autorisations.
 - **Situation ALSH des communes** : conservation du choix explicite des
