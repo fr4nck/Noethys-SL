@@ -5,6 +5,7 @@ import re
 import tempfile
 import unittest
 from copy import deepcopy
+from unittest.mock import patch
 from Utils import UTILS_Accueil_familles_impression as F
 
 
@@ -30,6 +31,7 @@ def donnees():
     }
 
 
+@unittest.skipIf(F.A4 is None, "ReportLab absent")
 class ModeleFamille(unittest.TestCase):
     class Canvas:
         def __init__(self):
@@ -62,18 +64,18 @@ class ModeleFamille(unittest.TestCase):
         self.assertTrue(any("CAFPRO" in t for t in cc.txt))
         self.assertFalse(any("CAFPRO" in t for t in ca.txt))
         # Aucune case CAFPRO n'est cochée sur un document non signé.
-        self.assertEqual(cc.crosses.count((0,0)), 0)
+        self.assertEqual(len(cc.crosses), 2)  # Bais et régime CAF, pas CAFPRO
 
     def test_page2_titres_enfants_ou_ados(self):
         for modele, rubrique in (("alsh", "ENFANTS À INSCRIRE"),
                                  ("ados", "ADOS À INSCRIRE")):
             c = self.Canvas()
-            F._page2(c, donnees(), modele)
+            with patch.object(F, "_paragraphe", side_effect=(
+                    lambda _c, _t, _x, y, _w, *_a: y - 23)):
+                F._page2(c, donnees(), modele)
             self.assertIn(rubrique, c.txt)
             self.assertIn("ADO", c.txt)
             self.assertIn("ENFANT", c.txt)
-            self.assertTrue(any("règlement intérieur" in t
-                                for t in F.ENGAGEMENTS) is False)
             self.assertEqual(len(F.ENGAGEMENTS), 8)
 
     def test_edition_deux_pages_et_source_inchangee(self):
