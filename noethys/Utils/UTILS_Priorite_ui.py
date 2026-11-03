@@ -54,7 +54,12 @@ class PrioriteUI:
         if self._poster is None:
             return
         maintenant = self._horloge()
-        if self._ping is None:
+        # _pong() modifie _ping depuis le fil wx. Une double lecture de
+        # self._ping (test None puis soustraction) provoquait parfois
+        # TypeError: float - NoneType pendant Upload_data. Utiliser ici
+        # l'instantane observe UNE seule fois pour ce calcul.
+        ping = self._ping
+        if ping is None:
             if self._dernier_ping is None or maintenant - self._dernier_ping >= PERIODE_PING_S:
                 self._dernier_ping = self._ping = maintenant
                 try:
@@ -63,7 +68,7 @@ class PrioriteUI:
                     self._poster = None  # application fermee : ne plus ralentir
                     self._ping = None
             return
-        if maintenant - self._ping < DELAI_OCCUPE_S:
+        if maintenant - ping < DELAI_OCCUPE_S:
             return
         if self._reprise is not None and maintenant < self._reprise:
             return
