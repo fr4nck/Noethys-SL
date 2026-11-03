@@ -150,10 +150,9 @@ class RegistreConventions:
                 raise ConventionInvalide('Connexion SQLite invalide') from erreur
         else:
             get_auto = getattr(connexion, 'get_autocommit', None)
-            if callable(get_auto) and get_auto():
-                raise ConventionInvalide('MySQL : autocommit desactive obligatoire')
-            if getattr(connexion, 'autocommit', False) is True:
-                raise ConventionInvalide('MySQL : autocommit desactive obligatoire')
+            demarrer = getattr(connexion, 'begin', None)
+            if not callable(get_auto) or get_auto() is not False or not callable(demarrer):
+                raise ConventionInvalide('MySQL : autocommit OFF et begin() explicite requis')
         self.connexion = connexion
         self.dialecte = dialecte
         self.param = '?' if dialecte == 'sqlite' else '%s'
@@ -185,6 +184,8 @@ class RegistreConventions:
             if self.connexion.in_transaction:
                 raise ConventionConflit('Une connexion reservee hors transaction est necessaire')
             self.connexion.execute('BEGIN IMMEDIATE')
+        else:
+            self.connexion.begin()
         try:
             valeur = operation()
             self.connexion.commit()
