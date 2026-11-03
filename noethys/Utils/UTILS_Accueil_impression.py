@@ -127,7 +127,7 @@ def _page1(c, data):
               p.get("telephone", ""), largeur=w - 20)
         top -= 79
 
-    _boite(c, x, top, w, 130, SECTIONS_P1[3])
+    _boite(c, x, top, w, 156, SECTIONS_P1[3])
     c.setFont("Helvetica-Bold", 7.5)
     for i, nom in enumerate((u"Nom", u"Prénom", u"Lien de parenté", u"N° téléphone")):
         c.drawCentredString(x + 63 + i * (w / 4), top - 39, nom)
@@ -154,7 +154,23 @@ def _page1(c, data):
             c.drawString(
                 x + 9 + j * (w / 4), top - 54 - i * 15,
                 _tronc(valeur, "Helvetica", 7.3, w / 4 - 16))
-    top -= 138
+    # Autorisation complementaire : le depart seul ne se deduit pas du
+    # tableau des accompagnants et requiert une reponse independante.
+    c.setFont("Helvetica-Bold", 8.2)
+    c.drawString(x + 10, top - 143,
+                 u"Autorisé(e) à quitter l'ALSH seul(e) :")
+    statut_depart = (data.get("autorisations") or {}).get(
+        "depart_seul", "non_renseigne")
+    if statut_depart in ("expire", "a_verifier"):
+        c.setFont("Helvetica-Oblique", 8.2)
+        c.drawString(x + 352, top - 143, u"À vérifier")
+    else:
+        _checkbox(c, x + 350, top - 151, statut_depart == "oui")
+        c.setFont("Helvetica", 8.2)
+        c.drawString(x + 364, top - 143, u"Oui")
+        _checkbox(c, x + 410, top - 151, statut_depart == "non")
+        c.drawString(x + 424, top - 143, u"Non")
+    top -= 164
 
     _boite(c, x, top, w, 54, SECTIONS_P1[4])
     _cell(c, x + 10, top - 38, u"Dernier DT Polio / vaccins :",
