@@ -148,12 +148,25 @@ class Dialog(wx.Dialog):
                 liste_activites=params["listeActivites"],
                 IDcompte_payeur=params["IDcompte_payeur"])
         except Exception as err:
-            wx.MessageBox(
-                _(u"Impossible de vérifier les cotisations automatiques. "
-                  u"Aucune cotisation n'a été créée.\n\n%s") % err,
-                _(u"Cotisations - vérification nécessaire"),
-                wx.OK | wx.ICON_ERROR, self)
-            return False
+            # Proposer() est en lecture seule. Ne pas confondre échec de
+            # vérification et absence de cotisations dues : choix explicite.
+            import traceback
+            pile = traceback.extract_tb(err.__traceback__)
+            origine = pile[-1] if pile else None
+            lieu = (u" (%s:%d)" % (
+                origine.filename.replace("\\", "/").split("/")[-1],
+                origine.lineno)) if origine else ""
+            message = _(
+                u"La vérification des cotisations automatiques a échoué. "
+                u"AUCUNE nouvelle cotisation n'a été créée.\n\n"
+                u"Oui : préparer les factures avec les prestations déjà "
+                u"enregistrées uniquement. Certaines cotisations peuvent "
+                u"manquer et devront être vérifiées avant émission.\n"
+                u"Non : rester sur cette page pour corriger le problème.\n\n"
+                u"Cause technique : %s%s") % (err, lieu)
+            return wx.MessageBox(
+                message, _(u"Cotisations automatiques non vérifiées"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self) == wx.YES
         if propo["a_verifier"]:
             message = _(u"%d situation(s) d'adhésion nécessitent une vérification "
                         u"(participations antérieures, chevauchements ou payeur).\n"
