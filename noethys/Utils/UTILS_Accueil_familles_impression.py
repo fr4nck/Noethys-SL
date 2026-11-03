@@ -6,13 +6,17 @@ UTILS_Accueil_familles. Aucun envoi, aucune écriture SQL, aucun consentement
 CAFPRO déduit. Les engagements du formulaire restent à signer.
 """
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.colors import HexColor
-from reportlab.pdfbase.pdfmetrics import stringWidth
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import ParagraphStyle
 from xml.sax.saxutils import escape
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.colors import HexColor
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    from reportlab.pdfgen import canvas
+    from reportlab.platypus import Paragraph
+    from reportlab.lib.styles import ParagraphStyle
+except ImportError:
+    A4 = None  # le reste de l'interface reste utilisable sans ReportLab
 
 SITES_ALSH = ("LA GUERCHE", "MOUTIERS", "BAIS")
 MODEL_ALSH = "alsh"
@@ -248,6 +252,8 @@ def GenererPDF(destination, donnees, modele="alsh", site="", annee="2026-2027"):
         raise ValueError("Aucun enfant sélectionné pour cette édition")
     if len(enfants) > 4:
         raise ValueError("Le modèle papier comporte 4 lignes d'enfants maximum")
+    if A4 is None:
+        raise RuntimeError("ReportLab est nécessaire pour éditer une fiche famille PDF")
     fichier = canvas.Canvas(destination, pagesize=A4, pageCompression=1)
     fichier.setAuthor(u"Pêle-Mêle Sports et Loisirs / Noethys-SL")
     fichier.setTitle(u"Fiche famille Club ados" if modele == MODEL_ADOS
