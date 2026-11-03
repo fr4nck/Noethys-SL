@@ -11,6 +11,13 @@ Windows deja diffusee, ni la resolution des incidents de production.
   Les attentes de 1 et 30 secondes du worker Connecthys sont interruptibles.
   La fermeture acceptee arrete le worker ; une sauvegarde annulee ne le stoppe
   pas et conserve la fenetre ouverte.
+- **S1 — securite du client Connecthys (opt-in)** : champ facultatif
+  `ssh_host_key_sha256` (empreinte SHA256 de la cle publique hote verifiee
+  independamment) ; une autre cle est rejetee pendant l'echange SSH, avant
+  l'authentification. Les deux clients SSH du produit utilisent ce controle.
+  Si le champ est vide, politique historique inchangee : le serveur
+  Connecthys d'Ivan Lucas ne requiert aucune mise a jour. Les messages de
+  diagnostic n'affichent plus les URL contenant les jetons de synchronisation.
 - **#437 — sauvegardes MySQL** : conservation de l'export `mysqldump` surveille
   (sans `shell=True`, delais bornes et diagnostic), de la verification SQL et
   de la protection des anciennes archives. Le blocage `*_DOCUMENTS` de
@@ -29,6 +36,11 @@ Les travaux non qualifies sur `wx` ne sont pas annonces comme correctifs
 valides par la presente note.
 
 ## Barriere Windows avant publication
+
+La validation du **vrai** serveur Connecthys historique n'est pas realisee
+par les tests de cles publiques factices. Ne pas activer l'empreinte sur
+le profil PMSL tant qu'elle n'a pas ete verifiee directement aupres de
+l'hebergeur, puis qualifiee sur un profil de recette.
 
 1. CI rapide Windows `wx` PASS sur le SHA exact retenu, y compris fermeture
    Connecthys, controle des autorisations et garde-reseau.
@@ -60,10 +72,14 @@ une mise a jour du serveur Connecthys de l'association.
   les reinitialiser et sans migration de base ou de profil de production.
 - Renforcer les verifications **cote client** sans changer les donnees
   echangees : fermeture des transports, controles d'integrite et
-  journalisation sans secrets. Pour la cle hote SSH, preparer une methode
-  d'enregistrement/verrouillage de la cle **apres validation hors bande**,
-  avec procedure de transition et retour arriere ; ne pas remplacer
-  aveuglement `AutoAddPolicy` par un refus qui couperait la production.
+  journalisation sans secrets. Pour la cle hote SSH, une **empreinte SHA256
+  facultative** peut etre saisie dans Parametrage > Connecthys > SSH/SFTP,
+  uniquement apres une validation independante par l'hebergeur. Aucune
+  empreinte n'est acceptee automatiquement comme preuve de confiance :
+  la relever par la seule connexion suspecte ne garantit rien.
+  Une empreinte saisie refuse les cles differentes, sans modification du
+  serveur ni de son protocole ; champ vide = compatibilite historique
+  avec `AutoAddPolicy`, qui reste un risque residuel explicite.
 - Le chargement de `models.py` fait partie du protocole actuel, mais son
   execution est une surface a risque. Etudier verification de provenance,
   permissions minimales et isolation sans remplacer le contrat du
