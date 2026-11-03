@@ -20,6 +20,7 @@ import ftplib
 import zipfile
 import shutil
 import json
+import tempfile
 import six
 from six.moves.urllib.request import Request, urlopen
 from six.moves.urllib.parse import quote
@@ -307,37 +308,60 @@ class Synchro():
             else :
                 self.dict_parametres["mdp_autoriser_reinitialisation"] = False
 
-        # Génération du fichier
+        # Generer la config avec un fichier de travail prive (0600 sur POSIX),
+        # puis remplacer atomiquement tout ancien fichier du meme nom.
+        # On ne touche ni au contenu ni au chemin distant du Connecthys original.
         nomFichier = "config.py"
         nomFichierComplet = UTILS_Fichiers.GetRepTemp(fichier=nomFichier)
-        fichier = codecs.open(nomFichierComplet, 'w', encoding='utf8')
-        for ligne in liste_lignes :
-            fichier.write(ligne)
-        fichier.close()
+        descripteur, fichierPrive = tempfile.mkstemp(
+            prefix=".connecthys-config-", dir=os.path.dirname(nomFichierComplet))
+        try:
+            with os.fdopen(descripteur, "w", encoding="utf8") as fichier:
+                for ligne in liste_lignes:
+                    fichier.write(ligne)
+            os.replace(fichierPrive, nomFichierComplet)
+        finally:
+            if os.path.isfile(fichierPrive):
+                os.remove(fichierPrive)
 
-        # Mode WSGI : Comparaison des 2 fichiers de config
-        dirty_config = True
-        #if self.dict_parametres["serveur_type"] == 2 :
-        self.log.EcritLog(_(u"Téléchargement du fichier de config"))
-        resultat = self.TelechargeFichier(ftp=ftp, nomFichier="config.py", repFichier="application/data")
-        if resultat != False :
-            fichier_online = open(os.path.join(resultat[0], resultat[1]), "r")
-            liste_lignes_online = fichier_online.readlines()
-            fichier_online.close()
+        try:
+            # Comparer la version distante pour eviter les ecritures inutiles.
+            dirty_config = True
+            self.log.EcritLog(_(u"Téléchargement du fichier de config"))
+            resultat = self.TelechargeFichier(
+                ftp=ftp, nomFichier="config.py", repFichier="application/data")
+            if resultat != False:
+                fichierDistant = os.path.join(resultat[0], resultat[1])
+                try:
+                    with open(fichierDistant, "r", encoding="utf8") as fichier:
+                        liste_lignes_online = fichier.readlines()
+                    if liste_lignes_online == liste_lignes:
+                        dirty_config = False
+                finally:
+                    # L'ancienne copie telechargee contient aussi des secrets.
+                    if os.path.isfile(fichierDistant):
+                        os.remove(fichierDistant)
 
-            # Comparaison du fichier en ligne et du fichier généré
-            if liste_lignes_online == liste_lignes :
-                dirty_config = False
+            if dirty_config:
+                # Ne jamais considerer un transfert refuse comme un succes.
+                if self.UploadFichier(
+                        ftp=ftp, nomFichierComplet=nomFichierComplet,
+                        repDest="application/data") is not True:
+                    self.log.EcritLog(
+                        _(u"[ERREUR] Configuration Connecthys non envoyee."))
+                    return False
 
-        if dirty_config == True :
-            # Upload du fichier de config
-            self.UploadFichier(ftp=ftp, nomFichierComplet=nomFichierComplet, repDest="application/data")
+                # Un echec de reload n'est pas une synchronisation reussie.
+                if self.dict_parametres["serveur_type"] == 2:
+                    if self.AutoReloadWSGI(ftp) is False:
+                        return False
 
-            # Auto reload WSGI
-            if self.dict_parametres["serveur_type"] == 2 :
-                self.AutoReloadWSGI(ftp)
-
-        return True
+            return True
+        finally:
+            # Le contenu genere contient la cle secrete et les mots de passe :
+            # ne jamais conserver une copie permanente dans Temp/<pid>.
+            if os.path.isfile(nomFichierComplet):
+                os.remove(nomFichierComplet)
 
     def AutoReloadWSGI(self, ftp=None):
         if ftp == None :
