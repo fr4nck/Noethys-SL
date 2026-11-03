@@ -79,7 +79,7 @@ jobs:
 
       # Tests SFTP purement fictifs : coupure avant rename, corruption et
       # acquittement perdu apres rename ; aucune connexion de production.
-      - name: RC10.5 lots A-B-C - sauvegardes, recus, fiches (hors production)
+      - name: RC10.5 jalons A-B-C-D - audits, recus, fiche famille, ping wx
         run: >-
           python -m unittest -v
           tests.test_rc105_lot_a_archive
