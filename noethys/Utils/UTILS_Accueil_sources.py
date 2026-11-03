@@ -91,6 +91,18 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
 
 
 
+def FormaterMedecin(medecin):
+    """Nom, lieu et telephone du medecin deja rattache a l'enfant."""
+    if not medecin:
+        return ""
+    identite = " ".join(str(medecin.get(k) or "").strip()
+                       for k in ("nom", "prenom")).strip()
+    commune = " ".join(str(medecin.get(k) or "").strip()
+                       for k in ("cp", "ville")).strip()
+    telephone = str(medecin.get("telephone") or "").strip()
+    return u" — ".join(x for x in (identite, commune, telephone) if x)
+
+
 def _mot_cle(texte):
     texte = str(texte or "").casefold()
     return "".join(c for c in unicodedata.normalize("NFKD", texte)
