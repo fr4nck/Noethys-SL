@@ -84,6 +84,7 @@ jobs:
           python -m unittest -v
           tests.test_rc105_lot_a_archive
           tests.test_rc105_lot_a_publication
+          tests.test_rc105_lot_a_restauration_trio
           tests.test_rc105_lot_b_recus_pdf
           tests.test_rc105_lot_c_famille_pdf
           tests.test_rc105_lot_d_ping_concurrence
@@ -164,6 +165,7 @@ jobs:
           tests.test_noethys_sl_recus_envoi
           tests.test_rc105_lot_a_archive
           tests.test_rc105_lot_a_publication
+          tests.test_rc105_lot_a_restauration_trio
           tests.test_rc105_lot_b_recus_pdf
           tests.test_rc105_lot_c_famille_pdf
           tests.test_rc105_lot_d_ping_concurrence
