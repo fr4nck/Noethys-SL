@@ -251,7 +251,12 @@ class Dialog(wx.Dialog):
         importer = wx.Button(self, label="Charger les presences Noethys...")
         importer.Bind(wx.EVT_BUTTON, self.OnImporterNoethys)
         barre_import.Add(importer)
+        bouton_details = wx.Button(self, label="Détail par enfant / adresse datée...")
+        bouton_details.Bind(wx.EVT_BUTTON, self.OnDetailsDomiciles)
+        barre_import.Add(bouton_details, 0, wx.LEFT, 8)
         self.root.Add(barre_import, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 12)
+        self.root.Add(wx.StaticText(self, label="Attention : l'ancien import mensuel utilise l'adresse actuelle. Pour les déménagements et justificatifs nominatifs, utilisez le détail daté C3."),
+                      0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.liste_jours = self._liste([("Reference", 125), ("Mois", 70), ("Accueil", 145),
                                       ("Nature", 130), ("Jours-enfants", 125), ("Source", 285)])
         self.liste_jours.SetMinSize((-1, 145))
@@ -467,6 +472,11 @@ class Dialog(wx.Dialog):
             return self._message("La convention comporte des journees ou acomptes : les retirer d'abord.")
         self.dossier["conventions"].pop(index)
         self.Rafraichir()
+
+    def OnDetailsDomiciles(self, event):
+        """Ouverture de la frequentation nominative avec domiciles dates."""
+        from Dlg import DLG_ALSH_Commune_C3
+        DLG_ALSH_Commune_C3.ouvrir(self)
 
     def OnImporterNoethys(self, event):
         """Lit les consommations du fichier ouvert sans modifier la base."""
