@@ -125,6 +125,15 @@ class ReferentielTests(unittest.TestCase):
         with self.assertRaisesRegex(R.ReferentielInvalide, "appartient à l'activité"):
             R.ValiderReferentiel(ref, groupes_dict())
 
+    def test_neuf_onze_nest_validable_quavec_equipement_et_piece(self):
+        ref = R.ValiderReferentiel(referentiel(), groupes_dict())
+        self.assertFalse(R.StatutSite(ref, R.MINICAMPS_9_11, "extrascolaire")[0])
+        ref["sites"][R.MINICAMPS_9_11]["equipement"] = "LA_GUERCHE_MOUTIERS"
+        self.assertFalse(R.StatutSite(ref, R.MINICAMPS_9_11, "extrascolaire")[0])
+        ref["justificatifs"][R.MINICAMPS_9_11] = "Déclaration ACM fictive"
+        self.assertEqual(R.StatutSite(R.ValiderReferentiel(ref, groupes_dict()),
+                                      R.MINICAMPS_9_11, "extrascolaire"), (True, ""))
+
     def test_minicamps_pmsl_proposes_la_guerche_sans_forcer_les_anciens(self):
         for site in R.MINICAMPS:
             with self.subTest(site=site):
