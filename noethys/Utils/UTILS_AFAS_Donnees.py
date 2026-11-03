@@ -50,6 +50,25 @@ from Utils import UTILS_Ouvertures
 
 _LABEL_AEEH = "AEEH"
 
+# AFAS : selection propre a chaque indicateur, independante de l'etat global.
+# Ancien profil sans ces cles : les presences seules sont retenues.
+_ETATS_AFAS = ("present", "reservation", "absentj", "absenti")
+
+
+def SelectionEtatsAFAS(options, cle):
+    """Validation fail-closed des etats AFAS par indicateur."""
+    if cle not in ("afas_etats_reels", "afas_etats_factures"):
+        raise ValueError("Metrique AFAS inconnue : %s" % cle)
+    valeurs = options.get(cle, ["present"])
+    if (not isinstance(valeurs, (list, tuple)) or not valeurs
+            or any(type(v) is not str or v not in _ETATS_AFAS for v in valeurs)
+            or len(valeurs) != len(set(valeurs))):
+        raise ValueError("Etats AFAS invalides pour %s : selectionner des etats distincts et connus." % cle)
+    if cle == "afas_etats_reels" and "reservation" in valeurs:
+        raise ValueError("Les reservations non pointees ne sont pas des heures realisees AFAS.")
+    return list(valeurs)
+
+
 
 def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, dict_options,
                               dictInfosIndividus_aeeh):
@@ -110,15 +129,14 @@ def GetDonneesAFAS(IDactivite, IDgroupe, annee, phase, dictUnites_reel, dictUnit
     (typeCalcul=2, prestations.temps_facture) -- même moteur, même
     déduplication par IDprestation déjà en place, aucune redéfinition.
 
-    Les deux calculs portent sur le MÊME périmètre, les mêmes bornes de
-    dates et les mêmes filtres de `dict_options` (état/période/jours
-    ouvrés-vacances/plafond), donc les mêmes consommations éligibles --
-    seule la configuration des unités diffère entre réel et facturé,
-    exactement comme le moteur le permet déjà. Seule exception
-    volontaire : le forfait de présence méridienne n'est jamais appliqué
-    côté facturé (cf. docstring du module) -- le run facturé reçoit une
-    copie de `dict_options` avec `forfait_presence_midi` forcé à 0,
-    jamais `dict_options` lui-même (jamais muté).
+    Les deux calculs portent sur le MÊME périmètre et les mêmes bornes de
+    dates. Leurs états sont sélectionnés séparément par
+    `afas_etats_reels` et `afas_etats_factures` (par défaut :
+    "present" seulement, sans hériter des filtres de l'état global).
+    Les autres filtres du profil (période, jours ouverts/vacances,
+    plafonds) restent identiques. Le forfait méridien ne s'applique
+    jamais au calcul facturé, qui reçoit sa propre copie des options.
+    Le dictionnaire d'options de l'appelant n'est jamais modifié.
 
     Le sous-total AEEH est déterminé une seule fois par phase (pas par
     jour) : un individu dont le droit AEEH est actif à `date_situation`
@@ -152,18 +170,20 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
     liste_individus_aeeh = UTILS_AEEH_Periodes.GetIndividusActifsADate(date_situation)
     dictInfosIndividus_aeeh = {IDindividu: {"INDIVIDU_NOM_COMPLET": _LABEL_AEEH} for IDindividu in liste_individus_aeeh}
 
+    options_reel = dict(dict_options)
+    options_reel["etat_consommations"] = SelectionEtatsAFAS(dict_options, "afas_etats_reels")
+    options_facture = dict(dict_options)
+    options_facture["etat_consommations"] = SelectionEtatsAFAS(dict_options, "afas_etats_factures")
+    options_facture["forfait_presence_midi"] = 0
+
     heures_reelles, heures_reelles_aeeh = _sommer_par_regroupement(
-        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_reel, dict_options, dictInfosIndividus_aeeh,
+        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_reel, options_reel, dictInfosIndividus_aeeh,
     )
 
-    # Verdict vérifié sur données réelles PMSL (cf. docstring module) :
-    # prestations.temps_facture inclut déjà le midi quand la durée
-    # facturée le couvre -- jamais de copie non modifiée de dict_options
-    # ici, jamais de mutation du dict_options fourni par l'appelant.
-    dict_options_facture = dict(dict_options)
-    dict_options_facture["forfait_presence_midi"] = 0
+    # Le temps facture inclut deja le midi lorsqu'il est facture dans
+    # prestations.temps_facture : ne jamais ajouter de forfait midi ici.
     heures_facturees, heures_facturees_aeeh = _sommer_par_regroupement(
-        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, dict_options_facture, dictInfosIndividus_aeeh,
+        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, options_facture, dictInfosIndividus_aeeh,
     )
 
     jours_ouverts = len(set(date for activite, groupe in perimetres
