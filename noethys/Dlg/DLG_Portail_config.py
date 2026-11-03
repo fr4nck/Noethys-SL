@@ -77,6 +77,7 @@ VALEURS_DEFAUT = {
     "ssh_serveur" : "127.0.0.1",
     "ssh_port" : "22",
     "ssh_key_file" : "",
+    "ssh_host_key_sha256" : "",
     "ssh_utilisateur" : "",
     "ssh_mdp" : "",
     "ssh_repertoire" : "/tmp/connecthys",
@@ -215,6 +216,7 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
             ("ssh_utilisateur", "p('hebergement_type') == 2"),
             ("ssh_mdp", "p('hebergement_type') == 2"),
             ("ssh_key_file", "p('hebergement_type') == 2"),
+            ("ssh_host_key_sha256", "p('hebergement_type') == 2"),
             ("ssh_repertoire", "p('hebergement_type') == 2"),
 
             ("db_serveur", "p('db_type') == 1"),
@@ -379,6 +381,14 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
         nom = "ssh_port"
         propriete = wxpg.StringProperty(label=_(u"Port du serveur SSH"), name=nom, value=VALEURS_DEFAUT[nom])
         propriete.SetHelpString(_(u"Saisissez le numéro de port SSH (22 par défaut)"))
+        self.Append(propriete)
+
+        # Empreinte de la cle HOTE SSH, distincte de la cle de connexion utilisateur.
+        # Facultatif : vide = comportement du Connecthys original, sans rupture.
+        nom = "ssh_host_key_sha256"
+        propriete = wxpg.StringProperty(label=_(u"Empreinte du serveur SSH (SHA256)"),
+                                       name=nom, value=VALEURS_DEFAUT[nom])
+        propriete.SetHelpString(_(u"Option de securite facultative. Saisissez SHA256:... uniquement apres verification de l'empreinte par un canal independant aupres de l'hebergeur. Une empreinte differente refusera la connexion. Laissez vide pour le mode historique."))
         self.Append(propriete)
 
         # SSH key file
