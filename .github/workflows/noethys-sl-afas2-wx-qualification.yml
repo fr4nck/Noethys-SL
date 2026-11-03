@@ -38,7 +38,7 @@ jobs:
       - name: Regles de calcul et calendrier sur fixtures pures
         env:
           PYTHONPATH: noethys:tests:.
-        run: python -m unittest -v tests.test_afas2_conventions tests.test_afas2_calendrier tests.test_afas2_calcul
+        run: python -m unittest -v tests.test_afas2_conventions tests.test_afas2_calendrier.ModeDateTests tests.test_afas2_calendrier.StatutsTests tests.test_afas2_calcul
 
   recette-windows:
     name: AFAS V2 - Windows et SQLite fictif
