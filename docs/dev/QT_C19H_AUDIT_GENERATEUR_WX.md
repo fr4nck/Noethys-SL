@@ -77,6 +77,45 @@ ENTIÈREMENT INVENTÉES ; ne doit jamais émettre une facture réelle.**
    contrainte unique dont le préfixe est `NULL` peut tolérer
    des numéros identiques. **8 tests** prévus par moteur MySQL.
 
+## Qualifications CI effectuées sur les fonctions historiques
+
+**Code du banc C19h :** commit
+[`c3ec2f431925`](https://github.com/fr4nck/Noethys-SL/commit/c3ec2f4319259c6e1e46490771584fbb7c90111a).
+
+- **[Recette sans wx 41701354564](https://github.com/fr4nck/Noethys-SL/actions/runs/41701354564)** :
+  **14/14 tests PASS Ubuntu et 14/14 tests PASS Windows**.
+  Les fonctions wx extraites ont été exécutées directement contre SQLite
+  `:memory:`. L'injection d'une panne sur le deuxième rattachement
+  confirme que la fonction renvoie un identifiant de facture bien que
+  la deuxième prestation soit restée sans `IDfacture`.
+- **[Recette MySQL 41701634109](https://github.com/fr4nck/Noethys-SL/actions/runs/41701634109)** :
+  **8/8 PASS MySQL 5.7.44 et 8/8 PASS MySQL 8.0.40**, sur le **même
+  code historique extrait par AST**, mais en utilisant sa branche
+  MySQL d'origine. Un trigger fictif force la panne de mise à jour.
+  Les deux threads synchronisés reproduisent une réutilisation du
+  numéro de facture dans une projection *sans unicité*, et
+  le rattachement final d'une prestation à un seul des deux en-têtes.
+  Les tests constatent également la perte de représentation exacte
+  d'un montant stocké en `FLOAT`.
+- Premier run MySQL
+  [41701354702](https://github.com/fr4nck/Noethys-SL/actions/runs/41701354702) :
+  **8/8 PASS 5.7**, mais 8.0 bloqué avant tests par l'erreur MySQL
+  `1419` lors de la création du trigger de panne fictive.
+  Le correctif **exclusivement CI** au commit
+  [`0c9556ec`](https://github.com/fr4nck/Noethys-SL/commit/0c9556ec675bbcc510a65bedaa4a141960fbf3d9)
+  applique `log_bin_trust_function_creators=1` uniquement au conteneur
+  Docker **éphémère MySQL 8.0** ; il n'altère pas la configuration
+  d'un serveur persistant ou de production. Le deuxième run réussit
+  intégralement.
+
+**Verdict expérimental :** la possibilité d'une facture partielle
+signalée comme créée et celle de numéros dupliqués dans une base ne
+possédant pas de contrainte d'unicité sont **reproduites**.
+La réalité de ces anomalies sur les bases d'association reste
+**NON DÉMONTRÉE** et n'a pas été recherchée ; il faudra vérifier
+séparément l'inventaire des index, des factures et des prestations,
+en lecture seule et avec accord explicite, avant tout traitement.
+
 ## Portée et limites des preuves
 
 Ce laboratoire **n'exécute PAS le programme wx intégral**, ni
