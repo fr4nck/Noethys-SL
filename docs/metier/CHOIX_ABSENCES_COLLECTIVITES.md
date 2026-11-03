@@ -4,10 +4,10 @@
 
 Le module **Facturation > Situation des communes (ALSH)** distingue :
 
-- les journees-enfants **presentes** (`present`), et les reservations passees ou absences injustifiees **facturees** : toutes dans la meme categorie de frequentation ;
+- les journees-enfants **presentes** (`present`), et toutes les journees **facturees**, y compris reservations, absences justifiees et injustifiees : toutes dans la meme categorie de frequentation ;
 - les **absences injustifiees non facturees** (`absenti`), comptabilisees uniquement sur choix explicite de l'utilisateur, en simulation ;
 - les reservations `reservation` du futur, isolees dans les previsions ;
-- les absences justifiees `absentj` (meme facturees), attentes `attente` et refus `refus`, non retenus pour le bilan communal.
+- les absences sans facture en vigueur (`absentj`, `attente`, `refus`, etc.) exclues du bilan communal.
 
 Le choix se fait par **commune, annee et dossier** avec la case « Compter les absences
 injustifiees », **decochee par defaut**. Les factures des absences injustifiees sont prises en compte par defaut, meme dans un ancien dossier. L'option permet seulement d'ajouter des absences non facturees. Le choix est enregistre dans le JSON local du dossier.
@@ -20,7 +20,7 @@ et le parametre est transmis sans utiliser de controle wx dans un thread seconda
 ## Calcul
 
 ```
-Participation = (journees presentes + reservations passees facturees + absences injustifiees facturees) * tarif conventionnel
+Participation = (journees presentes + toutes les autres journees facturees) * tarif conventionnel
               + absences injustifiees non facturees * tarif conventionnel [simulation optionnelle]
               + journees futures reservees * tarif conventionnel
 Solde indicatif = participation - acomptes communaux recus et affectes a N
@@ -37,7 +37,7 @@ la commune/convention doit etre apportee avant la transmission comme solde defin
 ## Qualification
 
 Tests de regression sur SQLite fictif, aucun acces ni modification de production :
-choix par defaut et opt-in, exclusion `absentj`/`attente`/`refus`, `absenti` futur,
+choix par defaut et opt-in, exclusion des absences non facturees, inclusion de tous les statuts factures,
 calculs et cache Excel, double comptage, integrite de la provenance, export PDF/CSV,
 refus d'option incoherente ou d'un changement de perimetre sans reimport. Pas de
 reconstruction d'executable Windows ni de test runtime wx dans cet environnement.
