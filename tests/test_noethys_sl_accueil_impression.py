@@ -98,6 +98,26 @@ class EditionDeuxPages(unittest.TestCase):
         # Les personnes figurent dans les cellules et non dans le titre.
         self.assertTrue(any(texte == "TANTE" for _x, _y, texte in c.textes))
 
+    def test_page2_affiche_pai_allergies_traitements_et_consignes(self):
+        class FauxCanvas:
+            def __init__(self):
+                self.textes = []
+            def drawString(self, x, y, texte):
+                self.textes.append(texte)
+            def __getattr__(self, nom):
+                return lambda *args, **kwargs: None
+
+        c = FauxCanvas()
+        Impression._page2(c, {
+            "pai": "PAI mentionné : Asthme fictif",
+            "allergies": "Allergie aux arachides",
+            "traitement": "Traitement fictif",
+            "medical": ["Asthme fictif - consigne fictive"],
+        })
+        for mot in ("PAI mentionné", "Allergie aux arachides",
+                    "Traitement fictif", "consigne fictive"):
+            self.assertTrue(any(mot in texte for texte in c.textes), msg=mot)
+
     def test_sans_medical_ne_lit_pas_de_base(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = os.path.join(tmp, "fiche.pdf")
