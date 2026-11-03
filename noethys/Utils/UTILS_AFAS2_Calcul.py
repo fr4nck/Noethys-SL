@@ -328,10 +328,27 @@ class Calculateur(object):
 
     def _Jour(self, IDindividu, date, consos, anomalies, lignes):
         mode_jour = Calendrier.ModeDate(date, self.ctx["calendrier"], self.samedis)
+        # Deux passes : la présence d'un repas ne prouve pas à elle seule
+        # un accueil réalisé. La preuve doit concerner le même site/jour,
+        # et une unité principale déjà qualifiée comme retenue.
+        qualifies = [(c,) + self._Qualifier(c, mode_jour, anomalies)
+                     for c in sorted(consos, key=lambda c: (str(c.get("heure_debut")), c.get("IDconso") or 0))]
+        accueils_presents = {
+            (c["IDactivite"], c["IDgroupe"])
+            for c, statut, _ in qualifies
+            if statut == "retenue" and c.get("etat") in self.etats_realise
+            and self.unites[c["IDunite"]]["categorie"] in CATEGORIES_PLAGE_PERI
+        }
         retenues = []
-        for conso in sorted(consos, key=lambda c: (str(c.get("heure_debut")), c.get("IDconso") or 0)):
-            statut, motif = self._Qualifier(conso, mode_jour, anomalies)
+        for conso, statut, motif in qualifies:
             unite = self.unites.get(conso["IDunite"], {})
+            if (statut == "retenue" and conso.get("etat") in self.etats_realise
+                    and unite.get("categorie") == "repas"
+                    and (conso["IDactivite"], conso["IDgroupe"]) not in accueils_presents):
+                self._anomalie(anomalies, conso,
+                               "Repas présent sans accueil principal présent le même jour et sur le même site",
+                               "Calcul bloqué : vérifier Journée/Matin/Après-midi ; aucune heure de repas attribuée")
+                statut, motif = "bloquee", "repas isolé : présence principale à vérifier"
             lignes.append({"date": date, "IDindividu": IDindividu, "individu": conso.get("individu", ""),
                            "IDconso": conso.get("IDconso"), "IDactivite": conso["IDactivite"], "IDgroupe": conso["IDgroupe"],
                            "site": self.couples[(conso["IDactivite"], conso["IDgroupe"])],

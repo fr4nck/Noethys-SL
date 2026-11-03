@@ -19,6 +19,22 @@ d'aucune unité Journée, Matin ou Après-midi présente. Les **295** cas
 hors journée complète exigent une vérification particulière des horaires
 de repas et des pointages. Ce décompte n'est pas une durée CAF.
 
+## Confirmation métier du 03/11/2026 et repas sans accueil
+
+La direction confirme la plage **12:30–13:30** de l'unité `Repas` (ID 2,
+type Unitaire). Cette valeur peut être inscrite **dans les presets
+de recette AFAS V2**, sans écriture dans la base MySQL de production.
+Les plages `12:00–13:30` utilisées dans certains tests sont fictives
+et ne remplacent pas l'horaire réel.
+
+**Contrôle supplémentaire :** un repas `present` sans consommation
+`present` et qualifiée d'une unité principale (`accueil`, `journee`
+ou `demi_journee`) du **même site, même enfant, même date** devient
+une anomalie bloquante, sans heure de repas comptabilisée.
+Une garderie, une réservation, une absence ou un accueil sur un autre
+site ne suffit pas à valider le repas isolé. Les trois cas identifiés
+dans la sauvegarde doivent être vérifiés avant déclaration.
+
 ## Règle corrective sur wx
 
 - Les catégories horaires classiques continuent d'exiger la **concordance
