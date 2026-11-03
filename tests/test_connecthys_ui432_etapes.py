@@ -330,7 +330,15 @@ class ReactiviteWindowsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     if "--sqlite" in sys.argv:
-        grille_sqlite()
+        # Diagnostic du sous-processus Windows sans modifier son timeout :
+        # si l'initialisation wx/SQLite bloque, capturer sa pile.
+        import faulthandler
+        faulthandler.enable()
+        faulthandler.dump_traceback_later(20, repeat=False)
+        try:
+            grille_sqlite()
+        finally:
+            faulthandler.cancel_dump_traceback_later()
     elif "--pannes" in sys.argv:
         pannes()
     elif any(a in sys.argv for a in ("--baseline", "--corrige", "--inspect", "--lente")):
