@@ -52,7 +52,7 @@ def lister_unites(annee, db=None, inclure_absenti=False):
           LEFT JOIN factures AS f ON f.IDfacture=p.IDfacture
           WHERE c.date >= '%04d-01-01' AND c.date <= '%04d-12-31'
             AND (c.etat IN ('present', 'reservation'%s)
-                 OR (c.etat IN ('absent', 'absentj', 'absenti')
+                 OR (c.etat = 'absenti'
                      AND f.IDfacture IS NOT NULL
                      AND (f.etat IS NULL OR f.etat != 'annulation')
                      AND (p.montant IS NULL OR p.montant >= 0)))
@@ -96,7 +96,7 @@ def resoudre_villes(individus):
 
 
 def importer_journees(annee, arrete, commune, mapping, db=None, inclure_absenti=False):
-    """Importe les presences/reservations des seules unites choisies.
+    """Importe les journees de frequentation des seules unites choisies.
 
     Retourne seulement des totaux mensuels non nominatifs et des diagnostics
     quantifies. Aucun enregistrement d'enfant n'est sauvegarde ou retourne.
