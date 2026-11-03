@@ -109,6 +109,31 @@ class LectureFamilleTests(unittest.TestCase):
         self.assertEqual(len(d["enfants"]), 2)
         self.assertEqual(ados["IDfamille"], alsh["IDfamille"])
 
+    def test_fiche_unique_melange_alsh_et_club_ados(self):
+        donnees = self.charger()
+        fiche = F.AffecterAccueils(donnees, {
+            20: ["ALSH MOUTIERS"],
+            21: ["ALSH BAIS", "CLUB ADOS BAIS"],
+        })
+        enfants = {e["IDindividu"]: e for e in fiche["enfants"]}
+        self.assertEqual(enfants[20]["accueils"], ["ALSH MOUTIERS"])
+        self.assertEqual(enfants[21]["accueils"],
+                         ["ALSH BAIS", "CLUB ADOS BAIS"])
+        self.assertNotIn("accueils", donnees["enfants"][0])
+        self.assertEqual(fiche["IDfamille"], donnees["IDfamille"])
+
+    def test_accueils_obligatoires_par_enfant_et_site_alsh_unique(self):
+        donnees = self.charger()
+        for choix in (
+            {20: ["ALSH BAIS"]},
+            {20: ["ALSH BAIS"], 21: []},
+            {20: ["ALSH BAIS"], 21: ["ALSH LA GUERCHE", "ALSH MOUTIERS"]},
+            {20: ["ALSH BAIS"], 21: ["CLUB ADOS LA GUERCHE"]},
+            {20: ["ALSH BAIS"], 21: ["CLUB ADOS BAIS", "CLUB ADOS BAIS"]},
+        ):
+            with self.subTest(choix=choix), self.assertRaises(ValueError):
+                F.AffecterAccueils(donnees, choix)
+
     def test_selection_vide_doublon_et_hors_famille_refuses(self):
         d = self.charger()
         for ids in ([], [20,20], [999], [20,60]):
