@@ -83,9 +83,7 @@ class SaisieJours(wx.Dialog):
         self.mois = wx.SpinCtrl(self, min=1, max=12, initial=int(d.get("mois", date.today().month)))
         g.Add(self.mois, 1, wx.EXPAND)
         g.Add(wx.StaticText(self, label="Nature"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.natures = [("realise", "Frequentation realisee"),
-                        ("facturee_non_presente", "Journee facturee sans presence"),
-                        ("prevision", "Frequentation prevue")]
+        self.natures = [("realise", "Frequentation realisee"), ("prevision", "Frequentation prevue")]
         if inclure_absenti:
             self.natures.append(("absence_injustifiee", "Absence injustifiee retenue (pas une presence)"))
         self.nature = wx.Choice(self, choices=[libelle for _code, libelle in self.natures])
@@ -246,11 +244,11 @@ class Dialog(wx.Dialog):
         barre_import.Add(wx.StaticText(self, label="Frequentation en journees-enfants (par mois et accueil) :"),
                          0, wx.ALIGN_CENTER_VERTICAL)
         barre_import.AddStretchSpacer(1)
-        self.inclure_absenti = wx.CheckBox(self, label="Compter les absences injustifiees")
-        self.inclure_absenti.SetToolTip("Facturees aux familles et moyens mobilises : calcul distinct des presences. Le solde reste provisoire sans accord communal.")
+        self.inclure_absenti = wx.CheckBox(self, label="Simulation : inclure aussi les absences injustifiees non facturees")
+        self.inclure_absenti.SetToolTip("Les absences injustifiees facturees sont deja comptabilisees dans la frequentation. Cette option facultative ajoute les non facturees, a titre provisoire.")
         self.inclure_absenti.Bind(wx.EVT_CHECKBOX, self.OnChoixAbsenti)
         barre_import.Add(self.inclure_absenti, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
-        importer = wx.Button(self, label="Charger presences et factures Noethys...")
+        importer = wx.Button(self, label="Charger la frequentation Noethys...")
         importer.Bind(wx.EVT_BUTTON, self.OnImporterNoethys)
         barre_import.Add(importer)
         bouton_details = wx.Button(self, label="Détail par enfant / adresse datée...")
@@ -277,7 +275,7 @@ class Dialog(wx.Dialog):
                     ("Supprimer", self.OnSupprimerAcompte))
         self.verifs = {}
         cadres = wx.StaticBoxSizer(wx.StaticBox(self, label="Controles a valider sur pieces"), wx.HORIZONTAL)
-        for cle, nom in (("frequentation", "Presences reelles"), ("prevision", "Reservations futures"),
+        for cle, nom in (("frequentation", "Journees de frequentation"), ("prevision", "Reservations futures"),
                          ("domiciliation", "Communes de domicile"), ("acomptes", "Acomptes de la mairie")):
             cb = wx.CheckBox(self, label=nom)
             cb.Bind(wx.EVT_CHECKBOX, self.OnActualiser)
@@ -357,8 +355,7 @@ class Dialog(wx.Dialog):
         self.liste_jours.DeleteAllItems()
         for l in d["jours"]:
             self._ajouter_ligne(self.liste_jours, [l["id"], "%02d" % l["mois"], l["convention"],
-                              {"realise": "Presence reelle", "prevision": "Prevision",
-                               "facturee_non_presente": "Journee facturee",
+                              {"realise": "Journee de frequentation", "prevision": "Prevision",
                                "absence_injustifiee": "Absence injustifiee retenue"}.get(l["nature"], "Inconnue"),
                               str(l["nombre"]), l.get("justificatif", "")])
         self.liste_acomptes.DeleteAllItems()
@@ -608,12 +605,10 @@ class Dialog(wx.Dialog):
             r = self._calculer()
             t = r["totaux"]
             lines = [r["statut"],
-                     "Journees presentes : %s | Facturees sans presence : %s | Absences injustifiees retenues : %s | Futures : %s" % (
-                         _fr_jours(t["journees_reelles"]), _fr_jours(t["journees_facturees_non_presentes"]),
-                         _fr_jours(t["journees_absences_injustifiees"]), _fr_jours(t["journees_prevues"])),
-                     "Participation presence : %s | Journees facturees : %s | Absences : %s | Future : %s | Annuelle : %s" % (
-                         _fr_centimes(t["participation_reelle"]), _fr_centimes(t["participation_facturee_non_presente"]),
-                         _fr_centimes(t["participation_absences_injustifiees"]), _fr_centimes(t["participation_prevue"]),
+                     "Journees de frequentation : %s | Absences non facturees optionnelles : %s | Futures : %s" % (
+                         _fr_jours(t["journees_reelles"]), _fr_jours(t["journees_absences_injustifiees"]), _fr_jours(t["journees_prevues"])),
+                     "Participation frequentation : %s | Absences optionnelles : %s | Future : %s | Annuelle : %s" % (
+                         _fr_centimes(t["participation_reelle"]), _fr_centimes(t["participation_absences_injustifiees"]), _fr_centimes(t["participation_prevue"]),
                          _fr_centimes(t["participation_estimee"])),
                      "Acomptes : %s  |  Solde indicatif : %s" % (
                          _fr_centimes(t["acomptes_recus"]), _fr_centimes(t["solde_indicatif"]))]
