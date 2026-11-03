@@ -65,6 +65,25 @@ class CTRL_Restaurateur(wx.Choice):
         return self.dictDonnees[index]["ID"]
 
 
+class CibleFichierOceane(wx.FileDropTarget):
+    """Déposer un XLSX lance uniquement la prévisualisation, jamais un import."""
+
+    def __init__(self, parent):
+        wx.FileDropTarget.__init__(self)
+        self.parent = parent
+
+    def OnDropFiles(self, x, y, fichiers):
+        if len(fichiers) != 1 or not fichiers[0].lower().endswith(".xlsx"):
+            wx.MessageBox(
+                _(u"Déposez un unique classeur Excel .xlsx d'Océane."),
+                _(u"Fichier de menus invalide"),
+                wx.OK | wx.ICON_WARNING, self.parent)
+            return False
+        # La fenêtre doit s'ouvrir après la fin de l'événement de dépôt.
+        wx.CallAfter(self.parent.OnImporterOceane, None, fichiers[0])
+        return True
+
+
 class Dialog(wx.Dialog):
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, name="DLG_Menus", style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
@@ -121,7 +140,8 @@ class Dialog(wx.Dialog):
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_imprimer = CTRL_Bouton_image.CTRL(self, texte=_(u"Imprimer"), cheminImage="Images/32x32/Imprimante.png")
         self.bouton_import_oceane = wx.Button(
-            self, wx.ID_ANY, _(u"Importer et publier les menus Océane..."))
+            self, wx.ID_ANY, _(u"Importer menus Océane (ou déposer XLSX)..."))
+        self.bouton_import_oceane.SetDropTarget(CibleFichierOceane(self))
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Annuler.png")
 
         self.__set_properties()
@@ -266,7 +286,7 @@ class Dialog(wx.Dialog):
         UTILS_Dialogs.SaveSizePerso(self, __file__)
         self.EndModal(wx.ID_CANCEL)
 
-    def OnImporterOceane(self, event=None):
+    def OnImporterOceane(self, event=None, fichier=None):
         """Import autonome des menus et préparation facultative du portail.
 
         Import uniquement dans les tables natives menus/menus_categories après
@@ -283,16 +303,19 @@ class Dialog(wx.Dialog):
                 _(u"Import des menus"), wx.OK | wx.ICON_WARNING, self)
             return False
 
-        dlg = wx.FileDialog(
-            self, _(u"Choisissez le classeur de menus reçu d'Océane"),
-            wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
-        try:
-            if dlg.ShowModal() != wx.ID_OK:
-                return False
-            chemin = dlg.GetPath()
-        finally:
-            dlg.Destroy()
+        if fichier is None:
+            dlg = wx.FileDialog(
+                self, _(u"Choisissez le classeur de menus reçu d'Océane"),
+                wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
+                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+            try:
+                if dlg.ShowModal() != wx.ID_OK:
+                    return False
+                chemin = dlg.GetPath()
+            finally:
+                dlg.Destroy()
+        else:
+            chemin = fichier
         try:
             menus = lecture.ChargerMenus(chemin)
         except (ValueError, OSError, KeyError) as exc:
