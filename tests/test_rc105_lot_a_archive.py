@@ -74,6 +74,17 @@ class ArchivesTests(unittest.TestCase):
         self.assertEqual(retour["verdict"], "FAIL")
         self.assertIn("empreinte SQL", retour["detail"])
 
+    def test_manifeste_correct_sur_sql_tronque_ne_vaut_pas_sauvegarde(self):
+        # L'empreinte V1 authentifie des octets, pas leur origine mysqldump.
+        fichier = self.base / "DOCUMENTS.sql"
+        fichier.write_bytes(b"CREATE TABLE `t` (id INT);\nINSERT INTO `t` VALUES (1);\n")
+        SQL.AjouterManifesteIntegriteSQL(fichier)
+        self.creer({"DATA.sql": self.sql(), "PHOTOS.sql": self.sql("PHOTOS"),
+                    "DOCUMENTS.sql": fichier.read_bytes()})
+        retour = AUDIT.InspecterArchive(self.archive)
+        self.assertEqual(retour["verdict"], "FAIL", retour)
+        self.assertIn("ligne finale mysqldump", retour["detail"])
+
     def test_document_manquant_refuse(self):
         self.creer({"DATA.sql": self.sql(), "PHOTOS.sql": self.sql("PHOTOS")})
         retour = AUDIT.InspecterArchive(self.archive)
