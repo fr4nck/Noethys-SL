@@ -52,8 +52,8 @@ class BackupMySQL437ReelTests(unittest.TestCase):
             sql("CREATE DATABASE noe437_synth_data; CREATE TABLE noe437_synth_data.temoin (id INT); "
                 "INSERT INTO noe437_synth_data.temoin VALUES (437); "
                 "CREATE DATABASE noe437_synth_photos; "
-                "CREATE TABLE noe437_synth_photos.images (id INT, photo MEDIUMBLOB); "
-                "INSERT INTO noe437_synth_photos.images VALUES (1, UNHEX('00FF5C3B')); "
+                "CREATE TABLE noe437_synth_photos.photos (id INT, photo BLOB); "
+                "INSERT INTO noe437_synth_photos.photos VALUES (1, UNHEX('00FF5C3B')); "
                 "CREATE DATABASE noe437_synth_documents; "
                 "CREATE TABLE noe437_synth_documents.documents (id INT, document LONGBLOB); "
                 "INSERT INTO noe437_synth_documents.documents VALUES "
@@ -62,7 +62,7 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                           "FROM noe437_synth_documents.documents;")
             self.assertGreater(int(attendu.split(b"\t")[1]), 24 * 1024 * 1024)
             photo_attendue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
-                                 "FROM noe437_synth_photos.images;")
+                                 "FROM noe437_synth_photos.photos;")
             with tempfile.TemporaryDirectory(prefix="noe437-vrai-") as rep:
                 rep = Path(rep)
                 login = rep / "client.cnf"
@@ -95,7 +95,7 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                              "FROM noe437_synth_documents.documents;")
                 self.assertEqual(obtenu, attendu)
                 photo_obtenue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
-                                   "FROM noe437_synth_photos.images;")
+                                   "FROM noe437_synth_photos.photos;")
                 self.assertEqual(photo_obtenue, photo_attendue)
                 self.assertEqual(sql("SELECT id FROM noe437_synth_data.temoin;").strip(), b"437")
                 preuve = {"mysql": retour[2], "historique_code": ancien.returncode,
