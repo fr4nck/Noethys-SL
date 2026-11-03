@@ -17,7 +17,7 @@ Source de recette : `Menus CLSH 5 él période 2.xlsx`.
 
 1. Ouvrir **Restauration → Gestion des menus**, sélectionner le restaurateur Océane déjà déclaré.
 2. Cliquer sur **Importer menus Océane (ou déposer XLSX)...**, ou **glisser-déposer le classeur Excel sur le bouton**.
-3. Vérifier la liste de mercredis et sélectionner les dates à importer. Les prochains mercredis sont présélectionnés, jamais l'ensemble de l'historique.
+3. Vérifier la liste de mercredis et sélectionner les dates à importer. **Aucune date n'est présélectionnée** : Océane peut fournir un menu pour un jour où l'ALSH est fermé (notamment fin décembre). L'opérateur doit choisir les mercredis effectivement ouverts.
 4. Lire l'aperçu et les écarts. L'import natif est **idempotent** (répéter le même import n'ajoute aucun doublon) et ne remplace **jamais** une valeur de menu différente déjà saisie manuellement. Les cinq catégories existantes sont réutilisées si identifiables. Une catégorie nouvelle n'est créée qu'avec la confirmation.
 5. Après l'import, choisir **Oui** à la proposition de préparer la publication sur le portail. L'éditeur **natif Connecthys → bloc Blog** s'ouvre prérempli ; choisir sa page, contrôler le texte, la date de fin d'affichage, la couleur, puis enregistrer.
 6. La publication utilise ensuite la **synchronisation habituelle du portail**. Aucun accès distant, aucun mail ou upload ne part du convertisseur lui-même.
