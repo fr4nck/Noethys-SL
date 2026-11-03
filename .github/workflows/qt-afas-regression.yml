@@ -43,7 +43,7 @@ jobs:
           python -m pip install pyttsx3 wxPython==4.2.5
       - name: Compiler les modules AFAS et les tests
         run: python -m compileall -q noethys/Utils/UTILS_AFAS_Donnees.py noethys/Utils/UTILS_AFAS_Actualisation.py tests/test_noethys_sl_afas_separation_etats.py
-      - name: AFAS : tests de donnees, actualisation et separation des etats
+      - name: "AFAS : tests de donnees, actualisation et separation des etats"
         env:
           QT_QPA_PLATFORM: offscreen
         run: >-
