@@ -128,10 +128,15 @@ class ContratPAI(unittest.TestCase):
 
 class AutorisationsTracables(unittest.TestCase):
     def test_catalogue_inclut_les_autorisations_validees(self):
-        self.assertEqual(len(F.AUTORISATIONS), 8)
-        for categorie in ("piscine_baignade", "photos_prise", "photos_reseaux_sociaux",
-                          "maquillage", "activites_physiques"):
-            self.assertIn(categorie, F.AUTORISATIONS)
+        # Catalogue actuellement partage par fiche enfant et Club ados :
+        # compter toutes les categories connues, sans en perdre une.
+        attendues = {
+            "piscine_baignade", "photos_prise", "photos_usage_interne",
+            "photos_site_imprimes", "photos_reseaux_sociaux", "maquillage",
+            "activites_physiques", "depart_seul", "transport_ados",
+        }
+        self.assertEqual(set(F.AUTORISATIONS), attendues)
+        self.assertEqual(len(F.AUTORISATIONS), len(attendues))
 
     def test_depart_seul_distinct_des_autres_autorisations(self):
         self.assertIn("depart_seul", F.AUTORISATIONS)
