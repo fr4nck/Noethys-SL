@@ -1,4 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
+## ALSH-C1 — attribution communale des présences (03/11/2026)
+
+- Premier moteur technique publié sur `main` : `noethys/Utils/UTILS_ALSH_Commune.py`, deux DDL proposés `alsh_communes_c1_{sqlite,mysql57}.sql`, `tests/test_alsh_communes_c1.py` et rapport `docs/dev/ALSH_COMMUNES_C1_IMPLEMENTATION.md`. Utilise les identifiants/consommations Noethys et **n'ajoute aucun facturier**.
+- **52/52 tests SQLite synthétiques PASS** : 3 déménagements, taux par commune/site/période, adresse complète, deux demi-journées (arrondis cohérents), absences, collision, droits, CSV nommé par commune et anonyme, audit, concurrence. Aucun enfant réel de MAD dans les tests. Code et SQL MySQL proposés mais **non testés sur MySQL réel**.
+- Documents préparatoires uniquement ; pas de migration, changement de factures, paiement ou traitement de données en production. Ne pas supposer que les adresses de MAD reconstituent l'historique de domicile. Tarifs contractuels donnés explicitement ; source D2 encore à raccorder.
+- **Suites prioritaires** : écran wx de saisie datée des domiciles, configuration explicite des activités/unités ALSH, calcul consultation/exports dans Noethys, recette sur une **copie ALSH représentative** ; puis gel des situations, acomptes, solde et recours à la facturation Noethys existante après contrôle de tiers. Le prototype D3-D4 de sports n'est pas utilisé pour les séances ALSH.
+
+
 
 ## Lot D — type d'entite dans les fiches familles (03/11/2026)
 
