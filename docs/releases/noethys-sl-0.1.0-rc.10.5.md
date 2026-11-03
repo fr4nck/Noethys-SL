@@ -43,6 +43,48 @@ valides par la presente note.
 5. Accord explicite de publication depuis `wx` seulement, apres les
    barrieres precedentes ; aucun `push` ne publie une release.
 
+## Compatibilite Connecthys Ivan Lucas — CONTRAT NON REGRESSION
+
+La compatibilite avec le **Connecthys historique d'Ivan Lucas** est une
+exigence bloquante pour RC10.5 et les versions suivantes. Le renforcement
+de la securite du client Noethys-SL ne doit pas exiger une modification ou
+une mise a jour du serveur Connecthys de l'association.
+
+- Conserver le protocole des synchronisations ascendantes/descendantes,
+  les URL et commandes du Connecthys existant, les noms de fichiers et
+  bases, les formats `models.py`, `config.py` et le format chiffre `SV2`.
+- Conserver les modes d'hebergement deja pris en charge : local, FTP et
+  SSH/SFTP. Ne pas imposer unilateralement HTTPS, un nouveau port ou un
+  nouveau mode d'authentification au serveur historique.
+- Maintenir le fonctionnement des cles et secrets deja configures, sans
+  les reinitialiser et sans migration de base ou de profil de production.
+- Renforcer les verifications **cote client** sans changer les donnees
+  echangees : fermeture des transports, controles d'integrite et
+  journalisation sans secrets. Pour la cle hote SSH, preparer une methode
+  d'enregistrement/verrouillage de la cle **apres validation hors bande**,
+  avec procedure de transition et retour arriere ; ne pas remplacer
+  aveuglement `AutoAddPolicy` par un refus qui couperait la production.
+- Le chargement de `models.py` fait partie du protocole actuel, mais son
+  execution est une surface a risque. Etudier verification de provenance,
+  permissions minimales et isolation sans remplacer le contrat du
+  serveur. Ne pas presenter une verification de fichier seule comme
+  une protection contre l'execution de code arbitraire.
+- Moderniser le chiffrement uniquement avec **lecture/ecriture legacy
+  interoperable** pour Connecthys : un nouveau format ne peut pas devenir
+  obligatoire tant que le Connecthys original ne le comprend pas. Isoler
+  strictement les lectures d'anciennes sauvegardes de celles de fichiers
+  non fiables venant du reseau.
+- Pour toute correction, recette de synchronisation complete **montante
+  et descendante** contre une installation de la version historique
+  effectivement utilisee, en environnement de test, sans effacer ni
+  reinitialiser les donnees reelles. Echecs de compatibilite = blocage
+  de publication.
+
+Ce contrat ne signifie pas que toutes les anciennes options sont sures.
+Les risques residuels (FTP non chiffre, acceptation des cles hote inconnues
+et code recu du portail) doivent etre identifies et reduits avec un
+mode de migration valide, plutot que masques ou changes sans essai.
+
 ## Compatibilite et limites
 
 - Version publique : `0.1.0-rc.10.5` ; version interne Noethys :
