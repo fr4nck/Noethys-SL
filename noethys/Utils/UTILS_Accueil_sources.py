@@ -5,7 +5,7 @@ Ne cree aucun champ ni PAI, ne modifie aucun dossier. Cette lecture
 de detail est reservee a un administrateur authentifie de Noethys.
 Aucune liaison portail, log, export ou cache.
 """
-from datetime import date
+from datetime import date, datetime
 import re
 import unicodedata
 
@@ -95,6 +95,8 @@ def _mot_cle(texte):
 
 
 def _date_source(valeur):
+    if isinstance(valeur, datetime):
+        return valeur.date()
     if isinstance(valeur, date):
         return valeur
     if valeur in (None, ""):
