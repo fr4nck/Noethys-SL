@@ -91,6 +91,10 @@ def _analyser_sql(flux):
         raise ArchiveNoethysInvalide("taille SQL differente du manifeste")
     if empreinte.hexdigest().encode("ascii") != sha_declare:
         raise ArchiveNoethysInvalide("empreinte SQL differente du manifeste")
+    # Un SHA valide n'etablit pas qu'un export mysqldump est arrive au bout.
+    # L'ajout manuel d'un manifeste a un SQL tronque ne doit jamais valoir PASS.
+    if not _fin_mysqldump(contenu):
+        raise ArchiveNoethysInvalide("ligne finale mysqldump absente du manifeste")
     return "MANIFESTE_V1_VERIFIE"
 
 
