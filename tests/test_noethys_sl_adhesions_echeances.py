@@ -201,5 +201,66 @@ class EcheancesTests(unittest.TestCase):
             self.assertEqual(e.compte("cotisations"), 0)
 
 
+
+class LecturesAdhesionsStrictes(unittest.TestCase):
+    """Erreur MySQL : ne jamais prendre un échec pour zéro cotisation."""
+
+    def test_erreur_sql_interrompt_le_controle_et_ferme_la_connexion(self):
+        class DBFactice:
+            echec = 0
+            ferme = False
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def ResultatReq(self):
+                raise AssertionError("Aucune lecture après un échec SQL")
+
+            def Close(self):
+                self.ferme = True
+
+        db = DBFactice()
+        with patch.object(A.GestionDB, "DB", return_value=db):
+            with self.assertRaisesRegex(RuntimeError, "Lecture SQL"):
+                A._lire("SELECT 1;")
+        self.assertTrue(db.ferme)
+
+    def test_resultat_none_n_est_jamais_assimile_a_aucune_adhesion(self):
+        class DBFactice:
+            echec = 0
+            ferme = False
+
+            def ExecuterReq(self, req):
+                return 1
+
+            def ResultatReq(self):
+                return None
+
+            def Close(self):
+                self.ferme = True
+
+        db = DBFactice()
+        with patch.object(A.GestionDB, "DB", return_value=db):
+            with self.assertRaisesRegex(RuntimeError, "sans résultat exploitable"):
+                A._lire("SELECT 1;")
+        self.assertTrue(db.ferme)
+
+    def test_resultat_vide_reel_reste_valide(self):
+        class DBFactice:
+            echec = 0
+
+            def ExecuterReq(self, req):
+                return 1
+
+            def ResultatReq(self):
+                return []
+
+            def Close(self):
+                pass
+
+        with patch.object(A.GestionDB, "DB", return_value=DBFactice()):
+            self.assertEqual(A._lire("SELECT 1;"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
