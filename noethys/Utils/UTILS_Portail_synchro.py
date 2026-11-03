@@ -516,7 +516,13 @@ class Synchro():
         sys.modules avant de rendre la main (succès ou échec) : la
         référence à models déjà renvoyée à l'appelant reste utilisable,
         mais rien ne persiste dans sys.modules ni dans sys.path d'une
-        synchronisation à l'autre. """
+        synchronisation à l'autre.
+
+        Contrat de securite opt-in : si un SHA256 est renseigne pour models.py,
+        les imports relatifs de modules Python annexes sont refuses pendant
+        son chargement. Cela ne forme PAS un bac a sable : les imports
+        absolus et les API Python restent disponibles. Le mode historique
+        (champ vide) conserve les imports relatifs sans restriction. """
         chemin_models = os.path.realpath(os.path.join(chemin, nomFichier))
         if not os.path.isfile(chemin_models) :
             raise ImportError(_(u"Fichier %s introuvable après téléchargement") % nomFichier)
