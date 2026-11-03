@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Editions des deux fiches famille PMSL, d'apres les DOCX transmis.
+"""Fiche famille Pêle-Mêle commune ALSH / Club ados, deux pages A4.
 
-Deux pages A4 par modèle, lecture déjà préparée par
-UTILS_Accueil_familles. Aucun envoi, aucune écriture SQL, aucun consentement
-CAFPRO déduit. Les engagements du formulaire restent à signer.
+Conserve en interne les deux variantes historiques pour compatibilité.
+Lecture préparée par UTILS_Accueil_familles, aucun envoi ni écriture SQL.
+Le consentement CAFPRO reste à compléter et signer sur la fiche.
 """
 
 from xml.sax.saxutils import escape
