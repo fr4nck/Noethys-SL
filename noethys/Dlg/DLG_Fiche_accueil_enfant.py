@@ -25,6 +25,9 @@ PRINCIPALES = (
     ("piscine_baignade", u"Baignade"),
     ("activites_physiques", u"Activités physiques"),
 )
+DEPART_AUTONOME = (
+    ("depart_seul", u"Autorisé à partir seul de l'ALSH"),
+)
 COMPLEMENTAIRES = (
     ("photos_prise", u"Prise de photos / vidéos"),
     ("photos_usage_interne", u"Photos : usage interne uniquement"),
@@ -238,16 +241,16 @@ class Dialog(wx.Dialog):
             panneau, label=_(u"Registre : vérification en cours"))
         colonne.Add(self.etat_registre, 0, wx.LEFT | wx.RIGHT | wx.TOP, 12)
         aide = wx.StaticText(panneau, label=_(
-            u"Les quatre premières autorisations reprennent exactement la fiche "
-            u"papier. Chaque Oui ou Non doit provenir d'un document signé. "
-            u"Une absence de réponse ne signifie jamais Oui."))
+            u"Les quatre premières autorisations reprennent la fiche papier "
+            u"d'origine. Le départ seul est une autorisation complémentaire. "
+            u"Les réponses doivent provenir d'un document signé."))
         aide.Wrap(670)
         colonne.Add(aide, 0, wx.ALL, 12)
 
         self.perimetre = wx.TextCtrl(panneau, value=u"ALSH 2026-2027")
         self._champ(panneau, colonne, u"ALSH / année / périmètre :", self.perimetre)
         self.choix_autorisations = {}
-        for code, libelle in PRINCIPALES + COMPLEMENTAIRES:
+        for code, libelle in PRINCIPALES + DEPART_AUTONOME + COMPLEMENTAIRES:
             ligne = wx.BoxSizer(wx.HORIZONTAL)
             etiquette = wx.StaticText(panneau, label=libelle)
             etiquette.SetMinSize((315, -1))
@@ -280,7 +283,7 @@ class Dialog(wx.Dialog):
         self._champ(panneau, colonne, u"Support signé :", self.source)
         self.reference_preuve = wx.TextCtrl(panneau, value=u"")
         self._champ(panneau, colonne, u"Référence de la fiche ou pièce :", self.reference_preuve)
-        self.texte_version = wx.TextCtrl(panneau, value=u"Fiche Enfant 2026-06")
+        self.texte_version = wx.TextCtrl(panneau, value=u"Fiche Enfant 2026-11")
         self._champ(panneau, colonne, u"Modèle signé :", self.texte_version)
         self.autorite = wx.CheckBox(panneau, label=_(
             u"J'ai vérifié l'identité et l'autorité parentale du signataire."))
@@ -499,9 +502,9 @@ class Dialog(wx.Dialog):
             info.update(sources.PreparerRubriquesMedicales(self.medical))
         # PAI/AESH/allergies : ne jamais inférer Oui ou Non depuis un
         # problème de santé générique ou depuis l'absence de saisie.
-        info["autorisation_modele"] = u"Fiche Enfant 2026-06"
+        info["autorisation_modele"] = u"Fiche Enfant 2026-11"
         info["autorisations"] = {}
-        for code, _libelle in PRINCIPALES:
+        for code, _libelle in PRINCIPALES + DEPART_AUTONOME:
             if self.registre_pret:
                 _index, etat = EtatChoix(
                     self.historique, self.IDindividu, code, perimetre,
