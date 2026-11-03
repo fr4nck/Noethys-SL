@@ -21,6 +21,7 @@ except ImportError:
 SITES_ALSH = ("LA GUERCHE", "MOUTIERS", "BAIS")
 MODEL_ALSH = "alsh"
 MODEL_ADOS = "ados"
+MODEL_FAMILLE = "famille"  # fiche commune aux accueils
 
 ENGAGEMENTS = (
     u"Autorise mon (mes) enfant(s) à participer à toutes les activités proposées par l'Accueil de Loisirs.",
@@ -123,17 +124,22 @@ def _bloc_parent(c, x, haut, w, parent, ordre, hauteur):
 def _page1(c, donnees, modele, site, annee):
     wpage, hpage = A4
     x, w = 35, wpage - 70
-    titre = (u"Club ADOS PÊLE-MÊLE - FICHE FAMILLE" if modele == MODEL_ADOS
+    titre = (u"PÊLE-MÊLE - FICHE FAMILLE" if modele == MODEL_FAMILLE else
+             u"Club ADOS PÊLE-MÊLE - FICHE FAMILLE" if modele == MODEL_ADOS
              else u"ACCUEIL DE LOISIRS PÊLE-MÊLE - FICHE FAMILLE")
     c.rect(x + 72, hpage - 74, w - 144, 35)
     c.setFont("Helvetica-Bold", 13)
     c.drawCentredString(wpage / 2, hpage - 61, titre)
     c.setFont("Helvetica-Bold", 8.7)
-    c.drawString(x + 10, hpage - 113,
-                 u"Club ADOS :" if modele == MODEL_ADOS else u"ALSH :")
+    if modele == MODEL_FAMILLE:
+        c.drawString(x + 10, hpage - 113,
+            u"ALSH : La Guerche, Moutiers, Bais   |   Club ados : Bais")
+    else:
+        c.drawString(x + 10, hpage - 113,
+                     u"Club ADOS :" if modele == MODEL_ADOS else u"ALSH :")
     if modele == MODEL_ADOS:
         _case(c, x + 126, hpage - 113, "BAIS", True)
-    else:
+    elif modele == MODEL_ALSH:
         for i, nom in enumerate(SITES_ALSH):
             _case(c, x + 90 + i * 137, hpage - 113, nom, nom == site)
     _ligne(c, x + 10, hpage - 137, "Année :", annee, largeur=w - 20)
@@ -141,7 +147,7 @@ def _page1(c, donnees, modele, site, annee):
     premier = parents[0] if parents else {}
     second = parents[1] if len(parents) > 1 else {}
     haut = hpage - 155
-    if modele == MODEL_ADOS:
+    if modele in (MODEL_ADOS, MODEL_FAMILLE):
         _bloc_parent(c, x, haut, w, premier, 1, 315)
         _regime(c, x + 11, haut - 226, w - 22, donnees)
         # La case CAFPRO porte sur une autorisation à signer :
@@ -185,32 +191,63 @@ def _page2(c, donnees, modele):
     x, w = 35, wpage - 70
     enfants = list(donnees.get("enfants") or [])
     top = hpage - 37
-    titre = u"ADOS À INSCRIRE" if modele == MODEL_ADOS else u"ENFANTS À INSCRIRE"
-    _boite(c, x, top, w, 165, titre)
-    colonnes = (123, 84, 55, 88, 99, w - 449)
-    titres = (u"NOM", u"Prénom", u"Sexe (G/F)",
-              u"Date de naissance", u"École", u"Classe")
-    pos = [x]
-    for largeur in colonnes:
-        pos.append(pos[-1] + largeur)
-    c.setLineWidth(.45)
-    for bord in pos[1:-1]:
-        c.line(bord, top - 25, bord, top - 165)
-    for yy in (top - 52, top - 80, top - 108, top - 136):
-        c.line(x, yy, x + w, yy)
-    for i, entete in enumerate(titres):
-        c.setFont("Helvetica-Bold", 7.2)
-        c.drawCentredString((pos[i] + pos[i+1]) / 2, top - 40,
-             _tronc(entete, 7.2, colonnes[i] - 5, "Helvetica-Bold"))
-    for n, enfant in enumerate(enfants[:4]):
-        yy = top - 70 - n * 28
-        for i, cle in enumerate(("nom", "prenom", "sexe", "date_naiss",
-                                 "ecole", "classe")):
-            c.setFont("Helvetica", 7.8)
-            c.drawString(pos[i] + 4, yy,
-              _tronc(enfant.get(cle), 7.8, colonnes[i] - 8))
-
-    top -= 182
+    if modele == MODEL_FAMILLE:
+        _boite(c, x, top, w, 205, u"ENFANTS / ADOS À INSCRIRE")
+        colonnes = (91, 69, 36, 73, 127, w - 396)
+        noms = (u"NOM", u"Prénom", u"G/F", u"Naissance",
+                u"École / Classe", u"Accueil et site")
+        pos = [x]
+        for largeur in colonnes:
+            pos.append(pos[-1] + largeur)
+        for bord in pos[1:-1]:
+            c.line(bord, top - 25, bord, top - 205)
+        for yy in (top - 51, top - 89, top - 127, top - 165):
+            c.line(x, yy, x + w, yy)
+        for i, label in enumerate(noms):
+            c.setFont("Helvetica-Bold", 7.3)
+            c.drawCentredString((pos[i] + pos[i+1]) / 2, top - 40,
+                _tronc(label, 7.3, colonnes[i] - 5, "Helvetica-Bold"))
+        for n, enfant in enumerate(enfants[:4]):
+            yy = top - 65 - n * 38
+            for i, cle in enumerate(("nom", "prenom", "sexe", "date_naiss")):
+                c.setFont("Helvetica", 7.5)
+                c.drawString(pos[i] + 3, yy,
+                    _tronc(enfant.get(cle), 7.5, colonnes[i] - 6))
+            c.setFont("Helvetica", 7.2)
+            for j, value in enumerate((enfant.get("ecole"), enfant.get("classe"))):
+                c.drawString(pos[4] + 3, yy - j * 13,
+                    _tronc(value, 7.2, colonnes[4] - 6))
+            for j, accueil in enumerate(enfant.get("accueils") or []):
+                c.drawString(pos[5] + 3, yy - j * 13,
+                    _tronc(accueil, 7.2, colonnes[5] - 6))
+        top -= 222
+    else:
+        titre = u"ADOS À INSCRIRE" if modele == MODEL_ADOS else u"ENFANTS À INSCRIRE"
+        _boite(c, x, top, w, 165, titre)
+        colonnes = (123, 84, 55, 88, 99, w - 449)
+        titres = (u"NOM", u"Prénom", u"Sexe (G/F)",
+                  u"Date de naissance", u"École", u"Classe")
+        pos = [x]
+        for largeur in colonnes:
+            pos.append(pos[-1] + largeur)
+        c.setLineWidth(.45)
+        for bord in pos[1:-1]:
+            c.line(bord, top - 25, bord, top - 165)
+        for yy in (top - 52, top - 80, top - 108, top - 136):
+            c.line(x, yy, x + w, yy)
+        for i, entete in enumerate(titres):
+            c.setFont("Helvetica-Bold", 7.2)
+            c.drawCentredString((pos[i] + pos[i+1]) / 2, top - 40,
+                 _tronc(entete, 7.2, colonnes[i] - 5, "Helvetica-Bold"))
+        for n, enfant in enumerate(enfants[:4]):
+            yy = top - 70 - n * 28
+            for i, cle in enumerate(("nom", "prenom", "sexe", "date_naiss",
+                                     "ecole", "classe")):
+                c.setFont("Helvetica", 7.8)
+                c.drawString(pos[i] + 4, yy,
+                  _tronc(enfant.get(cle), 7.8, colonnes[i] - 8))
+    
+        top -= 182
     _bande(c, x, top, w, "AUTORISATIONS")
     y = top - 34
     y = _paragraphe(c,
@@ -239,7 +276,7 @@ def GenererPDF(destination, donnees, modele="alsh", site="", annee="2026-2027"):
         raise ValueError("Destination PDF invalide")
     if not isinstance(donnees, dict):
         raise ValueError("Données de famille invalides")
-    if modele not in (MODEL_ALSH, MODEL_ADOS):
+    if modele not in (MODEL_ALSH, MODEL_ADOS, MODEL_FAMILLE):
         raise ValueError("Modèle famille inconnu")
     if modele == MODEL_ALSH and site not in SITES_ALSH:
         raise ValueError("Sélectionnez un ALSH")
@@ -252,11 +289,21 @@ def GenererPDF(destination, donnees, modele="alsh", site="", annee="2026-2027"):
         raise ValueError("Aucun enfant sélectionné pour cette édition")
     if len(enfants) > 4:
         raise ValueError("Le modèle papier comporte 4 lignes d'enfants maximum")
+    if modele == MODEL_FAMILLE:
+        from Utils import UTILS_Accueil_familles
+        for enfant in enfants:
+            codes = enfant.get("accueils")
+            if (not isinstance(codes, list) or not codes
+                    or len(set(codes)) != len(codes)
+                    or not set(codes).issubset(UTILS_Accueil_familles.ACCUEILS)
+                    or sum(c.startswith("ALSH ") for c in codes) > 1):
+                raise ValueError("Précisez les accueils de chaque enfant")
     if A4 is None:
         raise RuntimeError("ReportLab est nécessaire pour éditer une fiche famille PDF")
     fichier = canvas.Canvas(destination, pagesize=A4, pageCompression=1)
     fichier.setAuthor(u"Pêle-Mêle Sports et Loisirs / Noethys-SL")
-    fichier.setTitle(u"Fiche famille Club ados" if modele == MODEL_ADOS
+    fichier.setTitle(u"Fiche famille Pêle-Mêle" if modele == MODEL_FAMILLE
+                     else u"Fiche famille Club ados" if modele == MODEL_ADOS
                      else u"Fiche famille ALSH")
     _page1(fichier, donnees, modele, site, str(annee).strip())
     fichier.showPage()
