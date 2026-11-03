@@ -181,6 +181,8 @@ def _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, listeAdresses, visibl
         temp = parent.CreationPDF
     dictChamps = temp(nomDoc=nomDoc, afficherDoc=False)
     if dictChamps in (False, None) :
+        if categorie == "recu_reglement":
+            _SupprimerPDF(nomDoc)
         return False, None
 
     # Lot B RC10.5 : un recu genere mais vide, absent ou tronque n'est
@@ -189,6 +191,7 @@ def _EnvoyerDocument(parent, IDfamille, nomDoc, categorie, listeAdresses, visibl
     if categorie == "recu_reglement" and nomDoc not in (False, None, ""):
         from Utils import UTILS_Documents_Controle_RC105
         if not UTILS_Documents_Controle_RC105.PDFPretPourEnvoi(nomDoc):
+            _SupprimerPDF(nomDoc)
             return False, None
 
     if nomDoc != False :
