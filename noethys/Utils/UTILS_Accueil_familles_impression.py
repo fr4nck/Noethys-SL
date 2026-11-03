@@ -76,6 +76,20 @@ def _case(c, x, y, texte, coche=False, taille=8.2):
     c.drawString(x + 13, y, texte)
 
 
+def _regime(c, x, y, w, donnees):
+    c.setFont("Helvetica-Bold", 8.1)
+    c.drawString(x, y, "Régime :")
+    nom = _texte(donnees.get("regime")).casefold()
+    vals = {"CAF": "caf" in nom, "MSA": "msa" in nom}
+    for j, nom_case in enumerate(("CAF", "MSA", "Autre")):
+        coche = vals.get(nom_case, False)
+        if nom_case == "Autre":
+            coche = bool(nom and not vals["CAF"] and not vals["MSA"])
+        _case(c, x + 77 + j * 82, y, nom_case, coche)
+    _ligne(c, x + 310, y, "N° allocataire :", donnees.get("num_allocataire"),
+           w - 313, 7.7)
+
+
 def _bloc_parent(c, x, haut, w, parent, ordre, hauteur):
     _boite(c, x, haut, w, hauteur, u"RESPONSABLE LÉGAL n°%d" % ordre)
     def l(dec, et, valeur="", largeur=None):
@@ -125,26 +139,22 @@ def _page1(c, donnees, modele, site, annee):
     haut = hpage - 155
     if modele == MODEL_ADOS:
         _bloc_parent(c, x, haut, w, premier, 1, 291)
-        _ligne(c, x + 11, haut - 226, "Régime :",
-               donnees.get("regime", ""), largeur=205, taille=8.1)
-        _ligne(c, x + 240, haut - 226, "N° allocataire :",
-               donnees.get("num_allocataire", ""), largeur=w - 250, taille=8.1)
+        _regime(c, x + 11, haut - 226, w - 22, donnees)
         # La case CAFPRO porte sur une autorisation à signer :
         # jamais cochée automatiquement depuis un statut administratif.
         _case(c, x + 12, haut - 252, "", False)
         c.setFont("Helvetica", 7.7)
         c.drawString(x + 30, haut - 250,
-          u"J'autorise les salariés habilités de Pêle-Mêle à consulter mon quotient familial")
-        c.drawString(x + 30, haut - 265,
-          u"sur CAFPRO grâce à mon numéro CAF, selon les termes du formulaire signé.")
+          u"J'autorise les salariés habilités de Pêle-Mêle à consulter directement")
+        c.drawString(x + 30, haut - 263,
+          u"mon quotient familial sur CAFPRO grâce à mon numéro CAF. Tant que mon")
+        c.drawString(x + 30, haut - 276,
+          u"enfant fréquente la structure, l'autorisation est renouvelée sauf avis contraire.")
         second_haut = haut - 305
     else:
         _bloc_parent(c, x, haut, w, premier, 1, 220)
         c.rect(x, haut - 275, w, 46, fill=0, stroke=1)
-        _ligne(c, x + 11, haut - 245, "Régime :",
-               donnees.get("regime", ""), largeur=210, taille=8.1)
-        _ligne(c, x + 240, haut - 245, "N° allocataire :",
-               donnees.get("num_allocataire", ""), largeur=w - 250, taille=8.1)
+        _regime(c, x + 11, haut - 245, w - 22, donnees)
         second_haut = haut - 287
     _bloc_parent(c, x, second_haut, w, second, 2, 218)
     if len(parents) > 2:
