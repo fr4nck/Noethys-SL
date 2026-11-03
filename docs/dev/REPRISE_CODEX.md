@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot C ALSH — garde commandes fournisseurs (03/11/2026)
+
+- Branches de prevol : `main` `0d6e2c5` (audit .nod sans mutation), `wx` `25f5197` (avant ce lot), `qt` `afe4574`. Pas de fusion inter-branches ni de nouvelle branche.
+- Sur `wx`, un enfant reserve le meme jour/service sur deux sites au sein du meme groupe opt-in quatre choix provoque desormais un `RegimeInvalide` dans `UTILS_Repas_source.ChargerRepartitionRegimes`. L'erreur remonte a `erreurs_regimes` et interdit la validation typée des PDF/emails. Ancien modele trois choix inchange. Correctif `2878505f`, tests `a45393a5`.
+- Sur `wx`, les modeles de commande typés contenant une colonne `texte_infos` (informations individuelles, messages, medical) sont rejetes par `UTILS_Repas_validation.ConstruireControle` avant impression ou preparation du mail. Aucune modification des fiches enfants ou des donnees medicales. Correctif `d95a71fa`, test `45d1feeb`.
+- Documentation et limites : `docs/metier/REPAS_LOT_2C_WX.md`. La detection multisite **entre paramétrages distincts** (plages/offres differentes ou commandes separees) reste ouverte ; texte libre manuel et anciens modeles non anonymises doivent etre audites avant diffusion. Aucune facture, migration, commande envoyee ni connexion de production. L'archive PMSL fournie comprend 0 restaurateur / 0 modele / 0 commande, donc elle ne permet pas une recette fonctionnelle complete.
+- Qualification du code : syntaxe Python du job CI rapide `41642021136` PASS au pointage initial ; job Windows de tests encore en cours a ce meme pointage. **Aucune validation Windows complete ni recette utilisateur declaree a ce stade.** Suite attendue : confirmer la CI sur SHA, recette fournisseur PDF/email sur donnees fictives, controle multisite inter-groupes et audit des anciens modeles.
+- Matrice : `wx` CANDIDAT SOURCE + TESTS ; `main` ABSENT (mesures de securite wx) ; `qt` ABSENT / non qualifie. **STOP-GATE de publication conservee.**
+
+
 ## AFAS V2 — portage source vers wx (03/11/2026)
 
 - **Références initiales** : `main` `6afe5e01602f8d67416e1e00e87bba0ab4290716`, `wx` `e6da221bd1f9c66c90f8c4c983a8e354667fa0cc`, `qt` `3b2e60336f80ab8712be8cfc6f3f63bdcd07e58e`.
