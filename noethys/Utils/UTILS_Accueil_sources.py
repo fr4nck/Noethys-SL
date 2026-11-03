@@ -50,6 +50,18 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
             "SELECT COUNT(*) FROM vaccins WHERE IDindividu=" + placeholder,
             (IDindividu,))
         nb_vaccins = int(DB.cursor.fetchone()[0])
+        # Les vaccins DT Polio sont reconnus par leur liaison explicite
+        # aux trois maladies du referentiel Noethys, pas par leur ordre ni
+        # par la derniere date de n'importe quel vaccin.
+        DB.cursor.execute("""
+            SELECT v.IDvaccin, v.date, maladie.nom
+            FROM vaccins AS v
+            JOIN vaccins_maladies AS lien
+              ON lien.IDtype_vaccin=v.IDtype_vaccin
+            JOIN types_maladies AS maladie
+              ON maladie.IDtype_maladie=lien.IDtype_maladie
+            WHERE v.IDindividu=""" + placeholder, (IDindividu,))
+        dernier_dtp = TrouverDernierDTP(DB.cursor.fetchall())
         DB.cursor.execute("""
             SELECT ps.intitule, ps.date_debut, ps.date_fin, ps.description,
                    ps.traitement_medical, ps.description_traitement,
@@ -83,6 +95,7 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
                 "ville": (medecin[5] or ""),
             } if medecin[0] is not None else None,
             "vaccins_enregistres": nb_vaccins,
+            "dernier_dt_polio": dernier_dtp,
             "problemes": problemes,
         }
     finally:
@@ -120,6 +133,55 @@ def _date_source(valeur):
         return date.fromisoformat(str(valeur)[:10])
     except (ValueError, TypeError):
         return None
+
+
+def TrouverDernierDTP(lignes, au=None):
+    """Date de derniere injection reliee aux trois valences D, T et polio.
+
+    L'inventaire des vaccins enregistres ne justifie pas une date DT Polio.
+    Une valence manquante ou une date invalide ne vaut pas preuve.
+    """
+    reference = _date_source(au) if au is not None else date.today()
+    if reference is None:
+        raise ValueError("Date de reference invalide")
+    injections = {}
+    for identifiant, jour, maladie in lignes:
+        nom = _mot_cle(maladie).strip()
+        if nom.startswith("dipht"):
+            code = "D"
+        elif nom.startswith("tetan"):
+            code = "T"
+        elif nom.startswith("polio") or nom.startswith("polyom"):
+            code = "P"
+        else:
+            continue
+        jour_valide = _date_source(jour)
+        if jour_valide is None or not (date(1900, 1, 1) <= jour_valide <= reference):
+            continue
+        cle = int(identifiant)
+        injection = injections.setdefault(cle, {"dates": set(), "valences": set()})
+        injection["dates"].add(jour_valide)
+        injection["valences"].add(code)
+    dates = [
+        next(iter(injection["dates"]))
+        for injection in injections.values()
+        if injection["valences"] == {"D", "T", "P"}
+        and len(injection["dates"]) == 1
+    ]
+    return max(dates).isoformat() if dates else None
+
+
+def FormaterVaccinations(medical):
+    """Texte court pour la case de vaccination de la fiche PMSL."""
+    if not medical:
+        return ""
+    derniere = _date_source(medical.get("dernier_dt_polio"))
+    date_texte = (derniere.strftime("%d/%m/%Y") if derniere
+                  else u"Non renseignée")
+    total = int(medical.get("vaccins_enregistres", 0))
+    return u"%s (%d vaccin%s enregistré%s)" % (
+        date_texte, total, "s" if total != 1 else "",
+        "s" if total != 1 else "")
 
 
 def _periode_active(probleme, au, debut="date_debut", fin="date_fin"):
