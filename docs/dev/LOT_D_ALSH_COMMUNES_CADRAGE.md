@@ -1,5 +1,16 @@
 # Recadrage du Lot D : conventions ALSH et participation des communes
 
+## Automatisation des adresses et du calcul — ALSH-C2 (03/11/2026)
+
+Le **moteur C2 est code et publie sur `main`**, avec 92 tests fictifs SQLite (C1 52 + C2 40). Voir `docs/dev/ALSH_COMMUNES_C2_IMPLEMENTATION.md`.
+
+- Les migrations C2 **proposees mais non appliquees** ajoutent des captures par triggers a chaque creation/modification des colonnes d'adresse de `individus` (y compris les modifications SQL directes/imports). Le mouvement du representant est repercute sur les enfants utilisant `adresse_auto` sans modification de leur fiche.
+- La saisie est normalement unique, dans **l'adresse Noethys existante**. Les calculs relisent les mouvements a chaque consultation, attribuent les consommations des enfants a leur commune de residence et utilisent un profil ALSH (activites, unites et tarifs) configure une fois, **sans autre systeme de facturation**.
+- Les adresses sont d'abord connues a la **date de modification en base**, pas necessairement a la date du demenagement reel ; les mouvements anterieurs a l'installation restent inconnus sans source datee. Une correction datee avec justificatif est possible et auditee ; aucune situation incomplete ou litigieuse ne devient une facture automatique.
+- Les codes INSEE doivent etre associes sans ambiguite aux couples **code postal / ville**, puis les conventions et droits confirmes avant usage. Si une commune n'est pas reconnue, ou si une correction contredit une adresse deja validee, le moteur signale une anomalie au lieu de l'imputer.
+- **NON TERMINES** : installation/qualification sur copie MAD, recette MySQL 5.7 de triggers, ecran wx/Qt de consultation, export PDF/XLSX natif, gel, acomptes et solde, integration de la facturation historique. Sur MAD reel, **aucune modification effectuee**.
+
+
 ## Première réalisation : ALSH-C1 (03/11/2026)
 
 **Code publié sur `main` :** `noethys/Utils/UTILS_ALSH_Commune.py`, migrations proposées SQLite/MySQL 5.7, 52 tests fictifs et documentation `docs/dev/ALSH_COMMUNES_C1_IMPLEMENTATION.md`.
