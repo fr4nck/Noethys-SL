@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D2 — conventions partenaires persistantes, sans deploiement (03/11/2026)
+
+- Prevol D2 : `main 6ddd58a`, `wx fbc1e8b`, `qt 6b11611`. Cinq nouveaux fichiers publies exclusivement sur `main`, en commits non forces et sans fusion : SQLite `c0b2b93`, MySQL 5.7 propose `451f76c`, moteur `4b4f970`, tests `ba6912c`, documentation `4ede771`. Les autres branches n'ont pas ete considerees synchronisees ; wx a depuis evolue independamment.
+- Domaine D2 : conventions scolaires/associatives, versions initiales et avenants, tarif par categorie et periode, instantane de donnees lors de la declaration de signature, conservation historique, controles de droit en lecture/ecriture, clauses et droits distincts de Noedoc, AFAS et facturation.
+- Qualification locale hors production : `python -m unittest discover -s tests -p 'test_partenaires_d*.py' -q` => **67 PASS / 0 FAIL** (D1 18 + D2 49), Python 3.13/SQLite fictif ; compilation D2/tests OK ; restauration SQLite fictive testee. Les cinq fichiers publies ont les memes SHA Git blob que les fichiers testes.
+- Exclusions : aucune migration, aucune base reelle ouverte, aucun deploiement ni Windows GUI ; MySQL 5.7, permissions applicatives et raccordement Noedoc/Word non qualifies. `signer_version` enregistre une declaration et une empreinte du fichier fourni, **ne signe pas** le PDF ni ne l'archive. D1 doit encore interdire l'archivage d'un partenaire avec conventions D2 avant toute recette integrale.
+- Suite : D3/D4 interventions et programmation sur versions signees, puis D5 rapprochements financiers idempotents. D2 demeure non livrable en production jusqu'aux recettes SQL et interfaces.
+- Documentation : `docs/dev/LOT_D_D2_IMPLEMENTATION.md`, migration D2 dans `noethys/Data/Migrations/`. Sources de recette additionnelles et archive locale hors Git ; aucun secret ni donnee nominative dans le depot.
+
+
+
 ## RC10.2 — correction limitée et retour à l’interface existante (28/10/2026)
 
 - Retour utilisateur explicite : RC10.1 ouvrait la console Windows de mysqldump ; les changements de libellés et de parcours de dossier n’étaient pas demandés. Retrait du choix/mémorisation de dossier ajouté en RC10.1 et rétablissement des libellés traduits de RC10 (fixture de référence). Les données et préférences existantes de l’utilisateur ne sont ni supprimées ni modifiées par cette reprise.
