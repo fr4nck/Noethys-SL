@@ -61,6 +61,41 @@ class EditionDeuxPages(unittest.TestCase):
             self.assertGreater(len(data), 3500)
             self.assertEqual(len(re.findall(rb"/Type\s*/Page\b", data)), 2)
 
+    def test_coordonnees_et_accompagnants_apparaissent_dans_les_cases(self):
+        class FauxCanvas:
+            def __init__(self):
+                self.textes = []
+            def drawString(self, x, y, texte):
+                self.textes.append((x, y, texte))
+            def __getattr__(self, nom):
+                return lambda *args, **kwargs: None
+
+        c = FauxCanvas()
+        Impression._page1(c, {
+            "nom": "ENFANT", "prenom": "Fictif",
+            "responsables": [
+                {"identite": "PARENT Premier", "adresse": "5 rue Fictive",
+                 "telephone": "Mobile : 06 00 11"},
+                {"identite": "PARENT Deuxieme", "adresse": "2 place Exemple",
+                 "telephone": "Domicile : 02 00 22"},
+            ],
+            "accompagnants": [
+                {"nom": "TANTE", "prenom": "Exemple",
+                 "lien": "tante", "telephone_court": "06 00 33"},
+                {"nom": "VOISIN", "prenom": "Exemple",
+                 "lien": "voisin", "telephone_court": "06 00 44"},
+            ],
+        })
+        valeurs = [texte for _x, _y, texte in c.textes]
+        for attendu in ("PARENT Premier", "5 rue Fictive", "06 00 11",
+                        "PARENT Deuxieme", "2 place Exemple", "02 00 22",
+                        "TANTE", "Exemple", "tante", "06 00 33",
+                        "VOISIN", "voisin", "06 00 44"):
+            self.assertTrue(any(attendu in texte for texte in valeurs),
+                            msg=attendu)
+        # Les personnes figurent dans les cellules et non dans le titre.
+        self.assertTrue(any(texte == "TANTE" for _x, _y, texte in c.textes))
+
     def test_sans_medical_ne_lit_pas_de_base(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = os.path.join(tmp, "fiche.pdf")
