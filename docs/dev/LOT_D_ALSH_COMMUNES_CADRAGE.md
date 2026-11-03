@@ -1,5 +1,16 @@
 # Recadrage du Lot D : conventions ALSH et participation des communes
 
+## Livraison C3 : écran wx nominatif et contrôles (03/11/2026)
+
+- Moteur C3 commun publie sur `main` (`07eb213`) ; ecran, menu et lien depuis l'ancienne situation financiere publies sur `wx` (`45be4f2`). L'interface `qt` n'est pas modifiee.
+- Recalcul sur demande depuis les consommations Noethys et l'historique automatique C2, avec profils explicitement configures ; ecrans de synthese, detail par enfant et adresse complete de la periode, presences datees et anomalies.
+- Ajout de correspondances postales/INSEE verifiees, clauses de tarifs signees/datees et correction exceptionnelle d'une date d'effet de domicile avec justificatif. Pas de double saisie des presences et aucun second facturier.
+- Exports CSV compatibles Excel : recap nominatif **d'une commune**, detail nominatif **d'une commune**, synthese anonymisee ; controles `consulter`, `exporter`, `modifier` **explicites**, refus par defaut et audit nominatif.
+- **124 tests SQLite fictifs reussis**. Schema MAD controle en lecture seule (MySQL 5.7.31, tables requises InnoDB), mais migrations et triggers MySQL reels, rendu wx et traitement d'une copie ALSH representative **non qualifies**.
+- Le rapport financier wx historique existe encore et son import se base sur les adresses actuelles : avertissement a l'ecran. **Il faudra raccorder les totaux C3 aux acomptes et au solde, sans emission automatique ni numerotation nouvelle**. Les pieces nominatives PDF et XLSX natives restent a coder.
+- Statut du nouveau moteur : `BROUILLON NON FACTURABLE`, **aucune migration sur MAD**.
+
+
 ## Automatisation des adresses et du calcul — ALSH-C2 (03/11/2026)
 
 Le **moteur C2 est code et publie sur `main`**, avec 92 tests fictifs SQLite (C1 52 + C2 40). Voir `docs/dev/ALSH_COMMUNES_C2_IMPLEMENTATION.md`.
