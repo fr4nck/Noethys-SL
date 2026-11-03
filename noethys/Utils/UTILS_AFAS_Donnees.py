@@ -56,18 +56,21 @@ _ETATS_AFAS = ("present", "reservation", "absentj", "absenti")
 
 
 def SelectionEtatsAFAS(options, cle):
-    """Validation fail-closed des etats AFAS par indicateur."""
+    """Renvoie les états explicitement autorisés pour une métrique AFAS.
+
+    Les heures réelles n'acceptent pas les réservations non pointées.
+    Les absences facturées restent une option distincte et explicite.
+    """
     if cle not in ("afas_etats_reels", "afas_etats_factures"):
-        raise ValueError("Metrique AFAS inconnue : %s" % cle)
+        raise ValueError("Métrique AFAS inconnue : %s" % cle)
     valeurs = options.get(cle, ["present"])
     if (not isinstance(valeurs, (list, tuple)) or not valeurs
             or any(type(v) is not str or v not in _ETATS_AFAS for v in valeurs)
             or len(valeurs) != len(set(valeurs))):
-        raise ValueError("Etats AFAS invalides pour %s : selectionner des etats distincts et connus." % cle)
+        raise ValueError("États AFAS invalides pour %s : sélectionner des états distincts et connus." % cle)
     if cle == "afas_etats_reels" and "reservation" in valeurs:
-        raise ValueError("Les reservations non pointees ne sont pas des heures realisees AFAS.")
+        raise ValueError("Les réservations non pointées ne sont pas des heures réalisées AFAS.")
     return list(valeurs)
-
 
 
 def _sommer_par_regroupement(IDactivite, IDgroupe, date_debut, date_fin, dictUnites, dict_options,
