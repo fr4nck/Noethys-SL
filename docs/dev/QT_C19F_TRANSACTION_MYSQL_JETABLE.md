@@ -79,8 +79,21 @@ des **584 tests Qt C19e**, dont la qualification Windows reste un gate
 indépendant. Pas de demande de téléchargement ni de conteneur sur les PC
 5700X/i5-10400.
 
-Ne pas déclarer C19f « PASS » avant de lire les deux jobs MySQL et leurs
-journaux sur le SHA de ce lot.
+**Qualification CI confirmée sur le code C19f** : après correction
+du client MySQL 8.0 (support RSA ajouté uniquement sur runner au commit
+`4fc4eb8779`), le run
+[41688434727](https://github.com/fr4nck/Noethys-SL/actions/runs/41688434727)
+est **completed/success avec les deux jobs verts** :
+**24/24 tests PASS sur MySQL 5.7.44** et **24/24 PASS sur MySQL 8.0.40**,
+zéro erreur ni échec. Les deux scénarios impliquant deux processus
+concurrents sont réussis sur chaque version.
+
+Le premier run
+[41688234238](https://github.com/fr4nck/Noethys-SL/actions/runs/41688234238)
+avait réussi sous MySQL 5.7, mais échoué en 8.0 avant les tests, faute
+de `cryptography` pour `caching_sha2_password`. Cette anomalie
+d'outillage est corrigée. Ces preuves ne concernent que le laboratoire
+fictif, pas le schéma ni la facturation Noethys réels.
 
 ## Étapes encore ouvertes avant une quelconque écriture réelle
 
