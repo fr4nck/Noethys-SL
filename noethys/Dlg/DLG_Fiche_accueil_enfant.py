@@ -186,9 +186,7 @@ class Dialog(wx.Dialog):
                        self.medical["vaccins_enregistres"]
                        if self.medical else u"Consulter les vaccins dans l'onglet Médical.")
         medecin = self.medical.get("medecin") if self.medical else None
-        nom_medecin = (u"%s %s — %s" % (
-            medecin.get("nom") or "", medecin.get("prenom") or "",
-            medecin.get("telephone") or "")).strip() if medecin else (
+        nom_medecin = (sources.FormaterMedecin(medecin) if medecin else
             u"Consulter le médecin traitant dans l'onglet Médical.")
         if self.medical:
             rubriques = sources.PreparerRubriquesMedicales(self.medical)
@@ -497,9 +495,7 @@ class Dialog(wx.Dialog):
                 self.medical["vaccins_enregistres"])
             medecin = self.medical.get("medecin")
             if medecin:
-                info["medecin"] = u"%s %s (%s)" % (
-                    medecin.get("nom", ""), medecin.get("prenom", ""),
-                    medecin.get("telephone", ""))
+                info["medecin"] = sources.FormaterMedecin(medecin)
             # Rubriques de la fiche papier : reprendre les informations
             # medicales deja saisies, sans dossier ni statut PAI parallele.
             info.update(sources.PreparerRubriquesMedicales(self.medical))
