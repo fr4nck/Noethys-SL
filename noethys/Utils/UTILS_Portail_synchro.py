@@ -348,31 +348,31 @@ class Synchro():
         else :
             connexion_provisoire = False
 
-        self.log.EcritLog(_(u"Mise à jour du fichier WSGI pour auto reload"))
+        try:
+            self.log.EcritLog(_(u"Mise à jour du fichier WSGI pour auto reload"))
 
-        # Téléchargement du fichier wsgi
-        resultat = self.TelechargeFichier(ftp=ftp, nomFichier="connecthys.wsgi", repFichier=None)
-        if resultat == False :
-            return False
-        fichier_wsgi = open(os.path.join(resultat[0], resultat[1]), "r")
-        liste_lignes_wsgi = fichier_wsgi.readlines()
-        fichier_wsgi.close()
+            # Téléchargement du fichier wsgi
+            resultat = self.TelechargeFichier(ftp=ftp, nomFichier="connecthys.wsgi", repFichier=None)
+            if resultat == False :
+                return False
+            fichier_wsgi = open(os.path.join(resultat[0], resultat[1]), "r")
+            liste_lignes_wsgi = fichier_wsgi.readlines()
+            fichier_wsgi.close()
 
-        # Création du nouveau fichier wsgi
-        nomFichierComplet = UTILS_Fichiers.GetRepTemp(fichier="connecthys.wsgi")
-        fichier_wsgi = codecs.open(nomFichierComplet, 'w')
-        for ligne in liste_lignes_wsgi :
-            if "lastupdate" in ligne :
-                ligne = "# lastupdate = %s" % datetime.datetime.now()
-            fichier_wsgi.write(ligne)
-        fichier_wsgi.close()
+            # Création du nouveau fichier wsgi
+            nomFichierComplet = UTILS_Fichiers.GetRepTemp(fichier="connecthys.wsgi")
+            fichier_wsgi = codecs.open(nomFichierComplet, 'w')
+            for ligne in liste_lignes_wsgi :
+                if "lastupdate" in ligne :
+                    ligne = "# lastupdate = %s" % datetime.datetime.now()
+                fichier_wsgi.write(ligne)
+            fichier_wsgi.close()
 
-        # Envoi du nouveau fichier wsgi
-        self.UploadFichier(ftp=ftp, nomFichierComplet=nomFichierComplet, repDest="")
-
-        # Si connexion provisoire
-        if connexion_provisoire == True :
-            self.Deconnexion(ftp)
+            # Envoi du nouveau fichier wsgi
+            self.UploadFichier(ftp=ftp, nomFichierComplet=nomFichierComplet, repDest="")
+        finally:
+            if connexion_provisoire:
+                self.Deconnexion(ftp, ssh)
 
     def Connexion(self):
         ftp = None
@@ -409,6 +409,17 @@ class Synchro():
                 ftp = ssh.open_sftp()
                 ftp.chdir("/" + self.dict_parametres["ssh_repertoire"])
             except Exception as err :
+                # Un echec pendant open_sftp/chdir laisse le transport SSH ouvert.
+                if ftp is not None:
+                    try:
+                        ftp.close()
+                    except Exception:
+                        pass
+                if ssh is not None:
+                    try:
+                        ssh.close()
+                    except Exception:
+                        pass
                 print("Erreur connexion SSH/SFTP au serveur : ", str(err))
                 self.log.EcritLog(_(u"[ERREUR] Connexion SSH/SFTP impossible."))
                 try:
@@ -420,15 +431,20 @@ class Synchro():
         return ftp, ssh
 
 
-    def Deconnexion(self, ftp=None):
+    def Deconnexion(self, ftp=None, ssh=None):
+        """Fermer canal SFTP et transport SSH, meme si le canal echoue."""
         if self.dict_parametres["hebergement_type"] == 1 :
             self.log.EcritLog(_(u"Fermeture de la connexion FTP..."))
-            ftp.quit()
+            if ftp is not None:
+                ftp.quit()
         elif self.dict_parametres["hebergement_type"] == 2 :
             self.log.EcritLog(_(u"Fermeture de la connexion SSH/SFTP..."))
-            ftp.close()
-        else :
-            pass
+            try:
+                if ftp is not None:
+                    ftp.close()
+            finally:
+                if ssh is not None:
+                    ssh.close()
 
     def ChargeModuleModels(self, chemin, nomFichier):
         """ Charge le fichier models.py téléchargé depuis le portail.
@@ -503,7 +519,21 @@ class Synchro():
             for cle in [c for c in sys.modules if c == nom_package or c.startswith(nom_package + ".")] :
                 sys.modules.pop(cle, None)
 
-    def Upload_data(self, full_synchro=False) :
+    def _FermerUploadActif(self):
+        session = getattr(self, "_upload_connexion_active", None)
+        self._upload_connexion_active = None
+        if session is not None:
+            self.Deconnexion(*session)
+
+    def Upload_data(self, full_synchro=False):
+        """Liberer les ressources sur tous les retours et exceptions."""
+        self._upload_connexion_active = None
+        try:
+            return self._Upload_data_implementation(full_synchro=full_synchro)
+        finally:
+            self._FermerUploadActif()
+
+    def _Upload_data_implementation(self, full_synchro=False) :
         self.log.EcritLog(_(u"Lancement de la synchronisation des données..."))
         t1 = time.time()
 
@@ -514,6 +544,7 @@ class Synchro():
             return False
         else :
             ftp, ssh = resultats
+            self._upload_connexion_active = (ftp, ssh)
 
         # Envoi du fichier de config
         self.log.EcritLog(_(u"Synchro du fichier de configuration..."))
@@ -521,7 +552,7 @@ class Synchro():
         resultat = self.Upload_config(ftp=ftp)
         if resultat == False :
             self.log.EcritLog(_(u"[ERREUR] Synchro du fichier de configuration impossible."))
-            self.Deconnexion(ftp)
+            self._FermerUploadActif()
             return False
 
         # Récupération du fichier models
@@ -529,7 +560,7 @@ class Synchro():
         resultat = self.TelechargeFichier(ftp=ftp, nomFichier="models.py", repFichier="application")
         if resultat == False :
             self.log.EcritLog(_(u"[ERREUR] Récupération des modèles de données impossible."))
-            self.Deconnexion(ftp)
+            self._FermerUploadActif()
             return False
 
         chemin, nomFichier = resultat
@@ -546,7 +577,7 @@ class Synchro():
             models = self.ChargeModuleModels(chemin, nomFichier)
         except Exception as err :
             self.log.EcritLog(_(u"Échec du chargement du modèle Connecthys : %s") % err)
-            self.Deconnexion(ftp)
+            self._FermerUploadActif()
             return False
 
         # Génération d'un nombre secret pour le nom de fichier des données
@@ -1577,7 +1608,7 @@ class Synchro():
         resultat_upload = self.UploadFichier(ftp=ftp, nomFichierComplet=nomFichierCRYPT, repDest="application/data")
 
         # Fermeture connexion FTP ou SFTP
-        self.Deconnexion(ftp)
+        self._FermerUploadActif()
         if resultat_upload == False :
             self.log.EcritLog(_(u"[ERREUR] Envoi du fichier de données impossible."))
             self.Pulse_gauge(0)
@@ -2118,11 +2149,13 @@ class Synchro():
         else :
             ftp, ssh = resultats
 
-        # Téléchargement du fichier
-        resultat = self.TelechargeFichier(ftp=ftp, nomFichier=nomFichier, repFichier=repFichier)
-        if resultat == False :
-            return False
-        self.Deconnexion(ftp)
+        # Fermer aussi si le telechargement echoue ou leve une exception.
+        try:
+            resultat = self.TelechargeFichier(ftp=ftp, nomFichier=nomFichier, repFichier=repFichier)
+            if resultat == False :
+                return False
+        finally:
+            self.Deconnexion(ftp, ssh)
         cheminFichier = os.path.join(resultat[0], resultat[1])
 
         if lecture:
