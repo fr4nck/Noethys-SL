@@ -17,7 +17,7 @@ class FicheAccueilInvalide(ValueError):
 AUTORISATIONS = (
     "piscine_baignade", "photos_prise", "photos_usage_interne",
     "photos_site_imprimes", "photos_reseaux_sociaux", "maquillage",
-    "activites_physiques",
+    "activites_physiques", "depart_seul",
 )
 RUBRIQUES = ("repas", "aeeh", "pai", "autorisations")
 TYPES_REPAS = ("standard", "sans_porc", "vegetarien", "sans_repas_pmsl")
