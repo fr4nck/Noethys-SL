@@ -93,6 +93,27 @@ class ArchivesTests(unittest.TestCase):
                 self.creer(dict(contenu, **{nom: b"faux"}))
                 self.assertEqual(AUDIT.InspecterArchive(self.archive)["verdict"], "FAIL")
 
+    def test_annexe_non_sql_crc_corrompu_refusee(self):
+        # Une archive NOD peut contenir des fichiers annexes au-dela des SQL.
+        # Un SQL intact ne doit pas masquer la corruption d'une autre entree.
+        self.creer()
+        with zipfile.ZipFile(self.archive, "a") as zf:
+            zf.writestr("annexe_fictive.bin", b"FICHIER FICTIF " * 64,
+                        compress_type=zipfile.ZIP_STORED)
+        premier = AUDIT.InspecterArchive(self.archive)
+        self.assertEqual(premier["verdict"], "PASS", premier["detail"])
+        with zipfile.ZipFile(self.archive) as zf:
+            info = zf.getinfo("annexe_fictive.bin")
+            debut = info.header_offset
+        with open(self.archive, "r+b") as fichier:
+            fichier.seek(debut + 26)
+            nom_long = int.from_bytes(fichier.read(2), "little")
+            extra_long = int.from_bytes(fichier.read(2), "little")
+            fichier.seek(debut + 30 + nom_long + extra_long + 8)
+            fichier.write(b"X")
+        resultat = AUDIT.InspecterArchive(self.archive)
+        self.assertEqual(resultat["verdict"], "FAIL", resultat)
+
     def test_archive_corrompue_refusee(self):
         self.archive.write_bytes(b"CECI N'EST PAS UN ZIP")
         self.assertEqual(AUDIT.InspecterArchive(self.archive)["verdict"], "FAIL")
