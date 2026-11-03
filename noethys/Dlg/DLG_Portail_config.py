@@ -78,6 +78,7 @@ VALEURS_DEFAUT = {
     "ssh_port" : "22",
     "ssh_key_file" : "",
     "ssh_host_key_sha256" : "",
+    "ssh_config_prive" : False,
     "models_sha256" : "",
     "ssh_utilisateur" : "",
     "ssh_mdp" : "",
@@ -218,6 +219,7 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
             ("ssh_mdp", "p('hebergement_type') == 2"),
             ("ssh_key_file", "p('hebergement_type') == 2"),
             ("ssh_host_key_sha256", "p('hebergement_type') == 2"),
+            ("ssh_config_prive", "p('hebergement_type') == 2"),
             ("ssh_repertoire", "p('hebergement_type') == 2"),
 
             ("db_serveur", "p('db_type') == 1"),
@@ -390,6 +392,15 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
         propriete = wxpg.StringProperty(label=_(u"Empreinte du serveur SSH (SHA256)"),
                                        name=nom, value=VALEURS_DEFAUT[nom])
         propriete.SetHelpString(_(u"Option de securite facultative. Saisissez SHA256:... uniquement apres verification de l'empreinte par un canal independant aupres de l'hebergeur. Une empreinte differente refusera la connexion. Laissez vide pour le mode historique."))
+        self.Append(propriete)
+
+        # Option facultative : ne surtout pas changer les droits par defaut
+        # sur le serveur ancien sans verifier son utilisateur WSGI/Flask.
+        nom = "ssh_config_prive"
+        propriete = wxpg.BoolProperty(label=_(u"Restreindre les droits de config.py (SSH)"),
+                                      name=nom, value=VALEURS_DEFAUT[nom])
+        propriete.SetHelpString(_(u"Option avancee, desactivee par defaut : chmod 0600 sur application/data/config.py apres transfert SFTP. A utiliser UNIQUEMENT apres avoir confirme que le serveur Connecthys lit la configuration sous le compte proprietaire SFTP. Sinon le portail peut devenir inaccessible. Des risques subsistent pendant le transfert, ne remplace pas une recette serveur."))
+        propriete.SetAttribute("UseCheckbox", True)
         self.Append(propriete)
 
         # SSH key file
