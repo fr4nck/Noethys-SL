@@ -85,5 +85,52 @@ class TypesEntitesTests(unittest.TestCase):
         self.assertIn('("type_structure", "VARCHAR(40)"', contenu[debut:debut + 350])
 
 
+    def test_08_fiche_divers_est_valide_et_enregistre_le_choix(self):
+        """Contrat syntaxique qui aurait detecte la regression d'indentation."""
+        import ast
+        chemin = RACINE / "noethys" / "Dlg" / "DLG_Famille_divers.py"
+        source = chemin.read_text(encoding="utf-8")
+        ast.parse(source, filename=str(chemin))
+        self.assertIn('name="type_structure"', source)
+        self.assertIn('infos[:12]', source)
+        self.assertIn('if self.type_structure_modifiable:', source)
+        self.assertIn('listeDonnees.append(("type_structure",', source)
+        self.assertIn('DB.ReqMAJ("familles", listeDonnees, "IDfamille", self.IDfamille)', source)
+
+    def test_09_requalification_en_association_ne_modifie_pas_la_fiche(self):
+        """Un ancien dossier personne/groupe conserve ses identifiants."""
+        con = sqlite3.connect(":memory:")
+        self.addCleanup(con.close)
+        con.execute(
+            "CREATE TABLE familles (IDfamille INTEGER PRIMARY KEY, "
+            "IDcompte_payeur INTEGER, nom TEXT)"
+        )
+        con.execute("INSERT INTO familles VALUES (23, 47, 'Groupe fictif')")
+        avant = con.execute(
+            "SELECT IDfamille, IDcompte_payeur, nom FROM familles WHERE IDfamille=23"
+        ).fetchone()
+        sql = (RACINE / "noethys" / "Data" / "Migrations"
+               / "familles_type_structure_sqlite.sql").read_text(encoding="utf-8")
+        con.executescript(sql)
+        con.execute(
+            "UPDATE familles SET type_structure=? WHERE IDfamille=?",
+            ("association", 23),
+        )
+        apres = con.execute(
+            "SELECT IDfamille, IDcompte_payeur, nom, type_structure "
+            "FROM familles WHERE IDfamille=23"
+        ).fetchone()
+        self.assertEqual(apres[:3], avant)
+        self.assertEqual(apres[3], "association")
+        con.execute(
+            "UPDATE familles SET type_structure=? WHERE IDfamille=?",
+            ("association_sportive", 23),
+        )
+        self.assertEqual(
+            con.execute("SELECT type_structure FROM familles WHERE IDfamille=23").fetchone()[0],
+            "association_sportive",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
