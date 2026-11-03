@@ -413,9 +413,10 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
     {convention: id, poids: '1'/'0.5'/'0', demi_journee_confirmee: bool}.
     Un poids 0 exclut repas/garderie ; jamais de reconnaissance par libelle.
     Le bilan de frequentation communale retient, comme une journee ordinaire,
-    les reservations passees et absences injustifiees avec facture valide.
-    Les absences justifiees restent exclues, meme avec facture.
-    Les actes CAF restent calcules independamment.
+    toutes les journees munies d'une facture valide, quel que soit leur
+    statut Noethys (y compris absence justifiee ou injustifiee).
+    Une facture annulee ne justifie jamais le comptage. Les actes CAF
+    restent calcules independamment.
     """
     if not isinstance(inclure_absenti, bool):
         raise ErreurFrequentation("Choix absenti attendu sous forme vrai/faux")
@@ -449,37 +450,35 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
         if _code_commune(ville) != c:
             exclus["autres_communes"] += 1
             continue
-        etat = _texte(l.get("etat"), "etat consommation").lower()
-        # Regle PMSL des journees de frequentation communale :
-        # presente OU reservee/absence injustifiee avec facture en vigueur.
-        # Une absence justifiee n'entre pas dans ce bilan, meme si facturee.
-        # La consommation et son statut d'origine ne sont jamais modifies.
+        # Regle PMSL : toute journee facturee entre dans le MEME compteur de
+        # frequentation, quel que soit son etat : present, reservation,
+        # absence justifiee ou non, etat technique ou atypique.
+        # La facture doit etre liee a une prestation et non annulee.
+        # L'arrete delimite simplement le realise et le previsionnel.
+        # Aucune consommation ni facture n'est modifiee.
         facture_valide = (l.get("IDprestation") is not None
                           and l.get("IDfacture") is not None
                           and l.get("facture_etat") != "annulation"
                           and (l.get("prestation_montant") is None
                                or l["prestation_montant"] >= 0))
-        if etat in ("absent", "absentj", "annule", "refus", "attente"):
-            exclus["absences"] += 1
-            continue
-        if etat not in ("present", "reservation", "absenti"):
-            raise ErreurFrequentation("Etat de consommation inconnu : %s" % etat)
-        if etat == "reservation" and jour <= cutoff:
-            if not facture_valide:
+        if facture_valide:
+            etat = "present" if jour <= cutoff else "reservation"
+        else:
+            etat = _texte(l.get("etat"), "etat consommation").lower()
+            if etat in ("absent", "absentj", "annule", "refus", "attente"):
+                exclus["absences"] += 1
+                continue
+            if etat not in ("present", "reservation", "absenti"):
+                raise ErreurFrequentation("Etat de consommation inconnu : %s" % etat)
+            if etat == "reservation" and jour <= cutoff:
                 exclus["reservations_passees"] += 1
                 continue
-            etat = "present"  # Une seule categorie communale : journees retenues
-        if etat == "absenti":
-            if jour > cutoff:
-                exclus["absences"] += 1
-                continue
-            if facture_valide:
-                etat = "present"  # Facturee, comptabilisee comme frequencee
-            elif not inclure_absenti:
-                exclus["absences"] += 1
-                continue
-        if etat == "present" and jour > cutoff:
-            raise ErreurFrequentation("Presence future : %s" % ident)
+            if etat == "absenti":
+                if jour > cutoff or not inclure_absenti:
+                    exclus["absences"] += 1
+                    continue
+            if etat == "present" and jour > cutoff:
+                raise ErreurFrequentation("Presence future : %s" % ident)
         cle_unite = "%s:%s" % (l.get("IDactivite"), l.get("IDunite"))
         regle = mapping_unites.get(cle_unite)
         if not isinstance(regle, dict):
