@@ -1,0 +1,35 @@
+name: Noethys SL wx - Profils CAF historiques
+
+# Qualification du garde-fou des deux anciens profils, sans base PMSL.
+# Indépendante de la CI wx générale, susceptible d'être annulée par d'autres commits.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - 'noethys/Utils/UTILS_AFAS_ProfilsHistoriques.py'
+      - 'noethys/Dlg/DLG_Etat_global.py'
+      - 'tests/test_noethys_sl_afas_profils_historiques.py'
+      - '.github/workflows/noethys-sl-afas-profils-historiques.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    name: Profils historiques - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Syntaxe des fichiers corrigés
+        run: python -m py_compile noethys/Utils/UTILS_AFAS_ProfilsHistoriques.py noethys/Dlg/DLG_Etat_global.py tests/test_noethys_sl_afas_profils_historiques.py
+      - name: Six tests sans base nominative
+        run: python -m unittest -v tests.test_noethys_sl_afas_profils_historiques
