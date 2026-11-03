@@ -12,6 +12,8 @@ import GestionDB
 from Utils import UTILS_Accueil_autorisations as registre
 from Utils import UTILS_Accueil_sources as sources
 from Utils import UTILS_Accueil_contacts as contacts
+from Utils import UTILS_Accueil_scolarite as scolarite
+from Data import DATA_Civilites as Civilites
 from Utils import UTILS_Accueil_impression as impression
 from Utils import UTILS_Fiche_accueil_enfant as regles
 from Utils.UTILS_Traduction import _
@@ -51,18 +53,31 @@ def LireEntete(IDindividu, aeeh_autorisee=False):
     try:
         if getattr(db, "echec", 0):
             raise RuntimeError("Base inaccessible")
-        colonnes = "nom, prenom, date_naiss, ville_naiss"
-        if aeeh_autorisee is True:
-            colonnes += ", aeeh"
-        sql = "SELECT %s FROM individus WHERE IDindividu=%s" % (
-            colonnes, "%s" if db.isNetwork else "?")
+        marqueur = "%s" if db.isNetwork else "?"
+        sql = ("SELECT nom, prenom, date_naiss, ville_naiss, IDcivilite "
+               "FROM individus WHERE IDindividu=" + marqueur)
         db.cursor.execute(sql, (IDindividu,))
         ligne = db.cursor.fetchone()
         if ligne is None:
             raise RuntimeError("Enfant introuvable")
         resultat = dict(zip(("nom", "prenom", "date_naiss", "ville_naiss"), ligne[:4]))
+        sexe = Civilites.GetDictCivilites().get(ligne[4], {}).get("sexe")
+        resultat["sexe"] = sexe if sexe in ("M", "F") else ""
         if aeeh_autorisee is True:
-            etat = ligne[4]
+            # Le champ AEEH n'existe pas dans toutes les bases historiques.
+            # Son absence ne doit pas masquer le nom ou le sexe de l'enfant.
+            try:
+                db.cursor.execute("SELECT aeeh FROM individus WHERE IDindividu="
+                                  + marqueur, (IDindividu,))
+                ligne_aeeh = db.cursor.fetchone()
+                etat = ligne_aeeh[0] if ligne_aeeh else None
+            except Exception as exc:
+                erreur = str(exc).lower()
+                if "aeeh" in erreur and (
+                        "no such column" in erreur or "unknown column" in erreur):
+                    etat = None
+                else:
+                    raise
             resultat["aeeh"] = (
                 u"Oui" if etat == 1 else
                 u"Non" if etat == 0 else u"Non renseigné")
@@ -116,6 +131,10 @@ class Dialog(wx.Dialog):
             self.contacts_fiche = contacts.LireContactsEnfant(IDindividu)
         except Exception:
             self.contacts_fiche = None
+        try:
+            self.scolarite_fiche = scolarite.LireScolariteActuelle(IDindividu)
+        except Exception:
+            self.scolarite_fiche = {"etat": "a_verifier", "classe": "", "ecole": ""}
 
         panneau = wx.ScrolledWindow(self)
         panneau.SetScrollRate(0, 15)
@@ -127,11 +146,14 @@ class Dialog(wx.Dialog):
                             wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         colonne.Add(titre, 0, wx.ALIGN_CENTER | wx.ALL, 12)
         self._section(panneau, colonne, u"IDENTITÉ",
-             u"%s %s     Naissance : %s     Ville : %s" % (
+             u"%s %s     Sexe : %s\nNaissance : %s     Ville : %s\nClasse : %s     École : %s" % (
                 self.entete.get("nom") or u"",
                 self.entete.get("prenom") or u"",
+                self.entete.get("sexe") or u"Non renseigné",
                 self.entete.get("date_naiss") or u"Non renseignée",
-                self.entete.get("ville_naiss") or u"Non renseignée"))
+                self.entete.get("ville_naiss") or u"Non renseignée",
+                self.scolarite_fiche.get("classe") or u"Non renseignée",
+                self.scolarite_fiche.get("ecole") or u"Non renseignée"))
         responsables = ((self.contacts_fiche or {}).get("responsables") or [])
         accompagnants = ((self.contacts_fiche or {}).get("accompagnants") or [])
         for index, titre in enumerate((
@@ -434,6 +456,11 @@ class Dialog(wx.Dialog):
             return False
         info = dict(self.entete)
         info["annee"] = perimetre
+        try:
+            info["classe"] = scolarite.LireScolariteActuelle(
+                self.IDindividu)["classe"]
+        except Exception:
+            info["classe"] = ""  # La fiche reste imprimable sans scolarite.
         info["responsables"] = contacts_actuels["responsables"][:2]
         info["accompagnants"] = contacts_actuels["accompagnants"]
         info["aeeh"] = self.entete.get("aeeh", "")
