@@ -133,6 +133,15 @@ class SourceMedicaleTests(unittest.TestCase):
         self.assertEqual(r["traitement"], "Non renseigné dans Noethys")
         self.assertEqual(len(r["medical"]), 1)
 
+    def test_traitement_signale_sans_consigne_reste_visible(self):
+        historique = {"problemes": [
+            {"intitule": "Asthme fictif", "categorie": "Maladie",
+             "date_debut": "2026-01-01", "date_fin": None,
+             "traitement_medical": True, "description_traitement": ""},
+        ]}
+        resume = S.PreparerRubriquesMedicales(historique, "2026-11-03")
+        self.assertIn("traitement signalé", resume["traitement"])
+
     def test_categories_saisie_libre_ne_creent_pas_pai_imaginaire(self):
         historique = {"problemes": [
             {"categorie": "Maladie", "intitule": "Asthme",
