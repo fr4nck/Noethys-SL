@@ -83,6 +83,10 @@ class EcranAccueilTests(unittest.TestCase):
                              [(11, "Parent Un"), (12, "Parent Deux")])
         lire.assert_called_once_with(10)
 
+    def test_trois_sites_alsh_du_formulaire_pmsl(self):
+        self.assertEqual(self.UI.SITES_ALSH,
+                         ("La Guerche-de-Bretagne", "Moutiers", "Bais"))
+
     def test_etat_non_renseigne_ou_refus_ne_devient_pas_oui(self):
         self.assertEqual(self.UI.ETAT.get("non_renseigne", 0), 0)
         self.assertEqual(self.UI.ETAT["non"], 2)
@@ -186,6 +190,8 @@ class EcranAccueilTests(unittest.TestCase):
         f.registre_pret = False
         f.signataire = NS(GetSelection=Mock(return_value=0))
         f.date_signature = NS(GetValue=Mock(return_value=""))
+        f.site_alsh = NS(GetSelection=Mock(return_value=2),
+                         GetStringSelection=Mock(return_value="Moutiers"))
         fenetre = NS(ShowModal=Mock(return_value=wx.ID_OK),
                      GetPath=Mock(return_value="fictif.pdf"), Destroy=Mock())
         membres = {
@@ -208,6 +214,7 @@ class EcranAccueilTests(unittest.TestCase):
         self.assertEqual(export.call_args.args[1]["responsables"], membres["responsables"])
         self.assertEqual(export.call_args.args[1]["accompagnants"], membres["accompagnants"])
         self.assertEqual(export.call_args.args[1]["classe"], "CE2 (Fictive)")
+        self.assertEqual(export.call_args.args[1]["alsh"], "Moutiers")
         lecture.assert_called_once_with(10)
         classe.assert_called_once_with(10)
         fenetre.Destroy.assert_called_once()
