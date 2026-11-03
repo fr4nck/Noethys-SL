@@ -36,7 +36,7 @@ d'une archive, jamais pour écraser une sauvegarde :
 # Lecture seule ; aucun serveur, aucune installation ni telechargement
 Set-Location -LiteralPath $HOME
 # Dans un clone source Noethys-SL ou avec le script et son module source :
-python scripts/auditer_sauvegarde_rc105.py "C:\\chemin\\copie_archive.nod"
+python scripts/auditer_sauvegarde_rc105.py "C:\chemin\copie_archive.nod"
 ```
 
 Code de retour : `0 = PASS` (3 manifestes intègres, **pas une preuve de
