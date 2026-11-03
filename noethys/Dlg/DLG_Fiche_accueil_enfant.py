@@ -143,15 +143,15 @@ class Dialog(wx.Dialog):
                 self.entete.get("ville_naiss") or u"Non renseignée"))
         responsables = ((self.contacts_fiche or {}).get("responsables") or [])
         accompagnants = ((self.contacts_fiche or {}).get("accompagnants") or [])
-        for index in range(2):
+        for index, titre in enumerate((
+                u"RESPONSABLE LÉGAL n°1", u"RESPONSABLE LÉGAL n°2")):
             personne = responsables[index] if len(responsables) > index else {}
             contenu = u"\n".join(x for x in (
                 personne.get("identite", ""),
                 personne.get("adresse", ""),
                 personne.get("telephone", ""),
             ) if x) or u"À compléter dans les liens Noethys."
-            self._section(panneau, colonne,
-                u"RESPONSABLE LÉGAL n°%d" % (index + 1), contenu)
+            self._section(panneau, colonne, titre, contenu)
         self._section(panneau, colonne, u"ACCOMPAGNANTS",
             u"\n".join(u"%s — %s — %s" % (
                 p["identite"], p["lien"], p["telephone_court"])
