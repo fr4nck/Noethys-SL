@@ -89,17 +89,32 @@ class ModelesSSHCompatTests(unittest.TestCase):
         self.assertEqual(self._synchro("").ChargeModuleModels(
             str(self.chemin), "models.py").VALEUR, "original")
 
-    def test_modules_annexes_ne_sont_pas_couverts_par_le_pin(self):
-        # Important : le SHA256 du seul models.py ne verrouille pas ses
-        # imports relatifs. Cette limite devra etre mentionnee dans la RC.
+    def test_mode_epingle_refuse_import_relatif_non_verifie(self):
+        marqueur = self.chemin / "annexe-a-ete-executee.txt"
         pin = self._modele("from . import annexe\nVALEUR = annexe.VALEUR\n")
-        annexe = self.chemin / "annexe.py"
-        annexe.write_text("VALEUR = 'v1'\n", encoding="utf-8")
-        v1 = self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
-        self.assertEqual(v1.VALEUR, "v1")
-        annexe.write_text("VALEUR = 'v2_changee'\n", encoding="utf-8")
-        v2 = self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
-        self.assertEqual(v2.VALEUR, "v2_changee")
+        (self.chemin / "annexe.py").write_text(
+            "from pathlib import Path\nPath(%r).write_text('NON')\nVALEUR = 'non fiable'\n" % str(marqueur),
+            encoding="utf-8")
+        avant = tuple(sys.meta_path)
+        with self.assertRaisesRegex(
+                SEC.ModuleConnecthysNonFiable, "Import relatif Python non verifie"):
+            self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
+        self.assertFalse(marqueur.exists(), "Le code annexe ne doit pas s'executer")
+        self.assertEqual(tuple(sys.meta_path), avant, "Le hook ne doit pas rester actif")
+        self.assertFalse(any(k.startswith("noethys_connecthys_sync_") for k in sys.modules))
+        # Par contrat : si l'empreinte est volontairement retiree,
+        # l'ancien Connecthys peut encore utiliser ses imports relatifs.
+        modele_ancien = self._synchro("").ChargeModuleModels(str(self.chemin), "models.py")
+        self.assertEqual(modele_ancien.VALEUR, "non fiable")
+
+    def test_import_relatif_dynamique_egalement_refuse_si_pin(self):
+        pin = self._modele(
+            "import importlib\nVALEUR = importlib.import_module('.annexe', __package__).VALEUR\n")
+        (self.chemin / "annexe.py").write_text(
+            "VALEUR = 123\n", encoding="utf-8")
+        with self.assertRaisesRegex(SEC.ModuleConnecthysNonFiable, "non verifie"):
+            self._synchro(pin).ChargeModuleModels(str(self.chemin), "models.py")
+        self.assertFalse(any(k.startswith("noethys_connecthys_sync_") for k in sys.modules))
 
     def test_option_desactivee_par_defaut(self):
         self.assertEqual(DLG_Portail_config.VALEURS_DEFAUT.get("models_sha256"), "")
