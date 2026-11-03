@@ -128,6 +128,7 @@ jobs:
           tests.test_noethys_sl_accueil_contacts
           tests.test_noethys_sl_accueil_scolarite
           tests.test_noethys_sl_accueil_impression
+          tests.test_noethys_sl_accueil_ados
           tests.test_noethys_sl_accueil_wx
           tests.test_noethys_sl_reception_fiches
           tests.test_noethys_sl_suivi_fiches
