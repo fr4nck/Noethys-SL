@@ -39,6 +39,16 @@ class EcranAccueilTests(unittest.TestCase):
             OnActualiser=Mock(return_value=True),
         )
 
+    def test_choix_signataire_reutilise_autorisation_legale_des_liens(self):
+        responsables = [{"IDindividu": 11, "identite": "Parent Un"},
+                        {"IDindividu": 12, "identite": "Parent Deux"}]
+        with patch.object(self.UI.contacts, "LireContactsEnfant",
+                          return_value={"responsables": responsables,
+                                        "accompagnants": []}) as lire:
+            self.assertEqual(self.UI.ListerResponsables(10),
+                             [(11, "Parent Un"), (12, "Parent Deux")])
+        lire.assert_called_once_with(10)
+
     def test_etat_non_renseigne_ou_refus_ne_devient_pas_oui(self):
         self.assertEqual(self.UI.ETAT.get("non_renseigne", 0), 0)
         self.assertEqual(self.UI.ETAT["non"], 2)
