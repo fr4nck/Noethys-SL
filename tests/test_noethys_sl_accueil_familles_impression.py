@@ -102,7 +102,7 @@ class ModeleFamille(unittest.TestCase):
                          annee="2026-2027")
             contenu = open(fichier, "rb").read()
             self.assertTrue(contenu.startswith(b"%PDF-"))
-            self.assertEqual(len(re.findall(rb"/Type\\s*/Page\\b", contenu)), 2)
+            self.assertEqual(len(re.findall(rb"/Type\s*/Page\b", contenu)), 2)
         self.assertEqual(dossier, avant)
 
     def test_fiche_commune_exige_un_accueil_par_enfant(self):
