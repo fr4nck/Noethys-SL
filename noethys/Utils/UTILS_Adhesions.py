@@ -104,28 +104,69 @@ def _liste_sql(liste_ids):
     return "(%s)" % ", ".join(str(int(x)) for x in liste_ids)
 
 
+
+# MySQL : codes de rupture de connexion autorisant un seul nouvel essai
+# de SELECT sur une connexion hors pool. Pas de retry sur les erreurs
+# de colonnes, de table, de droits, ni sur une ecriture.
+_CODES_SQL_RECONNEXION = (2006, 2013, 2014, 2055)
+
+
+def _code_erreur_sql(erreur):
+    if erreur is None:
+        return None
+    code = getattr(erreur, "errno", None)
+    if code is None:
+        args = getattr(erreur, "args", ())
+        code = args[0] if args else None
+    try:
+        return int(code)
+    except (TypeError, ValueError):
+        return None
+
+
+def _lire_sur_connexion(DB, req):
+    if getattr(DB, "echec", 0):
+        raise RuntimeError(u"Connexion à la base des adhésions impossible : %s" %
+                           getattr(DB, "erreur", u"ouverture refusée"))
+    if DB.ExecuterReq(req) != 1:
+        # GestionDB intercepte l'erreur SQL. Restituer sa cause sans
+        # inclure le SQL complet et ses donnees potentiellement sensibles.
+        table = re.search(r"\bFROM\s+([A-Za-z_][A-Za-z0-9_]*)", req, re.I)
+        nom_table = table.group(1) if table else u"indéterminée"
+        erreur = getattr(DB, "derniere_erreur_sql", None)
+        detail = u" : %s" % str(erreur)[:350] if erreur is not None else u""
+        raise RuntimeError(u"Lecture SQL des adhésions échouée (table %s)%s." %
+                           (nom_table, detail))
+    lignes = DB.ResultatReq()
+    if lignes is None:
+        raise RuntimeError(u"Lecture SQL des adhésions sans résultat exploitable.")
+    return lignes
+
+
 def _lire(req):
-    """Lecture stricte : une panne SQL ne doit jamais signifier aucune adhésion."""
+    """Lecture stricte : ni faux zéro ni écriture automatique."""
     DB = GestionDB.DB()
     try:
-        if getattr(DB, "echec", 0):
-            raise RuntimeError(u"Connexion à la base des adhésions impossible : %s" %
-                               getattr(DB, "erreur", u"ouverture refusée"))
-        if DB.ExecuterReq(req) != 1:
-            # Le service SQL historique absorbe l\u0027exception. Afficher uniquement
-            # le nom de la table et la cause, jamais la requête ni ses critères.
-            table = re.search(r"\\bFROM\\s+([A-Za-z_][A-Za-z0-9_]*)", req, re.I)
-            nom_table = table.group(1) if table else u"indéterminée"
-            erreur = getattr(DB, "derniere_erreur_sql", None)
-            detail = u" : %s" % str(erreur)[:350] if erreur is not None else u""
-            raise RuntimeError(u"Lecture SQL des adhésions échouée (table %s)%s." %
-                               (nom_table, detail))
-        lignes = DB.ResultatReq()
-        if lignes is None:
-            raise RuntimeError(u"Lecture SQL des adhésions sans résultat exploitable.")
-        return lignes
+        try:
+            return _lire_sur_connexion(DB, req)
+        except RuntimeError:
+            erreur = (getattr(DB, "derniere_erreur_sql", None)
+                      or getattr(DB, "erreur", None))
+            reessayer = (
+                getattr(DB, "isNetwork", False)
+                and req.lstrip().upper().startswith("SELECT")
+                and _code_erreur_sql(erreur) in _CODES_SQL_RECONNEXION
+            )
+            if not reessayer:
+                raise
+            # Nouvelle connexion physique pour ne pas reutiliser le socket
+            # defaillant du pool. Aucun second essai apres celui-ci.
+            DB.Close()
+            DB = GestionDB.DB(pooling=False)
+            return _lire_sur_connexion(DB, req)
     finally:
         DB.Close()
+
 
 
 def CalculerDateFin(date_debut, duree):
