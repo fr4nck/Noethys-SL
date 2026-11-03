@@ -78,3 +78,40 @@ dans la sauvegarde doivent être vérifiés avant déclaration.
 
 Cette évolution ne règle pas d'éventuels écarts historiques des anciens
 états globaux, qui ne sont pas une référence CAF V2 qualifiée.
+
+
+## Qualification du garde-fou repas isolé — 03/11/2026
+
+- Correction du moteur : [4c1b238](https://github.com/fr4nck/Noethys-SL/commit/4c1b23886d80c7d73ceb1b57ac5cf1b52eb94507).
+  Le repas présent non corroboré par une unité principale du même
+  enfant/jour/site provoque une anomalie bloquante et n'ajoute **aucune**
+  heure réalisée, y compris si la plage du repas est renseignée.
+- Ajustements des tests : [5d2712a](https://github.com/fr4nck/Noethys-SL/commit/5d2712a26b5d9e13e799e923ee7028a980a87acb).
+  Le scénario artificiel avec `Matin` finissant à 12:00 ne doit pas
+  être confondu avec les horaires PMSL réels, où le matin finit à 12:30.
+- Recette fictive harmonisée : [3bccc5a](https://github.com/fr4nck/Noethys-SL/commit/3bccc5a098aad4fbd149ac5821abe01daf7dff87).
+  Un ancien repas de fixture isolé a été rattaché à une présence
+  principale réelle dans ce **jeu fictif uniquement**, sans augmenter
+  les heures attendues ; le test du repas isolé reste bloquant.
+- [GitHub Actions #41670015164](https://github.com/fr4nck/Noethys-SL/actions/runs/41670015164)
+  **SUCCESS** : **145/145 tests Linux PASS** et **260 tests Windows,
+  0 FAIL, 7 SKIP (MySQL non qualifié)**.
+- Sauvegarde privée analysée localement, jamais publiée :
+  `Noethys_20261022_1444.nod`, SHA-256
+  `a86eee350a52e53dac2d1f10043b49fd0fa79d4e28f2467c8fe17473c1e5edba`.
+  Repas à l'état présent du 01/01 au 30/09/2026 :
+  4 044 avec journée, 196 avec matin seul, 96 avec après-midi seul,
+  3 sans accueil principal (1 Bais +6, 1 Bais -6, 1 Moutiers).
+- Autres unités en attente de classification : `Animation` (ID 7 :
+  61 consommations présentes) et `Sortie` (ID 8 : 522 consommations
+  présentes), toutes associées à une journée ou demi-journée présente
+  au même enfant/jour/site ; **aucune exclusion CAF automatique** sur
+  cette seule base. `Majoration garderie` (ID 56) : 0 consommation
+  dans les quatre groupes sur cette période.
+
+**Gates ouverts** : recette visuelle Windows, MySQL isolé, classification
+des unités 7/8/56, calendrier, Moutiers et justificatifs, vérification
+des trois repas isolés. Les quatre presets de recette restent des
+brouillons ; aucune déclaration CAF chiffrée à partir d'AFAS V2 sur
+la base réelle n'est revendiquée.
+
