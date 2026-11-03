@@ -135,7 +135,7 @@ def _page1(c, data):
     c.line(x + 5, top - 43, x + w - 5, top - 43)
     for i in range(1, 4):
         cx = x + i * (w / 4)
-        c.line(cx, top - 27, cx, top - 90)
+        c.line(cx, top - 27, cx, top - 118)
     for y in (top - 58, top - 73, top - 88, top - 103, top - 118):
         c.line(x + 5, y, x + w - 5, y)
     accompagnants = list(data.get("accompagnants") or [])
