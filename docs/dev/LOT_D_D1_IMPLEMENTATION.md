@@ -37,8 +37,10 @@ Avant toute installation : sauvegarde/restauration vérifiées sur copie, invent
 
 ## Statut et prochaine étape
 
-- **D1 moteur métier et tests SQLite : réalisé localement**, à faire entrer dans le dépôt avec preuve de commit.
+- **D1 moteur métier et tests SQLite : PUBLIÉS sur `main`** (18/18 tests locaux PASS, 0 FAIL, Python 3.13). Les cinq fichiers ont été comparés à leurs empreintes Git, identiques à celles des sources testées. Commits de création : `677687e`, `fcc29ec`, `e9a3b6d`, `b917eea`, `558a868`.
 - **D1 MySQL 5.7, UI wx, UI Qt et intégration permissions applicatives : NON QUALIFIÉS.**
 - **D2-D5 : non développés dans cette livraison.**
+
+**Provenance/limites :** prévol initial main `c13d150`, wx `103a8ee`, qt `6b11611` ; la rédaction a été effectuée uniquement sur `main`, cinq commits non forcés, sans merge. Aucune CI/qualification Windows ni recette MySQL 5.7 revendiquée. Aucun accès ni changement à la base de production ; archive locale de livraison hors Git, aucun secret ni donnée de la sauvegarde dans les commits.
 
 Conserver les branches existantes `main`, `wx`, `qt` sans merge global. Le code métier D1 va sur `main` ; propagation contrôlée vers les interfaces après leur qualification, selon `AGENTS.md`.
