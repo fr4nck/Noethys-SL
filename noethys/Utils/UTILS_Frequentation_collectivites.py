@@ -18,7 +18,7 @@ from pathlib import Path
 
 SCHEMA = "noethys-sl.frequentation-collectivites.v1"
 CONTROLES = ("frequentation", "prevision", "domiciliation", "acomptes")
-ETATS = ("realise", "absence_injustifiee", "prevision")
+ETATS = ("realise", "facturee_non_presente", "absence_injustifiee", "prevision")
 COMMUNES_ALSH = (
     "Availles-sur-Seiche", "Bais", "Drouges", "La Guerche-de-Bretagne",
     "Mousse", "Moutiers", "Rannee", "La Selle-Guerchaise", "Visseiche",
@@ -208,7 +208,7 @@ def calculer(dossier):
         conventions[ident] = {"accueil": accueil, "tarif_centimes": tarif, "debut": d0,
                               "fin": d1, "tarif_confirme": conf, "demi": demi,
                               "justificatif": justificatif,
-                              "mensuel": {m: {"realise": Decimal("0"), "absence_injustifiee": Decimal("0"), "prevision": Decimal("0")} for m in range(1,13)}}
+                              "mensuel": {m: {"realise": Decimal("0"), "facturee_non_presente": Decimal("0"), "absence_injustifiee": Decimal("0"), "prevision": Decimal("0")} for m in range(1,13)}}
     raw_jours = dossier.get("jours")
     raw_acomptes = dossier.get("acomptes")
     if not isinstance(raw_jours, list) or not isinstance(raw_acomptes, list):
@@ -239,7 +239,7 @@ def calculer(dossier):
         vus_jours.add(cle)
         if nature == "absence_injustifiee" and not compter_absenti:
             raise ErreurFrequentation("Activer explicitement les absences injustifiees avant leur saisie : %s" % ident)
-        if nature in ("realise", "absence_injustifiee") and mois > arrete.month:
+        if nature in ("realise", "facturee_non_presente", "absence_injustifiee") and mois > arrete.month:
             raise ErreurFrequentation("Journee retenue apres la date d'arrete : %s" % ident)
         if nature == "prevision" and mois < arrete.month:
             raise ErreurFrequentation("Ancienne reservation consideree comme future : %s" % ident)
@@ -313,38 +313,46 @@ def calculer(dossier):
         if source.get("domiciliation_historique_verifiee") is not True:
             source_valide = False
             alertes.append("Adresses actuelles : domiciliation historique non verifiee")
-    real = pred = absenti = Decimal("0")
-    part_reelle = part_prevue = part_absenti = 0
+    real = pred = absenti = facturee = Decimal("0")
+    part_reelle = part_prevue = part_absenti = part_facturee = 0
     par_accueil = {}
-    mensuel = {m: {"realise": Decimal("0"), "absence_injustifiee": Decimal("0"),
-                   "prevision": Decimal("0"), "participation_absences": 0,
+    mensuel = {m: {"realise": Decimal("0"), "facturee_non_presente": Decimal("0"),
+                   "absence_injustifiee": Decimal("0"), "prevision": Decimal("0"),
+                   "participation_absences": 0, "participation_facturee_non_presente": 0,
                    "participation": 0} for m in range(1, 13)}
     for cid, c in conventions.items():
         r = sum((c["mensuel"][m]["realise"] for m in range(1, 13)), Decimal("0"))
+        f = sum((c["mensuel"][m]["facturee_non_presente"] for m in range(1, 13)), Decimal("0"))
         p = sum((c["mensuel"][m]["prevision"] for m in range(1, 13)), Decimal("0"))
         a = sum((c["mensuel"][m]["absence_injustifiee"] for m in range(1, 13)), Decimal("0"))
         er = _en_centimes(r, c["tarif_centimes"])
+        ef = _en_centimes(f, c["tarif_centimes"])
         ep = _en_centimes(p, c["tarif_centimes"])
         ea = _en_centimes(a, c["tarif_centimes"])
         real += r
+        facturee += f
         pred += p
         absenti += a
         part_reelle += er
+        part_facturee += ef
         part_prevue += ep
         part_absenti += ea
         par_accueil[cid] = {"accueil": c["accueil"], "tarif_centimes": c["tarif_centimes"],
                             "tarif_confirme": c["tarif_confirme"], "realise": r, "prevision": p,
-                            "absences_injustifiees": a,
+                            "facturee_non_presente": f, "absences_injustifiees": a,
                             "participation_reelle": er, "participation_prevue": ep,
+                            "participation_facturee_non_presente": ef,
                             "participation_absences_injustifiees": ea,
-                            "participation_estimee": er + ep + ea, "acomptes_recus": payes[cid]}
+                            "participation_estimee": er + ef + ep + ea, "acomptes_recus": payes[cid]}
         for m in range(1, 13):
             mensuel[m]["realise"] += c["mensuel"][m]["realise"]
+            mensuel[m]["facturee_non_presente"] += c["mensuel"][m]["facturee_non_presente"]
             mensuel[m]["absence_injustifiee"] += c["mensuel"][m]["absence_injustifiee"]
             mensuel[m]["prevision"] += c["mensuel"][m]["prevision"]
         # Allouer les fractions de centime au dernier mois renseigne afin que
         # le tableau mensuel reconcilie exactement le total annuel par accueil.
-        for nature, total_cents in (("realise", er), ("absence_injustifiee", ea), ("prevision", ep)):
+        for nature, total_cents in (("realise", er), ("facturee_non_presente", ef),
+                                    ("absence_injustifiee", ea), ("prevision", ep)):
             monthly = {m: _en_centimes(c["mensuel"][m][nature], c["tarif_centimes"])
                        for m in range(1, 13)}
             correction = total_cents - sum(monthly.values())
@@ -355,10 +363,13 @@ def calculer(dossier):
                 mensuel[m]["participation"] += cents
                 if nature == "absence_injustifiee":
                     mensuel[m]["participation_absences"] += cents
+                if nature == "facturee_non_presente":
+                    mensuel[m]["participation_facturee_non_presente"] += cents
     # Les cases non renseignees sont indeterminees sauf lorsque leur
     # categorie a ete explicitement declaree exhaustive pour l'exercice.
     for m in range(1, 13):
-        natures = [("realise", "frequentation"), ("prevision", "prevision")]
+        natures = [("realise", "frequentation"), ("facturee_non_presente", "frequentation"),
+                   ("prevision", "prevision")]
         if compter_absenti:
             natures.append(("absence_injustifiee", "frequentation"))
         for nature, controle in natures:
@@ -372,16 +383,19 @@ def calculer(dossier):
                 mensuel[m]["participation_absences"] = None
     if compter_absenti:
         alertes.append("Absences injustifiees retenues dans le calcul : accord communal ecrit a verifier. Ce ne sont PAS des presences reelles.")
+    if facturee:
+        alertes.append("Journees facturees sans presence : participation communale incluse dans le total indicatif, application de la convention a confirmer.")
     connu = bool(raw_jours and conventions)
     # Conventions fournies : journees realisees, sans regle explicite sur les
     # absences facturees. Le choix peut etre utilise pour simulation seulement.
-    complet = bool(not compter_absenti and connu and org.strip() and all(verifs.values()) and
+    complet = bool(not compter_absenti and not facturee and connu and org.strip() and all(verifs.values()) and
                    all(c["tarif_confirme"] for c in conventions.values()) and
                    not lignes_sans_piece and not paiements_sans_piece and source_valide)
-    solde = part_reelle + part_absenti + part_prevue - acomptes if connu else None
+    solde = part_reelle + part_facturee + part_absenti + part_prevue - acomptes if connu else None
     if solde is not None and solde < 0:
         alertes.append("Acomptes superieurs a la participation estimee : trop-percu possible")
     statut = ("ETAT VERIFIE - PREVISIONNEL" if complet else
+              "PROVISOIRE - JOURNEES FACTUREES A VALIDER" if facturee else
               "PROVISOIRE - ABSENCES A VALIDER" if compter_absenti else
               "PROVISOIRE - A VERIFIER")
     return {
@@ -391,13 +405,15 @@ def calculer(dossier):
         "conventions": par_accueil,
         "mensuel": {str(m): mensuel[m] for m in range(1, 13)},
         "totaux": {"journees_reelles": real if connu else None,
+                   "journees_facturees_non_presentes": facturee if connu else None,
                    "journees_absences_injustifiees": absenti if connu else None,
-                   "journees_retenues": real + absenti if connu else None,
+                   "journees_retenues": real + facturee + absenti if connu else None,
                    "journees_prevues": pred if connu else None,
                    "participation_reelle": part_reelle if connu else None,
+                   "participation_facturee_non_presente": part_facturee if connu else None,
                    "participation_absences_injustifiees": part_absenti if connu else None,
                    "participation_prevue": part_prevue if connu else None,
-                   "participation_estimee": part_reelle + part_absenti + part_prevue if connu else None,
+                   "participation_estimee": part_reelle + part_facturee + part_absenti + part_prevue if connu else None,
                    "acomptes_recus": acomptes if raw_acomptes or verifs["acomptes"] else None,
                    "solde_indicatif": solde,
                    "solde_verifie": solde if complet else None},
@@ -412,7 +428,9 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
     verifies et fournis localement. Mapping explicite (activite:unite) =>
     {convention: id, poids: '1'/'0.5'/'0', demi_journee_confirmee: bool}.
     Un poids 0 exclut repas/garderie ; jamais de reconnaissance par libelle.
-    Les reservations passees ne sont PAS des presences.
+    Les reservations passees non facturees ne sont pas retenues ; celles
+    couvertes par une facture valide alimentent les journees financieres
+    facturees hors presence, distinctes des presences attestées.
     """
     if not isinstance(inclure_absenti, bool):
         raise ErreurFrequentation("Choix absenti attendu sous forme vrai/faux")
@@ -448,17 +466,30 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
             continue
         etat = _texte(l.get("etat"), "etat consommation").lower()
         # Excluded states do not become visits, even for a selected unit.
-        if etat in ("absent", "absentj", "annule", "refus", "attente"):
+        # Une facture identifiee, non annulee et avec prestation non negative
+        # justifie la ligne financiere meme si le statut est encore reservation
+        # ou indique une absence. Aucune presence physique n'est inventee.
+        facturee_valide = (l.get("IDprestation") is not None
+                          and l.get("IDfacture") is not None
+                          and l.get("facture_etat") != "annulation"
+                          and (l.get("prestation_montant") is None
+                               or l["prestation_montant"] >= 0))
+        if etat in ("annule", "refus", "attente"):
             exclus["absences"] += 1
             continue
-        if etat == "absenti" and (not inclure_absenti or jour > cutoff):
+        if etat in ("absent", "absentj") and not (facturee_valide and jour <= cutoff):
             exclus["absences"] += 1
             continue
-        if etat not in ("present", "reservation", "absenti"):
+        if etat == "absenti" and (not inclure_absenti or jour > cutoff) and not (facturee_valide and jour <= cutoff):
+            exclus["absences"] += 1
+            continue
+        if etat not in ("present", "reservation", "absenti", "absent", "absentj"):
             raise ErreurFrequentation("Etat de consommation inconnu : %s" % etat)
-        if etat == "reservation" and jour <= cutoff:
+        if etat == "reservation" and jour <= cutoff and not facturee_valide:
             exclus["reservations_passees"] += 1
             continue
+        if etat in ("reservation", "absenti", "absentj", "absent") and jour <= cutoff and facturee_valide:
+            etat = "facturee_non_presente"
         if etat == "present" and jour > cutoff:
             raise ErreurFrequentation("Presence future : %s" % ident)
         cle_unite = "%s:%s" % (l.get("IDactivite"), l.get("IDunite"))
@@ -503,14 +534,17 @@ def consolider_export_consommations(records, mapping_unites, commune, annee, arr
     par_mois = {}
     for (_enfant, jour, cid), (etat, quantite) in par_jour.items():
         nature = {"present": "realise", "reservation": "prevision",
-                  "absenti": "absence_injustifiee"}[etat]
+                  "absenti": "absence_injustifiee",
+                  "facturee_non_presente": "facturee_non_presente"}[etat]
         cle = (cid, jour.month, nature)
         par_mois[cle] = par_mois.get(cle, Decimal("0")) + quantite
     lignes = []
     for i, ((cid, mois, nature), nombre) in enumerate(sorted(par_mois.items()), 1):
         lignes.append({"id": "EXPORT-%04d" % i, "convention": cid, "mois": mois,
                        "nature": nature, "nombre": str(nombre),
-                       "justificatif": "Export Noethys : consommations / paramétrage des unités à vérifier"})
+                       "justificatif": ("Factures Noethys rattachees aux consommations (montants non convertis en jours)"
+                                       if nature == "facturee_non_presente" else
+                                       "Export Noethys : consommations / paramétrage des unités à vérifier")})
     return {"jours": lignes, "exclusions": exclus,
             "nb_enfants_jour": len(par_jour),
             "absenti_selectionne": inclure_absenti,
