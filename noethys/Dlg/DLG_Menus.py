@@ -120,6 +120,8 @@ class Dialog(wx.Dialog):
         # Boutons
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_imprimer = CTRL_Bouton_image.CTRL(self, texte=_(u"Imprimer"), cheminImage="Images/32x32/Imprimante.png")
+        self.bouton_import_oceane = wx.Button(
+            self, wx.ID_ANY, _(u"Importer et publier les menus Océane..."))
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Annuler.png")
 
         self.__set_properties()
@@ -132,6 +134,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonRestaurateur, self.bouton_restaurateur)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.Imprimer, self.bouton_imprimer)
+        self.Bind(wx.EVT_BUTTON, self.OnImporterOceane, self.bouton_import_oceane)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -145,6 +148,9 @@ class Dialog(wx.Dialog):
         self.bouton_restaurateur.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour accéder à la gestion des restaurateurs")))
         self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
         self.bouton_imprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour imprimer la commande au format PDF")))
+        self.bouton_import_oceane.SetToolTip(wx.ToolTip(
+            _(u"Choisir un Excel Océane, vérifier les menus, les enregistrer "
+              u"puis préparer un bloc du portail famille")))
         self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer")))
 
     def __do_layout(self):
@@ -209,9 +215,10 @@ class Dialog(wx.Dialog):
         grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_imprimer, 0, 0, 0)
+        grid_sizer_boutons.Add(self.bouton_import_oceane, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
-        grid_sizer_boutons.AddGrowableCol(2)
+        grid_sizer_boutons.AddGrowableCol(3)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
 
         self.SetSizer(grid_sizer_base)
@@ -258,6 +265,207 @@ class Dialog(wx.Dialog):
     def OnBoutonFermer(self, event):
         UTILS_Dialogs.SaveSizePerso(self, __file__)
         self.EndModal(wx.ID_CANCEL)
+
+    def OnImporterOceane(self, event=None):
+        """Import autonome des menus et préparation facultative du portail.
+
+        Import uniquement dans les tables natives menus/menus_categories après
+        vérification et accord explicites. Aucune commande fournisseur.
+        """
+        from Utils import UTILS_Repas_oceane_menus as lecture
+        from Utils import UTILS_Repas_oceane_publication as publication
+        from Utils import UTILS_Repas_oceane_import_db as import_db
+
+        restaurateur = self.ctrl_restaurateur.GetID()
+        if restaurateur is None:
+            wx.MessageBox(
+                _(u"Choisissez d'abord le restaurateur Océane dans Noethys."),
+                _(u"Import des menus"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        dlg = wx.FileDialog(
+            self, _(u"Choisissez le classeur de menus reçu d'Océane"),
+            wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            chemin = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+        try:
+            menus = lecture.ChargerMenus(chemin)
+        except (ValueError, OSError, KeyError) as exc:
+            wx.MessageBox(
+                _(u"Import Excel Océane refusé : %s") % exc,
+                _(u"Menus Océane"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        dates = sorted(menus)
+        choix = [u"%s — %s" % (
+            jour.strftime("%d/%m/%Y"),
+            " / ".join((menus[jour].get("plat") or
+                        menus[jour].get("entree") or [u"Menu à vérifier"]))[:100])
+            for jour in dates]
+        dlg = wx.MultiChoiceDialog(
+            self, _(u"Sélectionnez uniquement les mercredis à importer "
+                    u"et éventuellement publier :"),
+            _(u"Menus Océane"), choix)
+        try:
+            prochains = [i for i, jour in enumerate(dates)
+                         if jour >= datetime.date.today()][:8]
+            if prochains:
+                dlg.SetSelections(prochains)
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            selection = [dates[i] for i in dlg.GetSelections()]
+        finally:
+            dlg.Destroy()
+        if not selection:
+            wx.MessageBox(_(u"Aucun mercredi sélectionné."),
+                          _(u"Menus Océane"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            retenus = publication.PreparerMenus(menus, selection)
+        except ValueError as exc:
+            wx.MessageBox(str(exc), _(u"Menus Océane"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        # Prévol sans aucune écriture en base ni publication.
+        DB = GestionDB.DB()
+        try:
+            plan = import_db.LireEtat(DB, restaurateur, retenus)
+        except Exception as exc:
+            wx.MessageBox(_(u"Contrôle des menus impossible : %s") % exc,
+                          _(u"Menus Océane"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        finally:
+            DB.Close()
+        if plan["conflits"]:
+            txt = "\n".join(
+                u"%s : %s" % (jour.strftime("%d/%m/%Y"),
+                              publication.LIBELLES[cle])
+                for cle, jour, ancien, nouveau in plan["conflits"][:8])
+            wx.MessageBox(
+                _(u"%d valeurs diffèrent de menus déjà saisis dans Noethys. "
+                  u"Aucune donnée existante ne sera écrasée :\n%s") %
+                  (len(plan["conflits"]), txt),
+                _(u"Conflit de menus"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        apercu = publication.TextePortail(retenus)
+        texte = _(u"%d mercredis sélectionnés\n"
+                  u"%d valeurs à ajouter, %d déjà identiques, %d catégories à créer.\n"
+                  u"\nAperçu :\n%s\n\n"
+                  u"Importer ces menus dans les données de restauration de Noethys ?") % (
+                      len(retenus), len(plan["ajouter"]),
+                      len(plan["identiques"]), len(plan["creer_categories"]),
+                      apercu[:4000])
+        accord = wx.MessageBox(
+            texte, _(u"Contrôle des menus Océane"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+        if accord != wx.YES:
+            return False
+
+        DB = GestionDB.DB()
+        try:
+            bilan = import_db.Enregistrer(DB, restaurateur, retenus)
+        except Exception as exc:
+            wx.MessageBox(_(u"Enregistrement des menus refusé : %s") % exc,
+                          _(u"Menus Océane"), wx.OK | wx.ICON_ERROR, self)
+            return False
+        finally:
+            DB.Close()
+        self.MAJ()
+        choix = wx.MessageBox(
+            _(u"%d menus enregistrés, %d valeurs déjà identiques.\n"
+              u"Voulez-vous aussi préparer leur publication sur le portail famille ?\n"
+              u"La publication sera vérifiée dans l'éditeur de blocs "
+              u"et ne déclenchera pas de synchronisation automatique.") %
+              (bilan["ajoutes"], bilan["identiques"]),
+            _(u"Publication des menus Océane"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+        if choix == wx.YES:
+            return self._PreparerPublicationOceane(retenus)
+        return True
+
+    def _PreparerPublicationOceane(self, menus):
+        """Préremplit le vrai bloc Blog Connecthys et laisse l'opérateur sauver."""
+        from Dlg import DLG_Saisie_portail_bloc
+        from Ctrl import CTRL_Editeur_email
+        from Utils import UTILS_Repas_oceane_publication as P
+        from Utils import UTILS_Parametres
+
+        titre = P.TitrePortail(menus)
+        DB = GestionDB.DB()
+        try:
+            DB.cursor.execute(
+                "SELECT IDbloc, titre FROM portail_blocs WHERE categorie=" +
+                ("%s" if DB.isNetwork else "?"),
+                ("bloc_blog",))
+            doublon = any(t == titre for _ident, t in DB.cursor.fetchall())
+            DB.cursor.execute("SELECT IDpage FROM portail_pages")
+            pages = DB.cursor.fetchall()
+        except Exception as exc:
+            wx.MessageBox(str(exc), _(u"Portail famille"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        finally:
+            DB.Close()
+        if doublon:
+            wx.MessageBox(
+                _(u"Un bloc du portail porte déjà ce titre. Ouvrez-le dans "
+                  u"la configuration du portail pour éviter une publication "
+                  u"en double."),
+                _(u"Publication déjà préparée"),
+                wx.OK | wx.ICON_WARNING, self)
+            return False
+        if not pages:
+            wx.MessageBox(
+                _(u"Créez d'abord une page dans la configuration du "
+                  u"portail famille Connecthys."),
+                _(u"Portail non configuré"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        # L'éditeur natif est utilisé pour un XML RichText rouvrable.
+        # Le HTML public est construit séparément avec échappement strict.
+        dlg = DLG_Saisie_portail_bloc.Dialog(self, IDbloc=None)
+        editeur = None
+        try:
+            dlg.ctrl_titre.SetValue(titre)
+            dlg.ctrl_parametres.SetPageByCode("bloc_blog")
+            editeur = CTRL_Editeur_email.Editeur(dlg)
+            editeur.Hide()
+            editeur.WriteText(P.TextePortail(menus))
+            donnees = [{
+                "IDelement": None,
+                "titre": titre,
+                "date_debut": datetime.datetime.now(),
+                "date_fin": P.DateFinPublication(menus),
+                "texte_xml": editeur.GetXML(),
+                "texte_html": P.HTMLPortail(menus).encode("utf-8"),
+                "parametres": None,
+            }]
+            dlg.ctrl_parametres.GetPageByCode(
+                "bloc_blog").ctrl_elements.SetDonnees(donnees)
+            resultat = dlg.ShowModal()
+        finally:
+            if editeur is not None:
+                editeur.Destroy()
+            dlg.Destroy()
+        if resultat != wx.ID_OK:
+            return False
+        UTILS_Parametres.Parametres(
+            mode="set", categorie="portail", nom="last_update_pages",
+            valeur=str(datetime.datetime.now()))
+        wx.MessageBox(
+            _(u"Bloc de menus enregistré dans les pages du portail. "
+              u"Vérifiez-le puis lancez la synchronisation habituelle "
+              u"de Connecthys pour le rendre visible aux familles."),
+            _(u"Menus préparés pour le portail"),
+            wx.OK | wx.ICON_INFORMATION, self)
+        return True
 
     def Imprimer(self, event=None):
         if self.ctrl_restaurateur.GetID() == None :
