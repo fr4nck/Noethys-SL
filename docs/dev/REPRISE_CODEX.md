@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D — recadrage ALSH communes / retrait D5-D7 (2026-11-03)
+
+- Decision metier : **suppression du registre de facturation parallele D5-D7**. Les 15 chemins des anciens moteurs/migrations/tests/docs sont retires de `main` sans toucher aux tables, factures et paiements existants ni a l'historique Git. La relecture de l'architecture montre que D5 reposait sur des **interventions sportives** et ne couvrait pas les **journees-enfants ALSH**.
+- Conserver D1 (structures), D2 (conventions historisees) et D3-D4 (interventions), ainsi que les correctifs de transactions MySQL pour ces moteurs. Retirer la verification de table D5 des modifications D3-D4. Conserver et renommer les tests transactionnels MySQL simules et l'audit DDL restreint D1-D4.
+- Cible validee : **Facturation → Situation des communes (ALSH)**, participations sur consommations Noethys reelles, acomptes + regularisation et facturation via module existant uniquement. Aucun nouveau compteur facture ; aucune fausse famille ; aucun calcul TVA. Voir `docs/dev/LOT_D_ALSH_COMMUNES_CADRAGE.md`.
+- **STOP-GATE** : situation communale non implementee ; pas de recette MySQL 5.7 reelle ni de portage wx/Qt ; pas de migration, de DROP ou de modification sur production. Les rapports historiques D5-D7 ci-dessous decrivent des experimentations **retirees**, pas l'etat actuel du code.
+
+
+
 ## Lot D7 — transactions explicites MySQL + apercu Word sans emission (03/11/2026)
 
 - Prevol : `main 51970c1` ; branches `wx` et `qt` divergentes (aucune fusion ni synchronisation). Sept fichiers D7 et correctifs sur `main` : D1 `be87ded`, D2 `9c4a07c`, D34 `c043e69`, nouveau moteur Word `fecb99e`, tests transactions `a0815f0`, tests schema statique `4b5011b`, tests Word `51d295a`, documentation `5dd63bc`.

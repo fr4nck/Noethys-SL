@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""D7 : tests de contrat de transaction MySQL, sans serveur et sans reseau."""
+"""Contrat de transactions MySQL simulees des moteurs partenaires D1-D4."""
 import unittest
 from pathlib import Path
 import sys
