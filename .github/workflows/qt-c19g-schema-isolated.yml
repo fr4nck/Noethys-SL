@@ -1,0 +1,64 @@
+name: Noethys SL Qt - C19g projection du schema sur MySQL jetable
+
+on:
+  push:
+    branches: [qt]
+    paths:
+      - 'experimental/qt_c19g_schema_lab/**'
+      - 'tests_mysql/test_c19g_*.py'
+      - 'noethys/Data/DATA_Tables.py'
+      - '.github/workflows/qt-c19g-schema-isolated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19g-schema-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema-projection:
+    name: C19g projection fictive sur MySQL ${{ matrix.mysql }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ['5.7.44', '8.0.40']
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: c19g_root_only_disposable_ci
+          MYSQL_DATABASE: qt_c19g_lab
+          MYSQL_USER: qt_c19g
+          MYSQL_PASSWORD: c19g_password_only_disposable_ci
+        ports:
+          - '33068:3306'
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pc19g_root_only_disposable_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=25
+    env:
+      C19G_DISPOSABLE_MYSQL: 'yes'
+      C19G_MYSQL_HOST: '127.0.0.1'
+      C19G_MYSQL_PORT: '33068'
+      C19G_MYSQL_DATABASE: qt_c19g_lab
+      C19G_MYSQL_USER: qt_c19g
+      C19G_MYSQL_PASSWORD: c19g_password_only_disposable_ci
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Installer client PyMySQL et auth RSA sur runner uniquement
+        run: python -m pip install --disable-pip-version-check "PyMySQL[rsa]==1.1.1"
+      - name: Compiler labo et tests en lecture seule
+        run: python -m compileall -q experimental/qt_c19g_schema_lab tests_mysql/test_c19g_schema_contract.py tests_mysql/test_c19g_mysql_projection.py
+      - name: Oracles AST + schema projete + lectures SQL fictives
+        run: python -m unittest discover -s tests_mysql -p "test_c19g_*.py" -v
