@@ -21,7 +21,7 @@ ALIASES = {
     "entree": ("entree", "entrees", "hors d oeuvre", "hors d oeuvres"),
     "plat": ("plat", "plats", "plat principal", "plats chauds", "plat chaud"),
     "garniture": ("garniture", "garnitures", "legume", "legumes", "accompagnement", "accompagnements"),
-    "laitage": ("laitage", "laitages", "produit laitier", "produits laitiers", "fromage", "fromages"),
+    "laitage": ("laitage", "laitages", "produit laitier", "produits laitiers", "fromage", "fromages", "fromage laitage"),
     "dessert": ("dessert", "desserts"),
 }
 
