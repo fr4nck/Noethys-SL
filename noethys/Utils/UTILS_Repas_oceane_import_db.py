@@ -50,10 +50,12 @@ def Enregistrer(db, restaurateur, menus):
                 "categories_creees": 0}
     try:
         categories = dict(plan["categories_existantes"])
-        for composante in plan["creer_categories"]:
+        db.cursor.execute("SELECT MAX(ordre) FROM menus_categories")
+        dernier_ordre = int(db.cursor.fetchone()[0] or 0)
+        for index, composante in enumerate(plan["creer_categories"], start=1):
             nouvel_id = db.ReqInsert("menus_categories", [
                 ("nom", P.LIBELLES[composante]),
-                ("ordre", P.COMPOSANTES.index(composante) + 1),
+                ("ordre", dernier_ordre + index),
             ], commit=False)
             if type(nouvel_id) is not int or nouvel_id <= 0:
                 raise RuntimeError("Échec de création de la catégorie de menu")
