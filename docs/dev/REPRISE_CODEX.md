@@ -1,5 +1,21 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## AFAS V2 — portage source vers wx (03/11/2026)
+
+- **Références initiales** : `main` `6afe5e01602f8d67416e1e00e87bba0ab4290716`, `wx` `e6da221bd1f9c66c90f8c4c983a8e354667fa0cc`, `qt` `3b2e60336f80ab8712be8cfc6f3f63bdcd07e58e`.
+- **Portage ciblé sur wx** : `910295ddd95d89abfb9966719adb724e4e2e1d18` ; sept modules `UTILS_AFAS2_*`, dialogue `DLG_AFAS2_Declarations`, entrée `Consommations → Déclarations AFAS`, huit fichiers de tests, deux outils fictifs, documentation et tests de CI. Les sources métier portées sont les blobs identiques à ceux de `main` ; aucun merge global, nouvelle branche ou modification du moteur `DLG_Etat_global`.
+- **Banc dédié** : workflow `noethys-sl-afas2-wx-qualification.yml` créé au commit `073ec297043b15b74a45319cfd9f10907c7fa0d9` ; correctif de classement des tests SQL Linux/Windows au commit `98794398214ae3932dc8b98923dbe563369e9591`. Qualification Linux (moteur pur) et Windows/SQLite fictive séparées. Ne pas lancer le banc MySQL avec téléchargement de serveur sans accord.
+- **Constat initial** : syntaxe Python du portage PASS (job CI du commit `910295dd`). Premier banc Linux : 133 tests PASS, un ERROR d'environnement `six` absent sur une classe de test utilisant GestionDB ; la classe a été maintenue dans le banc Windows, et exclue uniquement de la catégorie *sans dépendances*. Nouvelle CI dédiée à examiner avant toute qualification. La suite CI wx précédente (`e6da221b`) comportait déjà deux échecs sans lien AFAS : `test_modification_refus_historisee_et_non_ecrasee` et `test_quatre_autorisations_formulaire_papier` (`non_renseigne` versus `non`).
+- **Statut** : candidat source uniquement, **NON QUALIFIÉ / NON PUBLIABLE** ; pas de build installé, pas d'envoi CAF, pas de lecture/écriture dans la base de production. La comparaison Bais/La Guerche au 30/09/2026 reste impossible sans un extrait ALSH cohérent et pseudonymisé ; le fichier `.nod` partagé concerne l'encadrement sportif et ne contient pas tout l'ALSH.
+
+| Élément | main | wx | qt |
+|---|---|---|---|
+| Moteur AFAS V2 et tests métier | PRÉSENT (référence du portage) | CANDIDAT SOURCE, tests en qualification | ABSENT (raccordement Qt non engagé) |
+| Interface AFAS V2 (menu autonome) | PRÉSENTE dans le source | CANDIDATE dans le source, recette Windows native requise | NON APPLICABLE au candidat wx |
+| AFAS V1, bouton état global | Non retenu pour la déclaration | MASQUÉ, inchangé | Non concerné par cette intégration |
+| Déclaration CAF exploitable | NON QUALIFIÉE sur données terrain | NON QUALIFIÉE | NON QUALIFIÉE |
+
+
 ## Commandes de repas — sélecteur commun des dates raccordé à la cantine (02/11/2026)
 
 - **Signalement** : dans `DLG_Saisie_commande.py`, la période de commande n'offrait que deux dates manuelles ; aucun raccordement au module commun `CTRL_Grille_periode` (Mois/Vacances/Année/Dates/Saison) malgré le moteur périscolaire P1–P5 qualifié (#421).
