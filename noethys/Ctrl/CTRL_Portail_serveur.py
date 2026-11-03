@@ -17,7 +17,7 @@ import wx.lib.buttons
 import os
 import time
 import datetime
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 import GestionDB
 from Utils import UTILS_Parametres
 from Utils import UTILS_Fichiers
@@ -108,14 +108,17 @@ class Serveur(Thread):
         self.start_synchro = False
         self.synchro_en_cours = False
         self.active = False
+        self._arret = Event()
 
     def Start(self):
         if self.IsRunning() == False :
+            self._arret.clear()
             self.keepGoing = self.active = True
             self.start()
 
     def Stop(self):
         self.keepGoing = False
+        self._arret.set()
 
     def Pause(self):
         self.active = False
@@ -157,8 +160,9 @@ class Serveur(Thread):
                         except Exception :
                             pass
 
-            # Attends 1 seconde
-            time.sleep(1)
+            # Veille interruptible : une fermeture ne conserve pas ce worker.
+            if self._arret.wait(1):
+                break
 
     def EffectuerCycle(self):
         """ Un seul passage de la boucle de run() : extrait pour pouvoir
@@ -169,7 +173,9 @@ class Serveur(Thread):
             # Lance une synchro quelques secondes après le démarrage
             if self.parent.synchro_ouverture == True :
                 self.parent.last_synchro = datetime.datetime.now()
-                time.sleep(30)
+                # La fermeture doit interrompre le delai initial de 30 s.
+                if self._arret.wait(30):
+                    return
                 self.start_synchro = True
             else :
                 self.parent.last_synchro = datetime.datetime.now()
@@ -177,6 +183,10 @@ class Serveur(Thread):
             # Vérifie si une synchro est nécessaire selon le délai choisi
             if datetime.datetime.now() >= self.GetHeureProchaineSynchro() :
                 self.start_synchro = True
+
+        # Ne jamais demarrer une nouvelle synchro apres un ordre d arret.
+        if not getattr(self, "keepGoing", True):
+            return
 
         # Lancement de la procédure de synchronisation
         if self.start_synchro == True and self.synchro_en_cours == False :
