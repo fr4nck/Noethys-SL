@@ -1047,6 +1047,18 @@ class NoethysQtWindow(QMainWindow):
             or calendar._record_inscription_id is None
         ):
             raise PermissionError("Factures non accessibles hors du contexte de l'inscription")
+        # Relecture de la clé exacte avant changement de contexte : une
+        # inscription réaffectée entre deux clics ne peut jamais afficher
+        # les factures de son ancienne famille.
+        link = self.inscriptions_repository.resolve_link(
+            calendar._record_inscription_id
+        )
+        if (
+            link.family_id != family_id
+            or link.individual_id != calendar._record_individual_id
+            or link.inscription_id != calendar._record_inscription_id
+        ):
+            raise PermissionError("Inscription modifiée : reprendre la consultation")
         origin = (
             "consumptions", calendar._record_individual_id,
             calendar._record_inscription_id, family_id,
