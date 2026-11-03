@@ -223,7 +223,10 @@ class EcranAccueilTests(unittest.TestCase):
         f = self.base()
         f.lecture_medicale = True
         f.medical = {
-            "vaccins_enregistres": 2, "medecin": None,
+            "vaccins_enregistres": 2,
+            "medecin": {"nom": "Médecin", "prenom": "Fictif",
+                        "cp": "35130", "ville": "La Guerche",
+                        "telephone": "02 00 00 00 00"},
             "problemes": [
                 {"intitule": "Allergie fictive aux arachides",
                  "categorie": "Allergie", "date_debut": "2026-09-01",
@@ -254,6 +257,8 @@ class EcranAccueilTests(unittest.TestCase):
         self.assertIn("PAI - asthme fictif", info["pai"])
         self.assertIn("Allergie fictive aux arachides", info["allergies"])
         self.assertIn("Médicament fictif", info["traitement"])
+        self.assertEqual(info["medecin"],
+                         "Médecin Fictif — 35130 La Guerche — 02 00 00 00 00")
         self.assertEqual(len(info["medical"]), 2)
 
     def test_impression_medicale_exige_accord(self):
