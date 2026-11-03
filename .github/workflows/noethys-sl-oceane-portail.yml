@@ -1,0 +1,41 @@
+name: Noethys SL wx - menus Oceane portail (isole)
+
+on:
+  push:
+    branches: [wx]
+    paths:
+      - 'noethys/Utils/UTILS_Oceane_xlsx.py'
+      - 'noethys/Utils/UTILS_Repas_oceane*.py'
+      - 'noethys/Dlg/DLG_Menus.py'
+      - 'noethys/Dlg/DLG_Repas_Oceane.py'
+      - 'tests/test_noethys_sl_oceane_portail.py'
+      - 'tests/test_noethys_sl_repas_oceane*.py'
+      - '.github/workflows/noethys-sl-oceane-portail.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Aucun packaging ni déploiement. Pas de cancel-in-progress :
+# la qualification garde son SHA malgré les commits d'autres chantiers.
+jobs:
+  pure-contracts:
+    name: XLSX et portail, source fictive (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONPATH: ${{ github.workspace }}/noethys:${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Syntaxe des modules Océane
+        run: python -m compileall -q noethys/Utils/UTILS_Oceane_xlsx.py noethys/Utils/UTILS_Repas_oceane.py noethys/Utils/UTILS_Repas_oceane_export.py noethys/Utils/UTILS_Repas_oceane_menus.py noethys/Utils/UTILS_Repas_oceane_annexe.py noethys/Utils/UTILS_Repas_oceane_restes.py noethys/Utils/UTILS_Repas_oceane_publication.py noethys/Utils/UTILS_Repas_oceane_import_db.py noethys/Dlg/DLG_Menus.py noethys/Dlg/DLG_Repas_Oceane.py
+      - name: Unités métier, import/export exact XLSX et publication
+        run: >-
+          python -m unittest -v
+          tests.test_noethys_sl_repas_oceane
+          tests.test_noethys_sl_repas_oceane_export
+          tests.test_noethys_sl_repas_oceane_restes
+          tests.test_noethys_sl_oceane_portail
