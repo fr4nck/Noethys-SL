@@ -39,14 +39,17 @@ BAIS_MOINS_6 = "Bais -6 ans"
 MOUTIERS = "Moutiers"
 LA_GUERCHE = "La Guerche-de-Bretagne"
 MINICAMPS_6_8 = "Minicamps 6/8"
+# Intitulé historique conservé pour les presets et référentiels déjà créés.
 MINICAMPS_8_10 = "Minicamps 8/10"
+# La sauvegarde ALSH du 22/10/2026 comporte un minicamp 9-11 ans.
+MINICAMPS_9_11 = "Minicamps 9/11"
 
 MATRICE = {
     (ACTIVITE_ALSH, PERI): (BAIS_PLUS_6, BAIS_MOINS_6, MOUTIERS, LA_GUERCHE),
-    (ACTIVITE_ALSH, EXTRA): (BAIS_PLUS_6, BAIS_MOINS_6, MOUTIERS, LA_GUERCHE, MINICAMPS_6_8, MINICAMPS_8_10),
+    (ACTIVITE_ALSH, EXTRA): (BAIS_PLUS_6, BAIS_MOINS_6, MOUTIERS, LA_GUERCHE, MINICAMPS_6_8, MINICAMPS_9_11, MINICAMPS_8_10),
 }
 SITES = MATRICE[(ACTIVITE_ALSH, EXTRA)]
-MINICAMPS = (MINICAMPS_6_8, MINICAMPS_8_10)
+MINICAMPS = (MINICAMPS_6_8, MINICAMPS_9_11, MINICAMPS_8_10)
 
 # Rattachement documenté par l'intitulé des structures conventionnées.
 # Choix PMSL du 03/11/2026 : minicamps rattachés à La Guerche-Moutiers.
