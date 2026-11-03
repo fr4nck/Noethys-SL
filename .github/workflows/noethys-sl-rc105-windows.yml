@@ -70,6 +70,13 @@ jobs:
           python -c "from PIL import Image; p='noethys/Static/Images/Interface/NoethysSL/Splashscreen_SL.png'; im=Image.open(p); assert im.size == (599, 239); im.verify()"
           if ($LASTEXITCODE -ne 0) { throw 'Splash Noethys SL invalide' }
 
+      - name: S1.3 - securite Connecthys et retrocompatibilite (hors reseau)
+        run: >-
+          python -m unittest -v
+          tests.test_connecthys_config_privacy_rc105
+          tests.test_connecthys_models_pinning_rc105
+          tests.test_connecthys_ssh_pinning_rc105
+
       - name: Recette Windows des attentes et des passages famille-individu
         run: >-
           python -m unittest -v
