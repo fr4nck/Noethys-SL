@@ -581,7 +581,13 @@ class DialogReferentiel(wx.Dialog):
             else:
                 equipement = wx.Choice(self, choices=["(à choisir)"] + [libelle for code, libelle in EQUIPEMENTS])
                 codes = [code for code, libelle in EQUIPEMENTS]
-                equipement.SetSelection(codes.index(lien["equipement"]) + 1 if lien and lien["equipement"] in codes else 0)
+                propose = Referentiel.EquipementPropose(site, lien)
+                equipement.SetSelection(codes.index(propose) + 1 if propose in codes else 0)
+                if site in Referentiel.MINICAMPS:
+                    equipement.SetToolTip(
+                        "PMSL : La Guerche-Moutiers est proposé. Ce choix reste "
+                        "modifiable et doit correspondre à la déclaration de "
+                        "l'accueil ; justificatif du rattachement requis.")
                 grille.Add(equipement)
                 self.ctrl_equipements[site] = equipement
         grille.AddGrowableCol(1)
@@ -618,6 +624,10 @@ class DialogReferentiel(wx.Dialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(grille, 0, wx.EXPAND | wx.ALL, 8)
         sizer.Add(self.label_moutiers, 0, wx.ALL, 8)
+        sizer.Add(wx.StaticText(self, label=(
+            "Minicamps PMSL : La Guerche-Moutiers proposé par défaut (extrascolaire). "
+            "Rattachement et justificatif à vérifier ; le bonus CTG n'est "
+            "pas acquis automatiquement.")), 0, wx.ALL, 8)
         sizer.Add(grille_justif, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
         sizer.Add(wx.StaticText(self, label="Samedis avec école par année scolaire (« 2026 : 2026-11-28, 2027-03-13 » ou "
                                             "« 2026 : aucun ») — une année non saisie bloque ses samedis hors vacances"), 0, wx.ALL, 8)
