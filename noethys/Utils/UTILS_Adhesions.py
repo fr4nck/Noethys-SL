@@ -105,10 +105,18 @@ def _liste_sql(liste_ids):
 
 
 def _lire(req):
+    """Lecture stricte : une panne SQL ne doit jamais signifier aucune adhésion."""
     DB = GestionDB.DB()
     try:
-        DB.ExecuterReq(req)
-        return DB.ResultatReq()
+        if getattr(DB, "echec", 0):
+            raise RuntimeError(u"Connexion à la base des adhésions impossible : %s" %
+                               getattr(DB, "erreur", u"ouverture refusée"))
+        if DB.ExecuterReq(req) != 1:
+            raise RuntimeError(u"Lecture SQL des adhésions échouée ; vérifiez le journal Noethys.")
+        lignes = DB.ResultatReq()
+        if lignes is None:
+            raise RuntimeError(u"Lecture SQL des adhésions sans résultat exploitable.")
+        return lignes
     finally:
         DB.Close()
 
