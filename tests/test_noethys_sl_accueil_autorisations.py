@@ -159,6 +159,44 @@ class AutorisationsSQLite(unittest.TestCase):
         self.assertEqual(fiche["autorisations"]["piscine_baignade"]["etat"], "oui")
         self.assertFalse(any(fiche["portail"].values()))
 
+    def test_depart_seul_autorisation_independante_et_historisee(self):
+        self.installer()
+        self.assertIn("depart_seul", A.TYPES)
+        self.assertIn("depart_seul", F.AUTORISATIONS)
+        # Une premiere fiche signee autorise un depart sans accompagnant.
+        valeur = decision("depart_seul", 1, texte_version="Fiche Enfant 2026-11")
+        initial = self.enregistrer([valeur], attendu(depart_seul=None))
+        ident = initial[("depart_seul", "alsh-2026")]
+        historique = A.LireHistorique(10, DB=self.base, autorise=True)
+        fiche = F.ConstruireFiche(10, "2026-10-29",
+                     {"autorisations": True}, autorisations=historique,
+                     perimetre="alsh-2026")
+        self.assertEqual(fiche["autorisations"]["depart_seul"]["etat"], "oui")
+        self.assertEqual(fiche["autorisations"]["piscine_baignade"]["etat"],
+                         "non_renseigne")
+        # Une deuxieme reponse signee annule la permission sans ecraser
+        # l'ancienne ou modifier les autorisations de sortie accompagnee.
+        refuse = decision("depart_seul", 0, texte_version="Fiche Enfant 2026-11",
+                          reference_preuve="piece-fictive-depart-002")
+        self.enregistrer([refuse], attendu(depart_seul=ident))
+        historique = A.LireHistorique(10, DB=self.base, autorise=True)
+        self.assertEqual(len(historique), 2)
+        self.assertEqual(F.EtatAutorisation(historique, 10, "depart_seul",
+                                            "2026-10-29", "alsh-2026")["etat"],
+                         "non")
+
+    def test_depart_seul_non_renseigne_et_perimetre_distinct(self):
+        self.installer()
+        self.assertEqual(F.EtatAutorisation([], 10, "depart_seul",
+                                            "2026-10-29", "alsh-2026")["etat"],
+                         "non_renseigne")
+        self.enregistrer([decision("depart_seul", 1, perimetre="BAIS 2026")],
+                        {("depart_seul", "BAIS 2026"): None})
+        historique = A.LireHistorique(10, DB=self.base, autorise=True)
+        self.assertEqual(F.EtatAutorisation(historique, 10, "depart_seul",
+                                            "2026-10-29", "MOUTIERS 2026")["etat"],
+                         "non_renseigne")
+
     def test_aucun_oui_ou_non_implicit(self):
         self.installer()
         for valeur in (None, True, False, "", 2, -1):
