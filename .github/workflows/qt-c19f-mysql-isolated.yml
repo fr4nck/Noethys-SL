@@ -58,7 +58,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Installer uniquement le client Python sur le runner
-        run: python -m pip install --disable-pip-version-check PyMySQL==1.1.1
+        run: python -m pip install --disable-pip-version-check "PyMySQL[rsa]==1.1.1"
       - name: Compiler le labo isole et ses tests
         run: python -m compileall -q experimental/qt_c19f_mysql_lab tests_mysql/test_c19f_mysql_disposable_transactions.py
       - name: Transaction InnoDB, rollback, droits et 2 processus concurrents
