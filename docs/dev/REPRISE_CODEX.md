@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D7 — transactions explicites MySQL + apercu Word sans emission (03/11/2026)
+
+- Prevol : `main 51970c1` ; branches `wx` et `qt` divergentes (aucune fusion ni synchronisation). Sept fichiers D7 et correctifs sur `main` : D1 `be87ded`, D2 `9c4a07c`, D34 `c043e69`, nouveau moteur Word `fecb99e`, tests transactions `a0815f0`, tests schema statique `4b5011b`, tests Word `51d295a`, documentation `5dd63bc`.
+- Defaut identifie : D1/D2/D34 ne demarraient pas explicitement les mutations MySQL. Correctifs : refus d'une session sans `get_autocommit() is False` ou sans `begin()` et appel explicite `begin()` avant tout groupe d'ecritures. D5-D6 avaient deja le contrat explicite. Le serveur MySQL 5.7 n'etant pas disponible, ces tests portent sur le contrat de pilote simule, **pas** sur la realite des verrous et commits SQL.
+- Qualification : Python 3.13.5, SQLite factice, **182 tests UNIQUES PASS, 0 FAIL, 0 SKIP** (D1-D6 162 + D7 20). Tests DDL MySQL statiques : 22 tables InnoDB utf8mb4, FKs ordonnees, unicites D6, absence de changement des tables historiques. Aucun test MySQL runtime ni Windows. Aucune migration appliquee, aucune connexion a la base de production.
+- Edition : `UTILS_Partenaires_D7_Documents.py` produit un `.docx` A4 a partir d'un enregistrement D6 revalide (droits + source D5 + integrite). Lecture seule, **EDITION DE CONTROLE - NON TRANSMISE**, montant unique sans calcul TVA. Exemple Word fictif rendu et inspecte (1 page) ; test 33 lignes sur deux pages avec en-tete repete et total en fin.
+- Statuts : **main : moteur commun de developpement + 182 tests locaux**, `wx` : portage D7 ABSENT, `qt` : portage D7 ABSENT, MySQL 5.7 runtime NON QUALIFIE, Noedoc NON RACCORDE, avoirs/paiements/emission NON REALISES. Publication Windows/production STOP-GATE.
+- Suite : environnement MySQL 5.7 de recette restaure, tests transactionnels deux sessions puis integration wx guidee et conservation facture/avoirs. Voir `docs/dev/LOT_D_D7_IMPLEMENTATION.md`.
+
+
+
 ## Lot D6 — factures partenaires sans TVA, registre non deploye (03/11/2026)
 
 - L'utilisateur confirme une association loi 1901 qui ne gere, ne calcule et ne deduit pas de TVA. D6 suit cette declaration : montant unique en euros, aucune colonne ni taux de TVA. `mention_fiscale` demeure un texte valide manuellement et aucun article fiscal n'est impose. Le non-assujettissement juridique doit etre verifie independamment de la forme loi 1901.
