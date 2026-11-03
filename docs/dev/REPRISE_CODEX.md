@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D3-D4 — interventions et programmations, sans deploiement (03/11/2026)
+
+- **Prevol** : `main cf7d88e`, `wx 4248ccd`, `qt 6b11611`. Developpement commun D3-D4 sur `main` exclusivement, cinq commits non forces et sans fusion : MySQL propose `497179b`, SQLite `fb35ba3`, moteur `5aaab3d`, tests `15149a7`, documentation `969a1be`. `wx` a continue independamment ; `qt` inchange. Aucun portage aux interfaces n'est revendique.
+- **Moteur** : programmations sur versions D2 signees, creneaux hebdomadaires/ponctuels, exclusions explicites, exceptions, apercu, validation SHA-256, occurrences deterministes et idempotentes, realisations, annulations, reports, remplacement d'intervenant, journal d'historique, preparation de donnees d'annexe. **Aucune facture ni prestation produite.**
+- **Recette locale isolee** : `python -m unittest discover -s tests -p 'test_partenaires_d*.py' -q` et compilation Python 3.13 => **110 PASS / 0 FAIL / 0 SKIP** (D1 18 + D2 49 + D3-D4 43). SQLite fictif avec rollback, restauration, controle FKs, idempotence ; exercice scolaire fictif 60 lignes/130 heures prevues et les trois creneaux associatifs. L'archive hors Git et les cinq blobs publies correspondent aux fichiers testes (empreintes verifiees).
+- **Limites / STOP-GATE** : aucune migration ni connexion sur production, aucun runtime Windows ou MySQL 5.7 et aucun test interface wx/Qt. DDL MySQL non qualifie ; les `CHECK` ne sont pas appliques sous MySQL 5.7. Signature/annexe documentaire, lien reel `IDsalarie`, detection des collisions entre partenaires, permissions d'application et verrou d'archivage D1-D2 non raccordes. Les calendriers doivent etre valides par les partenaires ; les seules heures planifiees ne sont jamais facturables.
+- **Statut branches** : `main` — moteur commun de developpement et tests locaux **VALIDES** (recette non production) ; `wx` — portage **ABSENT**, pas pret a publier ; `qt` — portage **ABSENT**, pas pret a publier. Ne pas declarer les branches synchronisees, ne pas modifier une release.
+- **Suite** : audit puis D5 rapprochement des interventions realisees/facturables avec `prestations` et `factures` historiques, anti-doublon transactionnel ; qualifications SQL/Windows et UI avant tout deploiement. Voir `docs/dev/LOT_D_D34_IMPLEMENTATION.md`.
+
+
+
 ## Lot D2 — conventions partenaires persistantes, sans deploiement (03/11/2026)
 
 - Prevol D2 : `main 6ddd58a`, `wx fbc1e8b`, `qt 6b11611`. Cinq nouveaux fichiers publies exclusivement sur `main`, en commits non forces et sans fusion : SQLite `c0b2b93`, MySQL 5.7 propose `451f76c`, moteur `4b4f970`, tests `ba6912c`, documentation `4ede771`. Les autres branches n'ont pas ete considerees synchronisees ; wx a depuis evolue independamment.
