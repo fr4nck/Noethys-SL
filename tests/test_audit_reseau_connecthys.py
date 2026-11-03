@@ -557,14 +557,14 @@ class TransportsTests(unittest.TestCase):
         client = mock.MagicMock(name="SSHClient")
         return client
 
-    def test_ssh_autoaddpolicy_sans_known_hosts_ni_timeout_et_client_non_ferme(self):
+    def test_ssh_autoaddpolicy_sans_known_hosts_ni_timeout_et_client_ferme(self):
         client = self._ssh_mock()
         p = params_synchro("x", hebergement_type=2, ssh_serveur="srv.invalid", ssh_port="22",
                            ssh_utilisateur="u", ssh_mdp="MDP_FACTICE", ssh_key_file="", ssh_repertoire="www")
         s = UTILS_Portail_synchro.Synchro(dict_parametres=p, log=FauxLog())
         with mock.patch.object(UTILS_Portail_synchro.paramiko, "SSHClient", return_value=client):
             ftp, ssh = s.Connexion()
-            s.Deconnexion(ftp)
+            s.Deconnexion(ftp, ssh)
         politique = client.set_missing_host_key_policy.call_args[0][0]
         self.assertIsInstance(politique, UTILS_Portail_synchro.paramiko.AutoAddPolicy)
         client.load_system_host_keys.assert_not_called()
@@ -573,7 +573,7 @@ class TransportsTests(unittest.TestCase):
         self.assertNotIn("timeout", kw)
         self.assertNotIn("banner_timeout", kw)
         ftp.close.assert_called_once()
-        client.close.assert_not_called()  # SSHClient jamais fermé
+        client.close.assert_called_once_with()  # Transport SSH libere
 
     def test_ssh_controle_autoaddpolicy(self):
         client = self._ssh_mock()
@@ -608,6 +608,7 @@ class TransportsTests(unittest.TestCase):
             self.assertFalse(s.Connexion())
         self.assertTrue(any("Authentication failed" in m for m in log.logs))
         self.assertFalse(any("MDP_FACTICE" in m for m in log.logs))
+        client.close.assert_called_once_with()
 
     def test_sftp_telecharge_pieces_remonte_trop_haut(self):
         """repFichier='pieces/' : chdir('pieces/') puis chdir('../../')."""
@@ -631,14 +632,67 @@ class TransportsTests(unittest.TestCase):
             self.assertTrue(s.UploadFichier(ftp=sftp, nomFichierComplet=f, repDest="application/data"))
         sftp.chmod.assert_called_once_with("/www/connecthys/application/data/config.py", mode=0o644)
 
-    def test_connect_et_telecharge_ne_deconnecte_pas_en_cas_echec(self):
+    def test_connect_et_telecharge_deconnecte_en_cas_echec(self):
         s = UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro("x", hebergement_type=1), log=FauxLog())
         ftp = mock.MagicMock()
         with mock.patch.object(s, "Connexion", return_value=(ftp, None)), \
                 mock.patch.object(s, "TelechargeFichier", return_value=False), \
                 mock.patch.object(s, "Deconnexion") as deco:
             self.assertFalse(s.ConnectEtTelechargeFichier("x.crypt", "pieces/", lecture=False))
-        deco.assert_not_called()
+        deco.assert_called_once_with(ftp, None)
+
+
+
+    def test_ssh_ferme_meme_si_le_canal_sftp_close_echoue(self):
+        client = self._ssh_mock()
+        ftp = mock.MagicMock()
+        ftp.close.side_effect = OSError("fermeture du canal refusee")
+        s = UTILS_Portail_synchro.Synchro(
+            dict_parametres=params_synchro("x", hebergement_type=2), log=FauxLog())
+        with self.assertRaises(OSError):
+            s.Deconnexion(ftp, client)
+        ftp.close.assert_called_once_with()
+        client.close.assert_called_once_with()
+
+    def test_upload_data_ferme_ssh_meme_sur_exception(self):
+        client = self._ssh_mock()
+        ftp = mock.MagicMock()
+        s = UTILS_Portail_synchro.Synchro(
+            dict_parametres=params_synchro("x", hebergement_type=2), log=FauxLog())
+
+        def echouer(*args, **kwargs):
+            s._upload_connexion_active = (ftp, client)
+            raise RuntimeError("panne fictive avant l'export")
+
+        with mock.patch.object(s, "_Upload_data_implementation", side_effect=echouer):
+            with self.assertRaisesRegex(RuntimeError, "panne fictive"):
+                s.Upload_data()
+        ftp.close.assert_called_once_with()
+        client.close.assert_called_once_with()
+
+    def test_auto_reload_sftp_ferme_ssh_si_telechargement_echoue(self):
+        client = self._ssh_mock()
+        ftp = mock.MagicMock()
+        s = UTILS_Portail_synchro.Synchro(
+            dict_parametres=params_synchro("x", hebergement_type=2), log=FauxLog())
+        with mock.patch.object(s, "Connexion", return_value=(ftp, client)), \
+                mock.patch.object(s, "TelechargeFichier", return_value=False):
+            self.assertFalse(s.AutoReloadWSGI())
+        ftp.close.assert_called_once_with()
+        client.close.assert_called_once_with()
+
+    def test_ssh_ferme_si_le_canal_echoue_apres_connexion(self):
+        client = self._ssh_mock()
+        ftp = client.open_sftp.return_value
+        ftp.chdir.side_effect = RuntimeError("chemin absent")
+        s = UTILS_Portail_synchro.Synchro(dict_parametres=params_synchro(
+            "x", hebergement_type=2, ssh_serveur="srv.invalid", ssh_port="22",
+            ssh_utilisateur="u", ssh_mdp="FAUX", ssh_repertoire="www"), log=FauxLog())
+        with mock.patch.object(UTILS_Portail_synchro.paramiko, "SSHClient", return_value=client), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertFalse(s.Connexion())
+        ftp.close.assert_called_once_with()
+        client.close.assert_called_once_with()
 
 
 # ---------------------------------------------------------------------------
