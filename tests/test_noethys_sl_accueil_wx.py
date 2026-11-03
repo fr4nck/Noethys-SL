@@ -223,7 +223,7 @@ class EcranAccueilTests(unittest.TestCase):
         f = self.base()
         f.lecture_medicale = True
         f.medical = {
-            "vaccins_enregistres": 2,
+            "vaccins_enregistres": 2, "dernier_dt_polio": "2025-07-15",
             "medecin": {"nom": "Médecin", "prenom": "Fictif",
                         "cp": "35130", "ville": "La Guerche",
                         "telephone": "02 00 00 00 00"},
@@ -259,6 +259,8 @@ class EcranAccueilTests(unittest.TestCase):
         self.assertIn("Médicament fictif", info["traitement"])
         self.assertEqual(info["medecin"],
                          "Médecin Fictif — 35130 La Guerche — 02 00 00 00 00")
+        self.assertEqual(info["vaccinations"],
+                         "15/07/2025 (2 vaccins enregistrés)")
         self.assertEqual(len(info["medical"]), 2)
 
     def test_impression_medicale_exige_accord(self):
