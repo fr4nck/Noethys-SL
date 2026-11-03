@@ -25,6 +25,7 @@ import paramiko
 
 from Utils import UTILS_Parametres
 from Utils import UTILS_Config
+from Utils import UTILS_Portail_securite
 
 
 class ServeurConnecthys():
@@ -43,14 +44,22 @@ class ServeurConnecthys():
                 self.ssh = self.OpenSSHConnec()
 
     def OpenSSHConnec(self) :
+        ssh = None
         try :
             ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            UTILS_Portail_securite.ConfigurerPolitiqueSSH(ssh, self.dict_parametres)
             key_filename = self.dict_parametres.get("ssh_key_file") or None
             password = self.dict_parametres.get("ssh_mdp") or None
             ssh.connect(self.dict_parametres["ssh_serveur"], port=int(self.dict_parametres["ssh_port"]), username=self.dict_parametres["ssh_utilisateur"], password=password, key_filename=key_filename)
             return ssh
         except Exception as err:
+            # La cle hote est verifiee avant toute authentification si une
+            # empreinte a ete renseignee ; libere le transport meme sur echec.
+            if ssh is not None:
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
             self.parent.EcritLog(_(u"PROBLEME..."))
             self.parent.EcritLog(err)
             print(("Connection SSH/SFTP impossible :", err))
