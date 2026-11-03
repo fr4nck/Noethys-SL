@@ -289,7 +289,7 @@ class SituationCommunesALSH:
                     raise ALSHConflit('Tarifs contractuels chevauchants pour la meme commune')
         return result
 
-    def calculer(self, debut, fin, perimetres, unites, *, acteur, tarifs=None):
+    def calculer(self, debut, fin, perimetres, unites, *, acteur, tarifs=None, fournisseur_domiciles=None):
         """Brouillon sans ecriture : total, recap enfant et annexe nominative.
 
         perimetres : couples (IDactivite, IDgroupe) selectionnes MANUELLEMENT.
@@ -328,10 +328,12 @@ class SituationCommunesALSH:
             args.extend((a, g))
         sources = self._lire(sql, args)
         enfants = sorted({x['IDindividu'] for x in sources})
+        if fournisseur_domiciles is not None and not callable(fournisseur_domiciles):
+            raise ALSHErreur('Fournisseur de domiciles invalide')
         residences = {}
         # Requetes segmentees : ne dependre ni de la limite 999 parametres
         # de certains SQLite, ni de celle du transport MySQL.
-        for i in range(0, len(enfants), 300):
+        for i in range(0, len(enfants), 300) if fournisseur_domiciles is None else ():
             groupe_enfants = enfants[i:i+300]
             sql_res = ('SELECT * FROM alsh_communes_domiciles WHERE IDindividu IN (%s) '
                        'AND date_debut<=%s AND (date_fin IS NULL OR date_fin>%s) '
@@ -376,9 +378,13 @@ class SituationCommunesALSH:
                 anomalies.append({'IDconso': conso, 'motif': ligne['motif']})
                 jours_invalides.add((src['IDindividu'], jour))
                 continue
-            candidats = [d for d in residences.get(src['IDindividu'], ())
-                         if _date_db(d['date_debut']) <= jour and
-                         (d['date_fin'] is None or jour < _date_db(d['date_fin']))]
+            # C2 supplies a read-only resolver built from Noethys address changes.
+            # C1 keeps its original verified manual-history path by default.
+            candidats = (fournisseur_domiciles(src['IDindividu'], jour)
+                         if fournisseur_domiciles is not None else
+                         [d for d in residences.get(src['IDindividu'], ())
+                          if _date_db(d['date_debut']) <= jour and
+                          (d['date_fin'] is None or jour < _date_db(d['date_fin']))])
             if len(candidats) != 1:
                 ligne.update(statut='a_verifier', motif=('Domicile non renseigne' if not candidats
                                                          else 'Plusieurs domiciles'))
