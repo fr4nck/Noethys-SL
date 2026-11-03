@@ -11,6 +11,7 @@ import wx
 import GestionDB
 from Utils import UTILS_Accueil_autorisations as registre
 from Utils import UTILS_Accueil_sources as sources
+from Utils import UTILS_Accueil_contacts as contacts
 from Utils import UTILS_Accueil_impression as impression
 from Utils import UTILS_Fiche_accueil_enfant as regles
 from Utils.UTILS_Traduction import _
@@ -120,6 +121,11 @@ class Dialog(wx.Dialog):
         except Exception:
             self.entete = {"nom": u"", "prenom": u"", "date_naiss": None}
 
+        try:
+            self.contacts_fiche = contacts.LireContactsEnfant(IDindividu)
+        except Exception:
+            self.contacts_fiche = None
+
         panneau = wx.ScrolledWindow(self)
         panneau.SetScrollRate(0, 15)
         colonne = wx.BoxSizer(wx.VERTICAL)
@@ -135,12 +141,22 @@ class Dialog(wx.Dialog):
                 self.entete.get("prenom") or u"",
                 self.entete.get("date_naiss") or u"Non renseignée",
                 self.entete.get("ville_naiss") or u"Non renseignée"))
-        self._section(panneau, colonne, u"RESPONSABLE LÉGAL n°1",
-             u"Informations conservées dans l'onglet Liens de la fiche individuelle.")
-        self._section(panneau, colonne, u"RESPONSABLE LÉGAL n°2",
-             u"Vérifier les titulaires et les coordonnées dans les fiches existantes.")
+        responsables = ((self.contacts_fiche or {}).get("responsables") or [])
+        accompagnants = ((self.contacts_fiche or {}).get("accompagnants") or [])
+        for index in range(2):
+            personne = responsables[index] if len(responsables) > index else {}
+            contenu = u"\n".join(x for x in (
+                personne.get("identite", ""),
+                personne.get("adresse", ""),
+                personne.get("telephone", ""),
+            ) if x) or u"À compléter dans les liens Noethys."
+            self._section(panneau, colonne,
+                u"RESPONSABLE LÉGAL n°%d" % (index + 1), contenu)
         self._section(panneau, colonne, u"ACCOMPAGNANTS",
-             u"Conserver la liste des accompagnants et les liens dans Noethys.")
+            u"\n".join(u"%s — %s — %s" % (
+                p["identite"], p["lien"], p["telephone_court"])
+                for p in accompagnants)
+            or u"Aucun raccompagnant autorisé renseigné dans les liens Noethys.")
         # Les donnees restent dans les tables Medical de Noethys. On lit
         # uniquement pour afficher, sous permission stricte admin.
         if self.lecture_medicale:
@@ -418,10 +434,17 @@ class Dialog(wx.Dialog):
             destination = choix.GetPath()
         finally:
             choix.Destroy()
+        try:
+            contacts_actuels = contacts.LireContactsEnfant(self.IDindividu)
+        except Exception as exc:
+            wx.MessageBox(
+                _(u"Impossible de lire les responsables et accompagnants : %s") % exc,
+                _(u"Fiche enfant"), wx.OK | wx.ICON_WARNING, self)
+            return False
         info = dict(self.entete)
         info["annee"] = perimetre
-        info["responsables"] = [
-            {"identite": nom} for identifiant, nom in self.signataires[:2]]
+        info["responsables"] = contacts_actuels["responsables"][:2]
+        info["accompagnants"] = contacts_actuels["accompagnants"]
         info["aeeh"] = self.entete.get("aeeh", "")
         info["repas"] = {
             "standard": u"Standard", "sans_porc": u"Sans porc",
