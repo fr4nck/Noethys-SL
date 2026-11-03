@@ -702,27 +702,37 @@ class TransportsTests(unittest.TestCase):
 @unittest.skipUnless(IMPORT_OK, "wx indisponible")
 class UploadConfigTests(unittest.TestCase):
 
-    def test_config_contient_les_secrets_en_clair_reste_sur_disque_et_echec_upload_ignore(self):
+    def test_config_temporaire_privee_effacee_et_echec_upload_signale(self):
+        """RC10.5 : les secrets ne restent pas en clair sur disque apres echec."""
         p = params_synchro("x", db_type=1, db_serveur="db.invalid", db_utilisateur="dbu",
                            db_mdp="DBPASS_FACTICE", db_nom="cx", prefixe_tables="cx_", mode_debug=False,
                            talisman=True, captcha=1, email_type_adresse=999, email_serveur="smtp.invalid",
                            email_adresse="a@b.invalid", email_port=587, email_tls=True, email_ssl=False,
                            email_utilisateur="smtpu", email_password="SMTPPASS_FACTICE", serveur_type=0)
         s = UTILS_Portail_synchro.Synchro(dict_parametres=p, log=FauxLog())
+        captures = []
+        def refuser_upload(ftp=None, nomFichierComplet="", repDest=""):
+            self.assertEqual(repDest, "application/data")
+            self.assertTrue(os.path.isfile(nomFichierComplet))
+            with open(nomFichierComplet, encoding="utf8") as fichier:
+                contenu = fichier.read()
+            for secret in (CLE_FACTICE, "DBPASS_FACTICE", "SMTPPASS_FACTICE"):
+                self.assertIn(secret, contenu)
+            mode = os.stat(nomFichierComplet).st_mode & 0o777
+            captures.append((nomFichierComplet, mode))
+            return False
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(UTILS_Portail_synchro.UTILS_Fichiers, "GetRepTemp",
                                    side_effect=lambda fichier="": os.path.join(d, fichier)), \
                     mock.patch.object(s, "TelechargeFichier", return_value=False), \
-                    mock.patch.object(s, "UploadFichier", return_value=False) as up:
-                self.assertTrue(s.Upload_config(ftp=None))  # échec d'upload ignoré
+                    mock.patch.object(s, "UploadFichier", side_effect=refuser_upload) as up:
+                self.assertFalse(s.Upload_config(ftp=None))
             up.assert_called_once()
-            chemin = os.path.join(d, "config.py")
-            self.assertTrue(os.path.isfile(chemin))  # jamais supprimé
-            contenu = open(chemin, encoding="utf8").read()
-            for secret in (CLE_FACTICE, "DBPASS_FACTICE", "SMTPPASS_FACTICE"):
-                self.assertIn(secret, contenu)
-            mode = os.stat(chemin).st_mode & 0o777
-            self.assertEqual(mode, 0o666 & ~_umask())  # permissions par défaut du processus
+            self.assertFalse(os.path.exists(os.path.join(d, "config.py")))
+            self.assertFalse(any(n.startswith(".connecthys-config-") for n in os.listdir(d)))
+        self.assertEqual(len(captures), 1)
+        if os.name != "nt":
+            self.assertEqual(captures[0][1], 0o600)
 
 
 def _umask():
