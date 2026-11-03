@@ -1,5 +1,24 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Requalification des dossiers existants — types d'entite (03/11/2026)
+
+**Decision metier : un seul repertoire de dossiers Noethys, commun a MAD et ALSH.** Un dossier deja cree comme famille/particulier peut etre reclasse « Association » depuis la liste deroulante de l'onglet **Fiche famille > Divers > Nature de l'entite > Type d'entite**. Aucun doublon, aucune transformation des rattachements, du compte payeur, des prestations ou des factures. Les modeles D1-D34 experimentaux de partenaires autonomes ne sont PAS le mecanisme utilise par cet ecran.
+
+Le champ canonique est `familles.type_structure` (valeur NULL pour famille/particulier) ; le referentiel `UTILS_Type_structure.TYPES_STRUCTURE` propose exactement huit types : famille/particulier, ecole/etablissement scolaire, association, association sportive, commune/collectivite, institution/organisme public, entreprise/organisme prive, autre entite. Les codes persistants sont communs aux branches, inconnus conserves sans ecrasement.
+
+Matrice de propagation ciblee, **sans fusion globale** :
+
+| Branche | Implementation | Preuve source | Qualification |
+| --- | --- | --- | --- |
+| `main` | Referentiel, schema natif, scripts SQL, ecran wx partage, tests 01-09, correction d'indentation | `23c320a`, `79bad4d` | Verification source faite ; CI / recette application a consulter |
+| `wx` | Six fichiers communs raccordes a la fiche famille existante | `a64dbf6` | Source synchronisee ; essais wx en conditions reelles non faits ici |
+| `qt` | Six fichiers communs ; le dialogue de famille utilise encore wx, pas de widget Qt natif cree | `6844dce` | Source synchronisee ; runtime Qt natif non qualifie |
+
+**Bases existantes :** la colonne `type_structure` est absente avant migration ; le selecteur se desactive et ne tente aucune ecriture sur une base non migree. Les scripts `noethys/Data/Migrations/familles_type_structure_{mysql57,sqlite}.sql` sont fournis pour une migration **explicite et unique**, uniquement apres sauvegarde et essai sur copie ; pas de migration implicite. Les dossiers sont preserves et les types inconnus ne sont pas remis a `Famille` silencieusement.
+
+Le test `tests/test_type_structure_familles.py` couvre notamment les 8 choix, conversion stable, codes inconnus, schema et migration SQLite fictive, syntaxe du dialogue, et changement « Personne -> Association » sans changement d'IDfamille ni IDcompte_payeur. **Ce test ne prouve pas la migration sur MySQL 5.7 reel ni un affichage Windows.** Ne pas annoncer de version installable a partir de cette seule synchronisation.
+
+
 ## ALSH-C3 — interface wx de fréquentation nominative (03/11/2026)
 
 - **C3 developpe** : adaptateur commun `UTILS_ALSH_C3_Session.py` sur `main` au commit `07eb213` ; copies C1/C2 et C3 de hashes identiques, nouvel ecran `DLG_ALSH_Commune_C3.py`, menu Facturation et bouton sur l'ancienne situation dans la branche `wx` au commit `45be4f2`. **Pas de fusion de branches, pas de changement de `qt`.**
