@@ -190,13 +190,19 @@ class Dialog(wx.Dialog):
             medecin.get("nom") or "", medecin.get("prenom") or "",
             medecin.get("telephone") or "")).strip() if medecin else (
             u"Consulter le médecin traitant dans l'onglet Médical.")
-        problemes = self.medical.get("problemes", []) if self.medical else []
-        libelles = [p.get("intitule") or u"Information enregistrée" for p in problemes]
-        contenu_medical = (u"Informations déjà enregistrées : %s. "
-                           u"Consignes et PAI à consulter dans Médical." %
-                           (u" ; ".join(libelles) or u"Aucune fiche signalée")
-                           if self.medical else
-                           u"Traitements, PAI, allergies et consignes : onglet Médical existant.")
+        if self.medical:
+            rubriques = sources.PreparerRubriquesMedicales(self.medical)
+            contenu_medical = u"\n".join((
+                rubriques["pai"],
+                u"Allergies : %s" % rubriques["allergies"],
+                u"Traitement : %s" % rubriques["traitement"],
+                u"Autres informations : %s" % (
+                    u" ; ".join(rubriques["medical"])
+                    or u"À compléter dans l'onglet Médical"),
+            ))
+        else:
+            contenu_medical = (
+                u"Traitements, PAI, allergies et consignes : onglet Médical existant.")
         self._section(panneau, colonne, u"VACCINATIONS", vaccinations)
         self._section(panneau, colonne, u"MÉDECIN TRAITANT", nom_medecin)
         self._section(panneau, colonne, u"MALADIES ET ALLERGIES", contenu_medical)
@@ -494,21 +500,9 @@ class Dialog(wx.Dialog):
                 info["medecin"] = u"%s %s (%s)" % (
                     medecin.get("nom", ""), medecin.get("prenom", ""),
                     medecin.get("telephone", ""))
-            traitements = [
-                item for item in self.medical["problemes"]
-                if item.get("traitement_medical") is True
-            ]
-            info["traitement"] = (
-                u"Traitement signalé dans Noethys : vérifier ordonnance"
-                if traitements else u"Aucun traitement signalé dans les fiches consultées"
-            )
-            for item in self.medical["problemes"]:
-                details = [
-                    item.get("intitule") or u"Information médicale",
-                    item.get("description") or u"",
-                    item.get("description_traitement") or u"",
-                ]
-                info["medical"].append(u" — ".join(x for x in details if x))
+            # Rubriques de la fiche papier : reprendre les informations
+            # medicales deja saisies, sans dossier ni statut PAI parallele.
+            info.update(sources.PreparerRubriquesMedicales(self.medical))
         # PAI/AESH/allergies : ne jamais inférer Oui ou Non depuis un
         # problème de santé générique ou depuis l'absence de saisie.
         info["autorisation_modele"] = u"Fiche Enfant 2026-06"
