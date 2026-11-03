@@ -141,6 +141,43 @@ class PanierSourceTests(unittest.TestCase):
         self.assertEqual((r[JOUR, "Bais", "midi"]["repas_apportes"],
                           r[JOUR, "Bais", "midi"]["total_repas"]), (1, 0))
 
+    def test_panier_sur_deux_sites_meme_service_bloque_commande(self):
+        # Une seule presence a midi, jamais deux commandes fournisseurs.
+        self.base.conn.execute(
+            "INSERT INTO unites VALUES (20, '08:30:00', '17:30:00')")
+        self.base.conn.execute("INSERT INTO consommations VALUES (?,?,?,?,?,?,?)",
+                               (JOUR.isoformat(), 1, 20, 30, "reservation", None, None))
+        self.base.conn.commit()
+        sites = {(1, 10): ("Bais", "midi"),
+                 (1, 20): ("La Guerche", "midi")}
+        with self.assertRaisesRegex(R.RegimeInvalide, "plusieurs sites"):
+            S.ChargerRepartitionRegimes(
+                5, CHOIX_4, sites, JOUR, JOUR,
+                plage_midi=("12:00", "13:00"), repas_pmsl_prevu=True)
+        # Apres correction de la reservation, le groupe peut etre chiffre.
+        self.base.conn.execute("DELETE FROM consommations WHERE IDunite=20")
+        self.base.conn.commit()
+        repartition = S.ChargerRepartitionRegimes(
+            5, CHOIX_4, sites, JOUR, JOUR,
+            plage_midi=("12:00", "13:00"), repas_pmsl_prevu=True)
+        self.assertEqual(repartition[JOUR, "Bais", "midi"]["total_repas"], 29)
+        self.assertNotIn((JOUR, "La Guerche", "midi"), repartition)
+
+    def test_multi_site_sur_ancien_modele_garde_alerte_historique(self):
+        # Le nouveau blocage est exclusivement opt-in ; anciens modeles
+        # sans choix de panier inchanges.
+        self.base.conn.execute("DELETE FROM questionnaire_reponses WHERE IDindividu=30")
+        self.base.conn.execute(
+            "INSERT INTO unites VALUES (20, '08:30:00', '17:30:00')")
+        self.base.conn.execute("INSERT INTO consommations VALUES (?,?,?,?,?,?,?)",
+                               (JOUR.isoformat(), 1, 20, 1, "reservation", None, None))
+        self.base.conn.commit()
+        sites = {(1, 10): ("Bais", "midi"),
+                 (1, 20): ("La Guerche", "midi")}
+        resultat = S.ChargerRepartitionRegimes(5, CHOIX_3, sites, JOUR, JOUR)
+        self.assertEqual(resultat[JOUR, "Bais", "midi"]["multisites"], 1)
+        self.assertEqual(resultat[JOUR, "La Guerche", "midi"]["multisites"], 1)
+
     def test_parametre_horaire_obligatoire_et_roles_panier(self):
         c = colonne("regime_standard", 1)
         _, erreurs = R.GroupesColonnesRegimes([c])
