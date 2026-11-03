@@ -89,6 +89,20 @@ class ValidationTests(unittest.TestCase):
     def test_minicamp_admis_en_extrascolaire_seulement(self):
         P.ValiderPreset(preset(mode="extrascolaire", sites=["Bais +6 ans", "Minicamps 6/8"]))
 
+    def test_minicamp_neuf_onze_reel_admis_en_extra_premis_legacy(self):
+        from Utils import UTILS_AFAS2_Referentiel as R
+        p = P.NouveauPreset(
+            "Minicamps La Guerche extra",
+            "extrascolaire", "LA_GUERCHE_MOUTIERS",
+            sites=[R.MINICAMPS_6_8, R.MINICAMPS_9_11],
+            unites={"34": "sejour", "36": "sejour"}, plages={})
+        self.assertEqual(P.ValiderPreset(p)["sites"], [R.MINICAMPS_6_8, R.MINICAMPS_9_11])
+        # La nomenclature des anciens profils n'est pas invalidée.
+        p["sites"] = [R.MINICAMPS_6_8, R.MINICAMPS_8_10]
+        self.assertEqual(P.ValiderPreset(p)["sites"], [R.MINICAMPS_6_8, R.MINICAMPS_8_10])
+        self.assertEqual(P.AjusterSitesAuMode(
+            [R.MINICAMPS_9_11, R.MINICAMPS_8_10], "ALSH", "periscolaire"), [])
+
     def test_changement_de_mode_retire_les_sites_incompatibles(self):
         self.assertEqual(P.AjusterSitesAuMode(["Bais +6 ans", "Minicamps 6/8"], "ALSH", "periscolaire"), ["Bais +6 ans"])
 
