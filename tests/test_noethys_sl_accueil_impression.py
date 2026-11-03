@@ -57,7 +57,8 @@ class EditionDeuxPages(unittest.TestCase):
                 },
             }
             self.assertEqual(Impression.GenererPDF(chemin, data), chemin)
-            data = open(chemin, "rb").read()
+            with open(chemin, "rb") as fichier:
+                data = fichier.read()
             self.assertTrue(data.startswith(b"%PDF-"))
             self.assertGreater(len(data), 3500)
             self.assertEqual(len(re.findall(rb"/Type\s*/Page\b", data)), 2)
