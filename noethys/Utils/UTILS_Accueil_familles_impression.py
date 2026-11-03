@@ -6,6 +6,9 @@ Lecture préparée par UTILS_Accueil_familles, aucun envoi ni écriture SQL.
 Le consentement CAFPRO reste à compléter et signer sur la fiche.
 """
 
+import os
+import tempfile
+
 from xml.sax.saxutils import escape
 
 try:
@@ -300,14 +303,26 @@ def GenererPDF(destination, donnees, modele="alsh", site="", annee="2026-2027"):
                 raise ValueError("Précisez les accueils de chaque enfant")
     if A4 is None:
         raise RuntimeError("ReportLab est nécessaire pour éditer une fiche famille PDF")
-    fichier = canvas.Canvas(destination, pagesize=A4, pageCompression=1)
-    fichier.setAuthor(u"Pêle-Mêle Sports et Loisirs / Noethys-SL")
-    fichier.setTitle(u"Fiche famille Pêle-Mêle" if modele == MODEL_FAMILLE
-                     else u"Fiche famille Club ados" if modele == MODEL_ADOS
-                     else u"Fiche famille ALSH")
-    _page1(fichier, donnees, modele, site, str(annee).strip())
-    fichier.showPage()
-    _page2(fichier, donnees, modele)
-    fichier.showPage()
-    fichier.save()
+    # Lot C RC10.5 : le document final n'est visible qu'apres deux
+    # pages reussies. Un plantage ReportLab ne tronque pas une fiche PDF
+    # preexistante et ne laisse aucun fichier partiel a imprimer.
+    repertoire = os.path.dirname(os.path.abspath(destination))
+    fd, temporaire = tempfile.mkstemp(
+        prefix=".fiche-famille-rc105-", suffix=".pdf", dir=repertoire)
+    os.close(fd)
+    try:
+        fichier = canvas.Canvas(temporaire, pagesize=A4, pageCompression=1)
+        fichier.setAuthor(u"Pêle-Mêle Sports et Loisirs / Noethys-SL")
+        fichier.setTitle(u"Fiche famille Pêle-Mêle" if modele == MODEL_FAMILLE
+                         else u"Fiche famille Club ados" if modele == MODEL_ADOS
+                         else u"Fiche famille ALSH")
+        _page1(fichier, donnees, modele, site, str(annee).strip())
+        fichier.showPage()
+        _page2(fichier, donnees, modele)
+        fichier.showPage()
+        fichier.save()
+        os.replace(temporaire, destination)
+    finally:
+        if os.path.exists(temporaire):
+            os.remove(temporaire)
     return destination
