@@ -255,6 +255,122 @@ class LecturesAdhesionsStrictes(unittest.TestCase):
             self.assertEqual(db.ExecuterReq("SELECT 1;"), 0)
         self.assertIn("1054", str(db.derniere_erreur_sql))
 
+    def test_reconnexion_unique_pour_erreur_mysql_2013(self):
+        class PerteConnexion(Exception):
+            errno = 2013
+
+        class BaseEnPanne:
+            echec = 0
+            isNetwork = True
+            derniere_erreur_sql = PerteConnexion("connexion interrompue")
+
+            def __init__(self):
+                self.fermetures = 0
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def Close(self):
+                self.fermetures += 1
+
+        class BaseNeuve:
+            echec = 0
+            isNetwork = True
+
+            def __init__(self):
+                self.fermetures = 0
+
+            def ExecuterReq(self, req):
+                return 1
+
+            def ResultatReq(self):
+                return [(1,)]
+
+            def Close(self):
+                self.fermetures += 1
+
+        premiere, deuxieme = BaseEnPanne(), BaseNeuve()
+        with patch.object(A.GestionDB, "DB", side_effect=[premiere, deuxieme]) as ouvrir:
+            self.assertEqual(A._lire("SELECT IDtype_cotisation FROM types_cotisations;"),
+                             [(1,)])
+        self.assertEqual(ouvrir.call_count, 2)
+        self.assertEqual(ouvrir.call_args_list[1].kwargs, {"pooling": False})
+        self.assertEqual((premiere.fermetures, deuxieme.fermetures), (1, 1))
+
+    def test_mysql_1054_refuse_toute_reconnexion_et_masque_sql(self):
+        class ColonneAbsente(Exception):
+            errno = 1054
+
+        class BaseIncompatible:
+            echec = 0
+            isNetwork = True
+            derniere_erreur_sql = ColonneAbsente("Unknown column 'defaut'")
+
+            def __init__(self):
+                self.fermetures = 0
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def Close(self):
+                self.fermetures += 1
+
+        db = BaseIncompatible()
+        with patch.object(A.GestionDB, "DB", return_value=db) as ouvrir:
+            with self.assertRaisesRegex(RuntimeError,
+                                        "table types_cotisations.*Unknown column") as capture:
+                A._lire("SELECT defaut FROM types_cotisations WHERE IDtype_cotisation=12345;")
+        self.assertNotIn("12345", str(capture.exception))
+        self.assertEqual(ouvrir.call_count, 1)
+        self.assertEqual(db.fermetures, 1)
+
+    def test_echec_du_second_select_ne_suggere_pas_une_cotisation_absente(self):
+        class PerteConnexion(Exception):
+            errno = 2013
+
+        class BaseEnPanne:
+            echec = 0
+            isNetwork = True
+            derniere_erreur_sql = PerteConnexion("connexion interrompue")
+
+            def __init__(self):
+                self.fermetures = 0
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def Close(self):
+                self.fermetures += 1
+
+        premiere, deuxieme = BaseEnPanne(), BaseEnPanne()
+        with patch.object(A.GestionDB, "DB", side_effect=[premiere, deuxieme]) as ouvrir:
+            with self.assertRaisesRegex(RuntimeError, "Lecture SQL"):
+                A._lire("SELECT IDtype_cotisation FROM types_cotisations;")
+        self.assertEqual(ouvrir.call_count, 2)
+        self.assertEqual((premiere.fermetures, deuxieme.fermetures), (1, 1))
+
+    def test_sqlite_ne_tente_pas_de_reconnexion_mysql(self):
+        class BaseLocale:
+            echec = 0
+            isNetwork = False
+            derniere_erreur_sql = RuntimeError(2013, "db locale injoignable")
+
+            def __init__(self):
+                self.fermetures = 0
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def Close(self):
+                self.fermetures += 1
+
+        db = BaseLocale()
+        with patch.object(A.GestionDB, "DB", return_value=db) as ouvrir:
+            with self.assertRaisesRegex(RuntimeError, "Lecture SQL"):
+                A._lire("SELECT IDtype_cotisation FROM types_cotisations;")
+        self.assertEqual(ouvrir.call_count, 1)
+        self.assertEqual(db.fermetures, 1)
+
     def test_resultat_none_n_est_jamais_assimile_a_aucune_adhesion(self):
         class DBFactice:
             echec = 0
