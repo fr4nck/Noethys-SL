@@ -560,7 +560,8 @@ def exporter_csv(resultat, destination):
         for key in ("commune", "annee", "arrete", "statut"):
             w.writerow([key, resultat[key]])
         w.writerow([])
-        w.writerow(["Accueil", "Tarif EUR par journee-enfant", "Jours reels", "Jours previsionnels", "Participation reelle EUR", "Participation previsionnelle EUR", "Acomptes recus EUR", "Absences injustifiees retenues", "Participation absences injustifiees EUR"])
+        w.writerow(["Accueil", "Tarif EUR par journee-enfant", "Jours reels", "Jours previsionnels", "Participation reelle EUR", "Participation previsionnelle EUR", "Acomptes recus EUR", "Absences injustifiees retenues", "Participation absences injustifiees EUR",
+                    "Journees facturees sans presence", "Participation facturee sans presence EUR"])
         for c in resultat["conventions"].values():
             w.writerow([c["accueil"], "%d.%02d" % divmod(c["tarif_centimes"], 100),
                         _fr_jours(c["realise"]), _fr_jours(c["prevision"]),
@@ -568,17 +569,24 @@ def exporter_csv(resultat, destination):
                         _csv_centimes(c["participation_prevue"]),
                         _csv_centimes(c["acomptes_recus"]),
                         _fr_jours(c["absences_injustifiees"]),
-                        _csv_centimes(c["participation_absences_injustifiees"])])
+                        _csv_centimes(c["participation_absences_injustifiees"]),
+                        _fr_jours(c["facturee_non_presente"]),
+                        _csv_centimes(c["participation_facturee_non_presente"])])
         w.writerow([])
-        w.writerow(["Mois", "Journees reelles", "Journees prevues", "Participation theorique EUR", "Absences injustifiees retenues", "Participation absences EUR"])
+        w.writerow(["Mois", "Journees reelles", "Journees prevues", "Participation theorique EUR", "Absences injustifiees retenues", "Participation absences EUR",
+                    "Journees facturees sans presence", "Participation facturee sans presence EUR"])
         for mois in range(1, 13):
             r = resultat["mensuel"][str(mois)]
             w.writerow(["%02d/%d" % (mois, resultat["annee"]), _fr_jours(r["realise"]),
                         _fr_jours(r["prevision"]), _csv_centimes(r["participation"]),
-                        _fr_jours(r["absence_injustifiee"]), _csv_centimes(r["participation_absences"])])
+                        _fr_jours(r["absence_injustifiee"]), _csv_centimes(r["participation_absences"]),
+                        _fr_jours(r["facturee_non_presente"]),
+                        _csv_centimes(r["participation_facturee_non_presente"])])
         w.writerow([])
-        for cle in ("journees_reelles", "journees_absences_injustifiees", "journees_retenues",
-                    "journees_prevues", "participation_reelle", "participation_absences_injustifiees",
+        for cle in ("journees_reelles", "journees_facturees_non_presentes",
+                    "journees_absences_injustifiees", "journees_retenues",
+                    "journees_prevues", "participation_reelle", "participation_facturee_non_presente",
+                    "participation_absences_injustifiees",
                     "participation_prevue", "participation_estimee", "acomptes_recus", "solde_indicatif", "solde_verifie"):
             val = resultat["totaux"][cle]
             if cle.startswith("journees"):
@@ -588,7 +596,7 @@ def exporter_csv(resultat, destination):
             w.writerow([cle, val])
         w.writerow([])
         w.writerow(["OPTION ABSENCES INJUSTIFIEES", "INCLUSES" if resultat["options_etats"]["absenti"] else "EXCLUES"])
-        w.writerow(["METHODE", "Les absences injustifiees retenues ne sont pas des presences reelles."])
+        w.writerow(["METHODE", "Les journees facturees sans presence alimentent la participation financiere indicative ; elles ne sont pas des presences reelles."])
         for msg in resultat["alertes"]:
             w.writerow(["CONTROLE", msg])
     return p
@@ -677,7 +685,8 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         colonnes = ("Accueil", "Convention", "Tarif €/jour", "Jours realises", "Jours prevus",
                     "Participation realisee €", "Participation prevue €", "Participation estimee €",
                     "Acomptes saisis €", "Solde indicatif €", "Tarif confirme", "Source convention",
-                    "Absences injustifiees retenues", "Participation des absences €")
+                    "Absences injustifiees retenues", "Participation des absences €",
+                    "Journees facturees sans presence", "Participation factures sans presence €")
         for col, label in enumerate(colonnes):
             texte(situation, 7, col, label, entete)
         debut = 8
@@ -692,18 +701,21 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
             texte(situation, ligne, 10, "OUI" if convention["tarif_confirme"] else "A CONFIRMER")
             texte(situation, ligne, 11, justifs.get(ident, "Non fournie"))
             if not connu:
-                for col in (3, 4, 5, 6, 7, 9, 12, 13):
+                for col in (3, 4, 5, 6, 7, 9, 12, 13, 14, 15):
                     texte(situation, ligne, col, "NON CALCULABLE", reserve)
             else:
                 nombre(situation, ligne, 3, convention["realise"])
                 nombre(situation, ligne, 4, convention["prevision"])
                 nombre(situation, ligne, 12, convention["absences_injustifiees"])
+                nombre(situation, ligne, 14, convention["facturee_non_presente"])
+                situation.write_formula(ligne, 15, "=ROUND(C%d*O%d,2)" % (num, num),
+                                        euros, convention["participation_facturee_non_presente"] / 100.0)
                 situation.write_formula(ligne, 13, "=ROUND(C%d*M%d,2)" % (num, num),
                                         euros, convention["participation_absences_injustifiees"] / 100.0)
                 for col, formule, cache in (
                     (5, "=ROUND(C%d*D%d,2)" % (num, num), convention["participation_reelle"]),
                     (6, "=ROUND(C%d*E%d,2)" % (num, num), convention["participation_prevue"]),
-                    (7, "=F%d+G%d+N%d" % (num, num, num), convention["participation_estimee"]),
+                    (7, "=F%d+G%d+N%d+P%d" % (num, num, num, num), convention["participation_estimee"]),
                     (9, "=H%d-I%d" % (num, num), convention["participation_estimee"] - convention["acomptes_recus"]),
                 ):
                     situation.write_formula(ligne, col, formule, euros, cache / 100.0)
@@ -723,14 +735,16 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
                                (5, "participation_reelle"), (6, "participation_prevue"),
                                (7, "participation_estimee"), (8, "acomptes_recus"),
                                (9, "solde_indicatif"), (12, "journees_absences_injustifiees"),
-                               (13, "participation_absences_injustifiees")):
+                               (13, "participation_absences_injustifiees"),
+                               (14, "journees_facturees_non_presentes"),
+                               (15, "participation_facturee_non_presente")):
             if totaux[champ] is None or fin == debut:
                 texte(situation, fin, colonne, "NON CALCULABLE", reserve)
             else:
                 lettre = chr(65 + colonne)
-                cache = float(totaux[champ]) if colonne in (3, 4, 12) else totaux[champ] / 100.0
+                cache = float(totaux[champ]) if colonne in (3, 4, 12, 14) else totaux[champ] / 100.0
                 situation.write_formula(fin, colonne, "=SUM(%s%d:%s%d)" % (
-                    lettre, debut + 1, lettre, fin), nb if colonne in (3, 4, 12) else euros, cache)
+                    lettre, debut + 1, lettre, fin), nb if colonne in (3, 4, 12, 14) else euros, cache)
         texte(situation, fin + 2, 0, "Solde verifie (€)")
         if totaux["solde_verifie"] is None:
             texte(situation, fin + 2, 1, "NON CALCULABLE", reserve)
@@ -745,12 +759,13 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
         mensuel.set_column("A:A", 18)
         mensuel.set_column("B:C", 24)
         mensuel.set_column("D:D", 30)
-        mensuel.set_column("E:F", 32)
+        mensuel.set_column("E:H", 32)
         mensuel.freeze_panes(3, 1)
         texte(mensuel, 0, 0, "FREQUENTATION MENSUELLE", titre)
         texte(mensuel, 1, 0, "Commune : %s / %d" % (resultat["commune"], resultat["annee"]))
         for col, label in enumerate(("Mois", "Jours realises", "Jours prevus", "Participation (€)",
-                                     "Absences injustifiees retenues", "Participation des absences (€)")):
+                                     "Absences injustifiees retenues", "Participation des absences (€)",
+                                     "Journees facturees sans presence", "Participation facturee (€)")):
             texte(mensuel, 2, col, label, entete)
         incomplet = False
         for mois in range(1, 13):
@@ -762,7 +777,9 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
             monnaie(mensuel, ligne, 3, vals["participation"])
             nombre(mensuel, ligne, 4, vals["absence_injustifiee"])
             monnaie(mensuel, ligne, 5, vals["participation_absences"])
-            incomplet |= any(vals[k] is None for k in ("realise", "prevision", "participation", "absence_injustifiee"))
+            nombre(mensuel, ligne, 6, vals["facturee_non_presente"])
+            monnaie(mensuel, ligne, 7, vals["participation_facturee_non_presente"])
+            incomplet |= any(vals[k] is None for k in ("realise", "prevision", "participation", "absence_injustifiee", "facturee_non_presente"))
         # Sources des nombres de journees, sans noms d'enfants.
         if dossier is not None:
             sources_mensuelles = {}
@@ -771,20 +788,23 @@ def exporter_xlsx(resultat, destination, dossier=None, fictif=False):
                 sources_mensuelles.setdefault(cle, []).append(
                     "%s : %s" % (releve["convention"], releve.get("justificatif", "")))
             for (mois, nature), sources in sources_mensuelles.items():
-                col = {"realise": 1, "prevision": 2, "absence_injustifiee": 4}[nature]
+                col = {"realise": 1, "prevision": 2, "absence_injustifiee": 4,
+                       "facturee_non_presente": 6}[nature]
                 mensuel.write_comment(mois + 2, col, "\n".join(sources)[:32000])
         texte(mensuel, 15, 0, "TOTAL", entete)
         for col, nom in ((1, "journees_reelles"), (2, "journees_prevues"),
                          (3, "participation_estimee"),
                          (4, "journees_absences_injustifiees"),
-                         (5, "participation_absences_injustifiees")):
+                         (5, "participation_absences_injustifiees"),
+                         (6, "journees_facturees_non_presentes"),
+                         (7, "participation_facturee_non_presente")):
             if incomplet or totaux[nom] is None:
                 texte(mensuel, 15, col, "NON CALCULABLE", reserve)
             else:
                 lettre = chr(65 + col)
-                cache = float(totaux[nom]) if col in (1, 2, 4) else totaux[nom] / 100.0
+                cache = float(totaux[nom]) if col in (1, 2, 4, 6) else totaux[nom] / 100.0
                 mensuel.write_formula(15, col, "=SUM(%s4:%s15)" % (lettre, lettre),
-                                      nb if col in (1, 2, 4) else euros, cache)
+                                      nb if col in (1, 2, 4, 6) else euros, cache)
         if incomplet:
             texte(mensuel, 17, 0, "Les mois non documentes ne sont pas assimiles a zero.", reserve)
 
@@ -901,9 +921,11 @@ def exporter_pdf(resultat, destination, fictif=False):
     resumes = [
         ("Journées-enfants effectivement réalisées", _fr_jours(t["journees_reelles"]), "jours"),
         ("Absences injustifiées retenues (non présences)", _fr_jours(t["journees_absences_injustifiees"]), "jours"),
+        ("Journées facturées sans présence pointée", _fr_jours(t["journees_facturees_non_presentes"]), "jours"),
         ("Journées-enfants encore prévues", _fr_jours(t["journees_prevues"]), "jours"),
         ("Participation correspondant aux journées réalisées", _fr_centimes(t["participation_reelle"]), "EUR"),
         ("Participation optionnelle des absences injustifiées", _fr_centimes(t["participation_absences_injustifiees"]), "EUR"),
+        ("Participation des journées facturées sans présence", _fr_centimes(t["participation_facturee_non_presente"]), "EUR"),
         ("Participation prévisionnelle jusqu'au 31 décembre", _fr_centimes(t["participation_prevue"]), "EUR"),
         ("Participation annuelle estimée", _fr_centimes(t["participation_estimee"]), "EUR"),
         ("Acomptes communaux effectivement reçus", _fr_centimes(t["acomptes_recus"]), "EUR"),
@@ -920,13 +942,14 @@ def exporter_pdf(resultat, destination, fictif=False):
         ("LINEABOVE",(0,8),(-1,8),.9,bleu),
     ]))
     story += [st, Paragraph("Détail par mois civil - tous accueils", sous)]
-    mois_table = [["Mois", "Jours réels", "Abs. injustifiées", "Jours prévus", "Participation estimée"]]
+    mois_table = [["Mois", "Jours réels", "Abs. injustifiées", "Facturés hors présence", "Jours prévus", "Participation estimée"]]
     for mois in range(1, 13):
         m = resultat["mensuel"][str(mois)]
         mois_table.append(["%02d" % mois, _fr_jours(m["realise"]),
                            _fr_jours(m["absence_injustifiee"]),
+                           _fr_jours(m["facturee_non_presente"]),
                            _fr_jours(m["prevision"]), _fr_centimes(m["participation"])])
-    mt = Table(mois_table, colWidths=[17*mm, 35*mm, 42*mm, 32*mm, 46*mm], hAlign="LEFT",repeatRows=1)
+    mt = Table(mois_table, colWidths=[16*mm, 30*mm, 35*mm, 37*mm, 24*mm, 30*mm], hAlign="LEFT",repeatRows=1)
     mt.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,0),bleu), ("TEXTCOLOR",(0,0),(-1,0),colors.white),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),
@@ -940,8 +963,9 @@ def exporter_pdf(resultat, destination, fictif=False):
     story.append(Paragraph("<b>Méthode :</b> journées-enfants des habitants de la commune × tarif conventionnel propre à chaque accueil. "
                            "Les montants conventionnels intègrent déjà les autres ressources ayant servi à fixer le tarif. "
                            "Les prévisions ne constituent pas des présences réalisées. "
-                           "Les absences injustifiées retenues, si l'option est cochée, restent des absences "
-                           "et leur prise en compte par la commune doit être validée.", petite))
+                           "Les absences injustifiées retenues, si l'option est cochée, restent des absences. "
+                           "Les journées facturées sans présence sont comptées dans la participation financière indicative, "
+                           "à vérifier au regard de la convention communale.", petite))
     if resultat["alertes"]:
         story.append(Paragraph("Points à vérifier", sous))
         for alerte in resultat["alertes"][:8]:
