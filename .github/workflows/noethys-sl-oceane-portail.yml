@@ -39,3 +39,36 @@ jobs:
           tests.test_noethys_sl_repas_oceane_export
           tests.test_noethys_sl_repas_oceane_restes
           tests.test_noethys_sl_oceane_portail
+
+  windows-interface:
+    name: Ecrans menus/portail wxPython (Windows)
+    runs-on: windows-latest
+    needs: pure-contracts
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\\noethys;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de Noethys-SL
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Charger les deux ecrans reels et leurs composants
+        shell: pwsh
+        run: |
+          python -c "from Dlg import DLG_Menus, DLG_Repas_Oceane, DLG_Saisie_portail_bloc; from Ctrl import CTRL_Editeur_email; assert hasattr(DLG_Menus.Dialog, 'OnImporterOceane'); assert hasattr(DLG_Menus.Dialog, '_PreparerPublicationOceane'); assert hasattr(DLG_Repas_Oceane, 'DialogExport'); assert hasattr(CTRL_Editeur_email, 'Editeur'); print('GUI_OCEANE_IMPORT=PASS')"
+      - name: Rejouer les tests de publication sous Windows
+        run: >-
+          python -m unittest -v
+          tests.test_noethys_sl_oceane_portail
+          tests.test_noethys_sl_repas_oceane
+          tests.test_noethys_sl_repas_oceane_export
+          tests.test_noethys_sl_repas_oceane_restes
