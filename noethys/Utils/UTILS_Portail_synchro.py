@@ -45,6 +45,7 @@ from Utils import UTILS_Config
 from Utils import UTILS_Customize
 from Utils import UTILS_Internet
 from Utils import UTILS_Priorite_ui
+from Utils import UTILS_Portail_securite
 import FonctionsPerso
 import GestionDB
 from sqlalchemy.pool import NullPool
@@ -403,7 +404,7 @@ class Synchro():
 
             try :
                 ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                UTILS_Portail_securite.ConfigurerPolitiqueSSH(ssh, self.dict_parametres)
                 key_filename = self.dict_parametres.get("ssh_key_file") or None
                 password = self.dict_parametres.get("ssh_mdp") or None
                 ssh.connect(self.dict_parametres["ssh_serveur"], port=int(self.dict_parametres["ssh_port"]), username=self.dict_parametres["ssh_utilisateur"], password=password, key_filename=key_filename)
@@ -1642,7 +1643,7 @@ class Synchro():
             if self.dict_parametres["serveur_type"] == 2 :
                 url = self.dict_parametres["url_connecthys"]
             url += ("" if url[-1] == "/" else "/") + "syncup/%d" % secret
-            print("URL syncup =", url)
+            print("URL syncup = [jeton masque]")
 
             req = Request(url)
             reponse = UrlopenConnecthys(req, self.contexte_ssl)
@@ -1737,7 +1738,7 @@ class Synchro():
             if self.dict_parametres["serveur_type"] == 2 :
                 url = self.dict_parametres["url_connecthys"]
             url += ("" if url[-1] == "/" else "/") + "syncdown/%d/%d" % (int(secret), last)
-            print("URL syncdown =", url)
+            print("URL syncdown = [jeton masque]")
 
             # Récupération des données au format json
             req = Request(url)
@@ -1898,7 +1899,7 @@ class Synchro():
             version_noethys = FonctionsPerso.GetVersionLogiciel().replace(".", "")
             mode = self.dict_parametres["serveur_type"]
             url += "update/%d/%d/%d" % (int(secret), int(version_noethys), mode)
-            print("URL update =", url)
+            print("URL update = [jeton masque]")
 
             # Récupération des données au format json
             req = Request(url)
@@ -1933,7 +1934,7 @@ class Synchro():
             if self.dict_parametres["serveur_type"] == 2 :
                 url = self.dict_parametres["url_connecthys"]
             url += ("" if url[-1] == "/" else "/") + "upgrade/%d" % int(secret)
-            print("URL upgrade =", url)
+            print("URL upgrade = [jeton masque]")
 
             # Récupération des données au format json
             req = Request(url)
@@ -1967,7 +1968,7 @@ class Synchro():
             if self.dict_parametres["serveur_type"] == 2 :
                 url = self.dict_parametres["url_connecthys"]
             url += ("" if url[-1] == "/" else "/") + "repairdb/%d" % int(secret)
-            print("URL repair =", url)
+            print("URL repair = [jeton masque]")
 
             # Récupération des données au format json
             req = Request(url)
@@ -2001,7 +2002,7 @@ class Synchro():
             if self.dict_parametres["serveur_type"] == 2 :
                 url = self.dict_parametres["url_connecthys"]
             url += ("" if url[-1] == "/" else "/") + "cleardb/%d" % int(secret)
-            print("URL repair =", url)
+            print("URL repair = [jeton masque]")
 
             # Récupération des données au format json
             req = Request(url)
