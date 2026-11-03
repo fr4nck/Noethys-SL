@@ -10,6 +10,14 @@
 - Matrice : `wx` CANDIDAT SOURCE + TESTS ; `main` ABSENT (mesures de securite wx) ; `qt` ABSENT / non qualifie. **STOP-GATE de publication conservee.**
 
 
+## AFAS V2 — outil de rapprochement au 30/09/2026 qualifié sur fictif (03/11/2026)
+
+- **Erreur corrigée** : le contrôle `tests/recette_afas2.py` comparait `indicateurs.total` (réalisé + prévisionnel) à des relevés de réalisé au 30 septembre. Désormais `Rapprocher()` n'emploie que `indicateurs.realise`.
+- **Contrôles dédiés** : `--phase arrete_septembre` (01/01–30/09) et `--phase arrete_juin` (01/01–30/06) appellent le moteur V2 `CalculerPeriode` sans générer de prévision. Rapports `validable=False` pour interdire de confondre contrôle interne et déclaration CAF. Les anomalies sont conservées. Les archives `.nod` non restaurées sont refusées explicitement.
+- **Commits wx** : code `02d9651bb81cb1776c7da9f578421258425bb007`, 3 tests `d52ea210aee73f42af86889a746a2c2a219aa4cf`, procédure `ac0eb141130aa999fcd7455946463dd4e02cd9e4`. Pas de merge, aucune édition de production, aucun exécutable ni publication.
+- **Qualification** : [GitHub Actions AFAS V2 #41641770983](https://github.com/fr4nck/Noethys-SL/actions/runs/41641770983) **SUCCESS**, 133/133 tests du moteur sous Linux et 248 tests Windows/SQLite, 0 FAIL, 7 SKIP MySQL. Les 3 nouveaux tests (arrêté septembre, total avec prévision exclu, refus archive .nod) PASS. Fichiers source/test inchangés dans l'arbre wx après la CI (blobs `dff3dc2f2deda2d94b3bed3f0a2dad17dc65bae7`, `56b695f53bf12a357f965e6b1e8c74e38af8f474`).
+- **À poursuivre / STOP-GATE CAF** : validation MySQL 5.7 (workflow manuel sans téléchargement déclenché) ; recette Windows visuelle ; copie ALSH cohérente avec pointages arrêtés au 30/09, référentiel et profils, rapprochement Bais/La Guerche par équipement ET par mode périscolaire/extrascolaire. La sauvegarde fournie du 10/09 concerne l'encadrement sportif et n'établit pas l'écart Bais. Aucune heure CAF réelle n'est validée ici, et les extraits pseudonymisés (identifiants stables, justifications) restent locaux.
+
 ## AFAS V2 — portage source vers wx (03/11/2026)
 
 - **Références initiales** : `main` `6afe5e01602f8d67416e1e00e87bba0ab4290716`, `wx` `e6da221bd1f9c66c90f8c4c983a8e354667fa0cc`, `qt` `3b2e60336f80ab8712be8cfc6f3f63bdcd07e58e`.
