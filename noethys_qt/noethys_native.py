@@ -53,6 +53,7 @@ from .consumptions_status_ui import ConsumptionStateReportPage
 from .catalog_readonly_ui import CatalogHubPage
 from .c18_sensitive_guard import require_c18_synthetic_source
 from .c19_sensitive_guard import require_c19_synthetic_source
+from .c19b_operational_guard import can_demo_inscription_invoices
 
 
 class _DetailSignals(QObject):
@@ -168,6 +169,11 @@ class NoethysQtWindow(QMainWindow):
         # Ancienne fixture C12 sans tables comptables : masquer ses modules
         # plutôt que permettre une navigation vers une liste indisponible.
         self.finance_enabled = finance_enabled
+        # Les habilitations comptables réelles ne sont pas encore qualifiées.
+        # Ce raccourci existe uniquement sur la fixture temporaire C8+C13.
+        self.operational_route_enabled = bool(finance_enabled) and can_demo_inscription_invoices(
+            editor_sqlite_path, read_only_demo=read_only_demo
+        )
         # C12/C13 : les anciennes bases fictives n'ont pas les tables C14.
         self.catalog_enabled = catalog_enabled
         # Les fixtures C12/C13/C14 n'ont pas les tables du lot C15.
@@ -480,7 +486,7 @@ class NoethysQtWindow(QMainWindow):
         self.consumptions_page = ConsumptionCalendarPage(
             self.consumptions_repository, self.stack,
             background=self.background_queries,
-            invoices_available=self.finance_enabled,
+            invoices_available=self.operational_route_enabled,
         )
         self.consumptions_page.familyInvoicesRequested.connect(
             self._consumption_family_invoices_requested
@@ -1034,7 +1040,7 @@ class NoethysQtWindow(QMainWindow):
         calendar = self.consumptions_page
         validate_finance_id(family_id, "famille")
         if (
-            not self.finance_enabled
+            not self.operational_route_enabled
             or calendar._record_family_id is None
             or calendar._record_family_id != family_id
             or calendar._record_individual_id is None
