@@ -136,7 +136,10 @@ def InspecterArchive(chemin):
             if not categorise:
                 raise ArchiveNoethysInvalide("aucun dump SQL a controler")
             # Un export partiel peut etre voulu. Ne pas le classer corrompu.
-            resultat["categories_absentes"] = [cat for cat in _CATEGORIES if cat not in categorise]
+            # Perimetre requis pour la recette PMSL : DATA + DOCUMENTS.
+            # PHOTOS reste facultatif, sans avertissement d'absence.
+            resultat["categories_absentes"] = [
+                cat for cat in ("DATA", "DOCUMENTS") if cat not in categorise]
             resultat["perimetre_complet"] = not resultat["categories_absentes"]
             # Verifier aussi le CRC des pieces non-SQL. Une ZIP peut avoir
             # trois dumps integres tout en contenant une annexe corrompue.
