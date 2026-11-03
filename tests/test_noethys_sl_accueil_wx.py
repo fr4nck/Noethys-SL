@@ -39,6 +39,40 @@ class EcranAccueilTests(unittest.TestCase):
             OnActualiser=Mock(return_value=True),
         )
 
+    def test_identite_sexe_disponible_meme_sur_ancienne_base_sans_aeeh(self):
+        import sqlite3
+        connexion = sqlite3.connect(":memory:")
+        self.addCleanup(connexion.close)
+        connexion.execute(
+            "CREATE TABLE individus (IDindividu INTEGER, nom TEXT, prenom TEXT, "
+            "date_naiss TEXT, ville_naiss TEXT, IDcivilite INTEGER)")
+        connexion.execute(
+            "INSERT INTO individus VALUES (10,'ENFANT','Fictif','2017-04-03','Rennes',5)")
+        base = NS(cursor=connexion.cursor(), isNetwork=False, echec=0,
+                  Close=Mock())
+        with patch.object(self.UI.GestionDB, "DB", return_value=base):
+            info = self.UI.LireEntete(10, aeeh_autorisee=True)
+        self.assertEqual(info["nom"], "ENFANT")
+        self.assertEqual(info["sexe"], "F")
+        self.assertEqual(info["aeeh"], "Non renseigné")
+        base.Close.assert_called_once()
+
+    def test_identite_aeeh_existant_et_sexe_masculin(self):
+        import sqlite3
+        connexion = sqlite3.connect(":memory:")
+        self.addCleanup(connexion.close)
+        connexion.execute(
+            "CREATE TABLE individus (IDindividu INTEGER, nom TEXT, prenom TEXT, "
+            "date_naiss TEXT, ville_naiss TEXT, IDcivilite INTEGER, aeeh INTEGER)")
+        connexion.execute(
+            "INSERT INTO individus VALUES (10,'ENFANT','Fictif','2017-04-03','Rennes',4,1)")
+        base = NS(cursor=connexion.cursor(), isNetwork=False, echec=0,
+                  Close=Mock())
+        with patch.object(self.UI.GestionDB, "DB", return_value=base):
+            info = self.UI.LireEntete(10, aeeh_autorisee=True)
+        self.assertEqual(info["sexe"], "M")
+        self.assertEqual(info["aeeh"], "Oui")
+
     def test_choix_signataire_reutilise_autorisation_legale_des_liens(self):
         responsables = [{"IDindividu": 11, "identite": "Parent Un"},
                         {"IDindividu": 12, "identite": "Parent Deux"}]
@@ -165,12 +199,17 @@ class EcranAccueilTests(unittest.TestCase):
              patch.object(self.UI.wx, "MessageBox"), \
              patch.object(self.UI.contacts, "LireContactsEnfant",
                           return_value=membres) as lecture, \
+             patch.object(self.UI.scolarite, "LireScolariteActuelle",
+                          return_value={"etat": "ok", "classe": "CE2 (Fictive)",
+                                        "niveau": "CE2", "ecole": "École fictive"}) as classe, \
              patch.object(self.UI.impression, "GenererPDF") as export:
             self.assertTrue(self.UI.Dialog.OnImprimer(f))
         self.assertEqual(export.call_args.args[1]["medical"], [])
         self.assertEqual(export.call_args.args[1]["responsables"], membres["responsables"])
         self.assertEqual(export.call_args.args[1]["accompagnants"], membres["accompagnants"])
+        self.assertEqual(export.call_args.args[1]["classe"], "CE2 (Fictive)")
         lecture.assert_called_once_with(10)
+        classe.assert_called_once_with(10)
         fenetre.Destroy.assert_called_once()
 
     def test_impression_medicale_exige_accord(self):
