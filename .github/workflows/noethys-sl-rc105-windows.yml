@@ -87,7 +87,7 @@ jobs:
           tests.test_rc105_lot_c_famille_pdf
           tests.test_rc105_lot_d_ping_concurrence
 
-      - name: S1.3-S1.4 - Connecthys, secrets et transfert atomique (hors reseau)
+      - name: S1.3-S1.5 - securite Connecthys compatible avec Ivan Lucas (hors reseau)
         run: >-
           python -m unittest -v
           tests.test_connecthys_config_privacy_rc105
@@ -245,7 +245,7 @@ jobs:
           $liste = Join-Path $env:RUNNER_TEMP 'modules-noethys-rc105.txt'
           pyi-archive_viewer -l -r dist/Noethys/Noethys.exe | Set-Content -LiteralPath $liste
           if ($LASTEXITCODE -ne 0) { throw 'Inventaire PyInstaller impossible' }
-          foreach ($module in @('Utils.UTILS_MySQL_backup', 'Utils.UTILS_Sauvegarde_auto', 'Utils.UTILS_Portail_synchro', 'Utils.UTILS_Portail_securite', 'Utils.UTILS_Portail_controle', 'Ctrl.CTRL_Portail_serveur', 'Utils.UTILS_Depannage', 'Utils.UTILS_Attente', 'concurrent.futures.thread')) {
+          foreach ($module in @('Utils.UTILS_MySQL_backup', 'Utils.UTILS_Sauvegarde_auto', 'Utils.UTILS_Portail_synchro', 'Utils.UTILS_Portail_securite', 'Utils.UTILS_Portail_controle', 'Utils.UTILS_Documents_Controle_RC105', 'Ctrl.CTRL_Portail_serveur', 'Utils.UTILS_Depannage', 'Utils.UTILS_Attente', 'concurrent.futures.thread')) {
             if (-not (Select-String -LiteralPath $liste -SimpleMatch -Pattern $module -Quiet)) {
               throw "Module critique absent du paquet : $module"
             }
