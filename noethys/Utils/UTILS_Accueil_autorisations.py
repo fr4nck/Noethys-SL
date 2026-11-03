@@ -14,7 +14,7 @@ TABLE = "accueil_autorisations"
 TYPES = (
     "photos_site_imprimes", "maquillage", "piscine_baignade",
     "activites_physiques", "photos_prise", "photos_usage_interne",
-    "photos_reseaux_sociaux",
+    "photos_reseaux_sociaux", "depart_seul",
 )
 LIBELLES = {
     "photos_site_imprimes": "Photos (site internet : pelemele.org)",
@@ -24,6 +24,7 @@ LIBELLES = {
     "photos_prise": "Prise de photos / videos",
     "photos_usage_interne": "Photos : utilisation interne",
     "photos_reseaux_sociaux": "Photos : reseaux sociaux",
+    "depart_seul": "Autorisation de quitter l'ALSH seul(e)",
 }
 COLONNES = (
     "IDautorisation", "IDindividu", "type_autorisation", "perimetre",
