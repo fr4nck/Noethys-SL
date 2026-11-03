@@ -59,6 +59,18 @@ existante sont de 0,60 €/h pour La Guerche-Moutiers et 0,15 €/h pour Bais.
 L'éligibilité des heures de minicamps et le bonus effectivement versé
 restent soumis à la déclaration conforme, au contrat CAF et aux plafonds.
 
+**Nomenclature des minicamps vérifiée sur le snapshot du 22/10/2026 :**
+la base Noethys comporte une activité distincte « Mini-camps 6-8 avec
+hébergement » et une « Mini-camps 9-11 avec hébergement ». AFAS V2 expose
+maintenant « Minicamps 9/11 » en extrascolaire ; « Minicamps 8/10 »
+reste admis uniquement pour ne pas invalider un ancien profil. Les
+couples activité-groupe doivent être reliés et vérifiés dans le
+référentiel ; aucun ID provenant de la sauvegarde n'est appliqué de
+force. Le « Mini-camps Club Ados » relève d'une activité encore
+distincte, **hors du périmètre conventionnel ALSH actuellement qualifié**.
+Une réservation, même reliée à une facture, ne constitue jamais une
+présence réalisée à déclarer.
+
 ## Pièces manquantes
 
 - Addenda des quatre conventions (modalités de calcul « à l'appui du barème », plafond de développement Ctg, pourcentage d'écrêtement) — cités à l'art. 3.
