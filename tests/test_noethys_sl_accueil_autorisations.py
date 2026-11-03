@@ -197,6 +197,31 @@ class AutorisationsSQLite(unittest.TestCase):
                                             "2026-10-29", "MOUTIERS 2026")["etat"],
                          "non_renseigne")
 
+    def test_club_ados_transport_oui_et_depart_seul_non_independants(self):
+        self.installer()
+        perimetre = "Club ados 2026-2027"
+        decisions = [
+            decision("transport_ados", 1, perimetre=perimetre,
+                     texte_version="Fiche Ados 2026-11"),
+            decision("depart_seul", 0, perimetre=perimetre,
+                     texte_version="Fiche Ados 2026-11"),
+        ]
+        attendus = {("transport_ados", perimetre): None,
+                    ("depart_seul", perimetre): None}
+        self.enregistrer(decisions, attendus)
+        historique = A.LireHistorique(10, DB=self.base, autorise=True)
+        self.assertEqual(
+            F.EtatAutorisation(historique, 10, "transport_ados",
+                               "2026-10-29", perimetre)["etat"], "oui")
+        self.assertEqual(
+            F.EtatAutorisation(historique, 10, "depart_seul",
+                               "2026-10-29", perimetre)["etat"], "non")
+        self.assertEqual(
+            F.EtatAutorisation(historique, 10, "transport_ados",
+                               "2026-10-29", "ALSH 2026-2027")["etat"],
+            "non_renseigne")
+        self.assertEqual(len(self.lignes()), 2)
+
     def test_aucun_oui_ou_non_implicit(self):
         self.installer()
         for valeur in (None, True, False, "", 2, -1):
