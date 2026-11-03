@@ -74,3 +74,11 @@ commandes. Le blocage ajoute au Lot C a ete retire au commit `613d49c6`.
 Les controles d'effectifs et les verifications de double presence multisite
 demeurent independants et inchanges. Aucune modification de la sauvegarde,
 du controle d'acces, des PAI, des factures ou des tarifs.
+
+## 03/11/2026 — Confrontation grille tarifaire et archive PMSL
+
+La grille tarifaire papier `tarif 26-27.pdf` (document fourni) comporte un **repas séparé à 4,25 €**, en plus des prix journée et demi-journée. Exemples à la journée : QF 1000 et + = 11,75 € d'accueil ; QF 700 à 999 = 10,50 € ; QF 300 à 699 = 7,65 €. Le calcul pur `EvaluerPanier` est vérifié sur ces montants par `test_noethys_sl_repas_tarification_2c.py` : panier familial -> accueil intact, repas 0 € ; repas PMSL -> accueil + 4,25 €.
+
+**Limite de la sauvegarde disponible** : l'archive `Noethys_20260910_1040.nod` inspectée en lecture seule contient seulement quatre activités d'encadrement sportif (IDs 5, 6, 7 et 11), et aucune des activités ALSH La Guerche / Moutiers / Bais. Les tables `restaurateurs`, `modeles_commandes` et `commandes` ne comportent aucun enregistrement dans cette archive. Les tarifs ALSH réels, leurs liaisons aux unités et les prestations à facturer **ne sont donc pas observables ici**. Ne pas interpréter ses 7 950 consommations globales comme des consommations ALSH.
+
+**Conséquence pour 2C-3** : l'intention tarifaire 2026-2027 semble compatible avec une composante repas distincte, mais le raccordement automatique demeure NON QUALIFIÉ tant qu'une sauvegarde ALSH représentative ou une lecture agrégée de son paramétrage n'a pas démontré que le modèle Noethys opérationnel sépare bien les deux prestations. Aucun tarif, aucune facture ni aucune base PMSL n'a été modifié.
