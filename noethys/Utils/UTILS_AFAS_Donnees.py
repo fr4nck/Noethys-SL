@@ -51,6 +51,30 @@ from Utils import UTILS_Ouvertures
 _LABEL_AEEH = "AEEH"
 _ANOMALIES_AFFICHEES = 20
 
+# Sélection AFAS indépendante des filtres de l'état global. Les anciens
+# profils ne peuvent jamais compter automatiquement les réservations ou
+# absences dans une déclaration : seul "présent" est retenu par défaut.
+_ETATS_AFAS = ("present", "reservation", "absentj", "absenti")
+
+
+def SelectionEtatsAFAS(options, cle):
+    """Renvoie les états explicitement autorisés pour une métrique AFAS.
+
+    Les heures réelles n'acceptent pas les réservations non pointées.
+    Les absences facturées restent une option distincte et explicite.
+    """
+    if cle not in ("afas_etats_reels", "afas_etats_factures"):
+        raise ValueError("Métrique AFAS inconnue : %s" % cle)
+    valeurs = options.get(cle, ["present"])
+    if (not isinstance(valeurs, (list, tuple)) or not valeurs
+            or any(type(v) is not str or v not in _ETATS_AFAS for v in valeurs)
+            or len(valeurs) != len(set(valeurs))):
+        raise ValueError("États AFAS invalides pour %s : sélectionner des états distincts et connus." % cle)
+    if cle == "afas_etats_reels" and "reservation" in valeurs:
+        raise ValueError("Les réservations non pointées ne sont pas des heures réalisées AFAS.")
+    return list(valeurs)
+
+
 
 class AnomalieAFAS(ValueError):
     """ Calcul AFAS bloqué : les données ne permettent pas un comptage fiable. """
@@ -143,8 +167,10 @@ def GetDonneesAFAS(IDactivite, IDgroupe, annee, phase, dictUnites_reel, dictUnit
     (typeCalcul=2, prestations.temps_facture) -- même moteur, même
     déduplication par IDprestation déjà en place, aucune redéfinition.
 
-    Les deux calculs portent sur le MÊME périmètre, les mêmes bornes de
-    dates et les mêmes filtres de `dict_options` (état/période/jours
+    Les deux calculs portent sur le MÊME périmètre et les mêmes bornes de
+    dates. Les états sont filtrés SÉPARÉMENT par afas_etats_reels et
+    afas_etats_factures (défaut prudent : présent seul pour chacun).
+    Les autres filtres de `dict_options` (période/jours
     ouvrés-vacances/plafond), donc les mêmes consommations éligibles --
     seule la configuration des unités diffère entre réel et facturé,
     exactement comme le moteur le permet déjà. Seule exception
@@ -185,8 +211,14 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
     liste_individus_aeeh = UTILS_AEEH_Periodes.GetIndividusActifsADate(date_situation)
     dictInfosIndividus_aeeh = {IDindividu: {"INDIVIDU_NOM_COMPLET": _LABEL_AEEH} for IDindividu in liste_individus_aeeh}
 
+    options_reel = dict(dict_options)
+    options_reel["etat_consommations"] = SelectionEtatsAFAS(dict_options, "afas_etats_reels")
+    options_facture = dict(dict_options)
+    options_facture["etat_consommations"] = SelectionEtatsAFAS(dict_options, "afas_etats_factures")
+    options_facture["forfait_presence_midi"] = 0
+
     heures_reelles, heures_reelles_aeeh = _sommer_par_regroupement(
-        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_reel, dict_options, dictInfosIndividus_aeeh,
+        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_reel, options_reel, dictInfosIndividus_aeeh,
         perimetres=perimetres,
     )
 
@@ -194,10 +226,8 @@ def GetDonneesPeriodeAFAS(perimetres, date_debut, date_fin, date_situation,
     # prestations.temps_facture inclut déjà le midi quand la durée
     # facturée le couvre -- jamais de copie non modifiée de dict_options
     # ici, jamais de mutation du dict_options fourni par l'appelant.
-    dict_options_facture = dict(dict_options)
-    dict_options_facture["forfait_presence_midi"] = 0
     heures_facturees, heures_facturees_aeeh = _sommer_par_regroupement(
-        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, dict_options_facture, dictInfosIndividus_aeeh,
+        IDactivite, IDgroupe, date_debut, date_fin, dictUnites_facture, options_facture, dictInfosIndividus_aeeh,
         perimetres=perimetres,
     )
 

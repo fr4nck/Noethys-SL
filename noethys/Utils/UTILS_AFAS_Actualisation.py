@@ -97,6 +97,11 @@ def PreparerActualisation(annee, perimetres, dictUnites, dict_options,
     debut, fin_reel, restant, fin, situation = Periodes(annee, phase)
     if not perimetres:
         raise ValueError("Sélectionner les activités et groupes de l'équipement CAF")
+    options_afas = dict(dict_options)
+    options_afas["afas_etats_reels"] = UTILS_AFAS_Donnees.SelectionEtatsAFAS(
+        dict_options, "afas_etats_reels")
+    options_afas["afas_etats_factures"] = UTILS_AFAS_Donnees.SelectionEtatsAFAS(
+        dict_options, "afas_etats_factures")
     activites = {a for a, g in perimetres}
     unites = {cle: dict(valeur) for cle, valeur in dictUnites.items()
               if valeur["IDactivite"] in activites}
@@ -110,7 +115,7 @@ def PreparerActualisation(annee, perimetres, dictUnites, dict_options,
                         heure_seuil=None, formule=None) for cle, valeur in unites.items()}
     def charger(d1, d2, date_situation):
         return UTILS_AFAS_Donnees.GetDonneesPeriodeAFAS(
-            perimetres, d1, d2, date_situation, unites, facture, dict_options)
+            perimetres, d1, d2, date_situation, unites, facture, options_afas)
     reel = charger(debut, fin_reel, situation) if debut else dict(
         {cle: 0.0 for cle, label in METRIQUES}, jours_ouverts=0)
     jours = len(set(date for a, g in perimetres for date in
@@ -146,7 +151,7 @@ def PreparerActualisation(annee, perimetres, dictUnites, dict_options,
     return dict(annee=annee, phase=phase, perimetres=list(perimetres), methode=methode,
                 date_situation=situation, lignes=lignes, historique=historique,
                 jours_realises=reel["jours_ouverts"], jours_previsionnels=jours,
-                options=dict(dict_options), unites=unites)
+                options=options_afas, unites=unites)
 
 
 def ExporterCSV(chemin, rapport, equipement):
@@ -158,7 +163,8 @@ def ExporterCSV(chemin, rapport, equipement):
         debut, fin_reel, restant, fin, situation = Periodes(rapport["annee"], rapport["phase"])
         writer.writerow(["Périmètres (activité, groupe)", repr(rapport["perimetres"])])
         writer.writerow(["Méthode", rapport["methode"]])
-        writer.writerow(["États retenus", ", ".join(rapport["options"].get("etat_consommations", []))])
+        writer.writerow(["États heures réalisées", ", ".join(rapport["options"]["afas_etats_reels"])])
+        writer.writerow(["États heures facturées", ", ".join(rapport["options"]["afas_etats_factures"])])
         writer.writerow(["Options de calcul", repr(rapport["options"])])
         writer.writerow(["Unités du réalisé", repr(rapport["unites"])])
         writer.writerow(["AEEH", "Droits actifs à la date de situation", str(situation), "Historique : au 31/12 N-1"])
