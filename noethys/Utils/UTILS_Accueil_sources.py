@@ -39,7 +39,8 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
             raise RuntimeError("Base Noethys indisponible")
         placeholder = "%s" if DB.isNetwork else "?"
         DB.cursor.execute("""
-            SELECT i.IDmedecin, m.nom, m.prenom, m.tel_cabinet
+            SELECT i.IDmedecin, m.nom, m.prenom, m.tel_cabinet,
+                   m.cp_resid, m.ville_resid
             FROM individus i LEFT JOIN medecins m ON i.IDmedecin=m.IDmedecin
             WHERE i.IDindividu=""" + placeholder, (IDindividu,))
         medecin = DB.cursor.fetchone()
@@ -78,6 +79,8 @@ def LireMedicalExistant(IDindividu, utilisateur, DB=None):
                 "nom": (medecin[1] or ""),
                 "prenom": (medecin[2] or ""),
                 "telephone": (medecin[3] or ""),
+                "cp": (medecin[4] or ""),
+                "ville": (medecin[5] or ""),
             } if medecin[0] is not None else None,
             "vaccins_enregistres": nb_vaccins,
             "problemes": problemes,
@@ -154,6 +157,10 @@ def PreparerRubriquesMedicales(medical, au=None):
             else:
                 traitements.append(u"%s : traitement signalé, détails non renseignés" % nom)
                 details.append(u"Traitement signalé, détails non renseignés")
+        elif pb.get("traitement_medical") is not True and consignes:
+            # Des anciennes fiches comportent parfois des instructions
+            # alors que la case de traitement n'est pas cochee.
+            details.append(u"Consignes : %s" % consignes)
         informations.append(u" — ".join(details))
         if est_allergie:
             allergies.append(u" : ".join(x for x in (nom, description) if x))
