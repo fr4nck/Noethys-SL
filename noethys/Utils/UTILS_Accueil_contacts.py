@@ -80,7 +80,7 @@ def LireContactsEnfant(IDindividu, DB=None):
             LEFT JOIN individus AS adresse ON adresse.IDindividu=i.adresse_auto
             WHERE l.IDindividu_objet=""" + marqueur + """
               AND l.IDautorisation IN (1, 3)
-            ORDER BY l.IDautorisation, i.nom, i.prenom, i.IDindividu
+            ORDER BY l.IDautorisation, i.IDindividu
         """
         DB.cursor.execute(requete, (IDindividu,))
         lignes = DB.cursor.fetchall()
