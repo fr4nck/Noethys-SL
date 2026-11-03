@@ -225,6 +225,36 @@ class LecturesAdhesionsStrictes(unittest.TestCase):
                 A._lire("SELECT 1;")
         self.assertTrue(db.ferme)
 
+    def test_erreur_sql_affiche_table_et_cause_sans_requete(self):
+        class DBFactice:
+            echec = 0
+            derniere_erreur_sql = RuntimeError("1054 Unknown column defaut")
+
+            def ExecuterReq(self, req):
+                return 0
+
+            def Close(self):
+                pass
+
+        with patch.object(A.GestionDB, "DB", return_value=DBFactice()):
+            with self.assertRaisesRegex(RuntimeError,
+                                        "table types_cotisations.*1054 Unknown column") as capture:
+                A._lire("SELECT defaut FROM types_cotisations WHERE IDtype_cotisation=12345;")
+        self.assertNotIn("12345", str(capture.exception))
+
+    def test_erreur_sql_originale_conservee_dans_gestiondb(self):
+        class CurseurFactice:
+            def execute(self, req):
+                raise RuntimeError("SQL erreur 1054")
+
+        db = object.__new__(A.GestionDB.DB)
+        db.echec = 0
+        db.isNetwork = False
+        db.cursor = CurseurFactice()
+        with patch("builtins.print"):
+            self.assertEqual(db.ExecuterReq("SELECT 1;"), 0)
+        self.assertIn("1054", str(db.derniere_erreur_sql))
+
     def test_resultat_none_n_est_jamais_assimile_a_aucune_adhesion(self):
         class DBFactice:
             echec = 0
