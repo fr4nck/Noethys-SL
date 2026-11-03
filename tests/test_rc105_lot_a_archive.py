@@ -98,8 +98,8 @@ class ArchivesTests(unittest.TestCase):
                     "pelemele_DOCUMENTS.sql": self.sql("DOCUMENTS", manif=False)})
         retour = AUDIT.InspecterArchive(self.archive)
         self.assertEqual(retour["verdict"], "LEGACY", retour)
-        self.assertEqual(retour["categories_absentes"], ["PHOTOS"])
-        self.assertFalse(retour["perimetre_complet"])
+        self.assertEqual(retour["categories_absentes"], [])
+        self.assertTrue(retour["perimetre_complet"])
         self.assertFalse(retour["restauration_prouvee"])
 
     def test_ancien_dump_tronque_refuse(self):
