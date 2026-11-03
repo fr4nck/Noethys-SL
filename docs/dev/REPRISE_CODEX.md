@@ -1,5 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D5 — bordereaux partenaires, anti-doublon, sans deploiement (03/11/2026)
+
+- **Prevol** : `main 29eed5b`, `wx b5a0d35`, `qt 6b11611`. Six fichiers modifies/crees sur `main` uniquement, sans branche nouvelle, merge, ni force-push : verrou D3-D4 `d0d474d`, DDL SQLite `de47a9c`, MySQL 5.7 propose `323a0b2`, moteur D5 `7229618`, tests `b3f15eb`, documentation `f770399`. Les branches d'interface ont continue independamment ; les têtes wx/qt ont evolue apres le prevol. Aucun portage ou synchronisation revendiques.
+- **Audit modele historique** : `prestations` et `factures` utilisent `IDcompte_payeur` lie aux comptes familiaux, tandis que `partenaires_structures` et `compta_tiers` ne constituent pas un compte payeur partenaire garanti. D5 ne fabrique pas de fausse famille ; aucun INSERT/UPDATE dans `prestations`, `factures`, `comptes_payeurs`, `compta_tiers` ni dans les reglements/ventilations.
+- **Livraison** : calcul exact Decimal par intervention realisee, tarif de convention D2 applicable explicitement selectionne, tarifs heure/seance, refus forfait et non-facturable, proposition en lecture seule, bordereau mensuel figé et anti-doublon transactionnel, export CSV marque `DOCUMENT PREPARATOIRE - PAS UNE FACTURE`, simple declaration reference externe ; aucune facture officielle, aucun paiement, aucune TVA qualifiee.
+- **Qualification locale** : Python 3.13.5 / SQLite fictif **140 PASS, 0 FAIL, 0 SKIP** (D1 18 + D2 49 + D3-D4 43 + D5 30). Concurrence avec deux connexions et un seul engagement possible, rollback/backup-restore et sentinelles des tables historiques, aucun acces a la base reelle. Empreintes Git verifiees des sources qualifiees, archive ZIP hors Git.
+- **STOP-GATE** : DDL MySQL 5.7 non execute/qualifie ; aucune recette Windows, wx ou Qt ; permissions applicatives, TVAs/avoirs, numerotation facture, identite comptable partenaire, paiements, verrou d'archivage D1, edition Word/PDF ou emission officielle non integres. Pas de migration ni deploiement.
+- **Suite** : architecture et recette des factures partenaires officielles sur tiers (sans detour famille), raccordement a la gestion documentaire et a la comptabilite apres validation du modele de payeur ; qualification du moteur D1-D5 sur MySQL 5.7 en copie puis integration UI. Document : `docs/dev/LOT_D_D5_IMPLEMENTATION.md`.
+
+
+
 ## Lot D3-D4 — interventions et programmations, sans deploiement (03/11/2026)
 
 - **Prevol** : `main cf7d88e`, `wx 4248ccd`, `qt 6b11611`. Developpement commun D3-D4 sur `main` exclusivement, cinq commits non forces et sans fusion : MySQL propose `497179b`, SQLite `fb35ba3`, moteur `5aaab3d`, tests `15149a7`, documentation `969a1be`. `wx` a continue independamment ; `qt` inchange. Aucun portage aux interfaces n'est revendique.
