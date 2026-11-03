@@ -180,3 +180,25 @@ def PublierConfigAtomiqueSFTP(sftp, source, mode=0o644):
                 # Le nom reste aleatoire et le fichier etait cree en 0600 ;
                 # l'appelant doit signaler l'echec, jamais un succes.
                 pass
+
+
+class RefuserModulesRelatifsNonVerifies:
+    """Import hook limite au package ephemere de models.py (mode epingle).
+
+    Un models.py verifie par SHA256 ne doit pas charger des annexes Python
+    non signees au moyen d'imports relatifs. Les imports absolus stdlib/
+    SQLAlchemy/Connecthys restent inchanges. C'est une restriction des
+    imports, PAS un sandbox : une source principale deja malveillante peut
+    appeler directement open(), exec(), etc. En mode legacy, aucun hook.
+    """
+
+    def __init__(self, nom_package, nom_module):
+        self.prefixe = nom_package + "."
+        self.module_principal = nom_module
+
+    def find_spec(self, fullname, path=None, target=None):
+        if (fullname.startswith(self.prefixe)
+                and fullname != self.module_principal):
+            raise ModuleConnecthysNonFiable(
+                "Import relatif Python non verifie refuse en mode models_sha256")
+        return None
