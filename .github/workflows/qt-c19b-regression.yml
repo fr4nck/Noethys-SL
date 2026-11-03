@@ -1,0 +1,56 @@
+name: Noethys SL Qt - C19b recette ciblee
+
+on:
+  push:
+    branches:
+      - qt
+    paths:
+      - 'noethys_qt/noethys_native.py'
+      - 'noethys_qt/consumptions_calendar_ui.py'
+      - 'noethys_qt/catalog_readonly_ui.py'
+      - 'noethys_qt/c19b_operational_guard.py'
+      - 'tests_qt/test_c19b_inscription_consumption_invoices.py'
+      - 'tests_qt/test_c19b_operational_guard.py'
+      - 'tests_qt/test_ci_sharding.py'
+      - 'tests_qt/test_c19_financial_organisation_registries.py'
+      - 'tests_qt/test_native_c12_shell_routes.py'
+      - '.github/workflows/qt-c19b-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19b-cible-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-c19b:
+    name: Windows - quatre correctifs C19 et parcours C19b
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Installer PySide6 uniquement sur le runner de CI
+        run: python -m pip install -r requirements-qt.txt
+      - name: Compiler les modules Qt et les contrats
+        run: python -m compileall -q noethys_qt tests_qt
+      - name: 'Recette du parcours fictif et des quatre regressions'
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\tests_qt;$env:GITHUB_WORKSPACE"
+          python -m unittest -v `
+            test_c19b_inscription_consumption_invoices `
+            test_c19b_operational_guard `
+            test_ci_sharding.QtCiShardingContractTests.test_three_heavy_modules_have_distinct_shards `
+            test_c19_financial_organisation_registries.C19SqlContractTests.test_bank_sensitive_identifiers_are_never_fetched_or_displayed `
+            test_c19_financial_organisation_registries.C19QtModulesTests.test_budget_context_does_not_leak_when_menu_reopened `
+            test_native_c12_shell_routes.C12NativeShellTests.test_inscription_resolves_source_keys_not_displayed_name
