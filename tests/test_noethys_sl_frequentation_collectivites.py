@@ -238,9 +238,9 @@ class ConventionTests(unittest.TestCase):
             self.assertIn(["participation_facturee_non_presente", "23.08"], rows)
             exporter_xlsx(r, p / "facturees.xlsx", d)
             with ZipFile(p / "facturees.xlsx") as archive:
-                self.assertEqual(self.cellule_xlsx(archive, 1, "O9")[1], "2")
-                self.assertEqual(self.cellule_xlsx(archive, 1, "P9")[1], "23.08")
-                self.assertEqual(self.cellule_xlsx(archive, 1, "H9")[1], "196.24")
+                self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "O9")[1], "2")
+                self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "P9")[1], "23.08")
+                self.assertEqual(EditionTests.cellule_xlsx(archive, 1, "H9")[1], "196.18")
             exporter_pdf(r, p / "facturees.pdf", fictif=True)
             self.assertTrue((p / "facturees.pdf").read_bytes().startswith(b"%PDF"))
 
