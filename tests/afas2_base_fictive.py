@@ -71,7 +71,9 @@ CONSOMMATIONS = (
     (91002, 9001, "2026-03-03", 9102, 911, "present", "16:30", "18:00", None),
     (91003, 9001, "2026-03-03", 9104, 911, "present", "07:00", "07:30", None),
     (91004, 9002, "2026-03-03", 9101, 911, "present", "07:45", "08:30", None),
-    (91005, 9001, "2026-03-05", 9103, 911, "present", "12:00", "13:30", None),
+    # Repas du même jour/site que l'accueil principal : cas normal et validable.
+    # Le repas isolé, sans accueil principal, est testé séparément comme bloquant.
+    (91005, 9001, "2026-03-03", 9103, 911, "present", "12:00", "13:30", None),
     (91006, 9003, "2026-03-05", 9102, 911, "absentj", None, None, None),
     # Extrascolaire (vacances de la Toussaint)
     (92001, 9001, "2026-10-19", 9201, 911, "present", "08:40", "17:10", 90001),
