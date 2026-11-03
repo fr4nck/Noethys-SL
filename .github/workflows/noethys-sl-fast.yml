@@ -281,6 +281,7 @@ jobs:
           tests.test_rc105_lot_a_archive
           tests.test_rc105_lot_b_recus_pdf
           tests.test_rc105_lot_c_famille_pdf
+          tests.test_rc105_lot_d_ping_concurrence
           tests.test_noethys_sl_printer_pen
           tests.test_noethys_sl_releve_couleur
       - name: Campagne bornee issue 432 - sortie wx (sur demande)
