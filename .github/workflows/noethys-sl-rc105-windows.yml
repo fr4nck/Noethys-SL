@@ -79,6 +79,13 @@ jobs:
 
       # Tests SFTP purement fictifs : coupure avant rename, corruption et
       # acquittement perdu apres rename ; aucune connexion de production.
+      - name: RC10.5 lots A-B-C - sauvegardes, recus, fiches (hors production)
+        run: >-
+          python -m unittest -v
+          tests.test_rc105_lot_a_archive
+          tests.test_rc105_lot_b_recus_pdf
+          tests.test_rc105_lot_c_famille_pdf
+
       - name: S1.3-S1.4 - Connecthys, secrets et transfert atomique (hors reseau)
         run: >-
           python -m unittest -v
@@ -153,6 +160,9 @@ jobs:
           tests.test_rail1_recu_reglement
           tests.test_rail1_portail_recu
           tests.test_noethys_sl_recus_envoi
+          tests.test_rc105_lot_a_archive
+          tests.test_rc105_lot_b_recus_pdf
+          tests.test_rc105_lot_c_famille_pdf
           tests.test_noethys_sl_releve_couleur
           tests.test_noethys_sl_printer_pen
           tests.test_noethys_sl_changelog
