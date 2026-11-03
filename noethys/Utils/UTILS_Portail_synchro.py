@@ -530,6 +530,14 @@ class Synchro():
 
         nom_package = "noethys_connecthys_sync_%s" % uuid.uuid4().hex
         nom_module = nom_package + ".models"
+        garde_imports = None
+        if code_verifie is not None:
+            # Un models.py epingle ne doit pas importer un annexe non
+            # epingle depuis le package temporaire. Rien ne change pour
+            # le Connecthys historique lorsque le SHA256 est vide.
+            garde_imports = UTILS_Portail_securite.RefuserModulesRelatifsNonVerifies(
+                nom_package, nom_module)
+            sys.meta_path.insert(0, garde_imports)
         try :
             spec_package = importlib.util.spec_from_loader(nom_package, loader=None, is_package=True)
             package = importlib.util.module_from_spec(spec_package)
@@ -561,6 +569,8 @@ class Synchro():
             exec(code_source, models.__dict__)
             return models
         finally :
+            if garde_imports is not None and garde_imports in sys.meta_path:
+                sys.meta_path.remove(garde_imports)
             # Noms uniques (uuid) : rien à réutiliser d'une synchronisation
             # à l'autre, donc rien à laisser polluer sys.modules ensuite --
             # y compris les sous-modules qu'un import relatif dans
