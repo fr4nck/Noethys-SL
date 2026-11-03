@@ -72,7 +72,8 @@ class EditionDeuxPages(unittest.TestCase):
 
         c = FauxCanvas()
         Impression._page1(c, {
-            "nom": "ENFANT", "prenom": "Fictif",
+            "nom": "ENFANT", "prenom": "Fictif", "sexe": "F",
+            "alsh": "Moutiers", "classe": "GS (Classe Fictive)",
             "responsables": [
                 {"identite": "PARENT Premier", "adresse": "5 rue Fictive",
                  "telephone": "Mobile : 06 00 11"},
@@ -87,7 +88,8 @@ class EditionDeuxPages(unittest.TestCase):
             ],
         })
         valeurs = [texte for _x, _y, texte in c.textes]
-        for attendu in ("PARENT Premier", "5 rue Fictive", "06 00 11",
+        for attendu in ("Moutiers", "GS (Classe Fictive)", "F",
+                        "PARENT Premier", "5 rue Fictive", "06 00 11",
                         "PARENT Deuxieme", "2 place Exemple", "02 00 22",
                         "TANTE", "Exemple", "tante", "06 00 33",
                         "VOISIN", "voisin", "06 00 44"):
