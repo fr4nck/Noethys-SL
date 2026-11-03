@@ -44,6 +44,24 @@ Windows deja diffusee, ni la resolution des incidents de production.
   proprietaire, Connecthys peut devenir inaccessible. Le transfert
   historique n'etant pas atomique, les droits peuvent rester plus
   ouverts pendant la copie : **ceci n'est pas un remede complet**.
+- **S1.4 — publication atomique de config.py (SSH/SFTP)** :
+  `ssh_config_atomique` est **desactive par defaut**. En mode volontaire,
+  le nouveau fichier est ecrit sous un nom temporaire aleatoire du meme
+  dossier, marque `0600` avant l'ecriture des octets secrets, relu en
+  entier et compare par SHA256, puis publie avec l'extension OpenSSH
+  `posix-rename`. Tant que cette derniere operation n'a pas reussi,
+  l'ancien `config.py` n'est pas ecrase par ce chemin de code.
+  **Pas de repli silencieux sur l'ecrasement traditionnel** : si
+  l'extension n'est pas prise en charge, le transfert est declare en
+  echec et une suppression du fichier de staging est tentee.
+  Le nouveau fichier adopte `0644` pour le lecteur web historique, ou
+  `0600` uniquement si `ssh_config_prive` est aussi active, apres
+  recette des droits. L'etape finale est atomique **seulement si le
+  serveur implemente correctement posix-rename**. Il reste possible
+  qu'un fichier temporaire subsiste en cas de rupture du serveur lors
+  de sa suppression ; aucune garantie d'isolement du serveur lui-meme.
+  Cette option ne demande aucune modification de Connecthys mais
+  suppose une capacite SFTP disponible chez l'hebergeur.
 - **#437 — sauvegardes MySQL** : conservation de l'export `mysqldump` surveille
   (sans `shell=True`, delais bornes et diagnostic), de la verification SQL et
   de la protection des anciennes archives. Le blocage `*_DOCUMENTS` de
@@ -84,6 +102,12 @@ puis qualification dans un profil de recette.
    Qualifier le comportement en cas de synchronisation en cours.
 5. Accord explicite de publication depuis `wx` seulement, apres les
    barrieres precedentes ; aucun `push` ne publie une release.
+
+Une configuration initiale en lecture seule / une sauvegarde
+du fichier distant doit etre disponible avant de tester en recette les
+options `ssh_config_prive` et `ssh_config_atomique`.
+N'activer ni l'une ni l'autre en production avant qualification du
+processus web, du serveur SFTP et de la procedure de retour arriere.
 
 ## Compatibilite Connecthys Ivan Lucas — CONTRAT NON REGRESSION
 
