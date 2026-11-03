@@ -103,6 +103,54 @@ class SourceMedicaleTests(unittest.TestCase):
                          "Consignes fictives")
         self.assertEqual(data["problemes"][0]["categorie"], "Autre")
 
+    def test_date_dtp_ne_prend_pas_la_derniere_injection_poliosimple(self):
+        # 2026-08-20 correspond a la polio seule dans le catalogue fictif.
+        info = S.LireMedicalExistant(10, ADMIN, DB=self.db)
+        self.assertEqual(info["dernier_dt_polio"], "2025-07-15")
+
+    def test_date_dtp_absente_sans_valences_completes(self):
+        self.db.connexion.execute(
+            "DELETE FROM vaccins_maladies WHERE IDtype_maladie=2")
+        info = S.LireMedicalExistant(10, ADMIN, DB=self.db)
+        self.assertIsNone(info["dernier_dt_polio"])
+        self.assertEqual(S.FormaterVaccinations(info),
+                         "Non renseignée (2 vaccins enregistrés)")
+
+    def test_dates_dtp_multiples_futures_et_invalides(self):
+        lignes = [
+            (1,"2024-01-03","Diphtérie"),
+            (1,"2024-01-03","Tétanos"),
+            (1,"2024-01-03","Polyomyélite"),
+            (2,"2026-11-04","Diphtérie"),
+            (2,"2026-11-04","Tétanos"),
+            (2,"2026-11-04","Poliomyélite"),
+            (3,"incorrecte","Diphtérie"),
+            (3,"incorrecte","Tétanos"),
+            (3,"incorrecte","Polyomyélite"),
+            (4,"2025-05-12","Diphtérie"),
+            (4,"2025-05-12","Tétanos"),
+        ]
+        self.assertEqual(S.TrouverDernierDTP(lignes, "2026-11-03"),
+                         "2024-01-03")
+        self.assertEqual(S.TrouverDernierDTP(lignes, "2026-11-04"),
+                         "2026-11-04")
+
+    def test_dtp_avec_plusieurs_doses_et_meme_valence_dupliquee(self):
+        lignes = [
+            (1,"2023-06-01","Diphtérie"),(1,"2023-06-01","Tétanos"),
+            (1,"2023-06-01","Polyomyélite"),
+            (2,"2025-09-30","Diphtérie"),(2,"2025-09-30","Tétanos"),
+            (2,"2025-09-30","Polyomyélite"),(2,"2025-09-30","Polyomyélite"),
+        ]
+        self.assertEqual(S.TrouverDernierDTP(lignes, "2026-11-03"),
+                         "2025-09-30")
+
+    def test_dtp_sans_enregistrement_ne_devient_pas_vaccination(self):
+        info = S.LireMedicalExistant(11, ADMIN, DB=self.db)
+        self.assertIsNone(info["dernier_dt_polio"])
+        self.assertEqual(S.FormaterVaccinations(info),
+                         "Non renseignée (0 vaccins enregistrés)")
+
     def test_reprise_pai_allergie_et_traitement_de_l_onglet_existant(self):
         self.db.connexion.execute(
             "INSERT INTO categories_medicales VALUES (4,'Allergie')")
