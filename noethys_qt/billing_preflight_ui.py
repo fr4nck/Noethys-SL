@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 )
 
 from .billing_preflight_core import BillingObservation, BillingPreflightRepository
+from .legacy_write_barrier import audit_before_write
 from .consumptions_core import Consumption
 
 
@@ -18,6 +19,7 @@ class BillingPreflightPanel(QGroupBox):
         self._context = None
         self._row = None
         self.last_observation: BillingObservation | None = None
+        self.last_barrier = None
 
         layout = QVBoxLayout(self)
         self.notice = QLabel(
@@ -47,12 +49,14 @@ class BillingPreflightPanel(QGroupBox):
         ) else None
         self._row = None
         self.last_observation = None
+        self.last_barrier = None
         self.output.clear()
         self._update_button()
 
     def set_row(self, row: Consumption | None):
         self._row = row if isinstance(row, Consumption) else None
         self.last_observation = None
+        self.last_barrier = None
         self.output.clear()
         self._update_button()
 
@@ -65,6 +69,7 @@ class BillingPreflightPanel(QGroupBox):
 
     def inspect(self):
         self.last_observation = None
+        self.last_barrier = None
         self.output.clear()
         if not self.check_button.isEnabled() or self._context is None:
             return
@@ -85,4 +90,11 @@ class BillingPreflightPanel(QGroupBox):
             )
             return
         self.last_observation = result
-        self.output.setPlainText(result.report)
+        # C19d : aucune identite authentifiee, aucun verrou certifie, aucun
+        # writer. Afficher explicitement les refus, meme si les donnees
+        # brutes de la prestation sont disponibles dans cette fixture.
+        self.last_barrier = audit_before_write(
+            operation="invoice_creation", activity_id=row.activity_id,
+            consumption_date=row.date, observation=result,
+        )
+        self.output.setPlainText(result.report + "\n\n" + self.last_barrier.report)

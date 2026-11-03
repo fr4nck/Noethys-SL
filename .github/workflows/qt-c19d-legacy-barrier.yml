@@ -1,0 +1,42 @@
+name: Noethys SL Qt - C19d gardes historiques bloquants
+
+on:
+  push:
+    branches:
+      - qt
+    paths:
+      - 'noethys_qt/legacy_write_barrier.py'
+      - 'tests_qt/test_c19d_legacy_write_barrier.py'
+      - 'noethys/Utils/UTILS_Utilisateurs.py'
+      - 'noethys/Utils/UTILS_Gestion.py'
+      - 'noethys/Ctrl/CTRL_Grille_cases.py'
+      - '.github/workflows/qt-c19d-legacy-barrier.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19d-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard-sans-qt:
+    name: C19d contrat wx sur ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compilation statique du contrat C19d
+        run: python -m compileall -q noethys_qt/legacy_write_barrier.py tests_qt/test_c19d_legacy_write_barrier.py
+      - name: Contrat de blocage et sources wx sans dependance Qt
+        run: python -m unittest discover -s tests_qt -p "test_c19d_legacy_write_barrier.py" -v

@@ -85,6 +85,18 @@ class C19cQtBillingPreflightTests(unittest.TestCase):
         self.assertIn("AUCUNE FACTURATION AUTORISEE", panel.output.toPlainText())
         self.assertEqual(self.db.dump(), before)
 
+    def test_write_barrier_names_missing_rights_and_periods(self):
+        calendar = self._open()
+        panel = calendar.billing_preflight_panel
+        panel.check_button.click()
+        self.assertIsNotNone(panel.last_barrier)
+        self.assertEqual(panel.last_barrier.permission.status, "INCONNU")
+        self.assertEqual(panel.last_barrier.period.status, "INCONNU")
+        self.assertFalse(panel.last_barrier.executable)
+        self.assertIn("VERDICT : BLOQUE", panel.output.toPlainText())
+        self.assertIn("Droits : INCONNU", panel.output.toPlainText())
+        self.assertIn("Periodes : INCONNU", panel.output.toPlainText())
+
     def test_preview_clears_after_global_navigation(self):
         calendar = self._open()
         panel = calendar.billing_preflight_panel
