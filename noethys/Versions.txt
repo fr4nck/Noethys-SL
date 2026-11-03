@@ -1,5 +1,11 @@
 Version Noethys SL 0.1.0 RC10.5 (03/11/2026) :
 
+- Lot A : controle hors ligne en lecture seule des archives Noethys .nod (CRC, DATA/PHOTOS/DOCUMENTS, manifeste SQL V1), sans presenter ce controle comme une restauration validee.
+- Lot B : controle physique des recus PDF avant expédition depuis famille ou règlement, refus des PDF manquants/tronques et suppression des brouillons incomplets.
+- Lot C : edition atomique de la fiche famille unifiee ALSH / Club ados ; l'ancien PDF reste conserve si un rendu echoue, la limite papier de quatre enfants reste explicite.
+- Lot D : correction de la course de concurrence du ping wx dans l'export Connecthys (float - NoneType), avec test de non-regression deterministe ; affichage des jetons toujours interdit.
+- Recette RC10.5 : quatre portes automatiques A/B/C/D et fiche d'exploitation docs/recette/RC105_LOTS_ABCD.md ; publication bloquee avant qualification terrain.
+
 - Facturation : cause SQL d'adhesion affichee (table et erreur MySQL) ; une reconnexion hors pool seulement apres panne reseau reconnue. Aucune cotisation creee si le controle reste en echec (#426).
 - Connecthys : fermeture explicite des connexions SSH et SFTP, y compris apres un echec de transfert, pour eviter les sessions distantes residuelles (#438).
 - Securite Connecthys : empreinte SHA256 facultative de la cle hote SSH, validee avant authentification dans la synchronisation et les commandes serveur ; mode historique conserve si le champ est vide.
