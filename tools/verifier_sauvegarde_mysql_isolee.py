@@ -38,6 +38,22 @@ def QualifierPerimetreSauvegarde(bases):
 
 
 
+
+def QualifierDumpSQL(chemin):
+    """Verifier un dump recent ou historique avant import sur MySQL jetable.
+
+    Le format ancien reste admissible si l'analyse syntaxique et le marqueur
+    final mysqldump sont presents. Ne jamais appeler le serveur ici.
+    """
+    analyse, erreur = integrite.AnalyserDumpSQL(chemin, exiger_fin_mysqldump=True)
+    if erreur is not None or not analyse:
+        raise RuntimeError("Dump SQL non restaurable : %s" % (erreur or "analyse absente"))
+    if not analyse["fin_mysqldump"]:
+        raise RuntimeError("Dump SQL sans marqueur de fin mysqldump")
+    return "MANIFESTE_V1_VERIFIE" if analyse["avec_manifeste"] else "HISTORIQUE_VERIFIE"
+
+
+
 def verifier(runtime, archive):
     runtime, archive = Path(runtime).resolve(), Path(archive).resolve()
     commande = [str(runtime / "mysql-5.7.44-winx64/bin/mysql.exe"), "--no-defaults",
@@ -79,11 +95,10 @@ def verifier(runtime, archive):
             with tempfile.TemporaryDirectory(prefix="noethys-verification-") as rep:
                 for membre, base in zip(membres, bases):
                     chemin = Path(z.extract(membre, rep))
-                    manifeste, erreur = integrite.VerifierIntegriteSQL(chemin)
-                    if not manifeste or erreur:
-                        raise RuntimeError("Manifeste SQL absent ou invalide : %s" % base)
+                    controle_sql = QualifierDumpSQL(chemin)
                     sql(fichier=chemin)
-                    entree = {"base": base, "tables": len(sql("SHOW TABLES FROM `%s`;" % base).splitlines())}
+                    entree = {"base": base, "controle_sql": controle_sql,
+                              "tables": len(sql("SHOW TABLES FROM `%s`;" % base).splitlines())}
                     if base.lower() == "photos" or base.lower().endswith("_photos"):
                         tailles_photos = sql(
                             "SELECT COUNT(*),COALESCE(SUM(OCTET_LENGTH(photo)),0),"
