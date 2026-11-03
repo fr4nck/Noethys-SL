@@ -72,22 +72,13 @@ def LireEntete(IDindividu, aeeh_autorisee=False):
 
 
 def ListerResponsables(IDindividu):
-    """Suggestions de signataires, PAS preuve d'autorite parentale."""
-    db = GestionDB.DB()
-    try:
-        if getattr(db, "echec", 0):
-            return []
-        sql = """SELECT DISTINCT i.IDindividu, i.nom, i.prenom
-            FROM liens l JOIN individus i ON i.IDindividu=l.IDindividu_sujet
-            WHERE l.IDindividu_objet=? AND l.responsable=1
-            ORDER BY i.nom, i.prenom, i.IDindividu"""
-        if db.isNetwork:
-            sql = sql.replace("?", "%s")
-        db.cursor.execute(sql, (IDindividu,))
-        return [(int(i), ("%s %s" % (nom or "", prenom or "")).strip())
-                for i, nom, prenom in db.cursor.fetchall()]
-    finally:
-        db.Close()
+    """Signataires possibles deja identifies comme responsables legaux.
+
+    Les autorisations de l'onglet Liens utilisent IDautorisation=1,
+    et non le champ historique liens.responsable.
+    """
+    fiches = contacts.LireContactsEnfant(IDindividu)["responsables"]
+    return [(fiche["IDindividu"], fiche["identite"]) for fiche in fiches]
 
 
 def EtatChoix(historique, IDindividu, code, perimetre, au):
