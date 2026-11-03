@@ -356,6 +356,16 @@ class Synchro():
                     if self.AutoReloadWSGI(ftp) is False:
                         return False
 
+            elif (self.dict_parametres["hebergement_type"] == 2
+                  and self.dict_parametres.get("ssh_config_prive") is True):
+                # Meme si config.py n'a pas change, appliquer l'option
+                # demandee a sa version DEJA presente sur le serveur.
+                try:
+                    ftp.chmod(self._CheminConfigSFTP(), mode=0o600)
+                except Exception:
+                    self.log.EcritLog(_(u"[ERREUR] Droits prives config.py non appliques (SSH)."))
+                    return False
+
             return True
         finally:
             # Le contenu genere contient la cle secrete et les mots de passe :
@@ -2127,6 +2137,11 @@ class Synchro():
         return repDestination, nomFichier
 
 
+    def _CheminConfigSFTP(self):
+        """Chemin config.py conforme aux chemins SFTP historiques du client."""
+        rep = "/" + self.dict_parametres["ssh_repertoire"]
+        return rep + ("" if rep.endswith("/") else "/") + "application/data/config.py"
+
     def UploadFichier(self, ftp=None, nomFichierComplet="", repDest=""):
         nomFichier = os.path.basename(nomFichierComplet)
         repFichier = os.path.dirname(nomFichierComplet)
@@ -2182,10 +2197,21 @@ class Synchro():
                     self.log.EcritLog(_(u"[ERREUR] Envoi du fichier '%s' par SSH/SFTP impossible.") % nomFichier)
                     return False
 
+                # Pour le portail ancien, conserver chmod 0644 par defaut.
+                # Restriction 0600 : uniquement config.py, sur demande explicite,
+                # apres verification de l'utilisateur serveur/WSGI. A ce stade
+                # la copie SFTP n'est PAS atomique, risque transitoire a qualifier.
+                mode = (0o600 if nomFichier == "config.py"
+                        and repDest == "application/data"
+                        and self.dict_parametres.get("ssh_config_prive") is True
+                        else 0o644)
                 try:
-                    ftp.chmod(rep + "/" + nomFichier, mode=0o644)
+                    ftp.chmod(rep + "/" + nomFichier, mode=mode)
                 except Exception as err:
-                    print("CHMOD 0644 sur %s impossible :" % nomFichier, err)
+                    print("CHMOD %04o sur %s impossible :" % (mode, nomFichier), err)
+                    if mode == 0o600:
+                        self.log.EcritLog(_(u"[ERREUR] Droits prives config.py non appliques (SSH)."))
+                        return False
 
         return True
 
