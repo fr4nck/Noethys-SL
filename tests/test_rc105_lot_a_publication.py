@@ -5,7 +5,10 @@ from pathlib import Path
 import tempfile
 import types
 import unittest
+import zipfile
 from unittest import mock
+
+from tests.test_noethys_sl_mysql_returncode import _charger_manifeste
 
 from tests._mysql_backup_test_support import moteur
 
@@ -51,6 +54,34 @@ class PublicationArchiveTests(unittest.TestCase):
                 self.module._PublierArchiveSansRemplacement(source, destination)
         self.assertEqual(destination.read_bytes(), b"ANCIENNE")
         self.assertEqual(source.read_bytes(), b"NOUVELLE")
+
+    def test_rapport_json_non_inscriptible_ne_fait_pas_echouer_larchive(self):
+        # L'archive SQL publiee est l'objet metier ; le diagnostic est un
+        # accessoire. Aucune connexion MySQL, aucun profil.
+        chemin = self.directory / "data_documents.nod"
+        def export_fictif(_prog, _login, fichier, _base, **kwargs):
+            payload = (
+                b"CREATE TABLE `temoin` (`id` INT);\n"
+                b"INSERT INTO `temoin` VALUES (437);\n"
+                b"-- Dump completed on 2026-01-01 00:00:00\n"
+            )
+            Path(fichier).write_bytes(payload)
+            return {"erreur": None, "octets": len(payload), "code_retour": 0}
+        def ouvrir(chemin_fichier, *args, **kwargs):
+            if os.fspath(chemin_fichier).endswith(".diagnostic.json"):
+                raise PermissionError("diagnostic fictivement interdit")
+            return open(chemin_fichier, *args, **kwargs)
+        with mock.patch.object(self.module, "ExporterSQL", side_effect=export_fictif):
+            with mock.patch.object(self.module, "open", side_effect=ouvrir, create=True):
+                bilan = self.module.CreerArchive(
+                    "mysqldump-fictif", "client-fictif.cnf",
+                    ["demo_data", "demo_documents"], chemin, _charger_manifeste())
+        self.assertTrue(bilan["succes"], bilan)
+        self.assertTrue(bilan["rapport_indisponible"])
+        self.assertFalse(chemin.with_suffix(".nod.diagnostic.json").exists())
+        with zipfile.ZipFile(chemin) as z:
+            self.assertIsNone(z.testzip())
+            self.assertEqual(z.namelist(), ["demo_data.sql", "demo_documents.sql"])
 
     def test_posix_conserve_le_lien_non_remplacant(self):
         lien = mock.Mock()
