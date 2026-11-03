@@ -198,9 +198,10 @@ class DownloadDataTests(_BaseDB):
         jeton = datetime.date.today().strftime("%Y%m%d") + CHIFFRES_CLE
         self.assertEqual(srv.requetes[0], "/syncdown/%s/0" % jeton)
         self.assertEqual(srv.requetes[1], "/syncdown/%s/1002" % jeton)
-        # Le jeton d'authentification est imprimé sur stdout (redirigé vers
-        # journal.log dans l'exécutable Windows, Noethys.py l.4616-4617).
-        self.assertIn(jeton, sortie.getvalue())
+        # Le jeton RESTE dans les URLs effectivement envoyees au serveur,
+        # mais ne doit plus fuiter dans journal.log via stdout.
+        self.assertNotIn(jeton, sortie.getvalue())
+        self.assertIn("URL syncdown = [jeton masque]", sortie.getvalue())
         self.assertEqual(lire(self.chemin, "SELECT IDaction, ref_unique FROM portail_actions ORDER BY IDaction"),
                          [(1, "1001"), (2, "1002")])
 
@@ -500,7 +501,8 @@ class CommandesDistantesTests(unittest.TestCase):
                 self.assertTrue(s.Clear_application())
         jeton = datetime.date.today().strftime("%Y%m%d") + CHIFFRES_CLE
         self.assertEqual(srv.requetes, ["/upgrade/%s" % jeton, "/repairdb/%s" % jeton, "/cleardb/%s" % jeton])
-        self.assertIn("/cleardb/%s" % jeton, sortie.getvalue())
+        self.assertNotIn(jeton, sortie.getvalue())
+        self.assertIn("URL repair = [jeton masque]", sortie.getvalue())
 
     def test_reponse_non_json_ou_5xx_signalee_en_echec(self):
         for code, corps in ((500, b"x"), (200, b"<html>")):
