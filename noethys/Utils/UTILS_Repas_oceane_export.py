@@ -9,6 +9,7 @@ from pathlib import Path
 
 from Utils import UTILS_Repas_oceane as O
 from Utils import UTILS_Oceane_xlsx as X
+from Utils.UTILS_Repas_oceane_annexe import _grammage
 
 LIGNES_LIBELLES = {
     8: "Entrée", 9: "Plat", 10: "Garniture", 11: "Laitage", 12: "Dessert",
@@ -85,7 +86,7 @@ def ExporterBordereau(modele_xlsx, destination_xlsx, lignes):
     modele = _valider_modele(modele_xlsx, sites)
     ecritures = {}
     blocs = {}
-    for p in propositions:
+    for ligne, p in zip(attribuees, propositions):
         if p["repartition_alimentaire_a_completer"]:
             raise ValueError(
                 "%s %s : précisez M/P pour sans porc, sans viande, végétarien "
@@ -103,6 +104,17 @@ def ExporterBordereau(modele_xlsx, destination_xlsx, lignes):
         decalage = (bloc - 1) * 25
         debut, fin = jour - timedelta(days=2), jour + timedelta(days=2)
         ecritures.setdefault(feuille, {}).update(p["cellules"])
+        # La fiche du fournisseur n'a pas de colonne grammage.
+        # Une demande explicite pour le PLAT peut figurer dans Commentaires,
+        # le détail interne est conservé dans l'annexe CSV.
+        grammes_plat = (ligne.get("grammages") or {}).get("plat") or {}
+        grammes_M = _grammage(grammes_plat.get("M"))
+        grammes_P = _grammage(grammes_plat.get("P"))
+        if grammes_M or grammes_P:
+            texte = "Plat : grammage demandé M %s g / P %s g (à confirmer)" % (
+                grammes_M if grammes_M else "-",
+                grammes_P if grammes_P else "-")
+            ecritures[feuille]["J%d" % (21 + decalage)] = texte
         ecritures[feuille].update({
             "C%d" % (4 + decalage): jour.isocalendar().week,
             "E%d" % (4 + decalage): debut.strftime("%d/%m/%Y"),
