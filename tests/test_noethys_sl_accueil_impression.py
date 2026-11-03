@@ -184,13 +184,15 @@ class EditionDeuxPages(unittest.TestCase):
 
         c = FauxCanvas()
         Impression._page2(c, {
+            "autorisation_modele": "Fiche Enfant 2026-11",
             "pai": "PAI mentionné : Asthme fictif",
             "allergies": "Allergie aux arachides",
             "traitement": "Traitement fictif",
             "medical": ["Asthme fictif - consigne fictive"],
         })
         for mot in ("PAI mentionné", "Allergie aux arachides",
-                    "Traitement fictif", "consigne fictive"):
+                    "Traitement fictif", "consigne fictive",
+                    "Fiche Enfant 2026-11"):
             self.assertTrue(any(mot in texte for texte in c.textes), msg=mot)
 
     def test_sans_medical_ne_lit_pas_de_base(self):
