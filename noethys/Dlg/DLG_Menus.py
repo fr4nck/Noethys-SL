@@ -302,6 +302,22 @@ class Dialog(wx.Dialog):
                 _(u"Choisissez d'abord le restaurateur Océane dans Noethys."),
                 _(u"Import des menus"), wx.OK | wx.ICON_WARNING, self)
             return False
+        # Protéger le dossier d'un autre restaurateur en cas de mauvais choix.
+        import unicodedata
+        libelle_restaurateur = self.ctrl_restaurateur.GetStringSelection()
+        normalise = unicodedata.normalize(
+            "NFKD", libelle_restaurateur.casefold())
+        normalise = "".join(c for c in normalise
+                            if not unicodedata.combining(c))
+        if "oceane" not in normalise:
+            decision = wx.MessageBox(
+                _(u"Le restaurateur sélectionné est « %s » et non Océane. "
+                  u"Confirmez-vous l'importation de son menu dans ce dossier ?") %
+                  libelle_restaurateur,
+                _(u"Vérifier le restaurateur"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self)
+            if decision != wx.YES:
+                return False
 
         if fichier is None:
             dlg = wx.FileDialog(
@@ -421,6 +437,13 @@ class Dialog(wx.Dialog):
         from Utils import UTILS_Parametres
 
         titre = P.TitrePortail(menus)
+        if P.DateFinPublication(menus) <= datetime.datetime.now():
+            wx.MessageBox(
+                _(u"Ces menus sont déjà échus. Ils peuvent être importés "
+                  u"dans Noethys, mais pas publiés comme menus à venir."),
+                _(u"Période de publication échue"),
+                wx.OK | wx.ICON_WARNING, self)
+            return False
         DB = GestionDB.DB()
         try:
             DB.cursor.execute(
