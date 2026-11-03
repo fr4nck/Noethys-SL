@@ -152,12 +152,18 @@ class ContratSourceTests(unittest.TestCase):
     def test_upload_data_groupe_et_cede(self):
         source = (ROOT / "noethys" / "Utils" / "UTILS_Portail_synchro.py").read_text(encoding="utf-8")
         arbre = ast.parse(source)
-        upload = next(n for n in ast.walk(arbre) if isinstance(n, ast.FunctionDef) and n.name == "Upload_data")
-        texte = ast.get_source_segment(source, upload)
-        self.assertIn("session_cooperative(Session(), priorite)", texte)
-        self.assertIn("enregistrer_par_lots(session, ouvertures, priorite)", texte)
-        self.assertIn("enregistrer_par_lots(session, consommations, priorite)", texte)
-        self.assertNotIn("models.Ouverture(date=date, IDunite=IDunite, IDgroupe=IDgroupe))\n                session.add", texte)
+        fonctions = {n.name: n for n in ast.walk(arbre) if isinstance(n, ast.FunctionDef)}
+        upload = ast.get_source_segment(source, fonctions["Upload_data"])
+        implementation = ast.get_source_segment(source, fonctions["_Upload_data_implementation"])
+        # Le point d'entree public conserve le nettoyage garanti en finally.
+        self.assertIn("return self._Upload_data_implementation(full_synchro=full_synchro)", upload)
+        self.assertIn("finally:", upload)
+        self.assertIn("self._FermerUploadActif()", upload)
+        # La logique metier de l'export reste cooperative et par lots.
+        self.assertIn("session_cooperative(Session(), priorite)", implementation)
+        self.assertIn("enregistrer_par_lots(session, ouvertures, priorite)", implementation)
+        self.assertIn("enregistrer_par_lots(session, consommations, priorite)", implementation)
+        self.assertNotIn("models.Ouverture(date=date, IDunite=IDunite, IDgroupe=IDgroupe))\n                session.add", implementation)
 
 
 class UploadReelTests(unittest.TestCase):
