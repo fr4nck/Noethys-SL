@@ -40,6 +40,8 @@ def _fiche(ligne):
             _texte(rue), " ".join(x for x in (_texte(cp), _texte(ville)) if x))
             if x),
         "telephone": " / ".join(telephones),
+        "telephone_court": next((_texte(n) for n in
+                                (mobile, domicile, travail) if _texte(n)), ""),
         "lien": intitule or u"Lien à vérifier dans Noethys",
     }
 
