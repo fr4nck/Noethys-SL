@@ -27,6 +27,13 @@ on:
 permissions:
   contents: read
 
+# Seul le candidat le plus recent doit consommer les runners Windows.
+# Un lancement explicite de PUBLICATION est dans un groupe distinct :
+# un push de code ne doit jamais interrompre cette operation sensible.
+concurrency:
+  group: noethys-sl-rc105-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' && inputs.publier == true) && 'release' || 'candidate' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.publier == true) }}
+
 jobs:
   build:
     if: >-
