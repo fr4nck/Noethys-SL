@@ -1,5 +1,6 @@
 Version Noethys SL 0.1.0 RC10.5 (03/11/2026) :
 
+- Facturation : cause SQL d'adhesion affichee (table et erreur MySQL) ; une reconnexion hors pool seulement apres panne reseau reconnue. Aucune cotisation creee si le controle reste en echec (#426).
 - Connecthys : fermeture explicite des connexions SSH et SFTP, y compris apres un echec de transfert, pour eviter les sessions distantes residuelles (#438).
 - Securite Connecthys : empreinte SHA256 facultative de la cle hote SSH, validee avant authentification dans la synchronisation et les commandes serveur ; mode historique conserve si le champ est vide.
 - Confidentialite Connecthys : les journaux de synchronisation et les commandes distantes ne revelent plus les URL contenant des jetons d'authentification.
