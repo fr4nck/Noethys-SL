@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot A / RC10.5 cumulative — preparation du 03/11/2026
+
+- Décision : la RC10.4 a été installée sur le poste i5-10400 avant notre mise en garde ; ne pas la remplacer automatiquement. La version suivante est **Noethys SL wx 0.1.0 RC10.5**, candidat cumulatif, **pas de publication immédiate**. Suivi : [#439](https://github.com/fr4nck/Noethys-SL/issues/439).
+- Prévol branches avant lancement : `main` `6ddd58a3`, `wx` `a043c6f7`, `qt` `6b116113`. Aucune fusion inter-branches, aucune branche créée, aucune altération de la base de production.
+- Correctifs déjà intégrés aux sources `wx` et conservés : SSH/SFTP `Utils/UTILS_Portail_synchro.py` (close explicite), worker `Ctrl/CTRL_Portail_serveur.py` (Event/Stop interruptible), fermeture applicative `Noethys.py` (StopServeur après sauvegarde acceptée), et tests associés. Détails [#438](https://github.com/fr4nck/Noethys-SL/issues/438) ; incident sauvegarde [#437](https://github.com/fr4nck/Noethys-SL/issues/437) non résolu sur PMSL.
+- Éléments RC10.5 créés sur `wx` : workflow candidat `.github/workflows/noethys-sl-rc105-windows.yml` (`publier=false` par défaut, publication réservée au workflow_dispatch explicite sur wx), script portable `scripts/verify_windows_portable_rc105.ps1`, test de sécurité de publication `tests/test_noethys_sl_workflow_publication_rc105.py`, notes `docs/releases/noethys-sl-0.1.0-rc.10.5.md`, entrée en tête de `noethys/Versions.txt`, identité publique `noethys/Identite.py`, mise à jour du test d'identité et de la CI rapide.
+- `noethys/Versions.txt` conserve intégralement l'historique ; `VERSION_APPLICATION=1.3.4.4` inchangée, aucune migration. Installation Inno Setup conservée.
+- Qualification antérieure fermeture : CI wx [41642021136](https://github.com/fr4nck/Noethys-SL/actions/runs/41642021136) SUCCESS (1945 tests, 48 SKIP), main [41641860202](https://github.com/fr4nck/Noethys-SL/actions/runs/41641860202) SUCCESS. Nouvelle CI de version `fbc1e8b0` : [41648615834](https://github.com/fr4nck/Noethys-SL/actions/runs/41648615834), verdict non encore validé au moment de la rédaction.
+- STOP-GATE : pas de build complet/push de release demandé ; pas de tag RC10.5. Restent la qualification du binaire Windows sur son SHA, la sortie du PID Connecthys en conditions réelles, et la sauvegarde restaurable DATA/PHOTOS/DOCUMENTS sur MySQL de recette isolé.
+
 ## Lot C ALSH — garde commandes fournisseurs (03/11/2026)
 
 - Branches de prevol : `main` `0d6e2c5` (audit .nod sans mutation), `wx` `25f5197` (avant ce lot), `qt` `afe4574`. Pas de fusion inter-branches ni de nouvelle branche.
