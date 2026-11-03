@@ -7,6 +7,7 @@ exacte qui donnait TypeError: float - NoneType dans Upload_data.
 import sys
 from pathlib import Path
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "noethys"))
@@ -52,7 +53,8 @@ class CoursePingTests(unittest.TestCase):
         self.assertEqual(len(rappels), 2)
 
     def test_poster_indisponible_ne_plante_pas(self):
-        p = P.PrioriteUI(poster=False, horloge=lambda: 1.0)
+        with mock.patch.object(P, "_poster_wx", return_value=None):
+            p = P.PrioriteUI(poster=None, horloge=lambda: 1.0)
         self.assertFalse(p.actif)
         self.assertIsNone(p.ceder())
 
