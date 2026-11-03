@@ -24,7 +24,13 @@ class Base:
               IDmedecin INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, tel_cabinet TEXT,
               cp_resid TEXT, ville_resid TEXT);
             CREATE TABLE vaccins (
-              IDvaccin INTEGER PRIMARY KEY, IDindividu INTEGER);
+              IDvaccin INTEGER PRIMARY KEY, IDindividu INTEGER,
+              IDtype_vaccin INTEGER, date TEXT);
+            CREATE TABLE vaccins_maladies (
+              IDvaccins_maladies INTEGER PRIMARY KEY, IDtype_vaccin INTEGER,
+              IDtype_maladie INTEGER);
+            CREATE TABLE types_maladies (
+              IDtype_maladie INTEGER PRIMARY KEY, nom TEXT);
             CREATE TABLE questionnaire_reponses (
               IDreponse INTEGER PRIMARY KEY, IDindividu INTEGER,
               IDquestion INTEGER, reponse TEXT);
@@ -40,7 +46,14 @@ class Base:
         self.connexion.execute(
             "INSERT INTO medecins VALUES (23,'FICTIF','Docteur','0000000000','35130','La Guerche')")
         self.connexion.executemany(
-            "INSERT INTO vaccins VALUES (?,?)", [(1,10),(2,10)])
+            "INSERT INTO vaccins VALUES (?,?,?,?)",
+            [(1,10,1,'2025-07-15'), (2,10,2,'2026-08-20')])
+        self.connexion.executemany(
+            "INSERT INTO types_maladies VALUES (?,?)",
+            [(1,'Diphtérie'), (2,'Tétanos'), (3,'Polyomyélite')])
+        self.connexion.executemany(
+            "INSERT INTO vaccins_maladies VALUES (?,?,?)",
+            [(1,1,1), (2,1,2), (3,1,3), (4,2,3)])
         self.connexion.execute(
             "INSERT INTO categories_medicales VALUES (8,'Autre')")
         self.connexion.execute("""INSERT INTO problemes_sante VALUES
@@ -81,6 +94,9 @@ class SourceMedicaleTests(unittest.TestCase):
         self.assertEqual(S.FormaterMedecin(data["medecin"]),
                          "FICTIF Docteur — 35130 La Guerche — 0000000000")
         self.assertEqual(data["vaccins_enregistres"], 2)
+        self.assertEqual(data["dernier_dt_polio"], "2025-07-15")
+        self.assertEqual(S.FormaterVaccinations(data),
+                         "15/07/2025 (2 vaccins enregistrés)")
         self.assertEqual(len(data["problemes"]), 1)
         self.assertEqual(data["problemes"][0]["intitule"], "PAI-fictif")
         self.assertEqual(data["problemes"][0]["description_traitement"],
