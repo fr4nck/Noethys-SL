@@ -4,6 +4,26 @@ Statut : **candidat de consolidation sur `wx`**. Ce fichier sert de liste
 de contenu pour la prochaine preversion. Il ne certifie ni une installation
 Windows deja diffusee, ni la resolution des incidents de production.
 
+## Jalons de developpement A / B / C / D
+
+Les quatre premiers jalons exploitables sont repertories dans
+[la fiche de recette RC10.5](../recette/RC105_LOTS_ABCD.md).
+
+- **A — fiabilite** : outil sans MySQL pour auditer l'integrite des trois
+  dumps d'une archive .nod non chiffree ; restauration reelle non prouvee.
+- **B — recus et envois** : blocage des recus PDF absents ou tronques avant
+  remise au Mailer et suppression des fichiers temporaires incomplets.
+- **C — ALSH** : production atomique du PDF famille unique ALSH/Club ados,
+  sans perte de la version precedente en cas d'echec du rendu.
+- **D — Connecthys/Windows** : correction de la course entre le ping du
+  thread et le pong de l'interface (risque de `float - NoneType`), en plus
+  des protections SSH et SFTP facultatives deja integrees.
+
+**Etat de ces jalons : code candidat, non homologue sur le poste PMSL.**
+La qualification des tests en CI Windows sur un meme SHA est obligatoire.
+Les essais reels de restauration, envoi SMTP et compatibilite Connecthys
+demeurent des conditions de livraison, non couvertes par les tests fictifs.
+
 ## Correctifs retenus
 
 - **#438 — fermeture Connecthys** : liberation explicite du canal SFTP et
