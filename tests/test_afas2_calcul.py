@@ -247,6 +247,32 @@ class ExtrascolaireTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
         self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
 
+    def test_reservation_passee_facturee_conserve_8_heures_facturees(self):
+        r = calculer(M.EXTRA, [self.facturee(LUNDI_VACANCES, 201, etat="reservation")])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertEqual(r["lignes"][0]["statut"], "retenue")
+        self.assertIn("Réservation passée facturée sans pointage", natures(r))
+        self.assertFalse(r["bloquant"])
+
+    def test_reservation_passee_non_facturee_reste_en_attente(self):
+        r = calculer(M.EXTRA, [conso(LUNDI_VACANCES, 201, etat="reservation")])
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (0, 0))
+        self.assertTrue(r["bloquant"])
+        self.assertIn("Pointage en attente sur une date passée", natures(r))
+
+    def test_reservation_facture_annulee_non_comptee(self):
+        r = calculer(M.EXTRA, [self.facturee(LUNDI_VACANCES, 201,
+                                              etat="reservation", facture_etat="annulation")])
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (0, 0))
+        self.assertTrue(r["bloquant"])
+
+    def test_reservation_facturee_periscolaire_pas_de_presence(self):
+        r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101,
+                                     etat="reservation", IDprestation=441, IDfacture=1)])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertTrue(r["bloquant"])
+
     def test_absence_justifiee_non_facturee(self):
         r = calculer(M.EXTRA, [conso(LUNDI_VACANCES, 201, etat="absentj")])
         self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (0, 0))
