@@ -1,6 +1,6 @@
 # Module « Déclarations AFAS » (V2) — ALSH périscolaire et extrascolaire
 
-Statut : développé sur `main`, **intégré comme candidat source sur `wx` le 03/11/2026**, en attente de qualification Windows et des validations listées ci-dessous. **Non publié, non déployé.** Aucun envoi automatique à la Caf ; aucune compatibilité d'import AFAS n'est annoncée (format officiel non fourni ni testé).
+Statut : développé sur `main`, **intégré comme candidat source sur `wx` le 03/11/2026**, qualification automatisée Linux et Windows/SQLite fictive **PASS** ([run 41629662666](https://github.com/fr4nck/Noethys-SL/actions/runs/41629662666), 133 tests Linux ; 245 tests Windows dont sept MySQL ignorés). **Recette visuelle native, MySQL, rapprochement Bais/La Guerche, validation Caf et publication encore en attente. Non publié, non déployé.** Aucun envoi automatique à la Caf ; aucune compatibilité d'import AFAS n'est annoncée (format officiel non fourni ni testé).
 
 ## Accès
 
