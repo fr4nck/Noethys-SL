@@ -144,11 +144,23 @@ class EcranAccueilTests(unittest.TestCase):
         f.date_signature = NS(GetValue=Mock(return_value=""))
         fenetre = NS(ShowModal=Mock(return_value=wx.ID_OK),
                      GetPath=Mock(return_value="fictif.pdf"), Destroy=Mock())
+        membres = {
+            "responsables": [{"identite": "Parent FICTIF",
+                              "adresse": "Rue de test",
+                              "telephone": "06 00 00"}],
+            "accompagnants": [{"nom": "Contact", "prenom": "TEST",
+                               "lien": "tante", "telephone_court": "06 00 01"}],
+        }
         with patch.object(self.UI.wx, "FileDialog", return_value=fenetre), \
              patch.object(self.UI.wx, "MessageBox"), \
+             patch.object(self.UI.contacts, "LireContactsEnfant",
+                          return_value=membres) as lecture, \
              patch.object(self.UI.impression, "GenererPDF") as export:
             self.assertTrue(self.UI.Dialog.OnImprimer(f))
         self.assertEqual(export.call_args.args[1]["medical"], [])
+        self.assertEqual(export.call_args.args[1]["responsables"], membres["responsables"])
+        self.assertEqual(export.call_args.args[1]["accompagnants"], membres["accompagnants"])
+        lecture.assert_called_once_with(10)
         fenetre.Destroy.assert_called_once()
 
     def test_impression_medicale_exige_accord(self):
