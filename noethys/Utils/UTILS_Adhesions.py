@@ -112,7 +112,14 @@ def _lire(req):
             raise RuntimeError(u"Connexion à la base des adhésions impossible : %s" %
                                getattr(DB, "erreur", u"ouverture refusée"))
         if DB.ExecuterReq(req) != 1:
-            raise RuntimeError(u"Lecture SQL des adhésions échouée ; vérifiez le journal Noethys.")
+            # Le service SQL historique absorbe l\u0027exception. Afficher uniquement
+            # le nom de la table et la cause, jamais la requête ni ses critères.
+            table = re.search(r"\\bFROM\\s+([A-Za-z_][A-Za-z0-9_]*)", req, re.I)
+            nom_table = table.group(1) if table else u"indéterminée"
+            erreur = getattr(DB, "derniere_erreur_sql", None)
+            detail = u" : %s" % str(erreur)[:350] if erreur is not None else u""
+            raise RuntimeError(u"Lecture SQL des adhésions échouée (table %s)%s." %
+                               (nom_table, detail))
         lignes = DB.ResultatReq()
         if lignes is None:
             raise RuntimeError(u"Lecture SQL des adhésions sans résultat exploitable.")
