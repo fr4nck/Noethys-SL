@@ -17,9 +17,9 @@ from collections import Counter
 from pathlib import Path
 
 SHARD_COUNT = 3
-# Garde anti-perte C19d : 506 tests C19c + 22 oracles + 1 UI = 529.
+# Garde anti-perte C19e : 529 tests C19d + 26 droits/scope + 16 SQL readonly + 13 transactions en memoire = 584.
 # Ne jamais diminuer ce seuil pour masquer une erreur de collecte.
-MINIMUM_TOTAL_TESTS = 529
+MINIMUM_TOTAL_TESTS = 584
 
 # Rééquilibrage selon le run C18 40701384201 : shard 2 prenait 929 s ;
 # déplacer les suites C15 et C18 sans retirer aucun test ni modifier leur ordre interne.

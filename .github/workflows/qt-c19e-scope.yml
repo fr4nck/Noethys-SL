@@ -1,0 +1,44 @@
+name: Noethys SL Qt - C19e perimetre facturation et transaction fictive
+
+on:
+  push:
+    branches:
+      - qt
+    paths:
+      - 'noethys_qt/invoice_scope_contract.py'
+      - 'noethys_qt/invoice_scope_fixture_repo.py'
+      - 'noethys_qt/legacy_write_barrier.py'
+      - 'noethys/Dlg/DLG_Factures_generation_parametres.py'
+      - 'tests_qt/test_c19e_invoice_scope_contract.py'
+      - 'tests_qt/test_c19e_invoice_scope_fixture_repo.py'
+      - 'tests_qt/test_c19e_inmemory_transaction_oracle.py'
+      - '.github/workflows/qt-c19e-scope.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-c19e-scope-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-scope:
+    name: C19e - preuve sans Qt sur ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compiler les contrats et oracles C19e
+        run: python -m compileall -q noethys_qt/invoice_scope_contract.py noethys_qt/invoice_scope_fixture_repo.py tests_qt/test_c19e_invoice_scope_contract.py tests_qt/test_c19e_invoice_scope_fixture_repo.py tests_qt/test_c19e_inmemory_transaction_oracle.py
+      - name: Tests C19e - lecture fictive et transaction uniquement en memoire
+        run: python -m unittest discover -s tests_qt -p "test_c19e*.py" -v

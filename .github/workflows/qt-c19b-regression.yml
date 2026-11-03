@@ -1,4 +1,4 @@
-name: Noethys SL Qt - C19b C19c C19d recette ciblee
+name: Noethys SL Qt - C19b a C19e recette ciblee
 
 on:
   push:
@@ -17,6 +17,11 @@ on:
       - 'tests_qt/test_c19c_billing_preflight_qt.py'
       - 'noethys_qt/legacy_write_barrier.py'
       - 'tests_qt/test_c19d_legacy_write_barrier.py'
+      - 'noethys_qt/invoice_scope_contract.py'
+      - 'noethys_qt/invoice_scope_fixture_repo.py'
+      - 'tests_qt/test_c19e_invoice_scope_contract.py'
+      - 'tests_qt/test_c19e_invoice_scope_fixture_repo.py'
+      - 'tests_qt/test_c19e_inmemory_transaction_oracle.py'
       - 'tests_qt/test_ci_sharding.py'
       - 'tests_qt/test_c19_financial_organisation_registries.py'
       - 'tests_qt/test_native_c12_shell_routes.py'
@@ -32,7 +37,7 @@ concurrency:
 
 jobs:
   windows-c19b:
-    name: Windows - parcours C19b, C19c et C19d
+    name: Windows - C19b a C19e, controle et transaction fictive
     runs-on: windows-latest
     timeout-minutes: 15
     env:
@@ -59,6 +64,9 @@ jobs:
             test_c19c_billing_preflight_core `
             test_c19c_billing_preflight_qt `
             test_c19d_legacy_write_barrier `
+            test_c19e_invoice_scope_contract `
+            test_c19e_invoice_scope_fixture_repo `
+            test_c19e_inmemory_transaction_oracle `
             test_ci_sharding.QtCiShardingContractTests.test_three_heavy_modules_have_distinct_shards `
             test_c19_financial_organisation_registries.C19SqlContractTests.test_bank_sensitive_identifiers_are_never_fetched_or_displayed `
             test_c19_financial_organisation_registries.C19QtModulesTests.test_budget_context_does_not_leak_when_menu_reopened `
