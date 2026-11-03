@@ -174,6 +174,9 @@ class NoethysQtWindow(QMainWindow):
         self.operational_route_enabled = bool(finance_enabled) and can_demo_inscription_invoices(
             editor_sqlite_path, read_only_demo=read_only_demo
         )
+        self._billing_preflight_sqlite_path = (
+            editor_sqlite_path if self.operational_route_enabled else None
+        )
         # C12/C13 : les anciennes bases fictives n'ont pas les tables C14.
         self.catalog_enabled = catalog_enabled
         # Les fixtures C12/C13/C14 n'ont pas les tables du lot C15.
@@ -487,9 +490,7 @@ class NoethysQtWindow(QMainWindow):
             self.consumptions_repository, self.stack,
             background=self.background_queries,
             invoices_available=self.operational_route_enabled,
-            billing_preflight_sqlite_path=(
-                editor_sqlite_path if self.operational_route_enabled else None
-            ),
+            billing_preflight_sqlite_path=self._billing_preflight_sqlite_path,
         )
         self.consumptions_page.familyInvoicesRequested.connect(
             self._consumption_family_invoices_requested
