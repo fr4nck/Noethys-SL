@@ -79,6 +79,7 @@ VALEURS_DEFAUT = {
     "ssh_key_file" : "",
     "ssh_host_key_sha256" : "",
     "ssh_config_prive" : False,
+    "ssh_config_atomique" : False,
     "models_sha256" : "",
     "ssh_utilisateur" : "",
     "ssh_mdp" : "",
@@ -220,6 +221,7 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
             ("ssh_key_file", "p('hebergement_type') == 2"),
             ("ssh_host_key_sha256", "p('hebergement_type') == 2"),
             ("ssh_config_prive", "p('hebergement_type') == 2"),
+            ("ssh_config_atomique", "p('hebergement_type') == 2"),
             ("ssh_repertoire", "p('hebergement_type') == 2"),
 
             ("db_serveur", "p('db_type') == 1"),
@@ -400,6 +402,15 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
         propriete = wxpg.BoolProperty(label=_(u"Restreindre les droits de config.py (SSH)"),
                                       name=nom, value=VALEURS_DEFAUT[nom])
         propriete.SetHelpString(_(u"Option avancee, desactivee par defaut : chmod 0600 sur application/data/config.py apres transfert SFTP. A utiliser UNIQUEMENT apres avoir confirme que le serveur Connecthys lit la configuration sous le compte proprietaire SFTP. Sinon le portail peut devenir inaccessible. Des risques subsistent pendant le transfert, ne remplace pas une recette serveur."))
+        propriete.SetAttribute("UseCheckbox", True)
+        self.Append(propriete)
+
+        # Aucun changement par defaut pour le Connecthys d'Ivan Lucas.
+        # Cette option demande un serveur SFTP compatible posix-rename.
+        nom = "ssh_config_atomique"
+        propriete = wxpg.BoolProperty(label=_(u"Publication atomique de config.py (SSH)"),
+                                      name=nom, value=VALEURS_DEFAUT[nom])
+        propriete.SetHelpString(_(u"Option avancee facultative, desactivee par defaut : transmet une copie privee, la verifie puis utilise l'extension SFTP posix-rename pour remplacer config.py. Si le serveur ne prend pas en charge cette extension, la synchronisation echoue sans ecraser l'ancien fichier. Exige une recette sur un serveur Connecthys isole. Ne change ni le protocole ni les secrets."))
         propriete.SetAttribute("UseCheckbox", True)
         self.Append(propriete)
 
