@@ -167,6 +167,20 @@ class C19bOperationalRouteTests(unittest.TestCase):
             self.window._consumption_family_invoices_requested(101)
         self.assertIs(self.window.stack.currentWidget(), calendar)
 
+    def test_reassigned_inscription_cannot_open_old_family_invoices(self):
+        # Mutation adverse UNIQUEMENT dans la base temporaire inventée.
+        import sqlite3
+        from contextlib import closing
+        _ins, calendar = self._open_inscription_consumptions(100, 503)
+        with closing(sqlite3.connect(self.db.path)) as db, db:
+            db.execute(
+                "UPDATE inscriptions SET IDfamille=101 WHERE IDinscription=503"
+            )
+        with self.assertRaisesRegex(PermissionError, "modifiée"):
+            self.window._consumption_family_invoices_requested(100)
+        self.assertIs(self.window.stack.currentWidget(), calendar)
+        self.assertNotEqual(self.window.finance_pages["billing"]._family_id, 100)
+
     def test_global_navigation_clears_family_invoice_context(self):
         _ins, calendar = self._open_inscription_consumptions(100, 503)
         self.window.navigate("home")
