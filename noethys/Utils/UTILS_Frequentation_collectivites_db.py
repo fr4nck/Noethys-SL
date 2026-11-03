@@ -52,7 +52,7 @@ def lister_unites(annee, db=None, inclure_absenti=False):
           LEFT JOIN factures AS f ON f.IDfacture=p.IDfacture
           WHERE c.date >= '%04d-01-01' AND c.date <= '%04d-12-31'
             AND (c.etat IN ('present', 'reservation'%s)
-                 OR (c.etat = 'absenti'
+                 OR (c.IDprestation IS NOT NULL
                      AND f.IDfacture IS NOT NULL
                      AND (f.etat IS NULL OR f.etat != 'annulation')
                      AND (p.montant IS NULL OR p.montant >= 0)))
