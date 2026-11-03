@@ -31,6 +31,7 @@ COMPLEMENTAIRES = (
     ("photos_reseaux_sociaux", u"Photos : réseaux sociaux"),
 )
 CHOIX = (u"Non renseigné", u"Oui", u"Non")
+SITES_ALSH = (u"La Guerche-de-Bretagne", u"Moutiers", u"Bais")
 ETAT = {"oui": 1, "non": 2}
 
 
@@ -145,6 +146,9 @@ class Dialog(wx.Dialog):
         titre.SetFont(wx.Font(15, wx.FONTFAMILY_DEFAULT,
                             wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         colonne.Add(titre, 0, wx.ALIGN_CENTER | wx.ALL, 12)
+        self.site_alsh = wx.Choice(panneau, choices=(u"-- Sélectionnez le site --",) + SITES_ALSH)
+        self.site_alsh.SetSelection(0)
+        self._champ(panneau, colonne, u"ALSH fréquenté :", self.site_alsh)
         self._section(panneau, colonne, u"IDENTITÉ",
              u"%s %s     Sexe : %s\nNaissance : %s     Ville : %s\nClasse : %s     École : %s" % (
                 self.entete.get("nom") or u"",
@@ -456,6 +460,9 @@ class Dialog(wx.Dialog):
             return False
         info = dict(self.entete)
         info["annee"] = perimetre
+        site = getattr(self, "site_alsh", None)
+        info["alsh"] = (site.GetStringSelection() if site is not None
+                        and site.GetSelection() > 0 else "")
         try:
             info["classe"] = scolarite.LireScolariteActuelle(
                 self.IDindividu)["classe"]
