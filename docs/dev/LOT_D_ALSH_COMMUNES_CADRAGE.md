@@ -1,5 +1,16 @@
 # Recadrage du Lot D : conventions ALSH et participation des communes
 
+## Première réalisation : ALSH-C1 (03/11/2026)
+
+**Code publié sur `main` :** `noethys/Utils/UTILS_ALSH_Commune.py`, migrations proposées SQLite/MySQL 5.7, 52 tests fictifs et documentation `docs/dev/ALSH_COMMUNES_C1_IMPLEMENTATION.md`.
+
+- Historique de domiciliation **par enfant et par période** (adresse complète, code INSEE, justificatif, acteur, dates, audit) ; changements successifs et retour dans une ancienne commune autorisés ; chevauchements refusés.
+- Lecture des **consommations Noethys existantes**, couples activité/groupe sélectionnés explicitement, présence `present` uniquement, unités journée/matin/après-midi configurables, exclusion des repas, détecteur de doubles journées et anomalies. Une journée ne peut être imputée à plusieurs communes.
+- Synthèse par commune, détail par enfant/période de résidence, détail daté `IDconso` ; calcul Decimal à tarif de convention **saisi explicitement par commune × activité × groupe × période**, sans TVA ni nouvelle facture ; exports CSV nominatifs **filtrés commune** et anonymes.
+- **Recette : 52/52 SQLite synthétique PASS**, dont 2 connexions concurrentes. Pas de données personnelles MAD dans les tests.
+- **STOP-GATE :** aucune migration appliquée, aucune UI wx/Qt, aucune recette MySQL 5.7, pas d'historique réel récupéré automatiquement, pas de reconnaissance automatique de convention signée, pas d'édition PDF/XLSX ni acompte/solde/facture. La situation reste `BROUILLON NON FACTURABLE` même quand le calcul est complet. Le reste des exigences du présent document demeure à réaliser.
+
+
 
 ## Classification dans la fiche famille Noethys (decision metier du 03/11/2026)
 
