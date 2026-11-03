@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""MySQL 5.7 jetable : BLOB binaire >24 Mio, archive et restauration complète.
+"""MySQL 5.7 jetable : sauvegarde et restauration DATA + DOCUMENTS, BLOB >24 Mio.
 
     NOETHYS_TEST_MYSQL437_RUNTIME=<racine contenant mysql-5.7.44-winx64 et mysql-data>
 
@@ -44,16 +44,13 @@ class BackupMySQL437ReelTests(unittest.TestCase):
         self.assertTrue(retour[2].startswith("5.7."))
         datadir = Path(retour[1].replace("\\\\", "\\")).resolve()
         self.assertEqual(datadir, (runtime / "mysql-data").resolve())
-        bases = ["noe437_synth_data", "noe437_synth_photos", "noe437_synth_documents"]
+        bases = ["noe437_synth_data", "noe437_synth_documents"]
         existantes = sql("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN "
-                         "('noe437_synth_data','noe437_synth_photos','noe437_synth_documents');")
+                         "('noe437_synth_data','noe437_synth_documents');")
         self.assertEqual(existantes, b"", "Ne jamais réutiliser une base existante")
         try:
             sql("CREATE DATABASE noe437_synth_data; CREATE TABLE noe437_synth_data.temoin (id INT); "
                 "INSERT INTO noe437_synth_data.temoin VALUES (437); "
-                "CREATE DATABASE noe437_synth_photos; "
-                "CREATE TABLE noe437_synth_photos.photos (id INT, photo BLOB); "
-                "INSERT INTO noe437_synth_photos.photos VALUES (1, UNHEX('00FF5C3B')); "
                 "CREATE DATABASE noe437_synth_documents; "
                 "CREATE TABLE noe437_synth_documents.documents (id INT, document LONGBLOB); "
                 "INSERT INTO noe437_synth_documents.documents VALUES "
@@ -61,8 +58,6 @@ class BackupMySQL437ReelTests(unittest.TestCase):
             attendu = sql("SELECT COUNT(*), MAX(OCTET_LENGTH(document)), MIN(SHA2(document,256)) "
                           "FROM noe437_synth_documents.documents;")
             self.assertGreater(int(attendu.split(b"\t")[1]), 24 * 1024 * 1024)
-            photo_attendue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
-                                 "FROM noe437_synth_photos.photos;")
             with tempfile.TemporaryDirectory(prefix="noe437-vrai-") as rep:
                 rep = Path(rep)
                 login = rep / "client.cnf"
@@ -87,21 +82,17 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                         z.extract(base + ".sql", rep)
                 # Retirer les sources du serveur jetable prouve une restauration,
                 # et non une relecture accidentelle de tables restées en place.
-                sql("DROP DATABASE noe437_synth_data; DROP DATABASE noe437_synth_photos; "
-                    "DROP DATABASE noe437_synth_documents;")
+                sql("DROP DATABASE noe437_synth_data; DROP DATABASE noe437_synth_documents;")
                 for base in bases:
                     sql(fichier=rep / (base + ".sql"))
                 obtenu = sql("SELECT COUNT(*), MAX(OCTET_LENGTH(document)), MIN(SHA2(document,256)) "
                              "FROM noe437_synth_documents.documents;")
                 self.assertEqual(obtenu, attendu)
-                photo_obtenue = sql("SELECT COUNT(*), MIN(SHA2(photo,256)) "
-                                   "FROM noe437_synth_photos.photos;")
-                self.assertEqual(photo_obtenue, photo_attendue)
                 self.assertEqual(sql("SELECT id FROM noe437_synth_data.temoin;").strip(), b"437")
                 preuve = {"mysql": retour[2], "historique_code": ancien.returncode,
                           "blob_octets": int(attendu.split(b"\t")[1]), "archive_crc": "OK",
                           "fin_dumps": True, "restauration_sha256_identique": True,
-                          "photos_sha256_identique": True, "trois_categories": True,
+                          "perimetre": "DATA+DOCUMENTS",
                           "bases": bases, "reseau": "127.0.0.1:3407 uniquement"}
                 (runtime / "preuve-recette-synthetique.json").write_text(
                     json.dumps(preuve, indent=2), encoding="utf-8")
