@@ -20,7 +20,7 @@ généré ne suffisent pas.
 
 | Lot | Première fonctionnalité exploitable | Contrôle automatique | Blocage avant livraison |
 | --- | --- | --- | --- |
-| A — fiabilité | `scripts/auditer_sauvegarde_rc105.py` : audit en lecture seule d'une archive `.nod` non chiffrée, trois catégories DATA / PHOTOS / DOCUMENTS, vérification CRC et manifeste SQL V1. Verdict PASS / LEGACY / FAIL ; **aucun accès MySQL** | `tests.test_rc105_lot_a_archive` (8 scénarios) | Restauration DATA/PHOTOS/DOCUMENTS sur serveur MySQL isolé, comparaison des données ; test de fermeture et PID sur poste Windows (issues #437/#438) |
+| A — fiabilité | `scripts/auditer_sauvegarde_rc105.py` : audit en lecture seule d'une archive `.nod` non chiffrée, catégories réellement présentes (DATA / PHOTOS / DOCUMENTS), vérification CRC et manifeste SQL V1. Verdict PASS / LEGACY / FAIL, périmètre indiqué séparément ; **aucun accès MySQL** | `tests.test_rc105_lot_a_archive`, `tests.test_rc105_lot_a_publication`, `tests.test_rc105_lot_a_restauration_trio` | Restauration DATA/PHOTOS/DOCUMENTS sur serveur MySQL isolé, comparaison des données ; test de fermeture et PID sur poste Windows (issues #437/#438) |
 | B — documents et envois | Refus d'expédier un reçu PDF absent, vide ou tronqué, depuis l'édition famille et la saisie de règlement ; PDF temporaire non valide purgé | `tests.test_rc105_lot_b_recus_pdf`, `tests.test_noethys_sl_recus_envoi` | Reçu réel signé/généré, serveur SMTP/Mailjet de recette, refus, acceptation partielle, interruption et absence de double envoi |
 | C — ALSH | Fiche famille unifiée ALSH/Club ados à deux pages ; nouvelle sortie PDF publiée de manière atomique, ancienne fiche préservée si erreur ; au-delà de 4 enfants, refus explicite au lieu d'omission | `tests.test_rc105_lot_c_famille_pdf`, `tests.test_noethys_sl_accueil_familles`, `tests.test_noethys_sl_accueil_familles_impression` | Contrôle visuel des 2 pages A4, sites La Guerche / Moutiers / Bais / Club ados, CAFPRO non coché avant signature, PAI/autorisations et repas |
 | D — sécurité et stabilité | Modes opt-in SSH, SHA256 de `models.py` et `config.py` atomique ; ancien Connecthys inchangé par défaut. Correction de la course du ping wx provoquant `float - NoneType` pendant l'export | `tests.test_rc105_lot_d_ping_concurrence`, `tests.test_audit_reseau_connecthys`, `tests.test_connecthys_ssh_pinning_rc105`, `tests.test_connecthys_models_pinning_rc105`, `tests.test_connecthys_config_privacy_rc105`, `tests.test_connecthys_config_atomic_rc105` | Synchro montante + descendante contre un Connecthys historique isolé ; pas de fuite de jetons ; clé hôte validée indépendamment ; installation/fermeture Windows vérifiées |
@@ -39,12 +39,21 @@ Set-Location -LiteralPath $HOME
 python scripts/auditer_sauvegarde_rc105.py "C:\chemin\copie_archive.nod"
 ```
 
-Code de retour : `0 = PASS` (3 manifestes intègres, **pas une preuve de
+Code de retour : `0 = PASS` (intégrité des SQL présents, **pas une preuve de
 restauration**) ; `2 = LEGACY` (anciens dumps sans manifeste, prudence) ;
-`1 = FAIL` (archive suspecte/incomplète). Le format crypté `.noc`
+`1 = FAIL` (corruption ou structure invalide). Le rapport contient
+`perimetre_complet` et `categories_absentes` : une archive partielle voulue
+reste contrôlable, sans être présentée comme sauvegarde intégrale PMSL. Le format crypté `.noc`
 ne peut pas être vérifié directement ; déchiffrer **une copie** dans un
 bac à sable maîtrisé, sans afficher le mot de passe en ligne de commande.
 Ne jamais considérer cette vérification comme une sauvegarde suffisante.
+**Aucun nouveau contrôle du lot A ne doit interdire une sauvegarde partielle
+choisie, modifier la procédure de sauvegarde existante ou empêcher la lecture
+d'une archive historique.** La complétude DATA/PHOTOS/DOCUMENTS est un objectif
+de preuve pour la clôture de l'incident #437, pas une condition générale
+d'utilisation du logiciel. La restauration sur serveur MySQL jetable peut
+porter sur une archive partielle et signale alors le périmètre effectivement
+testé.
 
 ## Lot B — engagement de non-faux-succès
 
