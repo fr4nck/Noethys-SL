@@ -138,19 +138,21 @@ def _page1(c, donnees, modele, site, annee):
     second = parents[1] if len(parents) > 1 else {}
     haut = hpage - 155
     if modele == MODEL_ADOS:
-        _bloc_parent(c, x, haut, w, premier, 1, 291)
+        _bloc_parent(c, x, haut, w, premier, 1, 315)
         _regime(c, x + 11, haut - 226, w - 22, donnees)
         # La case CAFPRO porte sur une autorisation à signer :
         # jamais cochée automatiquement depuis un statut administratif.
         _case(c, x + 12, haut - 252, "", False)
         c.setFont("Helvetica", 7.7)
         c.drawString(x + 30, haut - 250,
-          u"J'autorise les salariés habilités de Pêle-Mêle à consulter directement")
+          u"J'autorise les salariés habilités de l'association Pêle-Mêle à consulter")
         c.drawString(x + 30, haut - 263,
-          u"mon quotient familial sur CAFPRO grâce à mon numéro CAF. Tant que mon")
+          u"directement mon quotient familial sur CAFPRO, le site dédié aux professionnels,")
         c.drawString(x + 30, haut - 276,
-          u"enfant fréquente la structure, l'autorisation est renouvelée sauf avis contraire.")
-        second_haut = haut - 305
+          u"grâce à mon numéro CAF. Tant que mon enfant fréquente la structure et sauf")
+        c.drawString(x + 30, haut - 289,
+          u"indication de ma part, cette autorisation sera tacitement renouvelée chaque année.")
+        second_haut = haut - 329
     else:
         _bloc_parent(c, x, haut, w, premier, 1, 220)
         c.rect(x, haut - 275, w, 46, fill=0, stroke=1)
