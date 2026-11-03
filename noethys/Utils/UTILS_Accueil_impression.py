@@ -272,7 +272,7 @@ def _page2(c, data):
     if ados:
         c.setFont("Helvetica-Bold", 8.0)
         c.drawString(x + 9, top - 119,
-            u"J'autorise mon enfant à repartir seul du Club ados à la fin des activités :")
+            u"J'autorise mon enfant à repartir seul du Club ados à la fin des activités prévues :")
         depart = (data.get("autorisations") or {}).get(
             "depart_seul", "non_renseigne")
         if depart in ("expire", "a_verifier"):
