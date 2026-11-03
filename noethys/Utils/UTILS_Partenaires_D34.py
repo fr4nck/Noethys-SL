@@ -523,6 +523,19 @@ class InterventionsPartenaires:
             raise PlanningInvalide('Intervention issue de programmation non validee')
         self._version_applicable(ligne['IDversion'], ligne['date_prevue'],
                                  ligne['date_prevue'], exiger_ouverte=False)
+        # D5 : une intervention incluse dans un bordereau valide est scellee.
+        # Le controle est compatible avec les bases D3-D4 non migrees D5.
+        if self.dialecte == 'sqlite':
+            existe = self._lire("SELECT name FROM sqlite_master WHERE type='table' "
+                                "AND name='partenaires_bordereaux_lignes'")
+        else:
+            existe = self._lire('SELECT TABLE_NAME FROM information_schema.TABLES '
+                                'WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s',
+                                ('partenaires_bordereaux_lignes',))
+        if existe and self._lire('SELECT IDligne FROM partenaires_bordereaux_lignes '
+                                'WHERE IDintervention=%s LIMIT 1' % self.param,
+                                (IDintervention,)):
+            raise PlanningConflit('Intervention scellee par bordereau D5 : correction par avoir hors lot')
         return ligne, programme
 
     def reporter_intervention(self, IDintervention, date_prevue, heure_debut,
