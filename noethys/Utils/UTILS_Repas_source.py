@@ -205,8 +205,19 @@ def ChargerRepartitionRegimes(question, correspondance, services, date_debut, da
                 reponses[individu] = reponse
     finally:
         base.Close()
-    return UTILS_Repas_regimes.RepartitionRegimes(consos, reponses, choix, services, naissances,
-                                                repas_pmsl_prevu=repas_pmsl_prevu if optin else None)
+    repartition = UTILS_Repas_regimes.RepartitionRegimes(
+        consos, reponses, choix, services, naissances,
+        repas_pmsl_prevu=repas_pmsl_prevu if optin else None)
+    # Le nouveau modele utilise ces quantites pour la commande fournisseur.
+    # Une presence simultanee sur deux sites ne peut pas etre resolue par
+    # une correction de quantite : bloquer toutes les suggestions du groupe
+    # avant leur transfert a la grille et a la prevalidation PDF/email.
+    # Les anciens modeles (trois choix) conservent leurs alertes existantes.
+    if optin and any(ligne["multisites"] for ligne in repartition.values()):
+        raise UTILS_Repas_regimes.RegimeInvalide(
+            "Presence midi sur plusieurs sites pour un enfant : "
+            "corrigez les reservations avant de preparer la commande")
+    return repartition
 
 
 def _VerifierQuestionRegime(base, id_question, choix):
