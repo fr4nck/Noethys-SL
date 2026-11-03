@@ -1231,6 +1231,10 @@ class Dialog(wx.Dialog):
                         if dictChamps in (False, None) :
                             erreur = _(u"le reçu n'a pas pu être généré au format PDF")
                         else :
+                            from Utils import UTILS_Documents_Controle_RC105
+                            if not UTILS_Documents_Controle_RC105.PDFPretPourEnvoi(nomDoc):
+                                erreur = _(u"le fichier PDF du reçu est absent, vide ou incomplet")
+                        if erreur is None :
                             try :
                                 listeDonnees = [{"adresse" : adresse, "pieces" : [nomDoc,], "champs" : dictChamps,}]
                                 from Dlg import DLG_Mailer
