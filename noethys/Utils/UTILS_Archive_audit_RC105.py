@@ -101,6 +101,7 @@ def _analyser_sql(flux):
 def InspecterArchive(chemin):
     """Retourne un bilan anonymise : PASS / LEGACY / FAIL, sans mutation."""
     resultat = {"verdict": "FAIL", "bases": {}, "restauration_prouvee": False,
+                "perimetre_complet": False, "categories_absentes": [],
                 "detail": ""}
     try:
         with zipfile.ZipFile(os.fspath(chemin), "r") as archive:
@@ -132,9 +133,11 @@ def InspecterArchive(chemin):
                 if cat in categorise:
                     raise ArchiveNoethysInvalide("plusieurs dumps SQL pour " + cat)
                 categorise[cat] = item
-            if set(categorise) != set(_CATEGORIES):
-                manque = sorted(set(_CATEGORIES) - set(categorise))
-                raise ArchiveNoethysInvalide("bases manquantes : " + ", ".join(manque))
+            if not categorise:
+                raise ArchiveNoethysInvalide("aucun dump SQL a controler")
+            # Un export partiel peut etre voulu. Ne pas le classer corrompu.
+            resultat["categories_absentes"] = [cat for cat in _CATEGORIES if cat not in categorise]
+            resultat["perimetre_complet"] = not resultat["categories_absentes"]
             # Verifier aussi le CRC des pieces non-SQL. Une ZIP peut avoir
             # trois dumps integres tout en contenant une annexe corrompue.
             # Lecture en flux : aucune extraction, aucun stockage en RAM.
@@ -143,6 +146,8 @@ def InspecterArchive(chemin):
                     while flux.read(_BLOC):
                         pass
             for cat in _CATEGORIES:
+                if cat not in categorise:
+                    continue
                 item = categorise[cat]
                 with archive.open(item, "r") as flux:
                     statut = _analyser_sql(flux)
@@ -156,6 +161,10 @@ def InspecterArchive(chemin):
                 "Integrite ZIP/SQL controlee ; restaurer sur MySQL isole pour conclure"
                 if resultat["verdict"] == "PASS" else
                 "Ancien dump non authentifie ; restauration isolee et verification requises")
+            if resultat["categories_absentes"]:
+                resultat["detail"] += (
+                    " ; perimetre partiel (categories non incluses : %s)"
+                    % ", ".join(resultat["categories_absentes"]))
     except (ArchiveNoethysInvalide, zipfile.BadZipFile, OSError, RuntimeError,
             EOFError, ValueError) as erreur:
         resultat["detail"] = str(erreur)
