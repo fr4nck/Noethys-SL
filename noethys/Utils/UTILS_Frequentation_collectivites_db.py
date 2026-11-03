@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lecture seule des consommations ALSH pour les situations communales.
 
-Ce module n'utilise aucune facture et n'ecrit jamais dans GestionDB. Les choix
+Ce module lit les references de facture sans en modifier aucune. Les choix
 activite/unite/accueil sont effectues explicitement par l'utilisateur.
 Les adresses lues sont les adresses *actuelles*, pas un historique certifie.
 """
@@ -48,8 +48,14 @@ def lister_unites(annee, db=None, inclure_absenti=False):
           FROM consommations AS c
           JOIN activites AS a ON a.IDactivite=c.IDactivite
           JOIN unites AS u ON u.IDunite=c.IDunite AND u.IDactivite=c.IDactivite
+          LEFT JOIN prestations AS p ON p.IDprestation=c.IDprestation
+          LEFT JOIN factures AS f ON f.IDfacture=p.IDfacture
           WHERE c.date >= '%04d-01-01' AND c.date <= '%04d-12-31'
-            AND c.etat IN ('present', 'reservation'%s)
+            AND (c.etat IN ('present', 'reservation'%s)
+                 OR (c.etat IN ('absent', 'absentj', 'absenti')
+                     AND f.IDfacture IS NOT NULL
+                     AND (f.etat IS NULL OR f.etat != 'annulation')
+                     AND (p.montant IS NULL OR p.montant >= 0)))
           GROUP BY c.IDactivite, c.IDunite, a.nom, u.nom
           ORDER BY a.nom, u.nom, c.IDactivite, c.IDunite""" % (
               a, a, ", 'absenti'" if inclure_absenti else "")
@@ -123,8 +129,11 @@ def importer_journees(annee, arrete, commune, mapping, db=None, inclure_absenti=
     connexion, proprietaire = _connecter(db)
     try:
         sql = """SELECT c.IDconso, c.IDindividu, c.date, c.IDactivite,
-                        c.IDunite, c.etat
+                        c.IDunite, c.etat, c.IDprestation, p.montant,
+                        f.IDfacture, f.etat
                  FROM consommations AS c
+                 LEFT JOIN prestations AS p ON p.IDprestation=c.IDprestation
+                 LEFT JOIN factures AS f ON f.IDfacture=p.IDfacture
                  WHERE c.date >= '%04d-01-01' AND c.date <= '%04d-12-31'
                    AND (%s)
                  ORDER BY c.IDconso""" % (a, a, " OR ".join(conditions))
@@ -140,7 +149,7 @@ def importer_journees(annee, arrete, commune, mapping, db=None, inclure_absenti=
         indetermines = 0
         non_commune = 0
         cible = _code_commune(commune)
-        for idconso, enfant, jour, activite, unite, etat in lignes:
+        for idconso, enfant, jour, activite, unite, etat, prestation, montant, facture, facture_etat in lignes:
             if enfant is None:
                 indetermines += 1
                 continue
@@ -154,6 +163,8 @@ def importer_journees(annee, arrete, commune, mapping, db=None, inclure_absenti=
             utiles.append({"IDconso": idconso, "IDindividu": enfant,
                            "date": str(jour), "IDactivite": activite,
                            "IDunite": unite, "etat": etat,
+                           "IDprestation": prestation, "prestation_montant": montant,
+                           "IDfacture": facture, "facture_etat": facture_etat,
                            "commune_residence": ville})
         r = consolider_export_consommations(utiles, regles, commune, a, d,
                                             inclure_absenti=inclure_absenti)
