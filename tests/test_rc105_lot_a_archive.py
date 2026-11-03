@@ -85,11 +85,22 @@ class ArchivesTests(unittest.TestCase):
         self.assertEqual(retour["verdict"], "FAIL", retour)
         self.assertIn("ligne finale mysqldump", retour["detail"])
 
-    def test_document_manquant_refuse(self):
+    def test_document_non_demande_est_signale_sans_bloquer(self):
         self.creer({"DATA.sql": self.sql(), "PHOTOS.sql": self.sql("PHOTOS")})
         retour = AUDIT.InspecterArchive(self.archive)
-        self.assertEqual(retour["verdict"], "FAIL")
-        self.assertIn("DOCUMENTS", retour["detail"])
+        self.assertEqual(retour["verdict"], "PASS", retour)
+        self.assertFalse(retour["perimetre_complet"])
+        self.assertEqual(retour["categories_absentes"], ["DOCUMENTS"])
+        self.assertIn("perimetre partiel", retour["detail"])
+
+    def test_sauvegarde_data_documents_historique_reste_exploitable(self):
+        self.creer({"pelemele.sql": self.sql(manif=False),
+                    "pelemele_DOCUMENTS.sql": self.sql("DOCUMENTS", manif=False)})
+        retour = AUDIT.InspecterArchive(self.archive)
+        self.assertEqual(retour["verdict"], "LEGACY", retour)
+        self.assertEqual(retour["categories_absentes"], ["PHOTOS"])
+        self.assertFalse(retour["perimetre_complet"])
+        self.assertFalse(retour["restauration_prouvee"])
 
     def test_ancien_dump_tronque_refuse(self):
         fichiers = {cat + ".sql": self.sql(cat) for cat in ("DATA", "PHOTOS", "DOCUMENTS")}
