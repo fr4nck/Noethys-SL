@@ -442,6 +442,17 @@ class Calculateur(object):
                            "Calcul bloqué : vérifier le calendrier d'ouverture ou la consommation")
             return "bloquee", "sans ouverture"
         if conso.get("etat") == "reservation" and conso["date"] < self.ctx["date_reference"]:
+            # En extrascolaire, une reservation facturee constitue des heures
+            # facturees meme sans pointage. Elle ne prouve aucune presence :
+            # seules les heures facturees sont comptees ici.
+            facture_valide = (conso.get("IDprestation") is not None
+                             and conso.get("IDfacture") is not None
+                             and conso.get("facture_etat") != "annulation")
+            if self.mode == EXTRA and facture_valide:
+                self._anomalie(anomalies, conso, "Réservation passée facturée sans pointage",
+                               "Heures facturées retenues ; heures réalisées non attribuées",
+                               bloquante=False)
+                return "retenue", "réservation facturée ; réalisé non attesté"
             self._anomalie(anomalies, conso, "Pointage en attente sur une date passée",
                            "Calcul bloqué : pointer la présence ou l'absence")
             return "bloquee", "pointage en attente"
@@ -581,7 +592,11 @@ class Calculateur(object):
                     self._anomalie(anomalies, conso, "Unité horaire facturée en extrascolaire",
                                    "Calcul bloqué : l'option n°2 ne retient que la journée ou la demi-journée")
                 continue
-            if conso.get("etat") not in self.etats_facture or not facturee:
+            # La facture prime sur le statut technique "reservation" pour
+            # les actes extrascolaires factures ; le realise reste distinct.
+            reservation_facturee = (conso.get("etat") == "reservation"
+                                   and conso["date"] < self.ctx["date_reference"])
+            if not facturee or not (conso.get("etat") in self.etats_facture or reservation_facturee):
                 continue
             if conso.get("IDconso") in self._consos_annulees:
                 continue  # annulée par une régularisation qualifiée
