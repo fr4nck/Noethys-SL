@@ -179,6 +179,11 @@ def CreerArchive(programme, login, fichiers, destination, integrite, progression
             bilan["succes"] = True
     except Exception as exc:
         bilan["erreur"] = NettoyerDiagnostic(str(exc), secrets)
-    with open(destination + ".diagnostic.json", "w", encoding="utf-8") as f:
-        json.dump(bilan, f, ensure_ascii=False, indent=2)
+    try:
+        with open(destination + ".diagnostic.json", "w", encoding="utf-8") as f:
+            json.dump(bilan, f, ensure_ascii=False, indent=2)
+    except OSError:
+        # Le rapport est accessoire : une archive deja validee et publiee
+        # ne doit jamais devenir un echec a cause des droits sur le JSON.
+        bilan["rapport_indisponible"] = True
     return bilan
