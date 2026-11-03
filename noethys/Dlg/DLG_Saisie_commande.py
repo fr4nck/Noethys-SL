@@ -437,6 +437,18 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_MENU, self.OnSimulationEncadrement, id=id)
 
         menuPop.AppendSeparator()
+        id = wx.Window.NewControlId()
+        item = wx.MenuItem(
+            menuPop, id, _(u"Préparer la commande Océane (Excel)..."))
+        menuPop.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.OnExporterOceane, id=id)
+        id = wx.Window.NewControlId()
+        item = wx.MenuItem(
+            menuPop, id, _(u"Saisir les restes des repas Océane..."))
+        menuPop.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.OnRestesOceane, id=id)
+
+        menuPop.AppendSeparator()
 
         # RAZ
         id = wx.Window.NewControlId()
@@ -447,6 +459,226 @@ class Dialog(wx.Dialog):
 
         self.PopupMenu(menuPop)
         menuPop.Destroy()
+
+    def OnExporterOceane(self, event=None):
+        """Prépare la copie XLSX du fournisseur après revue obligatoire.
+
+        Aucun envoi de mail ni écriture de la commande. Le modèle source
+        reste inchangé, et une annexe CSV contient les détails par plat.
+        """
+        from Dlg import DLG_Repas_Oceane
+        from Utils import UTILS_Repas_oceane_export as export_oceane
+        from Utils import UTILS_Repas_oceane_menus as menus_oceane
+        from Utils import UTILS_Repas_oceane_annexe as annexe_oceane
+        import os
+
+        if not self.ControleAvantEmission():
+            return False
+        snapshot = self._controle_repas_snapshot
+        if not snapshot:
+            wx.MessageBox(
+                _(u"Ce modèle de commande ne dispose pas d'un contrôle "
+                  u"des repas qualifié. Configurez les rôles de repas "
+                  u"avant un export Océane."),
+                _(u"Contrôle préalable nécessaire"),
+                wx.OK | wx.ICON_WARNING, self)
+            return False
+        # Le modèle fournisseur est spécifique aux mercredis midi.
+        lignes = [
+            {"date": e["date"], "site": e["site"],
+             "service": e["service"], "totaux": e["totaux"]}
+            for e in snapshot
+            if e["date"].weekday() == 2
+            and str(e["service"]).strip().lower() == "midi"
+        ]
+        if not lignes:
+            wx.MessageBox(
+                _(u"La période ne contient aucun mercredi midi contrôlé."),
+                _(u"Export Océane"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            export_oceane.AffecterBlocs(lignes)
+        except ValueError as exc:
+            wx.MessageBox(str(exc), _(u"Export Océane"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        dlg = wx.FileDialog(
+            self, _(u"Sélectionnez le bordereau Excel vierge d'Océane"),
+            wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            modele_xlsx = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+
+        menus = {}
+        choix = wx.MessageBox(
+            _(u"Souhaitez-vous également importer les menus d'Océane "
+              u"pour identifier les plats et les grammages à vérifier ?"),
+            _(u"Import des menus"), wx.YES_NO | wx.ICON_QUESTION, self)
+        if choix == wx.YES:
+            dlg = wx.FileDialog(
+                self, _(u"Classeur des menus fourni par Océane"),
+                wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
+                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+            try:
+                if dlg.ShowModal() != wx.ID_OK:
+                    return False
+                chemin_menu = dlg.GetPath()
+            finally:
+                dlg.Destroy()
+            try:
+                menus = menus_oceane.ChargerMenus(chemin_menu)
+            except (ValueError, OSError, KeyError) as exc:
+                wx.MessageBox(
+                    _(u"Impossible d'importer les menus : %s") % exc,
+                    _(u"Menus Océane"), wx.OK | wx.ICON_WARNING, self)
+                return False
+
+        try:
+            dlg = DLG_Repas_Oceane.DialogExport(self, lignes, menus)
+        except ValueError as exc:
+            wx.MessageBox(str(exc), _(u"Préparation Océane"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            retenues = dlg.resultat
+        finally:
+            dlg.Destroy()
+
+        # La revue doit toujours porter sur le dernier état contrôlé.
+        try:
+            actuel = UTILS_Repas_validation.ResumeDepuisDonnees(
+                self.ctrl_repas.GetDonnees())
+        except ValueError as exc:
+            wx.MessageBox(str(exc), _(u"Commande modifiée"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        if actuel != snapshot:
+            wx.MessageBox(
+                _(u"La commande a changé depuis le contrôle. "
+                  u"Recommencez l'export."),
+                _(u"Contrôle périmé"), wx.OK | wx.ICON_WARNING, self)
+            return False
+
+        dlg = wx.FileDialog(
+            self, _(u"Enregistrer une COPIE du bordereau Océane"),
+            defaultFile=u"Commande_Oceane_%s.xlsx" %
+                        lignes[0]["date"].strftime("%Y%m%d"),
+            wildcard=u"Classeur Excel (*.xlsx)|*.xlsx",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            destination = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+        annexe = os.path.splitext(destination)[0] + "_quantites.csv"
+        try:
+            resultat = export_oceane.ExporterBordereau(
+                modele_xlsx, destination, retenues)
+        except (ValueError, OSError, KeyError) as exc:
+            wx.MessageBox(
+                _(u"Export fournisseur refusé : %s") % exc,
+                _(u"Commande Océane"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            annexe_oceane.EnregistrerAnnexe(annexe, retenues)
+        except (ValueError, OSError) as exc:
+            wx.MessageBox(
+                _(u"Bordereau exporté, mais l'annexe de suivi n'a pas été "
+                  u"enregistrée : %s") % exc,
+                _(u"Export partiellement terminé"),
+                wx.OK | wx.ICON_WARNING, self)
+            return False
+        wx.MessageBox(
+            _(u"Commande Océane exportée : %s\n"
+              u"Annexe des plats et grammages : %s\n\n"
+              u"%d repas M, %d repas P dont %d repas du personnel.\n"
+              u"Aucune commande n'a été envoyée.") %
+              (destination, annexe, resultat["total_M"], resultat["total_P"],
+               resultat["adultes_inclus_P"]),
+            _(u"Export Océane prêt à vérifier"),
+            wx.OK | wx.ICON_INFORMATION, self)
+        return True
+
+    def OnRestesOceane(self, event=None):
+        """Saisie post-service dans un CSV local, sans écrire en base."""
+        from Dlg import DLG_Repas_Oceane
+        from Utils import UTILS_Repas_oceane_annexe as annexe_oceane
+        from Utils import UTILS_Repas_oceane_restes as restes_oceane
+        import os
+
+        dlg = wx.FileDialog(
+            self, _(u"Choisissez l'annexe des quantités de la commande"),
+            wildcard=u"Annexe des quantités (*.csv)|*.csv",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            annexe = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+        try:
+            lignes = annexe_oceane.LireAnnexe(annexe)
+            dlg = DLG_Repas_Oceane.DialogRestes(self, lignes)
+        except (ValueError, OSError) as exc:
+            wx.MessageBox(str(exc), _(u"Suivi des restes"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            saisies = dlg.resultat
+        finally:
+            dlg.Destroy()
+        dlg = wx.FileDialog(
+            self, _(u"Choisir le fichier d'historique des restes"),
+            defaultFile=u"Historique_restes_Oceane.csv",
+            wildcard=u"Historique CSV (*.csv)|*.csv",
+            style=wx.FD_SAVE)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return False
+            historique = dlg.GetPath()
+        finally:
+            dlg.Destroy()
+        try:
+            nombre = restes_oceane.EnregistrerObservations(
+                historique, saisies)
+            lignes_histo = restes_oceane.LireHistorique(historique)
+            propositions = []
+            for ligne in saisies:
+                suggestion = restes_oceane.SuggereQuantite(
+                    lignes_histo, ligne["site"], ligne["composante"],
+                    ligne["plat"], ligne["tranche"],
+                    int(ligne["commandes"]))
+                if suggestion and (
+                        suggestion["quantite_proposee"] <
+                        suggestion["quantite_prevue"]):
+                    propositions.append(
+                        u"%s %s (%s) : %d → %d portions (%d mesures)" % (
+                            ligne["site"], ligne["plat"],
+                            ligne["tranche"], suggestion["quantite_prevue"],
+                            suggestion["quantite_proposee"],
+                            suggestion["nombre_observations"]))
+        except (ValueError, OSError) as exc:
+            wx.MessageBox(str(exc), _(u"Suivi des restes"),
+                          wx.OK | wx.ICON_WARNING, self)
+            return False
+        bilan = (u"\n\nSuggestions indicatives (non appliquées) :\n" +
+                 u"\n".join(propositions[:8])) if propositions else ""
+        wx.MessageBox(
+            _(u"%d observations enregistrées dans %s.") % (nombre, historique)
+            + bilan,
+            _(u"Suivi des restes Océane"),
+            wx.OK | wx.ICON_INFORMATION, self)
+        return True
 
     def OnSimulationEncadrement(self, event=None):
         """Calcul indicatif ; ne modifie pas les valeurs de la commande."""
