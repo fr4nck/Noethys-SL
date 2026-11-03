@@ -136,9 +136,9 @@ def PreparerRubriquesMedicales(medical, au=None):
         description = str(pb.get("description") or "").strip()
         consignes = str(pb.get("description_traitement") or "").strip()
         marqueur = _mot_cle(categorie + " " + titre)
-        est_allergie = bool(re.search(r"\\ballerg\\w*", marqueur))
+        est_allergie = bool(re.search(r"\ballerg\w*", marqueur))
         est_pai = bool(re.search(
-            r"\\bp[.\\s]*a[.\\s]*i(?:\\b|[.])|projet d.accueil individualis",
+            r"\bp[.\s]*a[.\s]*i(?:\b|[.])|projet d.accueil individualis",
             marqueur))
         nom = titre or categorie or u"Information médicale"
         details = [nom]
