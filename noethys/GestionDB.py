@@ -272,6 +272,9 @@ class DB:
         self.cursor.execute(req)
             
     def ExecuterReq(self, req):
+        # Conserver la cause MySQL pour les traitements qui exigent une
+        # lecture stricte, sans modifier le contrat de retour historique.
+        self.derniere_erreur_sql = None
         if self.echec == 1 : return False
         # Pour parer le pb des () avec MySQL
         if self.isNetwork == True :
@@ -280,6 +283,7 @@ class DB:
             self.cursor.execute(req)
             DICT_CONNEXIONS[self.IDconnexion].append(req)
         except Exception as err:
+            self.derniere_erreur_sql = err
             print(_(u"Requete SQL incorrecte :\n%s\nErreur detectee:\n%s") % (req, err))
             return 0
         else:
