@@ -1,5 +1,17 @@
 # Recadrage du Lot D : conventions ALSH et participation des communes
 
+
+## Séances sportives : s'appuyer sur Noethys et sur la base MAD
+
+**Précision métier du 03/11/2026 :** les séances de sport ne justifient pas la création d'un moteur de programmation distinct. La base MAD utilise déjà les activités « Encadrements sportifs adultes », « Encadrements sportifs enfants » et « Encadrements sportifs scolaires ». La chaîne de référence est **activité Noethys → groupes/inscriptions → réservations/consommations → prestations/tarifs → facturation existante**.
+
+Le code historique `noethys/Utils/UTILS_Convention_champs.py` récupère déjà les données de planning via les consommations/réservations et analyse les tarifs depuis les prestations ; `noethys/Dlg/DLG_Generation_convention.py` prépare les conventions et exploite ce moteur. Ces mécanismes doivent être la source unique pour les annexes et les calculs des conventions sportives.
+
+Le prototype D3-D4 (tables `partenaires_programmations` et `partenaires_interventions`) **n'est pas à intégrer pour les séances sportives** : il ferait doublon avec les activités et réservations Noethys. Il est encore présent dans `main` comme prototype non raccordé ; examiner ses autres usages et dépendances avant toute suppression ciblée. **Ne pas migrer les données MAD** dans ce prototype.
+
+Pour les collectivités, le besoin restant est le suivi financier des **conventions ALSH** à partir des consommations réelles, des règles d'éligibilité et des acomptes contractuels, en conservant le module de facturation Noethys. Ce besoin est indépendant du planning des séances sportives.
+
+
 **Décision du 03/11/2026.** Le registre parallèle de facturation D5-D7 est retiré du dépôt après vérification du besoin de facturation des conventions ALSH aux communes. Cette suppression concerne le **code et les migrations non déployées**, et ne supprime aucune donnée. Les mécanismes de facturation historiques de Noethys restent inchangés.
 
 ## Pourquoi D5-D7 ne conviennent pas au besoin communal
