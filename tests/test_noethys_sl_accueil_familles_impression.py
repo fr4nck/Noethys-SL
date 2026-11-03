@@ -66,6 +66,60 @@ class ModeleFamille(unittest.TestCase):
         # Aucune case CAFPRO n'est cochée sur un document non signé.
         self.assertEqual(len(cc.crosses), 2)  # Bais et régime CAF, pas CAFPRO
 
+    def test_fiche_commune_titre_cafpro_et_activites_par_enfant(self):
+        donnees = self.donnees_unifiees()
+        c = self.Canvas()
+        F._page1(c, donnees, F.MODEL_FAMILLE, "", "2026-2027")
+        self.assertIn("PÊLE-MÊLE - FICHE FAMILLE", c.txt)
+        self.assertTrue(any("Club ados : Bais" in t for t in c.txt))
+        self.assertTrue(any("CAFPRO" in t for t in c.txt))
+        self.assertEqual(len(c.crosses), 1)  # regime CAF seulement
+
+        p2 = self.Canvas()
+        with patch.object(F, "_paragraphe", side_effect=(
+                lambda _c, _t, _x, y, _w, *_a: y - 23)):
+            F._page2(p2, donnees, F.MODEL_FAMILLE)
+        self.assertIn("ENFANTS / ADOS À INSCRIRE", p2.txt)
+        for valeur in ("ENFANT", "ADO", "ALSH MOUTIERS", "ALSH BAIS",
+                       "CLUB ADOS BAIS", "Troisième"):
+            self.assertTrue(any(valeur in t for t in p2.txt), valeur)
+
+    @staticmethod
+    def donnees_unifiees():
+        d = donnees()
+        d["enfants"] = [
+            dict(d["enfants"][0], accueils=["ALSH BAIS", "CLUB ADOS BAIS"]),
+            dict(d["enfants"][1], accueils=["ALSH MOUTIERS"]),
+        ]
+        return d
+
+    def test_fiche_commune_est_un_seul_pdf_deux_pages(self):
+        dossier = self.donnees_unifiees()
+        avant = deepcopy(dossier)
+        with tempfile.TemporaryDirectory() as d:
+            fichier = os.path.join(d, "famille-unique.pdf")
+            F.GenererPDF(fichier, dossier, modele=F.MODEL_FAMILLE,
+                         annee="2026-2027")
+            contenu = open(fichier, "rb").read()
+            self.assertTrue(contenu.startswith(b"%PDF-"))
+            self.assertEqual(len(re.findall(rb"/Type\\s*/Page\\b", contenu)), 2)
+        self.assertEqual(dossier, avant)
+
+    def test_fiche_commune_exige_un_accueil_par_enfant(self):
+        with tempfile.TemporaryDirectory() as d:
+            fichier = os.path.join(d, "famille-unique.pdf")
+            for enfants in (
+                donnees()["enfants"],  # aucune affectation
+                [dict(donnees()["enfants"][0],
+                      accueils=["ALSH BAIS", "ALSH MOUTIERS"])],
+                [dict(donnees()["enfants"][0],
+                      accueils=["CLUB ADOS PARIS"])],
+            ):
+                with self.subTest(enfants=enfants), self.assertRaises(ValueError):
+                    F.GenererPDF(fichier, dict(donnees(), enfants=enfants),
+                                 modele=F.MODEL_FAMILLE, annee="2026-2027")
+            self.assertFalse(os.path.exists(fichier))
+
     def test_page2_titres_enfants_ou_ados(self):
         for modele, rubrique in (("alsh", "ENFANTS À INSCRIRE"),
                                  ("ados", "ADOS À INSCRIRE")):
