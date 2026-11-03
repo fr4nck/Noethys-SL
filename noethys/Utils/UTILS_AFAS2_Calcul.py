@@ -346,7 +346,7 @@ class Calculateur(object):
                     and unite.get("categorie") == "repas"
                     and (conso["IDactivite"], conso["IDgroupe"]) not in accueils_presents):
                 self._anomalie(anomalies, conso,
-                               "Repas présent sans accueil principal présent le même jour et sur le même site",
+                               "Repas présent sans accueil attesté : aucune Journée/Matin/Après-midi présente le même jour et sur le même site",
                                "Calcul bloqué : vérifier Journée/Matin/Après-midi ; aucune heure de repas attribuée")
                 statut, motif = "bloquee", "repas isolé : présence principale à vérifier"
             lignes.append({"date": date, "IDindividu": IDindividu, "individu": conso.get("individu", ""),

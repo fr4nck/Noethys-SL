@@ -176,7 +176,7 @@ class PeriscolaireTests(unittest.TestCase):
                 self.assertTrue(r["bloquant"])
                 self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
                 self.assertEqual(r["lignes"][0]["statut"], "bloquee")
-                self.assertTrue(any("Repas présent sans accueil principal présent" in n for n in natures(r)))
+                self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
 
     def test_facture_non_applicable_en_periscolaire(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)])
@@ -503,9 +503,9 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
         r = calculer(M.PERI, [self.repas(LUNDI_SCOLAIRE)], unites=unites)
         self.assertTrue(r["bloquant"])
         self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
-        # Une durée mathématique ne constitue pas une heure déclarable si
-        # une anomalie bloquante subsiste dans le rapport.
-        self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+        # Une anomalie bloquante retire le repas isolé du réalisé.
+        # Il ne doit pas apparaître comme une heure déclarable dans le total.
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
 
     def test_repas_avec_seulement_une_absence_accueil_est_non_validable(self):
         unites = self.unites(104, heure_debut=None, heure_fin=None,
@@ -550,7 +550,7 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
                                         conso(LUNDI_SCOLAIRE, 101, etat=etat)])
                 self.assertTrue(r["bloquant"])
                 self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
-                self.assertTrue(any("Repas présent sans accueil principal présent" in n for n in natures(r)))
+                self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
 
     def test_accueil_sur_autre_site_ne_qualifie_pas_repas(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 104, couple=BAIS_PLUS),
@@ -560,9 +560,14 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
         self.assertEqual(next(l["statut"] for l in r["lignes"] if l["IDunite"] == 104), "bloquee")
 
     def test_repas_confirme_et_demi_journee_contigue_en_extra(self):
+        # Le Matin réel de PMSL finit à 12:30, contrairement à l'ancien
+        # Matin fictif (12:00). Il faut aussi adapter l'unité du test :
+        # une interruption 12:00-12:30 NE doit jamais être comblée.
         unites = self.unites(211, heure_debut=None, heure_fin=None,
                              plage_declaree="12:30-13:30")
-        consos = [conso(LUNDI_VACANCES, 202, IDprestation=993, IDfacture=1),
+        unites[202]["heure_fin"] = "12:30"
+        unites[202]["plage_declaree"] = "08:30-12:30"
+        consos = [conso(LUNDI_VACANCES, 202, hf="12:30", IDprestation=993, IDfacture=1),
                   self.repas(LUNDI_VACANCES, IDunite=211)]
         r = calculer(M.EXTRA, consos, unites=unites,
                      ouvertures=ouvert(consos, [(BAIS_PLUS, 203, LUNDI_VACANCES)]))
