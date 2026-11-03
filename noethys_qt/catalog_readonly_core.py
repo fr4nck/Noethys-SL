@@ -26,6 +26,7 @@ class CatalogSpec:
     numeric_keys: tuple[str, ...] = ()
     activity_column: str | None = None
     individual_column: str | None = None
+    budget_column: str | None = None
 
 
 # Déclarations fermées : le nom d'un domaine reçu ne produit jamais un nom SQL.
@@ -172,6 +173,16 @@ from .catalog_c18_specs import (  # noqa: E402
 )
 CATALOG_DOMAINS.update(build_c18_domains(CatalogSpec))
 CATALOG_MODULES.update(C18_CATALOG_MODULES)
+C18_DOMAIN_CODES = frozenset(CATALOG_DOMAINS)
+C18_MODULE_CODES = frozenset(CATALOG_MODULES)
+from .catalog_c19_specs import (  # noqa: E402
+    build_c19_domains, C19_CATALOG_MODULES,
+    C19_RESTRICTED_MODULES, C19_RESTRICTED_DOMAINS,
+    C19_BUDGET_MODULE, C19_BUDGET_RECORD_DOMAIN,
+    C19_BUDGET_LINE_DOMAIN,
+)
+CATALOG_DOMAINS.update(build_c19_domains(CatalogSpec))
+CATALOG_MODULES.update(C19_CATALOG_MODULES)
 ACTIVITY_LINK_DOMAINS = (
     C15_ACTIVITY_LINK_DOMAINS | C16_ACTIVITY_LINK_DOMAINS
     | C17_ACTIVITY_LINK_DOMAINS
@@ -203,6 +214,7 @@ class CatalogResult:
 def validate_catalog_query(
     kind: str, *, family_id=None, activity_id=None, year=None, text="",
     limit=MAX_CATALOG_ROWS, placeholder="?", individual_id=None,
+    budget_id=None,
 ) -> None:
     if kind not in CATALOG_DOMAINS:
         raise ValueError("Domaine métier Qt inconnu")
@@ -213,6 +225,7 @@ def validate_catalog_query(
     validate_finance_id(family_id, "famille")
     validate_finance_id(activity_id, "activité")
     validate_finance_id(individual_id, "individu")
+    validate_finance_id(budget_id, "budget")
     spec = CATALOG_DOMAINS[kind]
     if family_id is not None and spec.family_column is None:
         raise ValueError("Filtre famille indisponible pour ce domaine")
@@ -220,6 +233,8 @@ def validate_catalog_query(
         raise ValueError("Filtre activité indisponible pour ce domaine")
     if individual_id is not None and spec.individual_column is None:
         raise ValueError("Filtre individu indisponible pour ce domaine")
+    if budget_id is not None and spec.budget_column is None:
+        raise ValueError("Filtre budget indisponible pour ce domaine")
     if year is not None:
         if not isinstance(year, int) or isinstance(year, bool) or not 1900 <= year <= 2098:
             raise ValueError("Année invalide")
@@ -236,11 +251,12 @@ def _escape_like(text: str) -> str:
 def build_catalog_query(
     kind: str, *, family_id=None, activity_id=None, year=None, text="",
     limit=MAX_CATALOG_ROWS, placeholder="?", individual_id=None,
+    budget_id=None,
 ):
     validate_catalog_query(
         kind, family_id=family_id, activity_id=activity_id,
         year=year, text=text, limit=limit, placeholder=placeholder,
-        individual_id=individual_id,
+        individual_id=individual_id, budget_id=budget_id,
     )
     spec = CATALOG_DOMAINS[kind]
     where = []
@@ -254,6 +270,9 @@ def build_catalog_query(
     if individual_id is not None:
         where.append(f"{spec.individual_column} = {placeholder}")
         params.append(individual_id)
+    if budget_id is not None:
+        where.append(f"{spec.budget_column} = {placeholder}")
+        params.append(budget_id)
     if year is not None:
         where.append(
             f"{spec.date_column} >= {placeholder} AND {spec.date_column} < {placeholder}"
@@ -277,21 +296,28 @@ def build_catalog_query(
 class CatalogRepository:
     """Pont vers la connexion Qt existante, SELECT uniquement."""
 
-    def __init__(self, editor_repository, *, sensitive_allowed=False):
+    def __init__(
+        self, editor_repository, *, sensitive_allowed=False,
+        c19_sensitive_allowed=False,
+    ):
         self.editor_repository = editor_repository
         self.sensitive_allowed = bool(sensitive_allowed)
+        self.c19_sensitive_allowed = bool(c19_sensitive_allowed)
 
     def search(
         self, kind: str, *, family_id=None, activity_id=None, year=None, text="",
         limit=MAX_CATALOG_ROWS, individual_id=None,
+        budget_id=None,
     ) -> CatalogResult:
         validate_catalog_query(
             kind, family_id=family_id, activity_id=activity_id,
             year=year, text=text, limit=limit,
-            individual_id=individual_id,
+            individual_id=individual_id, budget_id=budget_id,
         )
         if kind in C18_RESTRICTED_DOMAINS and not self.sensitive_allowed:
             raise PermissionError('Dossiers personnels C18 non qualifiés')
+        if kind in C19_RESTRICTED_DOMAINS and not self.c19_sensitive_allowed:
+            raise PermissionError('Référentiels financiers C19 non qualifiés')
         connection, placeholder = self.editor_repository._connect()
         try:
             if isinstance(connection, sqlite3.Connection):
@@ -299,7 +325,7 @@ class CatalogRepository:
             sql, params = build_catalog_query(
                 kind, family_id=family_id, activity_id=activity_id,
                 year=year, text=text, limit=limit, placeholder=placeholder,
-                individual_id=individual_id,
+                individual_id=individual_id, budget_id=budget_id,
             )
             cursor = connection.cursor()
             try:

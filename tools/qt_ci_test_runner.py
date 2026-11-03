@@ -18,7 +18,7 @@ from pathlib import Path
 
 SHARD_COUNT = 3
 # Garde anti-perte de tests : CI C14 validée à 328 tests le 28 octobre 2026.
-MINIMUM_TOTAL_TESTS = 439
+MINIMUM_TOTAL_TESTS = 480
 
 # Rééquilibrage selon le run C18 40701384201 : shard 2 prenait 929 s ;
 # déplacer les suites C15 et C18 sans retirer aucun test ni modifier leur ordre interne.
@@ -34,6 +34,7 @@ HOT_MODULE_SHARDS = {
     "test_modules_c16_readonly": 0,
     "test_c17_shared_activity_overview": 1,
     "test_c18_schools_products_documents": 0,
+    "test_c19_financial_organisation_registries": 2,
     "test_consumptions_c8_demo": 2,
     "test_consumptions_c9_navigation": 2,
 }

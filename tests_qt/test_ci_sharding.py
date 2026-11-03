@@ -12,7 +12,7 @@ from tools.qt_ci_test_runner import (
 class QtCiShardingContractTests(unittest.TestCase):
     def test_three_heavy_modules_have_distinct_shards(self):
         self.assertEqual(SHARD_COUNT, 3)
-        self.assertEqual(MINIMUM_TOTAL_TESTS, 439)
+        self.assertEqual(MINIMUM_TOTAL_TESTS, 480)
         self.assertEqual(shard_for_module("test_native_c12_shell_routes"), 0)
         self.assertEqual(shard_for_module("test_finance_c13_readonly"), 1)
         self.assertEqual(shard_for_module("test_catalog_c14_readonly"), 2)
@@ -20,6 +20,7 @@ class QtCiShardingContractTests(unittest.TestCase):
         self.assertEqual(shard_for_module("test_modules_c16_readonly"), 0)
         self.assertEqual(shard_for_module("test_c17_shared_activity_overview"), 1)
         self.assertEqual(shard_for_module("test_c18_schools_products_documents"), 0)
+        self.assertEqual(shard_for_module("test_c19_financial_organisation_registries"), 2)
         self.assertEqual(set(HOT_MODULE_SHARDS.values()), {0, 1, 2})
 
     def test_future_modules_use_stable_bounded_assignment(self):

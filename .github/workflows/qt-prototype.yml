@@ -25,7 +25,7 @@ jobs:
   windows-qt-tests:
     name: Windows / tests Qt shard ${{ matrix.shard }}
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +60,7 @@ jobs:
   windows-qt-smoke:
     name: Windows / PySide6 / smoke
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -364,5 +364,27 @@ jobs:
         with:
           name: qt-c18-scolarite-produits-pieces-fictifs
           path: artifacts/qt-c18/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: C19 referentiels fictifs sur coque Qt - clair 100%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1"
+        run: python tools/qt_c19_native_demo.py --smoke --theme light --profile 100
+
+      - name: C19 referentiels fictifs sur coque Qt - sombre 150%
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_SCALE_FACTOR: "1.5"
+        run: python tools/qt_c19_native_demo.py --smoke --theme dark --profile 150
+
+      - name: Publier captures C19 sur donnees fictives
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-c19-referentiels-fictifs
+          path: artifacts/qt-c19/*
           if-no-files-found: error
           retention-days: 14

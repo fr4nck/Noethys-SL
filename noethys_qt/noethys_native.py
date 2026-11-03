@@ -46,11 +46,13 @@ from .catalog_readonly_core import (
     C16_CATALOG_MODULES, C16_RESTRICTED_MODULES,
     C17_CATALOG_MODULES, C17_ACTIVITY_DESTINATIONS,
     C18_CATALOG_MODULES, C18_RESTRICTED_MODULES, C18_PERSON_MODULES,
+    C19_CATALOG_MODULES, C19_RESTRICTED_MODULES,
     FAMILY_CATALOG_MODULES, C15_ACTIVITY_MODULES, CatalogRepository,
 )
 from .consumptions_status_ui import ConsumptionStateReportPage
 from .catalog_readonly_ui import CatalogHubPage
 from .c18_sensitive_guard import require_c18_synthetic_source
+from .c19_sensitive_guard import require_c19_synthetic_source
 
 
 class _DetailSignals(QObject):
@@ -120,6 +122,12 @@ C18_NAVIGATION = (
     ("document_type_registry", "Référentiel de pièces", True),
     ("document_records", "Pièces enregistrées", True),
 )
+C19_NAVIGATION = (
+    ("accounting_settings", "Référentiels comptables", True),
+    ("budget_settings", "Budgets enregistrés", True),
+    ("payment_settings", "Paramètres d'encaissement", True),
+    ("organisation_settings", "Organismes et secteurs", True),
+)
 
 
 class NoethysQtWindow(QMainWindow):
@@ -143,6 +151,8 @@ class NoethysQtWindow(QMainWindow):
         c18_enabled: bool = False,
         c18_sensitive_enabled: bool = False,
         badge_logs_enabled: bool = False,
+        c19_enabled: bool = False,
+        c19_sensitive_enabled: bool = False,
     ):
         super().__init__()
         self.people_repository = people_repository
@@ -172,6 +182,14 @@ class NoethysQtWindow(QMainWindow):
                 c18_enabled=c18_enabled,
             )
         self.catalog_repository.sensitive_allowed = self.c18_sensitive_enabled
+        self.c19_enabled = c19_enabled
+        self.c19_sensitive_enabled = bool(c19_sensitive_enabled)
+        if self.c19_sensitive_enabled:
+            require_c19_synthetic_source(
+                editor_sqlite_path, read_only_demo=read_only_demo,
+                c18_enabled=c18_enabled, c19_enabled=c19_enabled,
+            )
+        self.catalog_repository.c19_sensitive_allowed = self.c19_sensitive_enabled
         # Un journal nominatif ne peut être exposé par simple argument.
         # C16 ne l'ouvre que depuis la fixture éphémère C8->C16 dédiée,
         # jamais depuis un profil réseau/SQLite ou un dossier utilisateur.
@@ -207,6 +225,7 @@ class NoethysQtWindow(QMainWindow):
             + (C16_NAVIGATION if self.c16_enabled else ())
             + (C17_NAVIGATION if self.c17_enabled else ())
             + (C18_NAVIGATION if self.c18_enabled else ())
+            + (C19_NAVIGATION if self.c19_enabled else ())
         )
         self._context_navigation = False
         self._context_history: list[tuple] = []
@@ -275,6 +294,9 @@ class NoethysQtWindow(QMainWindow):
                     or (code in C18_CATALOG_MODULES and self.c18_enabled
                         and (code not in C18_RESTRICTED_MODULES
                              or self.c18_sensitive_enabled))
+                    or (code in C19_CATALOG_MODULES and self.c19_enabled
+                        and (code not in C19_RESTRICTED_MODULES
+                             or self.c19_sensitive_enabled))
                 )
             )
             action.triggered.connect(
@@ -362,6 +384,8 @@ class NoethysQtWindow(QMainWindow):
                 or (code in C17_CATALOG_MODULES and not self.c17_enabled)
                 or (code in C18_CATALOG_MODULES and not self.c18_enabled)
                 or (code in C18_RESTRICTED_MODULES and not self.c18_sensitive_enabled)
+                or (code in C19_CATALOG_MODULES and not self.c19_enabled)
+                or (code in C19_RESTRICTED_MODULES and not self.c19_sensitive_enabled)
             ):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.navigation.addItem(item)
@@ -407,6 +431,9 @@ class NoethysQtWindow(QMainWindow):
                     or (code in C18_CATALOG_MODULES and self.c18_enabled
                         and (code not in C18_RESTRICTED_MODULES
                              or self.c18_sensitive_enabled))
+                    or (code in C19_CATALOG_MODULES and self.c19_enabled
+                        and (code not in C19_RESTRICTED_MODULES
+                             or self.c19_sensitive_enabled))
                 )
             )
         self.details_page.backRequested.connect(self._back_to_people)
@@ -483,7 +510,13 @@ class NoethysQtWindow(QMainWindow):
             self.stack.addWidget(self.report_page)
         self.catalog_pages = {}
         for code in CATALOG_MODULES:
-            if code in C18_CATALOG_MODULES:
+            if code in C19_CATALOG_MODULES:
+                if not self.c19_enabled or (
+                    code in C19_RESTRICTED_MODULES
+                    and not self.c19_sensitive_enabled
+                ):
+                    continue
+            elif code in C18_CATALOG_MODULES:
                 if not self.c18_enabled or (
                     code in C18_RESTRICTED_MODULES
                     and not self.c18_sensitive_enabled
@@ -655,6 +688,23 @@ class NoethysQtWindow(QMainWindow):
                 extra.addWidget(button)
             extra.addStretch(1)
             layout.addLayout(extra)
+
+        if self.c19_enabled:
+            finance_reference = QHBoxLayout()
+            for code in C19_CATALOG_MODULES:
+                button = QPushButton(CATALOG_MODULES[code][0], page)
+                button.setEnabled(
+                    self.catalog_enabled and (
+                        code not in C19_RESTRICTED_MODULES
+                        or self.c19_sensitive_enabled
+                    )
+                )
+                button.clicked.connect(
+                    lambda _checked=False, target=code: self.navigate(target)
+                )
+                finance_reference.addWidget(button)
+            finance_reference.addStretch(1)
+            layout.addLayout(finance_reference)
 
         migration = QLabel(
             "Disponible en Qt : Individus/Familles, Activités, Inscriptions, "
@@ -1188,6 +1238,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         c18_enabled=True,
         c18_sensitive_enabled=False,
         badge_logs_enabled=False,
+        c19_enabled=True,
+        c19_sensitive_enabled=False,
     )
     window.show()
     return app.exec()

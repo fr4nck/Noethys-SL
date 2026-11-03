@@ -20,6 +20,7 @@ from noethys_qt.activities_prototype import SqliteActivityRepository
 from noethys_qt.c18_sensitive_guard import C18_MARKER, require_c18_synthetic_source
 from noethys_qt.catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, C17_DOMAIN_CODES, C17_MODULE_CODES,
+    C18_DOMAIN_CODES, C18_MODULE_CODES,
     C18_CATALOG_MODULES, C18_RESTRICTED_DOMAINS,
     C18_RESTRICTED_MODULES, C18_INDIVIDUAL_LINK_DOMAINS,
     CatalogRepository, build_catalog_query,
@@ -51,9 +52,9 @@ class C18SqlTests(unittest.TestCase):
         )
 
     def test_eight_domains_and_five_new_module_contracts(self):
-        self.assertEqual(set(CATALOG_DOMAINS) - C17_DOMAIN_CODES, set(EXPECTED))
+        self.assertEqual(C18_DOMAIN_CODES - C17_DOMAIN_CODES, set(EXPECTED))
         self.assertEqual(
-            set(CATALOG_MODULES) - C17_MODULE_CODES, set(C18_CATALOG_MODULES)
+            C18_MODULE_CODES - C17_MODULE_CODES, set(C18_CATALOG_MODULES)
         )
         self.assertEqual(len(C18_CATALOG_MODULES), 5)
         self.assertEqual(C18_RESTRICTED_MODULES, {"school_history", "document_records"})
@@ -240,7 +241,7 @@ class C18SqlTests(unittest.TestCase):
 
     def test_readonly_all_domains_leave_source_byte_for_byte(self):
         before = self.fixture.dump()
-        for kind in CATALOG_DOMAINS:
+        for kind in C18_DOMAIN_CODES:
             self.reader.search(kind)
         self.assertEqual(before, self.fixture.dump())
 

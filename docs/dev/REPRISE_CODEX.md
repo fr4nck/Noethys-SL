@@ -1,5 +1,61 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## C19 — 12 consultations comptables et administratives dans Qt (3 novembre 2026)
+
+**État : EN QUALIFICATION sur fixtures fictives** jusqu'à confirmation
+d'une CI Windows entièrement réussie sur le commit de C19. Quatre
+rubriques Qt supplémentaires : Référentiels comptables (4 onglets),
+Budgets enregistrés (2), Paramètres d'encaissement (3),
+Organismes et secteurs (3), soit 12 catalogues et une coque
+potentielle de **32 entrées** en lecture seule.
+
+**Sécurité** : les neuf domaines financiers sont interdits en
+configuration normale, jusqu'au dépôt SQL (PermissionError avant
+connexion). Le démonstrateur exige un répertoire éphémère et les
+marqueurs de fixtures C18 et C19 en SQLite readonly. La consultation
+bancaire omet IBAN, BIC, numéro de compte et clés de prélèvement ;
+sentinelles factices présentes dans la fixture, jamais exposées
+dans les modèles Qt. Les trois domaines Régimes/Caisses/Secteurs
+restent consultatifs et indépendants des familles.
+
+**Développement** : `catalog_c19_specs.py`,
+`c19_sensitive_guard.py`, `qt_c19_fixture.py`,
+`test_c19_financial_organisation_registries.py` (37 nouveaux tests),
+`qt_c19_native_demo.py`. Filtrage des lignes de budget
+sur `IDbudget` exact, navigation directe du budget vers ses
+catégories, valeurs et formules toujours brutes et non exécutées.
+Aucune règle métier wx n'est recodée, aucune écriture activée,
+aucun déplacement de moteur d'une branche à l'autre.
+
+**Précautions CI** : seuil total porté de 439 à **480 tests** (37 tests C19 et 4 nouveaux contrôles du manifeste C18 conservés),
+affectation C19 au shard 2, deux parcours Windows de
+21 captures chacun (clair 100 % et sombre 150 %), contrôles
+`sqlite_unchanged` et `private_bank_fields_hidden`.
+Conservation de toutes les recettes C6–C18 et 30 minutes
+par job pour les shards Windows lents, sans suppression de test.
+
+**Prévol confirmé au début C19** :
+`main 29eed5b8a1f9d378b0a8aa10d4d5916c81dd8310`,
+`wx ce654667886bc55c3a7b05f3971b3b05ae9e90d2`,
+`qt 6b11611347a254328344ddc36580b4a0fbcadc6f`.
+Aucun merge forcé ni modification des branches main/wx.
+La parité des correctifs partagés récents reste **EN ATTENTE**.
+
+**C18 enfin clôturé par preuve** : run Windows
+[40705023144](https://github.com/fr4nck/Noethys-SL/actions/runs/40705023144)
+sur `6a70d59ba0b0ea071f8a2056920975e64485772a` :
+439 PASS (223 + 125 + 91), quatre jobs verts,
+C18 clair et sombre 18 images chacun, source inchangée,
+artefact 12822524418. Le rapport C18 était resté
+« EN QUALIFICATION » par omission documentaire ;
+le statut est corrigé sans changer la recette C18.
+
+**STOP-GATE** : aucune habilitation comptable réelle,
+aucun compte bancaire détaillé, aucune déclaration CAF/AFAS,
+aucune formule budgétaire exécutée, aucune écriture,
+migration, export, construction Windows ou base familiale
+de production. Voir [QT_MODULES_LOT19.md](QT_MODULES_LOT19.md).
+
 ## RC10.2 — correction limitée et retour à l’interface existante (28/10/2026)
 
 - Retour utilisateur explicite : RC10.1 ouvrait la console Windows de mysqldump ; les changements de libellés et de parcours de dossier n’étaient pas demandés. Retrait du choix/mémorisation de dossier ajouté en RC10.1 et rétablissement des libellés traduits de RC10 (fixture de référence). Les données et préférences existantes de l’utilisateur ne sont ni supprimées ni modifiées par cette reprise.

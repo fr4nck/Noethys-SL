@@ -1,8 +1,10 @@
 # Noethys SL Qt — C18 : scolarité, produits et pièces
 
 Date : 28 octobre 2026. Branche canonique : `qt`.
-**État initial : EN QUALIFICATION** avant validation CI sur SHA C18.
-Aucune release ni aptitude à la production.
+**État de qualification C18 : VALIDÉ TECHNIQUEMENT sur données
+intégralement fictives**, sans release ni aptitude à la production.
+Preuve : [CI Windows 40705023144](https://github.com/fr4nck/Noethys-SL/actions/runs/40705023144)
+sur `6a70d59ba0b0ea071f8a2056920975e64485772a`, 439 PASS.
 
 ## Prérequis et historique
 
@@ -106,9 +108,20 @@ deux traces JSON, avec comparaison du dump SQLite avant/après
 consultations. Le journal de badgeage C16 reste désactivé.
 Artefact GitHub C18 attendu uniquement après succès du job.
 
-**État CI Windows C18 : EN ATTENTE**. À remplacer seulement
-après preuve d'un run `completed/success` sur le SHA précis,
-439 PASS, deux marqueurs `C18_REGISTRIES_PASS` et 36 PNG.
+**État CI Windows C18 : VALIDÉ TECHNIQUEMENT sur fixtures.**
+Run [40705023144](https://github.com/fr4nck/Noethys-SL/actions/runs/40705023144)
+`completed/success` sur le code
+`6a70d59ba0b0ea071f8a2056920975e64485772a`.
+Quatre jobs Windows verts : 223 + 125 + 91 = **439 tests réussis,
+zéro échec, zéro erreur**. Les deux marqueurs
+`C18_REGISTRIES_PASS` ont été relevés pour clair 100 % et
+sombre 150 %, 18 PNG par profil, fixture inchangée.
+Artefact `qt-c18-scolarite-produits-pieces-fictifs`,
+ID **12822524418**, 529 357 octets, SHA-256
+`bdaa7a87b0b6360491734a3f4b20ca0a6fb69b8a34c620e55a074d91dba23220`.
+Qualification documentaire mise à jour lors de C19
+le 3 novembre 2026, sans modifier le code C18.
+Les droits réels et la parité métier wx restent EN ATTENTE.
 
 ## Interdictions maintenues
 

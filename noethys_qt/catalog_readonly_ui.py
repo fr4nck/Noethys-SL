@@ -17,6 +17,8 @@ from .catalog_readonly_core import (
     CATALOG_DOMAINS, CATALOG_MODULES, ACTIVITY_LINK_DOMAINS,
     CatalogRepository, CatalogResult, validate_catalog_query,
     C17_ACTIVITY_DESTINATIONS,
+    C19_BUDGET_MODULE, C19_BUDGET_RECORD_DOMAIN,
+    C19_BUDGET_LINE_DOMAIN,
 )
 from .finance_readonly_core import display_finance_value, validate_finance_id
 
@@ -96,6 +98,7 @@ class CatalogTablePage(QWidget):
     activityRequested = Signal(int)
     individualRequested = Signal(int)
     relatedActivityRequested = Signal(str, int)
+    budgetRequested = Signal(int)
 
     def __init__(self, repository: CatalogRepository, kind: str, parent=None,
                  *, background=True):
@@ -110,6 +113,7 @@ class CatalogTablePage(QWidget):
         self._family_id = None
         self._activity_id = None
         self._individual_id = None
+        self._budget_id = None
         self._token = 0
         self._queued = None
         self._worker = None
@@ -138,6 +142,13 @@ class CatalogTablePage(QWidget):
         self.activity_spin.setValue(0)
         self.activity_spin.setVisible(self.spec.activity_column is not None)
         header.addWidget(self.activity_spin)
+        self.budget_spin = QSpinBox(self)
+        self.budget_spin.setRange(0, 9999999)
+        self.budget_spin.setSpecialValueText("Tous budgets")
+        self.budget_spin.setAccessibleName("Filtre ID budget exact de " + self.spec.label)
+        self.budget_spin.setValue(0)
+        self.budget_spin.setVisible(self.spec.budget_column is not None)
+        header.addWidget(self.budget_spin)
         self.clear_button = QPushButton("Tous les dossiers", self)
         header.addWidget(self.clear_button)
         self.reload_button = QPushButton("Actualiser", self)
@@ -170,6 +181,9 @@ class CatalogTablePage(QWidget):
         buttons.addWidget(self.activity_button)
         self.individual_button = QPushButton("Ouvrir la fiche individu", self)
         buttons.addWidget(self.individual_button)
+        self.budget_button = QPushButton("Voir les catégories du budget", self)
+        self.budget_button.setVisible(self.kind == C19_BUDGET_RECORD_DOMAIN)
+        buttons.addWidget(self.budget_button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
         self.related_buttons: dict[str, QPushButton] = {}
@@ -205,12 +219,14 @@ class CatalogTablePage(QWidget):
         self.search_edit.textChanged.connect(lambda _text: self.timer.start())
         self.year_spin.valueChanged.connect(lambda _value: self.refresh())
         self.activity_spin.valueChanged.connect(lambda _value: self.refresh())
+        self.budget_spin.valueChanged.connect(lambda _value: self.refresh())
         self.clear_button.clicked.connect(self.clear_context)
         self.reload_button.clicked.connect(self.refresh)
         self.family_button.clicked.connect(self._open_family)
         self.inscription_button.clicked.connect(self._open_inscriptions)
         self.activity_button.clicked.connect(self._open_activity)
         self.individual_button.clicked.connect(self._open_individual)
+        self.budget_button.clicked.connect(self._open_budget)
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)
         self.table.doubleClicked.connect(lambda _index: self._open_family())
         self._selection_changed()
@@ -224,24 +240,32 @@ class CatalogTablePage(QWidget):
             "family_id": self._family_id,
             "activity_id": self.activity_spin.value() or None,
             "individual_id": self._individual_id,
+            "budget_id": self.budget_spin.value() or None,
             "year": self.year_spin.value() or None,
             "text": self.search_edit.text().strip(),
         }
 
-    def set_context(self, *, family_id=None, activity_id=None, individual_id=None):
+    def set_context(
+        self, *, family_id=None, activity_id=None, individual_id=None,
+        budget_id=None,
+    ):
         validate_finance_id(family_id, "famille")
         validate_finance_id(activity_id, "activité")
         validate_finance_id(individual_id, "individu")
+        validate_finance_id(budget_id, "budget")
         if family_id is not None and self.spec.family_column is None:
             raise ValueError("Filtre famille non applicable à ce tableau")
         if activity_id is not None and self.spec.activity_column is None:
             raise ValueError("Filtre activité non applicable à ce tableau")
         if individual_id is not None and self.spec.individual_column is None:
             raise ValueError("Filtre individu non applicable à ce tableau")
+        if budget_id is not None and self.spec.budget_column is None:
+            raise ValueError("Filtre budget non applicable à ce tableau")
         changed = (
             self._family_id != family_id
             or self._activity_id != activity_id
             or self._individual_id != individual_id
+            or self._budget_id != budget_id
             or bool(self.search_edit.text())
             or self.year_spin.value() != 0
         )
@@ -249,11 +273,13 @@ class CatalogTablePage(QWidget):
             QSignalBlocker(self.search_edit),
             QSignalBlocker(self.year_spin),
             QSignalBlocker(self.activity_spin),
+            QSignalBlocker(self.budget_spin),
         ]
         try:
             self.search_edit.clear()
             self.year_spin.setValue(0)
             self.activity_spin.setValue(activity_id or 0)
+            self.budget_spin.setValue(budget_id or 0)
         finally:
             for blocker in blockers:
                 blocker.unblock()
@@ -261,6 +287,7 @@ class CatalogTablePage(QWidget):
         self._family_id = family_id
         self._activity_id = activity_id
         self._individual_id = individual_id
+        self._budget_id = budget_id
         scopes = []
         if family_id is not None:
             scopes.append(f"Famille #{family_id}")
@@ -268,6 +295,8 @@ class CatalogTablePage(QWidget):
             scopes.append(f"Activité #{activity_id}")
         if individual_id is not None:
             scopes.append(f"Individu #{individual_id}")
+        if budget_id is not None:
+            scopes.append(f"Budget #{budget_id}")
         self.context_label.setText(
             (" · ".join(scopes) if scopes else "Tous les dossiers") + " · lecture seule"
         )
@@ -381,6 +410,11 @@ class CatalogTablePage(QWidget):
         )
         for button in self.related_buttons.values():
             button.setEnabled(activity_is_valid)
+        self.budget_button.setEnabled(
+            self.kind == C19_BUDGET_RECORD_DOMAIN
+            and row is not None and isinstance(row.id, int)
+            and not isinstance(row.id, bool) and row.id > 0
+        )
 
     def _selected_activity_id(self, row):
         if row is None or self.kind not in ACTIVITY_LINK_DOMAINS:
@@ -407,6 +441,13 @@ class CatalogTablePage(QWidget):
             and identity > 0
         ):
             self.relatedActivityRequested.emit(target, identity)
+
+    def _open_budget(self):
+        if self.kind != C19_BUDGET_RECORD_DOMAIN:
+            return
+        row = self.selected_row()
+        if row is not None and isinstance(row.id, int) and row.id > 0:
+            self.budgetRequested.emit(row.id)
 
     def _open_individual(self):
         row = self.selected_row()
@@ -468,6 +509,7 @@ class CatalogHubPage(QWidget):
             page.activityRequested.connect(self.activityRequested.emit)
             page.individualRequested.connect(self.individualRequested.emit)
             page.relatedActivityRequested.connect(self.relatedActivityRequested.emit)
+            page.budgetRequested.connect(self._focus_budget)
             self.pages[kind] = page
             self.tabs.addTab(page, CATALOG_DOMAINS[kind].label)
         self.tabs.currentChanged.connect(self._tab_changed)
@@ -481,6 +523,16 @@ class CatalogHubPage(QWidget):
 
     def _tab_changed(self, _index):
         self.activate()
+
+    def _focus_budget(self, budget_id: int):
+        """Ouvre les lignes de l'ID budget stocké, sans évaluer de formule."""
+        validate_finance_id(budget_id, "budget")
+        if self.module != C19_BUDGET_MODULE:
+            raise ValueError("Navigation de budget réservée à son module")
+        target = self.pages[C19_BUDGET_LINE_DOMAIN]
+        target.set_context(budget_id=budget_id)
+        self.tabs.setCurrentWidget(target)
+        target.activate()
 
     def set_family_context(self, family_id=None):
         validate_finance_id(family_id, "famille")
