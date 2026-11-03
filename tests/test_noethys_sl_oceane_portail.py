@@ -191,7 +191,8 @@ class ImportSQLiteTests(unittest.TestCase):
 class IntegrationsSourceTests(unittest.TestCase):
     def test_ui_menus_ouvre_dialogue_natif_blog_sans_synchro_auto(self):
         source=(ROOT/"noethys/Dlg/DLG_Menus.py").read_text(encoding="utf-8")
-        self.assertIn("Importer et publier les menus Océane",source)
+        self.assertIn("Importer menus Océane (ou déposer XLSX)",source)
+        self.assertIn("CibleFichierOceane(wx.FileDropTarget)",source)
         self.assertIn("DLG_Saisie_portail_bloc.Dialog(self",source)
         self.assertIn('SetPageByCode("bloc_blog")',source)
         self.assertIn("portail",source)
