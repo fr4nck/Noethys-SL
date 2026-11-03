@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Fiches famille Pêle-Mêle : lecture seule du dossier Noethys existant.
 
-Deux éditions distinctes (ALSH et Club ados) ; aucune création de famille,
+Une édition famille commune ALSH / Club ados ; aucune création de famille,
 aucun formulaire parallèle et aucune autorisation implicite.
 """
 
@@ -129,3 +129,37 @@ def SelectionnerEnfants(donnees, identifiants):
         raise ValueError("Choisissez les enfants de cette famille à inscrire")
     resultat["enfants"] = [e for e in enfants if e["IDindividu"] in ids]
     return resultat
+
+ACCUEILS = (
+    "ALSH LA GUERCHE", "ALSH MOUTIERS", "ALSH BAIS", "CLUB ADOS BAIS",
+)
+
+
+def AffecterAccueils(donnees, affectations):
+    """Attribue les accueils aux enfants sélectionnés, pour l'impression seule.
+
+    Un enfant peut fréquenter un ALSH et le Club ados, mais pas plusieurs
+    sites ALSH sur le même document. On n'invente aucune inscription à
+    partir de l'âge ou de la scolarité.
+    """
+    if not isinstance(donnees, dict) or not isinstance(affectations, dict):
+        raise ValueError("Affectations des accueils invalides")
+    enfants = donnees.get("enfants") or []
+    attendus = {e["IDindividu"] for e in enfants}
+    if not attendus or set(affectations) != attendus:
+        raise ValueError("Indiquez un accueil pour chaque enfant sélectionné")
+    copie = dict(donnees)
+    copie["enfants"] = []
+    for e in enfants:
+        values = affectations[e["IDindividu"]]
+        if isinstance(values, str):
+            raise ValueError("Choix d'accueils invalide")
+        choix = list(values)
+        if (not choix or len(choix) != len(set(choix))
+                or not set(choix).issubset(ACCUEILS)
+                or sum(code.startswith("ALSH ") for code in choix) > 1):
+            raise ValueError("Sélectionnez un ALSH au maximum et/ou le Club ados")
+        enfant = dict(e)
+        enfant["accueils"] = [code for code in ACCUEILS if code in choix]
+        copie["enfants"].append(enfant)
+    return copie
