@@ -1,5 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## Lot D6 — factures partenaires sans TVA, registre non deploye (03/11/2026)
+
+- L'utilisateur confirme une association loi 1901 qui ne gere, ne calcule et ne deduit pas de TVA. D6 suit cette declaration : montant unique en euros, aucune colonne ni taux de TVA. `mention_fiscale` demeure un texte valide manuellement et aucun article fiscal n'est impose. Le non-assujettissement juridique doit etre verifie independamment de la forme loi 1901.
+- Prevol `main a84a331` ; six mises a jour uniquement sur `main` sans nouveau branchement, fusion, ni force-push : SQLite D6 `1028c2e`, MySQL 5.7 propose `8d2756d`, moteur `07fce3f`, tests `410adbb`, documentation `c886e22`, correction D5 `d8e588d`.
+- Flux : lot D5 valide et non reference comme facture externe, profil emetteur et adresse client complets, empreinte d'apercu, enregistrement atomique d'un instantane avec numero `PMSL-AAAA-000001` et compteur transactionnel. Une facture max/bordereau ; interdiction de refaire une reference D5 apres enregistrement D6 ; aucune ecriture dans facturation famille.
+- Qualification locale : **162/162 PASS** sur Python 3.13.5 et SQLite fictif (D1 18, D2 49, D3-D4 43, D5 30, D6 22). Deux connexions pour la concurrence (un seul gagnant), rollback de numero, digest/anti-doublon, garde des donnees historico-familiales, `PRAGMA foreign_key_check` vide. Fichiers publies compares par empreintes aux fichiers testes.
+- **STOP-GATE** : DDL MySQL 5.7 non teste, aucun portage wx/Qt, aucune facture PDF/Word, aucune emission electronique, aucun envoi ni encaissement, avoirs et edition corrective a developper, permissions reelles, justification fiscale et compatibilite de la numerotation avec d'autres factures a valider. Le registre D6 contient l'etat `enregistree` et ne signifie pas `transmise`.
+- Suites : qualifier D1-D6 sur copie MySQL 5.7, integrer un modele d'edition Word/Noedoc conforme, une interface metier et un chemin d'avoirs, puis recette utilisateur avant deploiement. Voir `docs/dev/LOT_D_D6_IMPLEMENTATION.md`.
+- Branches avant mise a jour : `wx 6fb08c6a`, `qt 56c429df`, non synchronisees avec `main`. Aucun portage automatique.
+
+
+
 ## Lot D5 — bordereaux partenaires, anti-doublon, sans deploiement (03/11/2026)
 
 - **Prevol** : `main 29eed5b`, `wx b5a0d35`, `qt 6b11611`. Six fichiers modifies/crees sur `main` uniquement, sans branche nouvelle, merge, ni force-push : verrou D3-D4 `d0d474d`, DDL SQLite `de47a9c`, MySQL 5.7 propose `323a0b2`, moteur D5 `7229618`, tests `b3f15eb`, documentation `f770399`. Les branches d'interface ont continue independamment ; les têtes wx/qt ont evolue apres le prevol. Aucun portage ou synchronisation revendiques.
