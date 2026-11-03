@@ -1,35 +1,28 @@
-# Lot C — Deux fiches famille PMSL (03/11/2026)
+# Lot C — Fiche famille commune ALSH / Club ados (03/11/2026)
 
-## Références fournies
+## Décision PMSL
 
-Les deux documents ne sont **pas interchangeables** :
+Deux documents source ont été fournis :
+- `Fiche Famille(1).docx` : ALSH La Guerche, Moutiers, Bais, tableau « ENFANTS À INSCRIRE », deux pages et signatures ;
+- `Fiche Famille club ados.docx` : Club ados Bais, tableau « ADOS À INSCRIRE », deux pages avec une **case CAFPRO supplémentaire** et sa clause de renouvellement.
 
-1. `Fiche Famille(1).docx` : intitulé **ACCUEIL DE LOISIRS PÊLE-MÊLE — FICHE FAMILLE** ; site ALSH au choix **La Guerche, Moutiers ou Bais** ; deux pages A4. En page 1 : responsables légaux, régime CAF/MSA/autre et numéro d'allocataire ; en page 2 : **ENFANTS À INSCRIRE**, huit engagements et signature.
-2. `Fiche Famille club ados.docx` : intitulé **Club ADOS PÊLE-MÊLE — FICHE FAMILLE**, site unique **BAIS** ; deux pages A4. Même structure commune, mais la première page comporte en plus une **case spécifique de consultation CAFPRO avec clause de renouvellement tacite**, et la seconde page porte **ADOS À INSCRIRE**.
+Ils avaient d'abord été intégrés en deux modèles PDF. Après arbitrage métier, l'exploitation utilisera **un seul formulaire famille pour le foyer**, même lorsque ses enfants fréquentent plusieurs accueils. Les fiches *individuelles* enfant et ado restent distinctes.
 
-Les enfants d'une fratrie ne sont pas automatiquement tous inscrits sur les deux fiches. Les formulaires individuels « Fiche Enfant » et « Fiche Ados » restent deux éditions séparées de ces fiches **famille**.
+## Version unifiée dans Noethys-SL wx
 
-## Intégration Noethys-SL wx
+Le dossier famille propose maintenant **Outils → Éditer la fiche famille Pêle-Mêle (PDF)** (une seule entrée dans le menu). Une édition produit **deux pages A4 et une signature familiale**.
 
-Depuis le dossier famille, menu **Outils** :
+- Page 1 : en-tête commun, deux responsables légaux, régime CAF/MSA/autre, numéro d'allocataire, **case CAFPRO incluse mais non précochée**, y compris lorsque la base contient une valeur historique.
+- Page 2 : tableau **ENFANTS / ADOS À INSCRIRE** de quatre lignes, avec nom, prénom, sexe, naissance, école/classe et **accueil/site de chacun**, puis les engagements issus des formulaires fournis et la signature.
+- L'opérateur choisit d'abord les enfants du foyer concernés, puis **pour chacun** un ALSH (La Guerche, Moutiers, Bais) et/ou le Club ados (Bais). Deux accueils sont possibles pour le même jeune, sans supposer une inscription à partir de son âge.
+- Les coordonnées, les données CAF/MSA et la scolarité sont lues en **lecture seule** du dossier Noethys existant. Les affectations d'accueil servent uniquement au PDF ; **elles ne créent pas d'inscriptions**.
+- La fonction pure `UTILS_Accueil_familles.AffecterAccueils` vérifie la présence d'un choix pour chaque enfant, l'unicité du site ALSH et que seuls les enfants de la famille sélectionnée sont affichés.
+- Les anciennes variantes techniques `modele=alsh` et `modele=ados` sont temporairement conservées pour compatibilité et tests de non-régression, **mais ne sont plus proposées au menu**. La nouvelle voie utilise `modele=famille`.
 
-- `Éditer la fiche famille ALSH (PDF)`
-- `Éditer la fiche famille Club ados (PDF)`
+## Points de contrôle
 
-Séquence de l'opérateur : choix des enfants à inscrire, choix du site pour l'ALSH (Bais fixé pour le Club ados), année scolaire proposée et modifiable, puis chemin du PDF. Les fichiers sont enregistrés **localement**, sans envoi automatique ni écriture SQL.
+La case CAFPRO **ne constitue pas une autorisation enregistrée** tant que le représentant n'a pas signé ; aucune donnée familiale n'est modifiée par l'édition. Les demandes d'autorisations de départ seul et de transport propres aux fiches individuelles sont maintenues séparément.
 
-La fonction `UTILS_Accueil_familles.LireFamille` lit la famille, la caisse/régime, les représentants et les enfants depuis `familles`, `caisses`, `regimes`, `rattachements`, `individus`. Elle réutilise les adresses partagées `adresse_auto` et, pour chaque enfant sélectionnable, la scolarité à jour de `UTILS_Accueil_scolarite.LireScolariteActuelle`. Aucun contact simple n'est ajouté comme représentant légal.
+Tests fictifs dans `tests/test_noethys_sl_accueil_familles.py` et `tests/test_noethys_sl_accueil_familles_impression.py`, inclus dans la CI rapide `wx` : fratrie mixte, enfant fréquentant deux accueils, refus de plusieurs ALSH pour un enfant, clause CAFPRO, deux pages PDF, conservation de la source. La validation finale sur Windows et le contrôle visuel du formulaire sont requis avant publication d'une version installable.
 
-La fonction `UTILS_Accueil_familles_impression.GenererPDF` imprime les deux documents sur des modèles distincts en noir et gris. Seuls les enfants **explicitement sélectionnés** sont inscrits. La case CAFPRO reste vide sur une nouvelle fiche à signer, même lorsqu'une valeur historique existe en base. La déclaration de consentement n'est pas créée automatiquement.
-
-Les champs non garantis par le dossier existant (notamment la situation matrimoniale ou la qualité père/mère/tuteur lorsqu'elle n'est pas explicitement identifiée) ne sont pas inventés et restent à compléter manuellement sur le document.
-
-Chaque modèle comporte **quatre lignes d'enfants**, comme le DOCX fourni. Si plus de quatre enfants sont sélectionnés, le logiciel demande une sélection plus réduite au lieu de tronquer une famille en silence.
-
-## Qualification
-
-Tests sur base fictive `tests/test_noethys_sl_accueil_familles.py` (lecture seule, classement représentants/enfants, caisse, adresses partagées, scolarité, choix distinct des enfants et famille inexistante) et
-`tests/test_noethys_sl_accueil_familles_impression.py` (deux titres, sites, clause CAFPRO propre au Club ados, deux pages, refus d'entrées invalides, source non modifiée).
-Tous deux ajoutés à la CI rapide Windows `wx`.
-
-**État :** code candidat sur la branche `wx`, aucune release Windows ni migration PMSL. Le contrôle visuel final et la validation de la recette Windows sur le SHA gelé restent requis avant diffusion.
+Aucune écriture dans la base de production, aucun changement des tarifs ou des commandes fournisseurs.
