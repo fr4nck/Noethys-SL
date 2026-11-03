@@ -2146,6 +2146,12 @@ class Synchro():
         nomFichier = os.path.basename(nomFichierComplet)
         repFichier = os.path.dirname(nomFichierComplet)
 
+        # Un transport FTP/SFTP absent ne doit pas se solder par un faux
+        # succes de transfert de config.py contenant les secrets du portail.
+        if self.dict_parametres["hebergement_type"] in (1, 2) and ftp is None:
+            self.log.EcritLog(_(u"[ERREUR] Aucun transport FTP/SFTP actif pour l'envoi de '%s'.") % nomFichier)
+            return False
+
         # Envoi local
         if self.dict_parametres["hebergement_type"] == 0 :
             if self.dict_parametres["hebergement_local_repertoire"] != None:
