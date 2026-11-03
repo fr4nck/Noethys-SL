@@ -25,9 +25,14 @@ Windows deja diffusee, ni la resolution des incidents de production.
   memes octets verifies. Le champ vide preserve exactement la lecture
   historique. Une mise a jour officielle du fichier impose de confirmer
   puis de mettre a jour cette empreinte.
-  **Limite importante** : la verification couvre seulement `models.py`,
-  et non les modules Python annexes qu'il peut importer. Elle ne
-  constitue ni un bac a sable ni une signature d'origine.
+  **S1.5** : si l'empreinte est active, les imports relatifs de
+  fichiers Python annexes au package telecharge sont refuses, meme via
+  un appel dynamique a importlib pendant le chargement. En mode sans
+  empreinte, ils continuent de fonctionner comme avant. Les imports
+  absolus, les bibliotheques Python et les autres formes d'execution
+  de code restent possibles : ce n'est ni un bac a sable, ni une
+  signature d'origine. Un Connecthys personnalise utilisant de tels
+  imports doit rester en mode historique ou etre qualifie separement.
 - **S1 — secrets de config.py** : generation du fichier temporaire
   avec droits restreints (0600 sur POSIX), puis effacement apres tentative
   d'envoi, meme si l'upload echoue. Un transfert ou un reload WSGI connu
@@ -143,11 +148,11 @@ une mise a jour du serveur Connecthys de l'association.
   avec `AutoAddPolicy`, qui reste un risque residuel explicite.
 - Le chargement de `models.py` fait partie du protocole actuel et
   execute du code distant. Le champ facultatif `models_sha256` refuse
-  l'execution d'un **models.py** dont les octets ne correspondent pas a une
-  empreinte verifiee hors bande. Cette empreinte ne couvre **pas** les
-  imports relatifs de code annexe et n'isole pas Python. Qualifier les
-  dependances ou un ensemble de sources complet avant de presenter ce
-  mecanisme comme une preuve d'origine du code execute.
+  l'execution d'un **models.py** dont les octets ne correspondent pas a
+  une empreinte verifiee hors bande. Le meme mode refuse les imports
+  relatifs des annexes non verifiees, mais ne limite ni les imports
+  absolus ni les API du processus Noethys : ce n'est pas une
+  isolation securisee. Un modele historique autonome reste compatible.
 - Moderniser le chiffrement uniquement avec **lecture/ecriture legacy
   interoperable** pour Connecthys : un nouveau format ne peut pas devenir
   obligatoire tant que le Connecthys original ne le comprend pas. Isoler
