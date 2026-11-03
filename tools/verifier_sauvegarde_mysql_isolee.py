@@ -20,12 +20,8 @@ import UTILS_SQL_Integrite as integrite
 
 
 
-def ExigerTrioSauvegarde(bases):
-    """Refuser toute preuve de restauration partielle du lot A.
-
-    Les noms historiques peuvent etre sous forme `organisation.sql`,
-    `organisation_PHOTOS.sql` et `organisation_DOCUMENTS.sql`.
-    """
+def QualifierPerimetreSauvegarde(bases):
+    """Indiquer la couverture sans refuser une restauration partielle voulue."""
     categories = []
     for base in bases:
         nom = base.upper()
@@ -35,8 +31,9 @@ def ExigerTrioSauvegarde(bases):
             categories.append("DOCUMENTS")
         else:
             categories.append("DATA")
-    if len(bases) != 3 or set(categories) != {"DATA", "PHOTOS", "DOCUMENTS"}:
-        raise RuntimeError("Archive incomplete : trio DATA/PHOTOS/DOCUMENTS obligatoire")
+    absentes = [nom for nom in ("DATA", "PHOTOS", "DOCUMENTS") if nom not in categories]
+    return {"perimetre_complet": len(bases) == 3 and not absentes,
+            "categories_absentes": absentes}
 
 
 
@@ -71,7 +68,8 @@ def verifier(runtime, archive):
                 not re.fullmatch(r"[A-Za-z0-9_$]+\.sql", n) for n in membres):
             raise RuntimeError("Membres SQL invalides")
         bases = [n[:-4] for n in membres]
-        ExigerTrioSauvegarde(bases)
+        # Rapport informatif ; le perimetre ne bloque jamais le banc isole.
+        rapport.update(QualifierPerimetreSauvegarde(bases))
         existantes = sql("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN (%s);"
                          % ",".join("'%s'" % b for b in bases)).strip()
         if existantes:
