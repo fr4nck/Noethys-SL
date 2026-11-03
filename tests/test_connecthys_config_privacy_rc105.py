@@ -155,7 +155,7 @@ class ConfigTemporaireTests(unittest.TestCase):
         s = self._contexte(serveur_type=2)
         with tempfile.TemporaryDirectory(prefix="wsgi-fictif-") as tmp:
             Path(tmp, "wsgi-original").write_text(
-                "# Connecthys WSGI fictif\\n# lastupdate = ancienne valeur\\n",
+                "# Connecthys WSGI fictif\n# lastupdate = ancienne valeur\n",
                 encoding="utf8")
             with mock.patch.object(U.UTILS_Fichiers, "GetRepTemp",
                                    side_effect=lambda fichier="": os.path.join(tmp, fichier)), \
@@ -171,7 +171,7 @@ class ConfigTemporaireTests(unittest.TestCase):
         s = self._contexte(serveur_type=2)
         with tempfile.TemporaryDirectory(prefix="wsgi-fictif-") as tmp:
             Path(tmp, "wsgi-original").write_text(
-                "# Connecthys WSGI fictif\\n# lastupdate = ancienne valeur\\n",
+                "# Connecthys WSGI fictif\n# lastupdate = ancienne valeur\n",
                 encoding="utf8")
             with mock.patch.object(U.UTILS_Fichiers, "GetRepTemp",
                                    side_effect=lambda fichier="": os.path.join(tmp, fichier)), \
