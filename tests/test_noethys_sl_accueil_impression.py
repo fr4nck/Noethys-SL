@@ -74,6 +74,7 @@ class EditionDeuxPages(unittest.TestCase):
         Impression._page1(c, {
             "nom": "ENFANT", "prenom": "Fictif", "sexe": "F",
             "alsh": "Moutiers", "classe": "GS (Classe Fictive)",
+            "vaccinations": "15/07/2025 (2 vaccins enregistrés)",
             "responsables": [
                 {"identite": "PARENT Premier", "adresse": "5 rue Fictive",
                  "telephone": "Mobile : 06 00 11"},
@@ -89,6 +90,7 @@ class EditionDeuxPages(unittest.TestCase):
         })
         valeurs = [texte for _x, _y, texte in c.textes]
         for attendu in ("Moutiers", "GS (Classe Fictive)", "F",
+                        "15/07/2025", "2 vaccins enregistrés",
                         "PARENT Premier", "5 rue Fictive", "06 00 11",
                         "PARENT Deuxieme", "2 place Exemple", "02 00 22",
                         "TANTE", "Exemple", "tante", "06 00 33",
@@ -97,6 +99,19 @@ class EditionDeuxPages(unittest.TestCase):
                             msg=attendu)
         # Les personnes figurent dans les cellules et non dans le titre.
         self.assertTrue(any(texte == "TANTE" for _x, _y, texte in c.textes))
+        # Les cinq lignes sont tracees, et non uniquement les trois premieres.
+        class Mesure:
+            def __init__(self):
+                self.traits = []
+            def line(self, x1, y1, x2, y2):
+                self.traits.append((x1, y1, x2, y2))
+            def __getattr__(self, _nom):
+                return lambda *args, **kwargs: None
+        c2 = Mesure()
+        Impression._page1(c2, {"accompagnants": []})
+        self.assertEqual(sum(
+            1 for x1, y1, x2, y2 in c2.traits
+            if x1 == x2 and abs(y1 - y2) >= 90), 3)
 
     def test_page2_affiche_pai_allergies_traitements_et_consignes(self):
         class FauxCanvas:
