@@ -2223,7 +2223,7 @@ class Synchro():
                     # de config.py ou les secrets du serveur.
                     print(u"Erreur upload fichier '%s' par SSH/SFTP :" % nomFichier)
                     if config_atomique:
-                        self.log.EcritLog(_(u"[ERREUR] Publication atomique de config.py impossible ; ancien fichier conserve si l'echange SFTP n'a pas abouti."))
+                        self.log.EcritLog(_(u"[ERREUR] Publication atomique de config.py non confirmee ; verifier le fichier distant si le serveur a coupe la connexion."))
                     else:
                         print(err)
                         self.log.EcritLog(_(u"[ERREUR] Envoi du fichier '%s' par SSH/SFTP impossible.") % nomFichier)
