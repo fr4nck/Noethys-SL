@@ -2192,6 +2192,15 @@ class Synchro():
         # Envoi par SSH/SFTP
         if self.dict_parametres["hebergement_type"] == 2 :
             if ftp != None :
+                # Option avancee, OFF par defaut, exclusivement pour config.py.
+                # La branche historique ci-dessous n'est pas modifiee.
+                config_atomique = (
+                    nomFichier == "config.py" and repDest == "application/data"
+                    and self.dict_parametres.get("ssh_config_atomique") is True)
+                mode = (0o600 if nomFichier == "config.py"
+                        and repDest == "application/data"
+                        and self.dict_parametres.get("ssh_config_prive") is True
+                        else 0o644)
                 try :
                     rep = "/" + self.dict_parametres["ssh_repertoire"]
                     if repDest not in ("", None):
@@ -2200,23 +2209,33 @@ class Synchro():
                         else :
                             rep += "/" + repDest
                     ftp.chdir(rep)
-                    ftp.put(os.path.join(repFichier, nomFichier), nomFichier)
+                    if config_atomique:
+                        # La copie ancienne doit rester intacte jusqu'a
+                        # verification des octets et posix_rename atomique.
+                        UTILS_Portail_securite.PublierConfigAtomiqueSFTP(
+                            ftp, os.path.join(repFichier, nomFichier), mode=mode)
+                    else:
+                        ftp.put(os.path.join(repFichier, nomFichier), nomFichier)
                     if "/" in repDest :
                         ftp.chdir("../" * len(repDest.split("/")))
                 except Exception as err :
+                    # Les messages d'erreur ne doivent pas inclure le contenu
+                    # de config.py ou les secrets du serveur.
                     print(u"Erreur upload fichier '%s' par SSH/SFTP :" % nomFichier)
-                    print(err)
-                    self.log.EcritLog(_(u"[ERREUR] Envoi du fichier '%s' par SSH/SFTP impossible.") % nomFichier)
+                    if config_atomique:
+                        self.log.EcritLog(_(u"[ERREUR] Publication atomique de config.py impossible ; ancien fichier conserve si l'echange SFTP n'a pas abouti."))
+                    else:
+                        print(err)
+                        self.log.EcritLog(_(u"[ERREUR] Envoi du fichier '%s' par SSH/SFTP impossible.") % nomFichier)
                     return False
 
-                # Pour le portail ancien, conserver chmod 0644 par defaut.
-                # Restriction 0600 : uniquement config.py, sur demande explicite,
-                # apres verification de l'utilisateur serveur/WSGI. A ce stade
-                # la copie SFTP n'est PAS atomique, risque transitoire a qualifier.
-                mode = (0o600 if nomFichier == "config.py"
-                        and repDest == "application/data"
-                        and self.dict_parametres.get("ssh_config_prive") is True
-                        else 0o644)
+                if config_atomique:
+                    # Mode final applique avant l'echange atomique, ne pas
+                    # retoucher les droits du fichier deja publie.
+                    return True
+
+                # Mode historique : put direct et chmod 0644, inchanges.
+                # Option ssh_config_prive : chmod 0600 sur config.py seulement.
                 try:
                     ftp.chmod(rep + "/" + nomFichier, mode=mode)
                 except Exception as err:
