@@ -1,0 +1,73 @@
+name: Noethys SL wx - Qualification AFAS V2
+
+# Qualification du candidat source sur donnees fictives uniquement.
+# Pas de base PMSL, pas de reseau applicatif, pas de packaging ni publication.
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - 'noethys/Utils/UTILS_AFAS2_*.py'
+      - 'noethys/Dlg/DLG_AFAS2_Declarations.py'
+      - 'noethys/Noethys.py'
+      - 'tests/afas2_base_fictive.py'
+      - 'tests/recette_afas2.py'
+      - 'tests/test_afas2_*.py'
+      - '.github/workflows/noethys-sl-afas2-wx-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-wx-afas2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  moteur-pur:
+    name: Calculs AFAS V2 - sans interface
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Compilation du module et des tests
+        run: python -m compileall -q noethys/Utils/UTILS_AFAS2_Conventions.py noethys/Utils/UTILS_AFAS2_Calendrier.py noethys/Utils/UTILS_AFAS2_Calcul.py noethys/Utils/UTILS_AFAS2_Declaration.py noethys/Utils/UTILS_AFAS2_Donnees.py noethys/Utils/UTILS_AFAS2_Presets.py noethys/Utils/UTILS_AFAS2_Referentiel.py noethys/Dlg/DLG_AFAS2_Declarations.py tests/test_afas2_*.py
+      - name: Regles de calcul et calendrier sur fixtures pures
+        env:
+          PYTHONPATH: noethys:tests:.
+        run: python -m unittest -v tests.test_afas2_conventions tests.test_afas2_calendrier tests.test_afas2_calcul
+
+  recette-windows:
+    name: AFAS V2 - Windows et SQLite fictif
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\\noethys;${{ github.workspace }}\\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances du banc de tests
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Tests du moteur, de la persistance et du dialogue en base fictive
+        run: >-
+          python -m unittest -v
+          tests.test_afas2_conventions
+          tests.test_afas2_calendrier
+          tests.test_afas2_calcul
+          tests.test_afas2_referentiel_donnees
+          tests.test_afas2_presets
+          tests.test_afas2_declaration
+          tests.test_afas2_interface
+          tests.test_afas2_qualification_bases
