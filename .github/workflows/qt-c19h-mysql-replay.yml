@@ -59,6 +59,20 @@ jobs:
           python-version: '3.11'
       - name: Installer uniquement le client SQL sur runner
         run: python -m pip install --disable-pip-version-check "PyMySQL[rsa]==1.1.1"
+      # MySQL 8 active la journalisation binaire sur le conteneur CI.
+      # Le trigger n'est qu'un injecteur de panne sur ses lignes inventees.
+      - name: Autoriser uniquement les triggers du conteneur MySQL jetable
+        if: matrix.mysql == '8.0.40'
+        env:
+          C19H_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          if [ -z "$C19H_MYSQL_CONTAINER" ]; then
+            echo "Container MySQL CI introuvable : arret"
+            exit 1
+          fi
+          docker exec "$C19H_MYSQL_CONTAINER" \
+            mysql -uroot -pc19h_root_only_disposable_ci \
+            -e "SET GLOBAL log_bin_trust_function_creators=1;"
       - name: Compiler les deux bancs sans GUI
         run: python -m compileall -q tests_mysql/test_c19h_wx_original_semantics.py tests_mysql/test_c19h_mysql_wx_replay.py
       - name: Rejouer vrai code wx par AST sur MySQL local fictif
