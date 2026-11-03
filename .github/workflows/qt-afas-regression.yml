@@ -1,0 +1,53 @@
+name: Noethys SL Qt - regression metier AFAS
+
+on:
+  push:
+    branches:
+      - qt
+    paths:
+      - "noethys/Utils/UTILS_AFAS_Donnees.py"
+      - "noethys/Utils/UTILS_AFAS_Actualisation.py"
+      - "tests/test_noethys_sl_afas_separation_etats.py"
+      - ".github/workflows/qt-afas-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-afas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  afas-windows:
+    name: AFAS Qt - ancien profil, reel, facture, CSV
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Installer les dependances de recette Noethys
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Compiler les modules AFAS et les tests
+        run: python -m compileall -q noethys/Utils/UTILS_AFAS_Donnees.py noethys/Utils/UTILS_AFAS_Actualisation.py tests/test_noethys_sl_afas_separation_etats.py
+      - name: AFAS : tests de donnees, actualisation et separation des etats
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: >-
+          python -m unittest -v
+          tests.test_noethys_sl_afas_donnees
+          tests.test_noethys_sl_afas_actualisation
+          tests.test_noethys_sl_afas_separation_etats
