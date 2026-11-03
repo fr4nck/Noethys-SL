@@ -16,6 +16,13 @@ AUTORISATIONS_PAPIER = (
     ("piscine_baignade", u"Baignade"),
     ("activites_physiques", u"Activités physiques"),
 )
+AUTORISATIONS_ADOS = (
+    ("photos_site_imprimes", u"Photos"),
+    ("maquillage", u"Maquillage"),
+    ("piscine_baignade", u"Baignade"),
+    ("activites_physiques", u"Activités physiques"),
+    ("transport_ados", u"Transport"),
+)
 SECTIONS_P1 = (
     u"IDENTITÉ", u"RESPONSABLE LÉGAL n°1",
     u"RESPONSABLE LÉGAL n°2", u"ACCOMPAGNANTS",
@@ -87,6 +94,7 @@ def _roule(c, title, lignes, x, y, maxlignes=7, largeur=512):
 
 
 def _page1(c, data):
+    ados = data.get("modele") == "ados"
     from reportlab.lib.pagesizes import A4
     largeur, hauteur = A4
     x, w = 42, largeur - 84
@@ -96,12 +104,15 @@ def _page1(c, data):
     c.setFont("Helvetica-Bold", 15)
     c.drawCentredString(largeur / 2, hauteur - 60, TITRE)
     c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(largeur / 2, hauteur - 78, SOUS_TITRE)
-    _cell(c, x + 7, hauteur - 115, u"ALSH fréquenté :", data.get("alsh", ""),
-          largeur=w - 24)
-    _cell(c, x + 7, hauteur - 134, u"Année :", data.get("annee", ""),
-          largeur=w - 24)
-    _cell(c, x + 7, hauteur - 153, u"Classe fréquentée durant l'année scolaire :",
+    c.drawCentredString(largeur / 2, hauteur - 78,
+                        u"FICHE ADOS" if ados else SOUS_TITRE)
+    if not ados:
+        _cell(c, x + 7, hauteur - 115, u"ALSH fréquenté :",
+              data.get("alsh", ""), largeur=w - 24)
+    _cell(c, x + 7, hauteur - (115 if ados else 134),
+          u"Année :", data.get("annee", ""), largeur=w - 24)
+    _cell(c, x + 7, hauteur - (136 if ados else 153),
+          u"Classe fréquentée durant l'année scolaire :",
           data.get("classe", ""), largeur=w - 24)
 
     top = hauteur - 165
@@ -154,22 +165,27 @@ def _page1(c, data):
             c.drawString(
                 x + 9 + j * (w / 4), top - 54 - i * 15,
                 _tronc(valeur, "Helvetica", 7.3, w / 4 - 16))
-    # Autorisation complementaire : le depart seul ne se deduit pas du
-    # tableau des accompagnants et requiert une reponse independante.
-    c.setFont("Helvetica-Bold", 8.2)
-    c.drawString(x + 10, top - 143,
-                 u"Autorisé(e) à quitter l'ALSH seul(e) :")
-    statut_depart = (data.get("autorisations") or {}).get(
-        "depart_seul", "non_renseigne")
-    if statut_depart in ("expire", "a_verifier"):
-        c.setFont("Helvetica-Oblique", 8.2)
-        c.drawString(x + 352, top - 143, u"À vérifier")
+    if ados:
+        c.setFont("Helvetica-Oblique", 7.8)
+        c.drawString(x + 10, top - 143,
+            u"Je m'engage à communiquer tout changement de cette liste à la direction.")
     else:
-        _checkbox(c, x + 350, top - 151, statut_depart == "oui")
-        c.setFont("Helvetica", 8.2)
-        c.drawString(x + 364, top - 143, u"Oui")
-        _checkbox(c, x + 410, top - 151, statut_depart == "non")
-        c.drawString(x + 424, top - 143, u"Non")
+        # Depart seul dans la fiche enfant ; sur la fiche ados, ce choix
+        # figure dans les autorisations de la seconde page.
+        c.setFont("Helvetica-Bold", 8.2)
+        c.drawString(x + 10, top - 143,
+                     u"Autorisé(e) à quitter l'ALSH seul(e) :")
+        statut_depart = (data.get("autorisations") or {}).get(
+            "depart_seul", "non_renseigne")
+        if statut_depart in ("expire", "a_verifier"):
+            c.setFont("Helvetica-Oblique", 8.2)
+            c.drawString(x + 352, top - 143, u"À vérifier")
+        else:
+            _checkbox(c, x + 350, top - 151, statut_depart == "oui")
+            c.setFont("Helvetica", 8.2)
+            c.drawString(x + 364, top - 143, u"Oui")
+            _checkbox(c, x + 410, top - 151, statut_depart == "non")
+            c.drawString(x + 424, top - 143, u"Non")
     top -= 164
 
     _boite(c, x, top, w, 54, SECTIONS_P1[4])
@@ -186,6 +202,7 @@ def _page1(c, data):
 
 
 def _page2(c, data):
+    ados = data.get("modele") == "ados"
     from reportlab.lib.pagesizes import A4
     largeur, hauteur = A4
     x, w = 42, largeur - 84
@@ -226,37 +243,69 @@ def _page2(c, data):
         u"Aucun nouvel état médical n'a été créé par l'édition.")
 
     top = top - 483
-    _boite(c, x, top, w, 100, SECTIONS_P2[1])
+    autorisations = AUTORISATIONS_ADOS if ados else AUTORISATIONS_PAPIER
+    largeur_colonne = w / len(autorisations)
+    _boite(c, x, top, w, 143 if ados else 100, SECTIONS_P2[1])
     table_y = top - 38
-    for i, (code, libelle) in enumerate(AUTORISATIONS_PAPIER):
-        left = x + i * (w / 4)
-        center = left + w / 8
+    for i, (code, libelle) in enumerate(autorisations):
+        left = x + i * largeur_colonne
+        center = left + largeur_colonne / 2
         c.setFont("Helvetica-Bold", 7)
         c.drawCentredString(center, table_y,
-             _tronc(libelle, "Helvetica-Bold", 7, (w / 4) - 6))
+             _tronc(libelle, "Helvetica-Bold", 7, largeur_colonne - 6))
         if i > 0:
             c.line(left, top - 25, left, top - 98)
         statut = (data.get("autorisations") or {}).get(code, u"non_renseigne")
-        _checkbox(c, left + 13, top - 77, statut == "oui")
-        _checkbox(c, left + 68, top - 77, statut == "non")
+        if ados:
+            x_oui, x_non = left + 7, left + 51
+            t_oui, t_non = left + 19, left + 63
+        else:
+            x_oui, x_non = left + 13, left + 68
+            t_oui, t_non = left + 25, left + 80
+        _checkbox(c, x_oui, top - 77, statut == "oui")
+        _checkbox(c, x_non, top - 77, statut == "non")
         c.setFont("Helvetica", 7.8)
-        c.drawString(left + 25, top - 75, u"oui")
-        c.drawString(left + 80, top - 75, u"non")
+        c.drawString(t_oui, top - 75, u"oui")
+        c.drawString(t_non, top - 75, u"non")
     c.line(x + 5, top - 52, x + w - 5, top - 52)
 
-    y = top - 119
+    if ados:
+        c.setFont("Helvetica-Bold", 8.0)
+        c.drawString(x + 9, top - 119,
+            u"J'autorise mon enfant à repartir seul du Club ados à la fin des activités :")
+        depart = (data.get("autorisations") or {}).get(
+            "depart_seul", "non_renseigne")
+        if depart in ("expire", "a_verifier"):
+            c.setFont("Helvetica-Oblique", 8.0)
+            c.drawString(x + w - 78, top - 136, u"À vérifier")
+        else:
+            _checkbox(c, x + 347, top - 135, depart == "oui")
+            _checkbox(c, x + 414, top - 135, depart == "non")
+            c.setFont("Helvetica", 7.8)
+            c.drawString(x + 359, top - 133, u"oui")
+            c.drawString(x + 426, top - 133, u"non")
+
+    y = top - (160 if ados else 119)
     _cell(c, x + 15, y, u"Je soussigné(e) :",
           data.get("signataire", ""), largeur=w - 30)
     c.setFont("Helvetica", 8.3)
-    c.drawString(x + 15, y - 18,
-        u"responsable légal de l'enfant, confirme les renseignements et autorisations ci-dessus.")
-    _cell(c, x + 15, y - 40, u"À :",
+    if ados:
+        c.drawString(x + 15, y - 18,
+            u"responsable légal, déclare exacts les renseignements de la présente fiche.")
+        c.drawString(x + 15, y - 32,
+            u"J'autorise les mesures d'urgence nécessaires : soins, hospitalisation ou chirurgie.")
+    else:
+        c.drawString(x + 15, y - 18,
+            u"responsable légal de l'enfant, confirme les renseignements et autorisations ci-dessus.")
+    marge_dates = 53 if ados else 40
+    marge_signature = 72 if ados else 59
+    _cell(c, x + 15, y - marge_dates, u"À :",
           data.get("ville_signature", ""), largeur=245)
-    _cell(c, x + 255, y - 40, u"Le :",
+    _cell(c, x + 255, y - marge_dates, u"Le :",
           data.get("date_signature", ""), largeur=220)
-    c.drawString(x + 15, y - 59, u"Signature du responsable légal :")
+    c.drawString(x + 15, y - marge_signature, u"Signature du responsable légal :")
     c.setLineWidth(0.7)
-    c.line(x + 185, y - 61, x + w - 10, y - 61)
+    c.line(x + 185, y - marge_signature - 2, x + w - 10, y - marge_signature - 2)
     c.setFont("Helvetica-Bold", 9)
     c.drawString(x + 15, 48, u"PÊLE-MÊLE SPORTS ET LOISIRS")
     c.setFont("Helvetica", 8)
@@ -277,7 +326,8 @@ def GenererPDF(destination, donnees):
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
     c = canvas.Canvas(destination, pagesize=A4, pageCompression=1)
-    c.setTitle(u"Fiche enfant - Pêle-Mêle Sports et Loisirs")
+    c.setTitle(u"Fiche %s - Pêle-Mêle Sports et Loisirs" %
+               (u"ados" if donnees.get("modele") == "ados" else u"enfant"))
     c.setAuthor(u"Pêle-Mêle Sports et Loisirs - Noethys-SL")
     _page1(c, donnees)
     c.showPage()
@@ -285,3 +335,12 @@ def GenererPDF(destination, donnees):
     c.showPage()
     c.save()
     return destination
+
+def GenererPDFAdos(destination, donnees):
+    """Fiche Club ados en 2 pages A4, sans créer de dossier séparé."""
+    if not isinstance(donnees, dict):
+        raise ValueError("Donnees de fiche invalides")
+    parametres = dict(donnees)
+    parametres["modele"] = "ados"
+    parametres["autorisation_modele"] = u"Fiche Ados 2026-11"
+    return GenererPDF(destination, parametres)
