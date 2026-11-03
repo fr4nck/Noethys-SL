@@ -128,10 +128,19 @@ class ContratPAI(unittest.TestCase):
 
 class AutorisationsTracables(unittest.TestCase):
     def test_catalogue_inclut_les_autorisations_validees(self):
-        self.assertEqual(len(F.AUTORISATIONS), 7)
+        self.assertEqual(len(F.AUTORISATIONS), 8)
         for categorie in ("piscine_baignade", "photos_prise", "photos_reseaux_sociaux",
                           "maquillage", "activites_physiques"):
             self.assertIn(categorie, F.AUTORISATIONS)
+
+    def test_depart_seul_distinct_des_autres_autorisations(self):
+        self.assertIn("depart_seul", F.AUTORISATIONS)
+        p = preuve(type="depart_seul", valeur=1)
+        d = F.ConstruireFiche(11, JOUR, DROITS, autorisations=[p])
+        self.assertEqual(d["autorisations"]["depart_seul"]["etat"], "oui")
+        self.assertEqual(d["autorisations"]["piscine_baignade"]["etat"],
+                         "non_renseigne")
+        self.assertFalse(any(d["portail"].values()))
 
     def test_aucune_preuve_ne_signifie_pas_non(self):
         self.assertEqual(F.EtatAutorisation([], 11, "piscine_baignade", JOUR),
