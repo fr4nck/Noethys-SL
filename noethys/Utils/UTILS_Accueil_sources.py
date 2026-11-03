@@ -146,10 +146,14 @@ def PreparerRubriquesMedicales(medical, au=None):
         details = [nom]
         if description:
             details.append(description)
-        if pb.get("traitement_medical") is True and consignes and _periode_active(
+        if pb.get("traitement_medical") is True and _periode_active(
                 pb, au, "date_debut_traitement", "date_fin_traitement"):
-            traitements.append(u"%s : %s" % (nom, consignes))
-            details.append(u"Traitement : %s" % consignes)
+            if consignes:
+                traitements.append(u"%s : %s" % (nom, consignes))
+                details.append(u"Traitement : %s" % consignes)
+            else:
+                traitements.append(u"%s : traitement signalé, détails non renseignés" % nom)
+                details.append(u"Traitement signalé, détails non renseignés")
         informations.append(u" — ".join(details))
         if est_allergie:
             allergies.append(u" : ".join(x for x in (nom, description) if x))
