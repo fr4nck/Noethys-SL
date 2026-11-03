@@ -93,6 +93,43 @@ class LectureTests(unittest.TestCase):
         self.assertEqual(r["exclusions"]["absences"], 4)
         self.assertTrue(all(s.lstrip().upper().startswith("SELECT") for s in self.db.queries))
 
+    def test_reservation_passee_facturee_retient_participation_sans_presence(self):
+        self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (601, "editee"))
+        self.db.db.execute("INSERT INTO prestations VALUES (?, ?, ?)", (701, 601, 11.54))
+        self.db.db.execute("UPDATE consommations SET IDprestation=701 WHERE IDconso=4")
+        importe = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
+        self.assertIn((3, "facturee_non_presente", "1"),
+                      [(x["mois"], x["nature"], x["nombre"]) for x in importe["jours"]])
+        self.assertEqual(importe["exclusions"]["reservations_passees"], 0)
+        d = modele("Bais", 2026, "2026-10-29")
+        d["jours"] = importe["jours"]
+        d["controles"] = dict.fromkeys(d["controles"], True)
+        d["conventions"][0]["tarif_confirme"] = True
+        t = calculer(d)["totaux"]
+        self.assertEqual(t["journees_reelles"], 1)
+        self.assertEqual(t["journees_facturees_non_presentes"], 1)
+        self.assertEqual(t["participation_facturee_non_presente"], 1154)
+        self.assertEqual(t["participation_estimee"], 3462)
+        self.assertIsNone(t["solde_verifie"])
+
+    def test_facture_annulee_ne_rehabilite_pas_reservation(self):
+        self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (602, "annulation"))
+        self.db.db.execute("INSERT INTO prestations VALUES (?, ?, ?)", (702, 602, 11.54))
+        self.db.db.execute("UPDATE consommations SET IDprestation=702 WHERE IDconso=4")
+        importe = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
+        self.assertEqual(importe["exclusions"]["reservations_passees"], 1)
+        self.assertEqual(sum(x["nature"] == "facturee_non_presente" for x in importe["jours"]), 0)
+
+    def test_absence_justifiee_facturee_retenue_financierement(self):
+        self.db.db.execute("INSERT INTO factures VALUES (?, ?)", (603, "editee"))
+        self.db.db.execute("INSERT INTO prestations VALUES (?, ?, ?)", (703, 603, 11.54))
+        self.db.db.execute(
+            "INSERT INTO consommations (IDconso, IDindividu, date, IDactivite, IDunite, etat, IDprestation)"
+            " VALUES (7,20,'2026-03-07',1,101,'absentj',703)")
+        importe = importer_journees(2026, "2026-10-29", "Bais", self.mapping, db=self.db)
+        self.assertIn("facturee_non_presente", [x["nature"] for x in importe["jours"]])
+        self.assertTrue(all(sql.lstrip().upper().startswith("SELECT") for sql in self.db.queries))
+
     def test_domiciliation_chaussee_vers_reference_et_cycle_refuse(self):
         villes = resoudre_villes({1:(None,"Bais"),2:(1,None),3:(4,None),4:(3,None),5:(99,None)})
         self.assertEqual(villes[2], "Bais")
