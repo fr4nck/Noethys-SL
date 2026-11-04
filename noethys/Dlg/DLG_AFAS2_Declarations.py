@@ -96,6 +96,7 @@ class Dialog(wx.Dialog):
         for libelle, methode in (("Préparer les 4 ALSH PMSL", self.OnPreparerQuatreALSH),
                                  ("Référentiel…", self.OnReferentiel), ("Calculer", self.OnCalculer),
                                  ("Exporter la déclaration…", self.OnExporterDeclaration), ("Exporter le contrôle…", self.OnExporterControle),
+                                 ("Contrôles septembre (4 ALSH)…", self.OnCampagneSeptembre),
                                  ("Historique…", self.OnHistorique)):
             bouton = wx.Button(self, label=libelle)
             bouton.Bind(wx.EVT_BUTTON, methode)
@@ -444,6 +445,41 @@ class Dialog(wx.Dialog):
         except (ValueError, Referentiel.ReferentielInvalide) as erreur:
             self.Erreur("Préparation ALSH impossible : %s" % erreur)
             return False
+
+    def OnCampagneSeptembre(self, event, dossier=None):
+        """Produit les quatre dossiers de controle CAF avec un recapitulatif."""
+        if self.erreur_referentiel:
+            self.Erreur("Référentiel AFAS invalide : " + self.erreur_referentiel)
+            return None
+        attendus = [nom for nom, mode, equipement, sites in Presets._CONFIGURATIONS_PMSL]
+        enregistres = {Presets._normalise(nom): ID
+                       for ID, nom in Presets.ListerPresets()}
+        absents = [nom for nom in attendus if Presets._normalise(nom) not in enregistres]
+        if absents:
+            self.Erreur("Profils ALSH manquants : " + ", ".join(absents)
+                        + "\nUtiliser d'abord « Préparer les 4 ALSH PMSL ».")
+            return None
+        dossier = dossier or self._dossier()
+        if not dossier:
+            return None
+        try:
+            profils = [Presets.ChargerPreset(enregistres[Presets._normalise(nom)])
+                       for nom in attendus]
+            campagne = Declaration.CampagneSeptembre(
+                self.ctrl_annee.GetValue(), self.referentiel, profils)
+            chemin = Declaration.ExporterCampagneSeptembre(
+                dossier, self.ctrl_annee.GetValue(), campagne)
+        except (ValueError, OSError) as erreur:
+            self.Erreur("Campagne de septembre impossible : %s" % erreur)
+            return None
+        conformes = sum(l["etat"] == "VALIDABLE" for l in campagne)
+        self.Message(
+            "%d contrôles ALSH créés. %d validable(s), %d avec actions à traiter.\n"
+            "Récapitulatif : %s\n"
+            "Aucune déclaration n'a été envoyée à la Caf."
+            % (len(campagne), conformes, len(campagne) - conformes,
+               os.path.basename(chemin)))
+        return chemin
 
     # ------------------------------------------------------------------ calcul et exports
     def Calculer(self):
