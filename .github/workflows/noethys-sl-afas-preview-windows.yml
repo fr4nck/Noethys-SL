@@ -1,0 +1,92 @@
+name: Noethys SL - AFAS septembre 2026 portable de recette Windows
+
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-afas-preview-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recette-portable:
+    name: Construire portable AFAS 2026 non publie
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: ${{ github.workspace }}\\noethys;${{ github.workspace }}\\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Installer les dependances du candidat sur runner ephemere
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-afas-preview.txt -Encoding UTF8
+          python -m pip install -r requirements-afas-preview.txt
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+
+      - name: Compiler et verifier la declaration AFAS
+        shell: pwsh
+        run: |
+          python -m compileall -q noethys/Utils/UTILS_AFAS2_*.py noethys/Dlg/DLG_AFAS2_Declarations.py
+          if ($LASTEXITCODE -ne 0) { throw 'Compilation AFAS echouee' }
+          python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface
+          if ($LASTEXITCODE -ne 0) { throw 'Tests AFAS echoues' }
+
+      - name: Construire Noethys.exe avec interface AFAS
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+          if ($LASTEXITCODE -ne 0) { throw 'Construction Noethys.exe impossible' }
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Binaire absent' }
+
+      - name: Verifier les modules AFAS dans le binaire
+        shell: pwsh
+        run: |
+          $inventaire = Join-Path $env:RUNNER_TEMP 'modules-afas-2026.txt'
+          pyi-archive_viewer -l -r dist/Noethys/Noethys.exe |
+            Set-Content -LiteralPath $inventaire
+          if ($LASTEXITCODE -ne 0) { throw 'Inventaire PyInstaller impossible' }
+          foreach ($module in @('Dlg.DLG_AFAS2_Declarations', 'Utils.UTILS_AFAS2_Calcul', 'Utils.UTILS_AFAS2_Declaration', 'Utils.UTILS_AFAS2_Presets', 'Utils.UTILS_AFAS2_Donnees')) {
+            if (-not (Select-String -LiteralPath $inventaire -SimpleMatch -Pattern $module -Quiet)) {
+              throw "Module absent du candidat : $module"
+            }
+          }
+
+      - name: Produire un portable de recette isole
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path 'afas-output' -Force | Out-Null
+          @(
+            'Noethys SL / AFAS V2 - recette Windows du 04/11/2026'
+            'Ce portable est un CANDIDAT DE RECETTE, non publie.'
+            'Ne pas remplacer une installation stable avec ce candidat.'
+            'Les clients mysql/mysqldump ne sont PAS inclus dans ce paquet rapide.'
+            'Les fonctions de sauvegarde et de restauration exigent le paquet RC10.5 complet.'
+            "Commit: $env:GITHUB_SHA"
+            "Workflow run: $env:GITHUB_RUN_ID"
+          ) | Set-Content -Path 'dist/Noethys/AFAS-RECETTE-LISEZ-MOI.txt' -Encoding UTF8
+          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip' -Force
+          if ($LASTEXITCODE -ne 0) { throw 'Archive AFAS impossible' }
+          if ((Get-Item 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip').Length -lt 1000000) {
+            throw 'Archive AFAS anormalement petite'
+          }
+          $hash = (Get-FileHash -LiteralPath 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Noethys-SL-AFAS-2026-Windows-recette.zip" |
+            Set-Content -Path 'afas-output/SHA256SUMS.txt' -Encoding ASCII
+
+      - name: Livrer le candidat pour recette uniquement
+        uses: actions/upload-artifact@v7
+        with:
+          name: noethys-sl-afas-2026-windows-recette
+          path: afas-output/*
+          if-no-files-found: error
+          retention-days: 7
