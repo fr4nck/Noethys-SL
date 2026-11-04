@@ -946,7 +946,7 @@ class Dialog(wx.Dialog):
         self.date_fin = None
 
         # Bandeau
-        intro = _(u"Vous pouvez ici générer l'état global des consommations. Pour préparer une déclaration CAF/AFAS, utilisez le menu Consommations > Déclarations AFAS (V2). Les résultats de cet état global sont des outils de suivi à contrôler, pas une déclaration CAF validée. Commencez par saisir une période de référence et sélectionnez une ou plusieurs activités. Après avoir renseigné les paramètres de calcul et les options, vous pouvez cliquer sur le bouton de sauvegarde d'un profil pour mémoriser la configuration. Vous pourrez ainsi la réutiliser facilement ultérieurement.")
+        intro = _(u"Vous pouvez ici générer l'état global des consommations. C'est ici que vous pouvez notamment extraire des données à destination de la CAF ou de la MSA. Commencez par saisir une période de référence et sélectionnez une ou plusieurs activités. Après avoir renseigné les paramètres de calcul et les options, vous pouvez cliquer sur le bouton de sauvegarde d'un profil pour mémoriser la configuration. Vous pourrez ainsi la réutiliser facilement ultérieurement.")
         titre = _(u"Etat global des consommations")
         self.ctrl_bandeau = CTRL_Bandeau.Bandeau(self, titre=titre, texte=intro, hauteurHtml=30, nomImage="Images/32x32/Tableaux.png")
         self.SetTitle(titre)
@@ -964,18 +964,14 @@ class Dialog(wx.Dialog):
         self.ctrl_options.SetMinSize((-1, 130))
 
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
-        # Bouton CAF / AFAS masqué provisoirement (23/10/2026) : le calcul AFAS V1
-        # n'est pas qualifié pour une déclaration CAF. Le code AFAS (OnAFAS,
-        # DLG_AFAS_Actualisation, Utils) est conservé mais n'est plus raccordé.
-        # Voir docs/incidents/2026-10-23-afas-v1-bouton-masque.md.
         self.bouton_afas = wx.Button(self, label="CAF / AFAS")
-        self.bouton_afas.Hide()
         self.bouton_ok = CTRL_Bouton_image.CTRL(self, texte=_(u"Aperçu"), cheminImage="Images/32x32/Apercu.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         self.__set_properties()
         self.__do_layout()
 
+        self.Bind(wx.EVT_BUTTON, self.OnAFAS, self.bouton_afas)
         self.Bind(wx.EVT_BUTTON, self.Apercu, self.bouton_ok)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
@@ -1031,9 +1027,10 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
 
         # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
+        grid_sizer_boutons.Add(self.bouton_afas, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_ok, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_boutons.AddGrowableCol(1)
@@ -1066,22 +1063,9 @@ class Dialog(wx.Dialog):
         return dictParametres
 
     def SetParametres(self, dictParametres={}):
-        """Importation des paramètres sans correction silencieuse en base."""
-        from Utils import UTILS_AFAS_ProfilsHistoriques
-        nom_profil = self.panel_parametres.ctrl_profil.ctrl_choix_profil.GetStringSelection()
-        parametres, corrige = UTILS_AFAS_ProfilsHistoriques.PreparerProfilCAFHistorique(
-            nom_profil, dictParametres)
-        self.ctrl_parametres.SetParametres(parametres)
-        self.ctrl_options.SetParametres(parametres)
-        if corrige:
-            wx.MessageBox(
-                "Le profil CAF historique retenait aussi les réservations et les absences. "
-                "Pour les heures réalisées, seul 'Présent' a été sélectionné dans cet écran. "
-                "Le profil enregistré n'est pas modifié : cliquez sur la disquette "
-                "si vous souhaitez conserver ce réglage. Pour une déclaration CAF, "
-                "utilisez 'Consommations > Déclarations AFAS' (V2).",
-                "Profil CAF historique : sélection corrigée",
-                wx.OK | wx.ICON_WARNING, self)
+        """Importation fidèle des paramètres sélectionnés et enregistrés."""
+        self.ctrl_parametres.SetParametres(dictParametres)
+        self.ctrl_options.SetParametres(dictParametres)
 
     def OnAFAS(self, event):
         activites = self.panel_parametres.GetActivites()
@@ -1131,18 +1115,6 @@ class Dialog(wx.Dialog):
         if self.ctrl_options.Validation() == False :
             return False
         dict_options = self.ctrl_options.GetParametres()
-
-        # Un profil CAF V1 chargé depuis la base peut contenir les quatre
-        # états historiques. Aucune absence/réservation n'est admise comme
-        # heure réalisée, même après modification manuelle de la sélection.
-        from Utils import UTILS_AFAS_ProfilsHistoriques
-        nom_profil = self.panel_parametres.ctrl_profil.ctrl_choix_profil.GetStringSelection()
-        erreur_caf = UTILS_AFAS_ProfilsHistoriques.ErreurEtatsProfilCAFHistorique(
-            nom_profil, dict_options.get("etat_consommations"))
-        if erreur_caf:
-            wx.MessageBox(erreur_caf, "Profil CAF : états incompatibles",
-                          wx.OK | wx.ICON_WARNING, self)
-            return False
 
         modeAffichage = dict_options["format_donnees"]
         modePeriodesDetail = dict_options["periodes_detaillees"]
