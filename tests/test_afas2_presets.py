@@ -135,6 +135,7 @@ class ValidationTests(unittest.TestCase):
 
     def test_nom_du_preset_peut_preciser_mois_annee_phase_sans_modifier_le_calcul(self):
         noms = [
+            "Bais - Réel Septembre / Prèv Décembre",
             "ALSH Bais septembre 2026",
             "Bais actualisation de juin 2026",
             "Bais prévisionnel",
