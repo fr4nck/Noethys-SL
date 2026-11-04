@@ -185,6 +185,118 @@ def NouveauPreset(nom, mode, equipement, sites=None, unites=None, plages=None):
     return preset
 
 
+
+# Initialisation guidee des quatre dossiers ALSH de PMSL sur la base Noethys.
+# Les identifiants ne sont jamais deduits d'une position dans un tableau :
+# l'activite et les noms EXACTS en base sont controles avant toute ecriture.
+_CONFIGURATIONS_PMSL = (
+    ("Bais périscolaire", Conventions.PERISCOLAIRE, Conventions.EQUIPEMENT_BAIS,
+     (Referentiel.BAIS_PLUS_6, Referentiel.BAIS_MOINS_6)),
+    ("Bais extrascolaire", Conventions.EXTRASCOLAIRE, Conventions.EQUIPEMENT_BAIS,
+     (Referentiel.BAIS_PLUS_6, Referentiel.BAIS_MOINS_6)),
+    ("La Guerche - Moutiers périscolaire", Conventions.PERISCOLAIRE,
+     Conventions.EQUIPEMENT_LA_GUERCHE_MOUTIERS, (Referentiel.LA_GUERCHE, Referentiel.MOUTIERS)),
+    ("La Guerche - Moutiers extrascolaire", Conventions.EXTRASCOLAIRE,
+     Conventions.EQUIPEMENT_LA_GUERCHE_MOUTIERS, (Referentiel.LA_GUERCHE, Referentiel.MOUTIERS)),
+)
+
+_ALIAS_GROUPES_PMSL = {
+    Referentiel.BAIS_PLUS_6: ("bais +6", "bais +6 ans"),
+    Referentiel.BAIS_MOINS_6: ("bais -6", "bais -6 ans"),
+    Referentiel.LA_GUERCHE: ("la guerche", "la guerche-de-bretagne", "la guerche de bretagne"),
+    Referentiel.MOUTIERS: ("moutiers",),
+}
+
+# Les categories annexes ne creent pas d'heures d'accueil supplementaires.
+# Les autres unites restent a qualifier explicitement et ne sont pas ignorees.
+_UNITES_PMSL = {
+    "journee": ("accueil", "journee"),
+    "matin": ("accueil", "demi_journee"),
+    "apres-midi": ("accueil", "demi_journee"),
+    "repas": ("repas", "repas"),
+    "garderie du matin": ("garderie_matin", "garderie_matin"),
+    "garderie du soir": ("garderie_soir", "garderie_soir"),
+}
+_ANNEXES_PMSL = ("animation", "sortie", "majoration garderie")
+
+
+def PreparerQuatrePresetsPMSL(groupes, unites, referentiel):
+    """Precalcule les 4 profils ALSH et un referentiel non ecrit.
+
+    Parametres : groupes = {IDgroupe: (IDactivite, nom)} ;
+    unites = {IDunite: {IDactivite, nom, heure_debut, heure_fin, ...}}.
+    Refus si une correspondance est absente/ambigue ou deja differente.
+    Ne modifie aucun argument et ne touche jamais a la base.
+    Les minicamps et le Club Ados ne sont PAS integres a ces quatre profils.
+    """
+    reference = copy.deepcopy(Referentiel.MigrerReferentiel(referentiel))
+    if not isinstance(groupes, dict) or not isinstance(unites, dict):
+        raise PresetInvalide("Groupes et unités Noethys requis pour préparer AFAS")
+    if not isinstance(reference, dict) or not isinstance(reference.get("sites"), dict):
+        raise PresetInvalide("Référentiel AFAS absent ou invalide")
+    utilises = set()
+    for site, alias in _ALIAS_GROUPES_PMSL.items():
+        correspondances = [(idg, act, nom) for idg, (act, nom) in groupes.items()
+                           if act == 1 and Referentiel.NomNormalise(nom) in alias]
+        if len(correspondances) != 1:
+            raise PresetInvalide("%s : %d groupe(s) Noethys reconnus ; une seule correspondance attendue"
+                                 % (site, len(correspondances)))
+        identifiant, activite, nom = correspondances[0]
+        if identifiant in utilises:
+            raise PresetInvalide("Deux sites sont reliés au même groupe")
+        utilises.add(identifiant)
+        lien = {"IDactivite": activite, "IDgroupe": identifiant, "nom_groupe": nom,
+                "equipement": Referentiel.EQUIPEMENT_DOCUMENTE[site]}
+        existant = reference["sites"].get(site)
+        if existant is not None and existant != lien:
+            raise PresetInvalide("%s : correspondance AFAS déjà saisie différente ; aucune modification automatique"
+                                 % site)
+        reference["sites"][site] = lien
+
+    # Verification du jeu de six unites d'accueil du 22/10/2026.
+    noms_requis = set(_UNITES_PMSL)
+    groupes_unites = {}
+    for IDunite, unite in unites.items():
+        if unite.get("IDactivite") != 1:
+            continue
+        nom = Referentiel.NomNormalise(unite.get("nom", ""))
+        groupes_unites.setdefault(nom, []).append((IDunite, unite))
+    for nom in noms_requis:
+        if len(groupes_unites.get(nom, [])) != 1:
+            raise PresetInvalide("Unité ALSH « %s » : correspondance Noethys absente ou ambiguë" % nom)
+
+    Referentiel.ValiderReferentiel(reference, groupes)
+    profils = []
+    for nom_preset, mode, equipement, sites in _CONFIGURATIONS_PMSL:
+        classement, plages = {}, {}
+        for nom, correspondances in groupes_unites.items():
+            for IDunite, unite in correspondances:
+                if nom in _UNITES_PMSL:
+                    categorie = _UNITES_PMSL[nom][0 if mode == Conventions.PERISCOLAIRE else 1]
+                elif nom in _ANNEXES_PMSL:
+                    categorie = "annexe"
+                else:
+                    categorie = "a_qualifier"
+                cle = str(IDunite)
+                classement[cle] = categorie
+                if categorie in Calcul.CATEGORIES_A_PLAGE:
+                    debut, fin = unite.get("heure_debut"), unite.get("heure_fin")
+                    if nom == "repas" and not debut and not fin:
+                        # Plage 12:30-13:30 confirmee pour PMSL ; elle reste
+                        # visible et modifiable dans le dialogue des unites.
+                        plage = "12:30-13:30"
+                    elif debut and fin:
+                        plage = "%s-%s" % (str(debut)[:5], str(fin)[:5])
+                    else:
+                        raise PresetInvalide("Unité « %s » : horaire de début/fin incomplet" % unite.get("nom"))
+                    ValiderPlage(plage)
+                    plages[cle] = plage
+        candidat = NouveauPreset(nom_preset, mode, equipement, sites=sites,
+                                 unites=classement, plages=plages)
+        profils.append(ValiderPreset(candidat))
+    return reference, profils
+
+
 def Empreinte(objet):
     """SHA-256 du JSON canonique (clés triées, UTF-8)."""
     texte = json.dumps(objet, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
