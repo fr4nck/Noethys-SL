@@ -31,7 +31,7 @@ permissions:
 # Un lancement explicite de PUBLICATION est dans un groupe distinct :
 # un push de code ne doit jamais interrompre cette operation sensible.
 concurrency:
-  group: noethys-sl-rc105-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' && inputs.publier == true) && 'release' || 'candidate' }}
+  group: noethys-sl-rc105-express-20261104-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' && inputs.publier == true) && 'release' || 'candidate' }}
   cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.publier == true) }}
 
 jobs:
@@ -106,7 +106,33 @@ jobs:
           tests.test_noethys_sl_ouverture_individu_directe
           tests.test_demarrage_splash
 
+      # La branche de recette est prioritaire : ne rejoue pas toute la
+      # regression Windows historique avant de fabriquer le candidat.
+      # La publication officielle garde, elle, les tests exhaustifs.
+      - name: Contrats ciblés RC10.5 - AFAS septembre, adhésions, factures et communes
+        run: >-
+          python -m unittest -v
+          tests.test_noethys_sl_adhesions
+          tests.test_noethys_sl_adhesions_echeances
+          tests.test_noethys_sl_adhesions_facturation_wx
+          tests.test_noethys_sl_adhesions_inscriptions
+          tests.test_noethys_sl_facturation_cotisations_erreur
+          tests.test_noethys_sl_type_cotisation_saisie
+          tests.test_noethys_sl_type_cotisation_erreurs
+          tests.test_noethys_sl_frequentation_collectivites
+          tests.test_noethys_sl_frequentation_collectivites_db
+          tests.test_noethys_sl_frequentation_choix_absenti
+          tests.test_type_structure_familles
+          tests.test_afas2_calcul
+          tests.test_afas2_calendrier
+          tests.test_afas2_conventions
+          tests.test_afas2_declaration
+          tests.test_afas2_interface
+          tests.test_afas2_presets
+          tests.test_afas2_referentiel_donnees
+
       - name: Vérifier les contrats critiques du candidat (tests de régression inclus)
+        if: github.event_name == 'workflow_dispatch' && inputs.publier == true
         run: >-
           python -m unittest
           tests.test_vanilla_identite_noethys_sl
@@ -373,7 +399,8 @@ jobs:
             'Communes: toute journee valide facturee compte dans la frequentation, sans discrimination de statut'
             'Budget CAF: partie financiere renseignee separement par la direction; aucune ventilation inventee'
             'Details: Versions.txt et docs/releases/noethys-sl-0.1.0-rc.10.5.md'
-            'Version interne: 1.3.4.4 ; aucune migration'
+            'Qualification: candidat de recette - tests cibles obligatoires ; publication officielle soumise a la suite exhaustive'
+          'Version interne: 1.3.4.4 ; aucune migration'
             "Commit: $env:GITHUB_SHA"
             "Branche: $env:GITHUB_REF_NAME"
             "Workflow run: $env:GITHUB_RUN_ID"
