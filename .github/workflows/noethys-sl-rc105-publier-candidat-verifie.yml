@@ -1,0 +1,136 @@
+name: Noethys SL RC10.5 - publication de la preversion verifiee
+
+# Publication ponctuelle demandee par la direction le 04/11/2026.
+# Seul le candidat Windows PASS du run 41866887880 est autorise.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-rc105-publier-candidat-verifie.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: noethys-sl-rc105-publish-verified-once
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    if: contains(github.event.head_commit.message, '[publish rc105 proof 41866887880]')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Reprendre le code source EXACT du candidat qualifie
+        uses: actions/checkout@v7
+        with:
+          ref: dcf57c064e81a37fd0f338f9b2f5fd0d5241a7ac
+          persist-credentials: false
+
+      - name: Verifier la provenance du candidat et son empreinte d'archive
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = 'dcf57c064e81a37fd0f338f9b2f5fd0d5241a7ac'
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/41866887880" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne $expected) {
+            throw 'Candidat Windows non valide ou SHA different.'
+          }
+          $art = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/41866887880/artifacts" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Inventaire artefacts impossible' }
+          $candidats = @($art.artifacts | Where-Object { $_.name -eq 'Noethys-SL-0.1.0-rc.10.5-Windows-candidat' -and -not $_.expired })
+          if ($candidats.Count -ne 1 -or $candidats[0].digest -ne 'sha256:de3957c46cc2db1797b6e883cf750510a52eb3a0231ee1beb37b0a196f111da9') {
+            throw 'Artefact exact du candidat absent ou empreinte differente.'
+          }
+          if (-not (Test-Path 'docs/releases/noethys-sl-0.1.0-rc.10.5.md')) {
+            throw 'Notes de RC10.5 absentes du SHA qualifie'
+          }
+
+      - name: Telecharger UNIQUEMENT les fichiers du candidat exact
+        uses: actions/download-artifact@v7
+        with:
+          name: Noethys-SL-0.1.0-rc.10.5-Windows-candidat
+          path: windows-output
+          repository: fr4nck/Noethys-SL
+          run-id: 41866887880
+          github-token: ${{ github.token }}
+
+      - name: Verifier les deux binaires et les checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $noms = @(
+            'Noethys-SL-0.1.0-rc.10.5-Setup.exe',
+            'Noethys-SL-0.1.0-rc.10.5-Windows-portable.zip'
+          )
+          foreach ($nom in $noms) {
+            $f = Join-Path 'windows-output' $nom
+            if (-not (Test-Path $f) -or (Get-Item $f).Length -lt 20000000) {
+              throw "Livrable RC10.5 absent ou trop petit : $nom"
+            }
+          }
+          $checksum = 'windows-output/SHA256SUMS.txt'
+          if (-not (Test-Path $checksum)) { throw 'SHA256SUMS absent' }
+          $lignes = @(Get-Content -LiteralPath $checksum | Where-Object { $_.Trim() })
+          if ($lignes.Count -ne 2) { throw 'Exactement deux empreintes attendues' }
+          $valides = @()
+          foreach ($ligne in $lignes) {
+            if ($ligne -notmatch '^([0-9a-fA-F]{64})\s{2}(.+)$') {
+              throw "Format SHA256SUMS invalide"
+            }
+            $reference = $Matches[1].ToLowerInvariant()
+            $nom = $Matches[2]
+            if ($noms -notcontains $nom -or $valides -contains $nom) {
+              throw "Livrable inattendu ou duplique : $nom"
+            }
+            $obtenu = (Get-FileHash -LiteralPath (Join-Path 'windows-output' $nom) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($obtenu -ne $reference) { throw "Echec SHA256 : $nom" }
+            $valides += $nom
+          }
+          if ($valides.Count -ne 2) { throw 'Verification incomplete des deux binaires' }
+
+      - name: Publier la preversion de recette sur GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'noethys-sl-0.1.0-rc.10.5'
+          $target = 'dcf57c064e81a37fd0f338f9b2f5fd0d5241a7ac'
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag deja existante : aucun ecrasement" }
+          gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $tag deja existant : aucun ecrasement" }
+          $notes = Join-Path $env:RUNNER_TEMP 'RC105-RELEASE-NOTES.md'
+          @(
+            '# Noethys SL 0.1.0 RC10.5 - preversion Windows pour recette'
+            ''
+            'Candidat Windows construit et qualifie : workflow GitHub Actions 41866887880.'
+            'Source exacte : dcf57c064e81a37fd0f338f9b2f5fd0d5241a7ac.'
+            ''
+            'Cette preversion regroupe AFAS septembre 2026 (quatre ALSH et Club Ados),'
+            'les journees facturees, ainsi que les correctifs adhesions, cotisations,'
+            'facturation, familles, sauvegardes et Connecthys.'
+            ''
+            'Deux formats : Setup Windows et ZIP portable, avec empreintes SHA-256.'
+            'Ne pas remplacer une installation de production sans sauvegarde et recette.'
+            'La qualification terrain sur la base PMSL et la declaration CAF restent distinctes.'
+          ) | Set-Content -LiteralPath $notes -Encoding UTF8
+          $assets = @(
+            'windows-output/Noethys-SL-0.1.0-rc.10.5-Setup.exe',
+            'windows-output/Noethys-SL-0.1.0-rc.10.5-Windows-portable.zip',
+            'windows-output/SHA256SUMS.txt'
+          )
+          gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --target $target --title 'Noethys SL 0.1.0 RC10.5' --notes-file $notes --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Creation de la preversion GitHub impossible' }
+          $publie = gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $publie.tagName -ne $tag -or -not $publie.isPrerelease) {
+            throw 'Identite de release invalide'
+          }
+          $recus = @($publie.assets | ForEach-Object { $_.name })
+          foreach ($f in $assets) {
+            if ($recus -notcontains (Split-Path $f -Leaf)) { throw "Fichier de release manquant : $f" }
+          }
+          Write-Host 'RC10.5 publiee comme preversion GitHub (3 assets).'
