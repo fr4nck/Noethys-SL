@@ -186,28 +186,29 @@ class PeriscolaireTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_realisees"], 2 * H)
 
     def test_repas_periscolaire_est_bien_compte_sans_doublon(self):
-        # Repas : 12h-13h non couvert par l'accueil du matin 07h30-08h45.
-        # Le temps de repas organisé doit compter pour 1 h, pas zéro.
+        # Le repas est toujours dans le calcul, y compris si un ancien
+        # preset conservait l'ancienne valeur false.
         consos = [conso(LUNDI_SCOLAIRE, 101), conso(LUNDI_SCOLAIRE, 104)]
         avec_repas = calculer(M.PERI, consos)
-        sans_repas = calculer(M.PERI, consos, options={"inclure_repas_meridien": False})
+        ancien_preset = calculer(M.PERI, consos, options={"inclure_repas_meridien": False})
         self.assertFalse(avec_repas["bloquant"])
-        self.assertEqual(avec_repas["indicateurs"]["heures_realisees"],
-                         2 * H + 15 * 60)
-        self.assertEqual(sans_repas["indicateurs"]["heures_realisees"],
-                         H + 15 * 60)
-        self.assertEqual(avec_repas["indicateurs"]["heures_realisees"]
-                         - sans_repas["indicateurs"]["heures_realisees"], H)
+        self.assertEqual(avec_repas["indicateurs"]["heures_realisees"], 2 * H + 15 * 60)
+        self.assertEqual(ancien_preset["indicateurs"]["heures_realisees"], 2 * H + 15 * 60)
+        # Plage repas 12h-13h déjà incluse dans l'accueil 11h45-13h45.
+        recouvrement = calculer(
+            M.PERI, [conso(LUNDI_SCOLAIRE, 102), conso(LUNDI_SCOLAIRE, 104)])
+        self.assertEqual(recouvrement["indicateurs"]["heures_realisees"], 2 * H)
 
-    def test_17b_repas_seul_est_bloquant_meme_si_temps_repas_inclus(self):
-        for inclure in (True, False):
-            with self.subTest(inclure=inclure):
+    def test_17b_repas_periscolaire_compte_sans_autre_accueil(self):
+        for ancienne_option in (True, False):
+            with self.subTest(ancienne_option=ancienne_option):
                 r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 104)],
-                             options={"inclure_repas_meridien": inclure})
-                self.assertTrue(r["bloquant"])
-                self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
-                self.assertEqual(r["lignes"][0]["statut"], "bloquee")
-                self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+                             options={"inclure_repas_meridien": ancienne_option})
+                self.assertFalse(r["bloquant"])
+                self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+                self.assertEqual(r["lignes"][0]["statut"], "retenue")
+                self.assertFalse(any("Repas présent sans accueil attesté" in n
+                                     for n in natures(r)))
 
     def test_facture_non_applicable_en_periscolaire(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101)])
@@ -570,24 +571,22 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_realisees"], 5 * H)
         self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)
 
-    def test_repas_seul_non_validable_sans_pointage_accueil(self):
+    def test_repas_periscolaire_sans_autre_pointage_compte_la_plage(self):
         unites = self.unites(104, heure_debut=None, heure_fin=None,
                              plage_declaree="12:30-13:30")
         r = calculer(M.PERI, [self.repas(LUNDI_SCOLAIRE)], unites=unites)
-        self.assertTrue(r["bloquant"])
-        self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
-        # Une anomalie bloquante retire le repas isolé du réalisé.
-        # Il ne doit pas apparaître comme une heure déclarable dans le total.
-        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+        self.assertEqual(r["lignes"][0]["statut"], "retenue")
 
-    def test_repas_avec_seulement_une_absence_accueil_est_non_validable(self):
+    def test_repas_present_compte_meme_avec_accueil_absentj(self):
         unites = self.unites(104, heure_debut=None, heure_fin=None,
                              plage_declaree="12:30-13:30")
         consos = [conso(LUNDI_SCOLAIRE, 107, etat="absentj"),
                   self.repas(LUNDI_SCOLAIRE)]
         r = calculer(M.PERI, consos, unites=unites)
-        self.assertTrue(r["bloquant"])
-        self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], H)
 
     def test_repas_et_matin_de_meme_site_reste_admis(self):
         unites = self.unites(104, heure_debut=None, heure_fin=None,
@@ -597,40 +596,48 @@ class RepasUnitaireSansHorairesTests(unittest.TestCase):
         self.assertFalse(any("Repas présent sans accueil attesté" in n for n in natures(r)))
         self.assertFalse(r["bloquant"])
 
-    def test_repas_isole_avec_plage_confirmee_ne_credite_ni_peri_ni_extra(self):
+    def test_repas_seul_periscolaire_compte_extra_reste_independant(self):
         for mode, date in ((M.PERI, LUNDI_SCOLAIRE), (M.EXTRA, LUNDI_VACANCES)):
             with self.subTest(mode=mode):
                 unites = self.unites(104, heure_debut=None, heure_fin=None,
                                      plage_declaree="12:30-13:30")
                 r = calculer(mode, [self.repas(date)], unites=unites)
-                self.assertTrue(r["bloquant"])
-                self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
-                self.assertEqual(r["lignes"][0]["statut"], "bloquee")
+                if mode == M.PERI:
+                    self.assertFalse(r["bloquant"])
+                    self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+                    self.assertEqual(r["lignes"][0]["statut"], "retenue")
+                else:
+                    self.assertTrue(r["bloquant"])
+                    self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+                    self.assertEqual(r["lignes"][0]["statut"], "bloquee")
 
-    def test_repas_avec_garderie_seule_ne_compte_pas_pour_presence_principale(self):
+    def test_repas_periscolaire_avec_garderie_seule_compte_sans_garderie_caf(self):
         unites = self.unites(104, heure_debut=None, heure_fin=None,
                              plage_declaree="12:30-13:30")
         r = calculer(M.PERI, [self.repas(LUNDI_SCOLAIRE), conso(LUNDI_SCOLAIRE, 106)],
                      unites=unites)
-        self.assertTrue(r["bloquant"])
-        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], H)
         self.assertEqual(r["indicateurs"]["garderie_soir"], 30 * 60)
 
-    def test_absence_et_reservation_de_journee_ne_qualifient_pas_repas(self):
+    def test_etat_d_une_autre_unite_ne_conditionne_pas_repas_periscolaire(self):
         for etat in ("absentj", "absenti", "reservation"):
             with self.subTest(etat=etat):
                 r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 104),
                                         conso(LUNDI_SCOLAIRE, 101, etat=etat)])
-                self.assertTrue(r["bloquant"])
-                self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
-                self.assertTrue(any("Repas présent sans accueil attesté" in n for n in natures(r)))
+                self.assertEqual(r["indicateurs"]["heures_realisees"], H)
+                self.assertFalse(any("Repas présent sans accueil attesté" in n
+                                     for n in natures(r)))
+                # Seule la réservation ancienne de l'autre unité reste
+                # bloquante pour son propre défaut de pointage.
+                self.assertEqual(r["bloquant"], etat == "reservation")
 
-    def test_accueil_sur_autre_site_ne_qualifie_pas_repas(self):
+    def test_repas_periscolaire_compte_independamment_de_l_autre_site(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 104, couple=BAIS_PLUS),
                                conso(LUNDI_SCOLAIRE, 101, couple=BAIS_MOINS)])
-        self.assertTrue(r["bloquant"])
-        self.assertEqual(r["indicateurs"]["heures_realisees"], H + 15 * 60)
-        self.assertEqual(next(l["statut"] for l in r["lignes"] if l["IDunite"] == 104), "bloquee")
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 2 * H + 15 * 60)
+        self.assertEqual(next(l["statut"] for l in r["lignes"] if l["IDunite"] == 104), "retenue")
 
     def test_repas_confirme_et_demi_journee_contigue_en_extra(self):
         # Le Matin réel de PMSL finit à 12:30, contrairement à l'ancien
