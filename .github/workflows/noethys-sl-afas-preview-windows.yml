@@ -8,6 +8,11 @@ on:
       - 'noethys/Utils/UTILS_AFAS2_Presets.py'
       - 'tests/test_afas2_presets.py'
       - 'tests/test_afas2_interface.py'
+      - 'noethys/Dlg/DLG_Etat_global.py'
+      - 'noethys/Ctrl/CTRL_Propertygrid.py'
+      - 'tests/test_noethys_sl_etat_global_historique.py'
+      - 'tests/test_noethys_sl_etat_global_calcul.py'
+      - 'tests/test_noethys_sl_afas_profils_historiques.py'
   workflow_dispatch:
 
 permissions:
@@ -41,10 +46,10 @@ jobs:
         run: |
           python -m compileall -q noethys/Utils noethys/Dlg
           if ($LASTEXITCODE -ne 0) { throw 'Compilation AFAS echouee' }
-          python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface
+          python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface tests.test_noethys_sl_etat_global_historique tests.test_noethys_sl_etat_global_calcul tests.test_noethys_sl_afas_profils_historiques
           if ($LASTEXITCODE -ne 0) { throw 'Tests AFAS echoues' }
 
-      - name: Construire Noethys.exe avec interface AFAS
+      - name: Construire Noethys.exe avec Etat global historique et AFAS
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
@@ -58,7 +63,7 @@ jobs:
           pyi-archive_viewer -l -r dist/Noethys/Noethys.exe |
             Set-Content -LiteralPath $inventaire
           if ($LASTEXITCODE -ne 0) { throw 'Inventaire PyInstaller impossible' }
-          foreach ($module in @('Dlg.DLG_AFAS2_Declarations', 'Utils.UTILS_AFAS2_Calcul', 'Utils.UTILS_AFAS2_Declaration', 'Utils.UTILS_AFAS2_Presets', 'Utils.UTILS_AFAS2_Donnees')) {
+          foreach ($module in @('Dlg.DLG_AFAS2_Declarations', 'Dlg.DLG_Etat_global', 'Ctrl.CTRL_Propertygrid', 'Ctrl.CTRL_Etat_global_options', 'Utils.UTILS_AFAS2_Calcul', 'Utils.UTILS_AFAS2_Declaration', 'Utils.UTILS_AFAS2_Presets', 'Utils.UTILS_AFAS2_Donnees')) {
             if (-not (Select-String -LiteralPath $inventaire -SimpleMatch -Pattern $module -Quiet)) {
               throw "Module absent du candidat : $module"
             }
@@ -71,6 +76,8 @@ jobs:
           @(
             'Noethys SL / AFAS V2 - recette Windows du 04/11/2026'
             'Ce portable est un CANDIDAT DE RECETTE, non publie.'
+            "Etat global : selecteur historique des 4 etats, profils inchanges, alerte CAF supprimee."
+            "Le module AFAS V2 reste independant de l Etat global."
             'Ne pas remplacer une installation stable avec ce candidat.'
             'Les clients mysql/mysqldump ne sont PAS inclus dans ce paquet rapide.'
             'Les fonctions de sauvegarde et de restauration exigent le paquet RC10.5 complet.'
