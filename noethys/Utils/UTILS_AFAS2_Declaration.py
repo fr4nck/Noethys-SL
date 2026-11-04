@@ -354,6 +354,74 @@ def CampagneSeptembre(annee, referentiel, presets, source=None, date_reference=N
     return lignes
 
 
+
+def DossierAdosEnAttente():
+    """Cinquieme dossier CAF, non confondu avec les ALSH ni les minicamps."""
+    return {
+        "nom": "ACC ADOS ASS BAIS",
+        "equipement": Conventions.EQUIPEMENT_BAIS,
+        "mode": "ados",
+        "etat": "CONVENTION_A_QUALIFIER",
+        "motif": ("Club Ados : activité Noethys 68 identifiée, mais convention "
+                  "et règles déclaratives non qualifiées. Ne pas assimiler "
+                  "automatiquement les minicamps de l'activité 74."),
+        "rapport": None,
+    }
+
+
+BUDGET_INITIAL_2026_AG = (
+    ("CHARGES", "60", "Achats", 46195),
+    ("CHARGES", "61", "Services extérieurs", 4440),
+    ("CHARGES", "62", "Autres services extérieurs", 8532),
+    ("CHARGES", "64", "Charges de personnel", 364765),
+    ("PRODUITS", "70", "Produits des services", 290048),
+    ("PRODUITS", "74", "Subventions d'exploitation", 125342),
+    ("PRODUITS", "75", "Autres produits de gestion", 5160),
+    ("PRODUITS", "76", "Produits financiers", 1382),
+    ("PRODUITS", "79", "Transferts de charges (BP détaillé)", 2000),
+)
+
+
+def ExporterReferenceBudget2026(dossier, prefixe, campagne):
+    """Budget initial AG 2026, sans imputation fictive aux cinq dossiers.
+
+    Chaque ligne dossier laisse volontairement le realise jusqu'a septembre
+    et la prevision du quatrieme trimestre vides, a completer avec la
+    comptabilite analytique. Les colonnes initiales sont associatives.
+    """
+    charges = sum(valeur for nature, pcg, nom, valeur in BUDGET_INITIAL_2026_AG
+                  if nature == "CHARGES")
+    produits = sum(valeur for nature, pcg, nom, valeur in BUDGET_INITIAL_2026_AG
+                   if nature == "PRODUITS")
+    if charges != 423932 or produits != charges:
+        raise DeclarationImpossible("Budget AG 2026 incohérent")
+    lignes = [[
+        "Périmètre", "Dossier", "Nature", "Compte",
+        "Poste", "Budget initial 2026 EUR",
+        "Réel janvier-septembre EUR", "Prévision octobre-décembre EUR",
+        "Source", "Statut",
+    ]]
+    source = "Rapport financier et d'activité 2025 ; AG du 30/03/2026 ; budget détaillé 2026 page 33"
+    for nature, pcg, nom, montant in BUDGET_INITIAL_2026_AG:
+        lignes.append(["ASSOCIATION", "", nature, pcg, nom, montant, "", "",
+                       source, "GLOBAL NON VENTILÉ"])
+    lignes.extend([
+        ["ASSOCIATION", "", "CHARGES", "TOTAL", "Total charges initial", charges,
+         "", "", source, "GLOBAL NON VENTILÉ"],
+        ["ASSOCIATION", "", "PRODUITS", "TOTAL", "Total produits initial", produits,
+         "", "", source, "GLOBAL NON VENTILÉ"],
+    ])
+    for item in campagne:
+        for nature in ("CHARGES", "PRODUITS"):
+            lignes.append(["DOSSIER CAF", item["nom"], nature, "TOTAL",
+                           "Total à renseigner par dossier", "",
+                           "", "", "Comptabilité analytique 2026",
+                           "À COMPLÉTER - ne pas reprendre le budget associatif global"])
+    destination = os.path.join(dossier, prefixe + "_BUDGET_INITIAL_AG_2026.csv")
+    _ecrire_csv(destination, lignes)
+    return destination
+
+
 def ExporterCampagneSeptembre(dossier, annee, campagne):
     """Exports de CONTROLE uniquement, par dossier, plus tableau récapitulatif.
 
@@ -390,6 +458,8 @@ def ExporterCampagneSeptembre(dossier, annee, campagne):
         ])
     cible = os.path.join(dossier, prefixe + "_RECAP.csv")
     _ecrire_csv(cible, tableaux)
+    if annee == 2026:
+        ExporterReferenceBudget2026(dossier, prefixe, campagne)
     return cible
 
 
