@@ -296,7 +296,7 @@ class PhasesTests(unittest.TestCase):
         self.assertFalse(r["validable"])
         self.assertTrue(any("non terminée" in m for m in r["motifs_non_validable"]))
         r = executer(preset(), 2026, AFAS.PHASE_ACTUALISATION_JUIN, source_peri(
-            [D(2026, 3, 3)], ouvertures_supp=[D(2025, 7, 7), D(2026, 7, 7)]), date_reference=D(2026, 10, 23))
+            [D(2026, 3, 3)], ouvertures_supp=[D(2025, 9, 4), D(2026, 9, 4)]), date_reference=D(2026, 10, 23))
         self.assertTrue(r["validable"])
 
     def test_convention_jamais_etendue_hors_2025_2027(self):
@@ -535,7 +535,7 @@ class ExportsEtHistoriqueTests(unittest.TestCase):
         premiere = executer(p, 2026, AFAS.PHASE_REEL, source)["empreinte"]
         self.assertEqual(premiere, executer(p, 2026, AFAS.PHASE_REEL, source)["empreinte"])
         self.assertNotEqual(premiere, executer(p, 2026, AFAS.PHASE_ACTUALISATION_JUIN, source_peri(
-            [D(2026, 3, 3)], ouvertures_supp=[D(2025, 7, 7), D(2026, 7, 7)]))["empreinte"])
+            [D(2026, 3, 3)], ouvertures_supp=[D(2025, 9, 4), D(2026, 9, 4)]))["empreinte"])
 
     def test_resume_historique_borne(self):
         source = source_peri([D(2026, 3, 2) + datetime.timedelta(days=i) for i in range(0, 300) if
