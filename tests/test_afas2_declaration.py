@@ -177,6 +177,37 @@ class CampagneSeptembreTests(unittest.TestCase):
         self.assertEqual(campagne[0]["rapport"]["indicateurs"][0]["realise"], 9 * H)
         self.assertEqual(campagne[0]["rapport"]["indicateurs"][0]["prevision"], "non_qualifie")
 
+    def test_cinquieme_dossier_ados_et_budget_ag_global(self):
+        ados = DECL.DossierAdosEnAttente()
+        self.assertEqual(ados["nom"], "ACC ADOS ASS BAIS")
+        self.assertEqual(ados["etat"], "CONVENTION_A_QUALIFIER")
+        self.assertIsNone(ados["rapport"])
+        self.assertEqual(sum(v for n, pcg, lib, v in DECL.BUDGET_INITIAL_2026_AG
+                             if n == "CHARGES"), 423932)
+        self.assertEqual(sum(v for n, pcg, lib, v in DECL.BUDGET_INITIAL_2026_AG
+                             if n == "PRODUITS"), 423932)
+        with tempfile.TemporaryDirectory() as folder:
+            rows = [{"nom": "ALSH PERI ASS BAIS", "equipement": "BAIS",
+                     "mode": "periscolaire", "etat": "CALCUL_IMPOSSIBLE",
+                     "rapport": None, "motif": "jeu fictif"},
+                    ados]
+            summary = DECL.ExporterCampagneSeptembre(folder, 2026, rows)
+            with open(summary, encoding="utf-8-sig", newline="") as f:
+                out = list(csv.reader(f, delimiter=";"))
+            self.assertEqual(len(out), 3)
+            self.assertEqual(out[2][0], "ACC ADOS ASS BAIS")
+            self.assertEqual(out[2][3], "CONVENTION_A_QUALIFIER")
+            budget = next(Path(folder).glob("*_BUDGET_INITIAL_AG_2026.csv"))
+            with budget.open(encoding="utf-8-sig", newline="") as f:
+                lines = list(csv.reader(f, delimiter=";"))
+            self.assertEqual(len(lines), 1 + len(DECL.BUDGET_INITIAL_2026_AG) + 2 + 2 * len(rows))
+            self.assertEqual(
+                [row[5] for row in lines if row[4] == "Total charges initial"],
+                ["423932"])
+            self.assertTrue(all(row[5] == "" for row in lines if row[0] == "DOSSIER CAF"))
+            self.assertTrue(all(row[6] == "" for row in lines if row[0] == "DOSSIER CAF"))
+            self.assertTrue(all(row[7] == "" for row in lines if row[0] == "DOSSIER CAF"))
+
     def test_doublon_profil_et_campagne_vide_refuses(self):
         p = preset()
         with self.assertRaises(DECL.DeclarationImpossible):
