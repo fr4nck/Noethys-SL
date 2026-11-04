@@ -234,6 +234,20 @@ class DialogueTests(unittest.TestCase):
         self.assertEqual(P.ChargerPreset(autre.IDprofil)["format"], 2)
         self.assertNotIn("samedis_avec_ecole", json.dumps(P.ChargerPreset(autre.IDprofil)))
 
+    def test_nom_temporalise_est_enregistre_sans_piloter_annee_ni_phase(self):
+        self.configurer()
+        self.dlg.ctrl_nom.SetValue("ALSH Bais actualisation septembre 2026")
+        self.dlg.ctrl_annee.SetValue(2027)
+        self.dlg.ctrl_phase.SetSelection(1)
+        self.assertTrue(self.dlg.OnEnregistrer(None), self.messages)
+        from Utils import UTILS_AFAS2_Presets as P
+        relu = P.ChargerPreset(self.dlg.IDprofil)
+        self.assertEqual(relu["nom"], "ALSH Bais actualisation septembre 2026")
+        self.assertNotIn("annee", relu)
+        self.assertNotIn("phase", relu)
+        self.assertEqual(self.dlg.ctrl_annee.GetValue(), 2027)
+        self.assertEqual(self.dlg.ctrl_phase.GetSelection(), 1)
+
     def test_annee_et_phase_jamais_dans_le_preset(self):
         self.configurer()
         self.dlg.ctrl_annee.SetValue(2027)
