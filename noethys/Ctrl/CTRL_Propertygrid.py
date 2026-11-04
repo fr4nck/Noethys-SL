@@ -197,38 +197,37 @@ class Propriete_multichoix(ArrayStringProperty):
         return (True, liste_id)
 
     def OnEvent(self, propgrid, primaryEditor, event):
+        """Sélection multiple historique, compatible avec wxPython Phoenix.
+
+        Les identifiants persistés sont ceux de liste_choix, jamais les
+        positions visibles. La validation OK remplace la sélection ;
+        Annuler laisse l'état inchangé.
+        """
         if event.GetEventType() != wx.wxEVT_COMMAND_BUTTON_CLICKED:
             return False
 
-        # Keep the existing choice IDs and values; only replace the selection
-        # dialog because wx.MultiChoiceDialog can show an empty list on Windows.
-        dlg = wx.Dialog(propgrid, title=_(u"Sélection"),
-                        style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        # Revenir au sélecteur natif d'origine. Le dialogue CheckListBox
+        # introduit depuis ne présente plus aucun libellé sur Windows.
+        dlg = wx.MultiChoiceDialog(
+            propgrid,
+            _(u"Cochez les éléments à sélectionner :"),
+            _(u"sélection"),
+            [libelle for identifiant, libelle in self.liste_choix],
+        )
         try:
-            layout = wx.BoxSizer(wx.VERTICAL)
-            layout.Add(wx.StaticText(dlg, label=_(u"Cochez les éléments à sélectionner :")),
-                       0, wx.ALL, 10)
-            liste = wx.CheckListBox(dlg, choices=[label for identifiant, label in self.liste_choix])
-            selections = self.GetValue() or []
-            for index, (identifiant, label) in enumerate(self.liste_choix):
-                liste.Check(index, identifiant in selections)
-            layout.Add(liste, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-            buttons = dlg.CreateButtonSizer(wx.OK | wx.CANCEL)
-            if buttons:
-                layout.Add(buttons, 0, wx.EXPAND | wx.ALL, 10)
-            dlg.SetSizer(layout)
-            dlg.SetMinSize((340, 260))
-            dlg.Fit()
+            etats_selectionnes = self.GetValue() or []
+            dlg.SetSelections([
+                index for index, (identifiant, libelle) in enumerate(self.liste_choix)
+                if identifiant in etats_selectionnes
+            ])
             if dlg.ShowModal() != wx.ID_OK:
                 return False
             self.SetValueInEvent([
-                identifiant for index, (identifiant, label) in enumerate(self.liste_choix)
-                if liste.IsChecked(index)
+                self.liste_choix[index][0] for index in dlg.GetSelections()
             ])
             return True
         finally:
             dlg.Destroy()
-
 
 # -------------------------------------------------------------------------------------------------
 
