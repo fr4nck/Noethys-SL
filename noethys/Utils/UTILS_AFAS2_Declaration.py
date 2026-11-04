@@ -656,6 +656,23 @@ def ExporterControle(dossier, rapport, prefixe):
         [j["date"], j["IDindividu"], "oui" if j["aeeh"] else "non", Heures(j["amplitude"]) if j["amplitude"] else "",
          j.get("plages_ouverture", ""), j.get("justification_facture", "")]
         + [Heures(j.get(cle, 0)) for cle in cles] for j in rapport["jours"]])
+    # Ecarts journaliers tracables pour comparer sans repas le controle
+    # historique aux actes conventionnels CAF. Aucun de ces controles ne
+    # modifie le champ realise ni une consommation.
+    chemins["ecarts_presence"] = os.path.join(dossier, prefixe + "_ECARTS_PRESENCE.csv")
+    _ecrire_csv(chemins["ecarts_presence"], [[
+        "Date", "IDindividu", "Heures physiques", "Heures CAF conventionnelles",
+        "Ecart physique - CAF", "Garderie du matin", "Garderie du soir",
+        "Observation",
+    ]] + [[
+        jour["date"], jour["IDindividu"],
+        Heures(jour.get("heures_physiques")),
+        Heures(jour.get("heures_realisees")),
+        Heures(jour.get("heures_physiques", 0) - jour.get("heures_realisees", 0)),
+        Heures(jour.get("garderie_matin")),
+        Heures(jour.get("garderie_soir")),
+        "Contrôler plafonnement à 9 h, plages déclarées et catégories de l'accueil",
+    ] for jour in rapport["jours"]])
     base = rapport.get("base_prevision")
     if base:
         chemins["prevision_justification"] = os.path.join(
