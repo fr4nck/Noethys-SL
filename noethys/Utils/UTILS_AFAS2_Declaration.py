@@ -148,6 +148,31 @@ def _contexte(preset, referentiel, couples, source, debut, fin, date_reference):
 DELAI_REGULARISATIONS = datetime.timedelta(days=92)
 
 
+def JoursOuvertsEligibles(ouvertures, mode, calendrier, samedis_avec_ecole):
+    """Nombre de jours ouverts relevant effectivement du mode déclaré.
+
+    Une journée ouverte pendant les vacances ne sert PAS à extrapoler
+    les heures périscolaires. Les jours de groupes différents ne sont
+    comptés qu'une fois pour l'indicateur global d'un équipement.
+    """
+    jours = {_date for a, u, g, _date in ouvertures}
+    if mode != Conventions.PERISCOLAIRE:
+        return jours
+    valides, inconnus = set(), []
+    for jour in jours:
+        classe = Calendrier.ModeDate(jour, calendrier, samedis_avec_ecole)
+        if classe == Calendrier.PERISCOLAIRE:
+            valides.add(jour)
+        elif classe in (Calendrier.INCONNU, Calendrier.SAMEDI_A_QUALIFIER):
+            inconnus.append(jour)
+    if inconnus:
+        raise DeclarationImpossible(
+            "Calendrier périscolaire non qualifié pour %d jour(s) d'ouverture, "
+            "dont %s : compléter le calendrier des vacances/samedis"
+            % (len(inconnus), min(inconnus)))
+    return valides
+
+
 def CalculerPeriode(preset, referentiel, couples, source, debut, fin, date_reference):
     contexte = _contexte(preset, referentiel, couples, source, debut, fin, date_reference)
     consommations = source.Consommations(list(couples), debut, fin)
@@ -157,7 +182,9 @@ def CalculerPeriode(preset, referentiel, couples, source, debut, fin, date_refer
             {a for a, g in couples}, {c["IDindividu"] for c in consommations},
             {c.get("IDfamille") for c in consommations}, debut, fin + DELAI_REGULARISATIONS)
     resultat = Calcul.Calculateur(contexte).Calculer(consommations, debut, fin)
-    resultat["jours_ouverts"] = len({date for a, u, g, date in contexte["ouvertures"]})
+    resultat["jours_ouverts"] = len(JoursOuvertsEligibles(
+        contexte["ouvertures"], preset["mode"], contexte["calendrier"],
+        contexte["samedis_avec_ecole"]))
     resultat["periode"] = (debut, fin)
     return resultat
 
@@ -211,7 +238,11 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
     base_prevision = None
     jours_prevision = 0
     if debut_p:
-        jours_prevision = len({d for a, u, g, d in source.Ouvertures(list(couples), debut_p, fin_p)})
+        ouvertures_prevision = source.Ouvertures(list(couples), debut_p, fin_p)
+        jours_prevision = len(JoursOuvertsEligibles(
+            ouvertures_prevision, preset["mode"],
+            source.Calendrier(debut_p, fin_p),
+            Calendrier.SamedisAvecEcole(referentiel["samedis_avec_ecole"])))
         if methode == METHODE_MANUELLE:
             prevision = _prevision_manuelle(valeurs_manuelles, preset["mode"])
         elif methode == METHODE_N1:
