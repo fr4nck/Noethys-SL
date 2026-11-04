@@ -31,6 +31,8 @@ permissions:
 # l'ancienne construction lancée avant la correction du repas périscolaire.
 # Source gelée pour cette recette : repas périscolaire intégré sans condition
 # d'autre accueil ; notes de version relues, tests adaptés et bloquants.
+# CI Windows : règles AFAS et tests wx historiques corrigés sans altérer
+# les protections du moteur, ni le comportement de l'État global.
 # Seul le candidat le plus recent doit consommer les runners Windows.
 # Un lancement explicite de PUBLICATION est dans un groupe distinct :
 # un push de code ne doit jamais interrompre cette operation sensible.
