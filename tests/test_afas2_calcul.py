@@ -185,6 +185,20 @@ class PeriscolaireTests(unittest.TestCase):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 102), conso(LUNDI_SCOLAIRE, 104)])
         self.assertEqual(r["indicateurs"]["heures_realisees"], 2 * H)
 
+    def test_repas_periscolaire_est_bien_compte_sans_doublon(self):
+        # Repas : 12h-13h non couvert par l'accueil du matin 07h30-08h45.
+        # Le temps de repas organisé doit compter pour 1 h, pas zéro.
+        consos = [conso(LUNDI_SCOLAIRE, 101), conso(LUNDI_SCOLAIRE, 104)]
+        avec_repas = calculer(M.PERI, consos)
+        sans_repas = calculer(M.PERI, consos, options={"inclure_repas_meridien": False})
+        self.assertFalse(avec_repas["bloquant"])
+        self.assertEqual(avec_repas["indicateurs"]["heures_realisees"],
+                         2 * H + 15 * 60)
+        self.assertEqual(sans_repas["indicateurs"]["heures_realisees"],
+                         H + 15 * 60)
+        self.assertEqual(avec_repas["indicateurs"]["heures_realisees"]
+                         - sans_repas["indicateurs"]["heures_realisees"], H)
+
     def test_17b_repas_seul_est_bloquant_meme_si_temps_repas_inclus(self):
         for inclure in (True, False):
             with self.subTest(inclure=inclure):
