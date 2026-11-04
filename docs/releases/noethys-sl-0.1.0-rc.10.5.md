@@ -4,6 +4,35 @@ Statut : **candidat de consolidation sur `wx`**. Ce fichier sert de liste
 de contenu pour la prochaine preversion. Il ne certifie ni une installation
 Windows deja diffusee, ni la resolution des incidents de production.
 
+## Consolidation AFAS et adhésions du 4 novembre 2026
+
+- **AFAS V2** : préconfiguration des quatre dossiers ALSH Pêle-Mêle
+  (Bais périscolaire, Bais extrascolaire, La Guerche–Moutiers périscolaire,
+  La Guerche–Moutiers extrascolaire), arrêtés de septembre 2026,
+  calcul et export groupés des contrôles. Le réalisé de janvier à septembre
+  reste récupérable si le prévisionnel du dernier trimestre n'est pas établi.
+- **Club Ados** : cinquième dossier distinct au récapitulatif de campagne ;
+  comptage anonymisé des journées facturées, sans inventer d'heures CAF
+  ou assimiler automatiquement son régime à celui des ALSH.
+- **Communes** : une journée facturée avec facture en vigueur entre dans
+  le compteur unique de fréquentation, qu'elle soit présente, réservée,
+  en absence justifiée ou injustifiée. Les factures annulées sont exclues.
+- **Adhésions / cotisations / #426** : échéances, facturation, inscriptions,
+  types de cotisation, erreurs de vérification et absence de faux zéro.
+  Si le contrôle des cotisations échoue, l'utilisateur peut explicitement
+  continuer avec les seules prestations existantes ; aucune cotisation
+  nouvelle n'est créée implicitement.
+- **Édition Windows RC10.5** : les tests couvrant ces composants ont été
+  ajoutés à la barrière de construction du Setup et du ZIP portable.
+  L'archive de recette AFAS allégée n'est pas l'installateur RC10.5 complet.
+- **Données financières** : elles restent à saisir et valider séparément
+  par la direction ; aucune répartition automatique arbitraire.
+
+Le code peut être qualifié par les tests Windows sans que les chiffres
+réels de la déclaration CAF de septembre soient pour autant validés.
+Le candidat RC10.5 ne constitue ni une déclaration déposée ni une
+publication de production.
+
 ## Jalons de developpement A / B / C / D
 
 Les quatre premiers jalons exploitables sont repertories dans
@@ -103,9 +132,10 @@ demeurent des conditions de livraison, non couvertes par les tests fictifs.
   La cause constatee sur `pelemele` n'est pas etablie sans nouvel essai terrain.
 - **#436 — fiche enfant** : conservation des formulaires, du filtrage des
   donnees sensibles selon habilitations et du registre des autorisations.
-- **Situation ALSH des communes** : conservation du choix explicite des
-  absences injustifiees, separees des presences et des participations,
-  sans activation implicite.
+- **Situation ALSH des communes** : toute journée couverte par une facture
+  non annulée compte comme journée de fréquentation, indépendamment de son
+  état (présent, réservation, absence justifiée ou injustifiée). Les absences
+  injustifiées non facturées restent une option distincte de simulation.
 
 D'autres correctifs pourront rejoindre cette RC10.5 avant gel du SHA.
 Les travaux non qualifies sur `wx` ne sont pas annonces comme correctifs
