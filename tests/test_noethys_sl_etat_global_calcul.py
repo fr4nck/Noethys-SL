@@ -371,6 +371,28 @@ class FiltrageEtatTests(BaseCalculEtatGlobalTests):
         self.assertEqual(total, datetime.timedelta(hours=2))
 
 
+    def test_rapport_historique_compte_librement_les_quatre_etats(self):
+        """Contrôle indépendant d'AFAS : les quatre états restent sélectionnables."""
+        self._inserer_vacances_large()
+        statuts = ("reservation", "present", "absentj", "absenti")
+        self._inserer_consos([
+            self._conso(index + 1, 1, 82, "2026-03-%02d" % (10 + index),
+                        "08:00", "10:00", etat=statut)
+            for index, statut in enumerate(statuts)
+        ])
+        unites = {82: self._unite(82, typeCalcul=1)}
+        def total(etats):
+            res = self._calculer(
+                "2026-03-01", "2026-03-31", unites,
+                self._options(etat_consommations=etats))
+            return res["dict_resultats"][None][0]["petitesVacs"][1]
+        self.assertEqual(total(["present"]), datetime.timedelta(hours=2))
+        self.assertEqual(total(["reservation", "present", "absentj", "absenti"]),
+                         datetime.timedelta(hours=8))
+        self.assertEqual(total(["absentj", "absenti"]), datetime.timedelta(hours=4))
+        self.assertEqual(total(["reservation"]), datetime.timedelta(hours=2))
+
+
 class PeriodeVacancesTests(BaseCalculEtatGlobalTests):
     """Point 9 : distinction période de vacances / hors vacances."""
 
