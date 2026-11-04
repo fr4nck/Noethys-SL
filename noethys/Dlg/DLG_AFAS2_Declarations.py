@@ -74,7 +74,9 @@ class Dialog(wx.Dialog):
         # E-F. Exécution
         self.ctrl_annee = wx.SpinCtrl(self, min=2000, max=2100, initial=datetime.date.today().year)
         self.ctrl_phase = wx.Choice(self, choices=[libelle for code, libelle in Declaration.PHASES])
-        self.ctrl_phase.SetSelection(3)
+        # En novembre 2026, la déclaration attendue est l'actualisation de
+        # septembre ; le réel annuel ne doit pas être proposé par défaut.
+        self.ctrl_phase.SetSelection(2)
         self.ctrl_methode = wx.Choice(self, choices=["Même période de N-1 ajustée aux jours d'ouverture", "Prévision saisie manuellement"])
         self.ctrl_methode.SetSelection(0)
         self.manuels = {cle: wx.TextCtrl(self, size=(80, -1)) for cle in Declaration.INDICATEURS_PREVISION_MANUELLE}
