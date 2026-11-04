@@ -29,6 +29,8 @@ permissions:
 
 # Seul le code corrigé RC10.55 peut être publié. Le nouveau run annule
 # l'ancienne construction lancée avant la correction du repas périscolaire.
+# Source gelée pour cette recette : repas périscolaire intégré sans condition
+# d'autre accueil ; notes de version relues, tests adaptés et bloquants.
 # Seul le candidat le plus recent doit consommer les runners Windows.
 # Un lancement explicite de PUBLICATION est dans un groupe distinct :
 # un push de code ne doit jamais interrompre cette operation sensible.
