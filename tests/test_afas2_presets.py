@@ -128,12 +128,32 @@ class ValidationTests(unittest.TestCase):
             dict(criteres_periodes={"regle_samedis": "calendrier_date", "annee": 2026}),
             dict(criteres_periodes={"regle_samedis": "calendrier_date", "phase": "actualisation_juin"}),
             dict(choix_conventionnels={"inclure_repas_meridien": True, "inclure_garderie_caf": False, "exercice": 2026}),
-            dict(nom="ALSH Bais 2026"), dict(nom="Bais actualisation de juin"), dict(nom="Bais prévisionnel"),
-            dict(nom="Bais septembre"), dict(nom="Date limite"),
         ]
         for modif in cas:
             with self.subTest(modif=modif), self.assertRaises(P.PresetInvalide):
                 P.ValiderPreset(preset(**modif))
+
+    def test_nom_du_preset_peut_preciser_mois_annee_phase_sans_modifier_le_calcul(self):
+        noms = [
+            "ALSH Bais septembre 2026",
+            "Bais actualisation de juin 2026",
+            "Bais prévisionnel",
+            "Actualisation CAF du 1er janvier au 30 septembre 2026",
+            "La Guerche - décembre 2026",
+            "Date limite CAF",
+        ]
+        for nom in noms:
+            with self.subTest(nom=nom):
+                valide = P.ValiderPreset(preset(nom=nom))
+                self.assertEqual(valide["nom"], nom)
+                self.assertNotIn("annee", valide)
+                self.assertNotIn("phase", valide)
+                self.assertNotIn("date_debut", valide)
+
+    def test_nom_vide_ou_trop_long_reste_refuse(self):
+        for nom in ("", "   ", "x" * 121):
+            with self.subTest(nom=nom), self.assertRaises(P.PresetInvalide):
+                P.ValiderPreset(preset(nom=nom))
 
     def test_unites_avec_identifiant_numerique_admises(self):
         # Un IDunite égal à 2026 n'est pas une année : c'est un identifiant.
@@ -282,9 +302,10 @@ class MigrationTests(unittest.TestCase):
             with self.subTest(ancien=ancien), self.assertRaises(P.PresetInvalide):
                 P.MigrerAncienFormat(ancien)
 
-    def test_nom_avec_annee_signale(self):
-        brouillon, a_completer = P.MigrerAncienFormat({"name": "Bais 2026", "activity": "ALSH", "mode": "Périscolaire"})
-        self.assertEqual(brouillon["nom"], "Preset migré")
+    def test_migration_conserve_le_nom_avec_annee(self):
+        brouillon, a_completer = P.MigrerAncienFormat({"name": "Bais septembre 2026", "activity": "ALSH", "mode": "Périscolaire"})
+        self.assertEqual(brouillon["nom"], "Bais septembre 2026")
+        self.assertFalse(any("nom" in item for item in a_completer))
 
 
 class PersistanceTests(unittest.TestCase):
