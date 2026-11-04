@@ -355,17 +355,89 @@ def CampagneSeptembre(annee, referentiel, presets, source=None, date_reference=N
 
 
 
-def DossierAdosEnAttente():
-    """Cinquieme dossier CAF, non confondu avec les ALSH ni les minicamps."""
+def CompterJourneesAdos(consommations, unites):
+    """Inventaire anonymise des journees facturees Club Ados, sans heures CAF.
+
+    Unites Noethys Journee=2 demi-journees, Matin/Apres-midi=1 chacune.
+    Au maximum une journee par enfant et date ; repas/garderie exclus de
+    ce COMPTEUR DE JOURNEES (pas des factures). Tous statuts admis si
+    la facture est valide, y compris absences justifiees.
+    """
+    resultat = {}
+    non_classees = 0
+    for c in consommations:
+        if c.get("IDindividu") is None or c.get("date") is None:
+            continue
+        etat_facture = Referentiel.NomNormalise(c.get("facture_etat") or "")
+        if (c.get("IDprestation") is None or c.get("IDfacture") is None
+                or etat_facture.startswith("annul") or etat_facture == "avoir"
+                or (c.get("prestation_montant") is not None
+                    and c["prestation_montant"] < 0)):
+            continue
+        unite = unites.get(c.get("IDunite"), {})
+        nom = Referentiel.NomNormalise(unite.get("nom", ""))
+        cle = (c["IDindividu"], str(c["date"])[:10])
+        if nom in ("journee", "journee entiere", "journee complete"):
+            categorie = "journee"
+        elif nom in ("matin", "matinee", "demi-journee matin"):
+            categorie = "matin"
+        elif nom in ("apres-midi", "apres midi", "apresmidi", "demi-journee apres-midi"):
+            categorie = "apres_midi"
+        else:
+            # Repas/garderie ne créent pas une seconde journée facturée.
+            if nom not in ("repas", "garderie du matin", "garderie du soir",
+                           "animation", "sortie", "majoration garderie"):
+                non_classees += 1
+            continue
+        resultat.setdefault(cle, set()).add(categorie)
+    demies = sum((2 if "journee" in types else
+                  int("matin" in types) + int("apres_midi" in types))
+                 for types in resultat.values())
+    chevauchements = sum(
+        "journee" in types and len(types) > 1 for types in resultat.values())
+    return {
+        "demi_journees_facturees": demies,
+        "jours_factures": demies / 2.0,
+        "enfants_jours": len(resultat),
+        "chevauchements": chevauchements,
+        "unites_non_classees": non_classees,
+    }
+
+
+def DossierAdosEnAttente(source=None, annee=2026):
+    """Cinquieme dossier CAF. Le comptage facturé ne valide pas la convention."""
+    donnees = None
+    motif = ("Club Ados : convention et règles CAF spécifiques non qualifiées. "
+             "Le mini-camp de l'activité 74 n'est pas intégré.")
+    if source is not None:
+        try:
+            groupes = source.Groupes()
+            couples = [(68, groupe) for groupe, (activite, nom) in groupes.items()
+                       if activite == 68]
+            if couples:
+                consos = source.Consommations(
+                    couples, datetime.date(annee, 1, 1),
+                    datetime.date(annee, 9, 30))
+                unites = source.Unites([68])
+                donnees = CompterJourneesAdos(consos, unites)
+                if donnees["unites_non_classees"]:
+                    motif += (" %d ligne(s) facturée(s) avec unité non reconnue."
+                              % donnees["unites_non_classees"])
+                if donnees["chevauchements"]:
+                    motif += (" %d chevauchement(s) journée/demi-journée plafonné(s)."
+                              % donnees["chevauchements"])
+            else:
+                motif += " Aucun groupe de l'activité Noethys 68 trouvé."
+        except (ValueError, KeyError, TypeError) as erreur:
+            motif += " Inventaire impossible : %s" % erreur
     return {
         "nom": "ACC ADOS ASS BAIS",
         "equipement": Conventions.EQUIPEMENT_BAIS,
         "mode": "ados",
         "etat": "CONVENTION_A_QUALIFIER",
-        "motif": ("Club Ados : activité Noethys 68 identifiée, mais convention "
-                  "et règles déclaratives non qualifiées. Ne pas assimiler "
-                  "automatiquement les minicamps de l'activité 74."),
+        "motif": motif,
         "rapport": None,
+        "controle_ados": donnees,
     }
 
 
@@ -436,7 +508,7 @@ def ExporterCampagneSeptembre(dossier, annee, campagne):
     tableaux = [[
         "Dossier", "Équipement", "Mode", "Résultat", "Heures réalisées",
         "Heures facturées", "Jours ouverts", "Anomalies", "Motif",
-        "Fichier anomalies",
+        "Fichier anomalies", "Journées facturées Ados (contrôle)",
     ]]
     for index, element in enumerate(campagne, 1):
         rapport = element["rapport"]
@@ -455,6 +527,7 @@ def ExporterCampagneSeptembre(dossier, annee, campagne):
             len(rapport["anomalies"]) if rapport else "",
             element["motif"],
             os.path.basename(chemins.get("anomalies", "")),
+            (element.get("controle_ados") or {}).get("jours_factures", ""),
         ])
     cible = os.path.join(dossier, prefixe + "_RECAP.csv")
     _ecrire_csv(cible, tableaux)
