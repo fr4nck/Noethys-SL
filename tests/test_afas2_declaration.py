@@ -516,6 +516,12 @@ class ExportsEtHistoriqueTests(unittest.TestCase):
             self.assertEqual(textes["Convention"], ["PERI_BAIS_2025_2027"])
             self.assertEqual(textes["Heures de présence conventionnelles CAF"], ["déclaratif", "1,25", "0,00", "1,25"])
             self.assertEqual(textes["Heures facturées CAF"], ["déclaratif"] + ["non applicable"] * 3)
+            self.assertIn("ecarts_presence", chemins)
+            with open(chemins["ecarts_presence"], encoding="utf-8-sig", newline="") as fichier:
+                ecarts = list(csv.reader(fichier, delimiter=";"))
+            self.assertEqual(ecarts[0][:5], ["Date", "IDindividu", "Heures physiques",
+                                             "Heures CAF conventionnelles", "Ecart physique - CAF"])
+            self.assertEqual(ecarts[1][3], "1,25")
             with open(chemins["instantane"], encoding="utf-8") as f:
                 instantane = json.load(f)
             self.assertEqual(instantane["preset"]["preset_id"], r["preset"]["preset_id"])
