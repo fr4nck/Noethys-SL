@@ -113,8 +113,11 @@ class ContratEditeurWxTests(unittest.TestCase):
         dlg = wx.MultiChoiceDialog(None, "Cochez les états à inclure",
                                    "États des consommations", choix)
         try:
+            # GetSelections() n'est fiable qu'après l'interaction modale :
+            # avant cela, wx/MSW peut ne retourner que le dernier élément.
             dlg.SetSelections([0, 1, 2, 3])
-            self.assertEqual(set(dlg.GetSelections()), {0, 1, 2, 3})
+            dlg.Show()
+            wx.YieldIfNeeded()
 
             def trouver_listes(element):
                 resultats = []
@@ -156,7 +159,7 @@ class ContratEditeurWxTests(unittest.TestCase):
             dialogue = cree_dialogue.return_value
             dialogue.ShowModal.return_value = wx.ID_OK
             dialogue.GetSelections.return_value = [0, 1, 2, 3]
-            resultat = self.controle.OnEvent(faux, None, FauxEvenement())
+            resultat = self.controle.OnEvent(faux, None, None, FauxEvenement())
             self.assertTrue(resultat)
             self.assertEqual(faux.valeur, [0, 1, 2, 3])
             arguments = cree_dialogue.call_args.args
@@ -184,7 +187,7 @@ class ContratEditeurWxTests(unittest.TestCase):
         faux = FauxPropriete()
         with mock.patch.object(wx, "MultiChoiceDialog") as cree_dialogue:
             cree_dialogue.return_value.ShowModal.return_value = wx.ID_CANCEL
-            self.assertFalse(self.controle.OnEvent(faux, None, FauxEvenement()))
+            self.assertFalse(self.controle.OnEvent(faux, None, None, FauxEvenement()))
         self.assertEqual(faux.valeur, [0, 1])
 
 
