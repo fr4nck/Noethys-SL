@@ -36,7 +36,7 @@ jobs:
       - name: Compiler et verifier la declaration AFAS
         shell: pwsh
         run: |
-          python -m compileall -q noethys/Utils/UTILS_AFAS2_*.py noethys/Dlg/DLG_AFAS2_Declarations.py
+          python -m compileall -q noethys/Utils noethys/Dlg
           if ($LASTEXITCODE -ne 0) { throw 'Compilation AFAS echouee' }
           python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface
           if ($LASTEXITCODE -ne 0) { throw 'Tests AFAS echoues' }
