@@ -4,9 +4,10 @@
 Un preset ne conserve que des choix métier durables (activité, mode,
 équipement, sites, classement des unités, statuts retenus, critères de
 période, choix conventionnels). Il ne contient JAMAIS d'année, de phase ni
-de date : le schéma est fermé (toute clé inconnue est refusée, à tous les
-niveaux) et le nom est contrôlé. L'année, la phase et les dates résolues
-appartiennent à la demande de calcul et à son historique.
+de date en tant que champs de calcul : le schéma est fermé (toute clé inconnue
+est refusée, à tous les niveaux). Le libellé du profil peut contenir un mois,
+une année ou une phase, mais ne pilote jamais le calcul. L'année, la phase et
+les dates résolues appartiennent à la demande de calcul et à son historique.
 
 Format 2 : les samedis avec école ne sont plus un booléen permanent mais
 une règle générique (`regle_samedis` = calendrier daté, dates tenues dans
@@ -42,9 +43,6 @@ CHAMPS_CRITERES = {"regle_samedis"}
 _PLAGE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-4]):[0-5]\d$")
 CHAMPS_CHOIX = {"inclure_repas_meridien", "inclure_garderie_caf"}
 
-_TERMES_INTERDITS = ("annee", "year", "phase", "exercice", "millesime", "previsionnel", "actualisation",
-                     "juin", "septembre", "date")
-_ANNEE = re.compile(r"(?<!\d)(19|20|21)\d\d(?!\d)")
 _IDENTIFIANT = re.compile(r"^[0-9a-f]{32}$")
 
 
@@ -84,10 +82,9 @@ def _controler_nom(nom):
         raise PresetInvalide("Nom du preset requis")
     if len(nom) > 120:
         raise PresetInvalide("Nom du preset trop long")
-    normalise = _normalise(nom)
-    if _ANNEE.search(normalise) or any(terme in normalise for terme in _TERMES_INTERDITS):
-        raise PresetInvalide("Le nom du preset ne doit contenir ni année, ni phase, ni date : "
-                             "elles sont choisies à chaque calcul")
+    # Le libellé est libre : dates, mois et phases peuvent servir à repérer
+    # le dossier. Seuls les champs annee/phase de la demande de calcul
+    # déterminent la période : aucun texte du nom n'est interprété.
     return nom.strip()
 
 
@@ -363,7 +360,7 @@ def MigrerAncienFormat(ancien):
     try:
         _controler_nom(nom)
     except PresetInvalide:
-        a_completer.append("nom (contenait une année, une phase ou une date)")
+        a_completer.append("nom de profil absent ou trop long")
         nom = "Preset migré"
     sites = list(ancien.get("sites", ancien.get("selected_sites", [])))
     brouillon = NouveauPreset(nom, _MODES_ANCIENS[ancien["mode"]], None, sites=sites)
