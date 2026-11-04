@@ -328,6 +328,21 @@ class PhasesTests(unittest.TestCase):
             self.assertEqual(indice["Heures de présence conventionnelles CAF"][5], "4")
             self.assertEqual(indice["Heures de présence conventionnelles CAF"][6], "5,00")
 
+    def test_prevision_periscolaire_exclut_jours_ouverts_en_vacances(self):
+        # Les plages périscolaires de N-1 et N sont extrapolées UNIQUEMENT
+        # avec leurs propres jours ouverts. Les ouvertures extrascolaires
+        # d'octobre ne doivent pas gonfler le ratio.
+        source = source_peri(
+            [D(2025, 10, 6)],
+            ouvertures_supp=[D(2025, 10, 21), D(2026, 10, 5),
+                              D(2026, 10, 6), D(2026, 10, 21)])
+        rapport = executer(preset(), 2026, AFAS.PHASE_ACTUALISATION_SEPTEMBRE, source)
+        self.assertEqual(rapport["jours_ouverts_n1"], 1)
+        self.assertEqual(rapport["jours_ouverts_prevision"], 2)
+        self.assertEqual(ligne(rapport, "heures_realisees")["prevision"], 2 * (H + 15 * 60))
+        self.assertEqual(rapport["base_prevision"]["heures_reference"]["heures_realisees"],
+                         H + 15 * 60)
+
     def test_prevision_n1_impossible_sans_historique(self):
         source = source_peri([], ouvertures_supp=[D(2026, 10, 5)])
         with self.assertRaisesRegex(DECL.DeclarationImpossible, "N-1"):
