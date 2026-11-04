@@ -68,7 +68,12 @@ class Dialog(wx.Dialog):
         self.ctrl_facture = wx.CheckListBox(self, choices=[libelle for code, libelle in STATUTS_FACTURE])
         self.label_samedis = wx.StaticText(self, label="Samedis hors vacances : calendrier daté des samedis avec école "
                                                        "saisi dans le référentiel, par année scolaire")
-        self.ctrl_repas = wx.CheckBox(self, label="Inclure le temps de repas méridien (conventions périscolaires, art. 1.5)")
+        self.ctrl_repas = wx.CheckBox(self, label="Temps de repas méridien inclus dans le calcul périscolaire")
+        self.ctrl_repas.SetValue(True)
+        self.ctrl_repas.Disable()
+        self.ctrl_repas.SetToolTip(
+            "Le repas fait partie du calcul périscolaire, sans pointage d'une autre unité requis ; "
+            "sa plage est fusionnée avec les autres, sans double compte.")
         self.ctrl_garderie = wx.CheckBox(self, label="Ajouter les garderies aux heures CAF (choix explicite)")
 
         # E-F. Exécution
@@ -234,7 +239,7 @@ class Dialog(wx.Dialog):
         self.plages_declarees = {int(cle): plage for cle, plage in preset["plages_declarees"].items()}
         self._cocher(self.ctrl_realise, STATUTS_REALISE, preset["etats_realise"])
         self._cocher(self.ctrl_facture, STATUTS_FACTURE, preset["etats_facture"])
-        self.ctrl_repas.SetValue(preset["choix_conventionnels"]["inclure_repas_meridien"])
+        self.ctrl_repas.SetValue(True)  # Temps de repas inclus, même dans les anciens presets
         self.ctrl_garderie.SetValue(preset["choix_conventionnels"]["inclure_garderie_caf"])
         self.MajLabelUnites()
         self.OnMethode(None)
@@ -251,7 +256,7 @@ class Dialog(wx.Dialog):
                       etats_realise=self._codes(self.ctrl_realise, STATUTS_REALISE),
                       etats_facture=self._codes(self.ctrl_facture, STATUTS_FACTURE),
                       criteres_periodes={"regle_samedis": Presets.REGLE_SAMEDIS_CALENDRIER},
-                      choix_conventionnels={"inclure_repas_meridien": self.ctrl_repas.GetValue(),
+                      choix_conventionnels={"inclure_repas_meridien": True,
                                             "inclure_garderie_caf": self.ctrl_garderie.GetValue()})
         return Presets.ValiderPreset(preset)
 
