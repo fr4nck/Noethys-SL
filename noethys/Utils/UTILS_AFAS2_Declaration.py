@@ -279,6 +279,35 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
 
 
 
+
+def RealiseSeptembreSansPrevision(preset, referentiel, annee, source=None,
+                                 date_reference=None):
+    """Recupere le realise au 30/09 si la prevision N-1 n'est pas calculable.
+
+    Rapport strictement de controle, non validable. La prevision reste
+    inconnue ; les heures du realise ne sont jamais remplacees par zero.
+    """
+    source = source or Source()
+    referentiel = Referentiel.ValiderReferentiel(referentiel, source.Groupes())
+    preset, couples, motifs = Perimetre(preset, referentiel)
+    debut_r, fin_r, _, _ = Periodes(annee, UTILS_AFAS.PHASE_ACTUALISATION_SEPTEMBRE)
+    resultat = CalculerPeriode(preset, referentiel, couples, source, debut_r, fin_r,
+                              date_reference or datetime.date.today())
+    return {
+        "validable": False,
+        "motifs_non_validable": motifs + ["Prévision du dernier trimestre non établie"],
+        "indicateurs": [
+            {"cle": cle, "libelle": libelle, "realise": resultat["indicateurs"][cle],
+             "prevision": "non_qualifie", "total": "non_qualifie"}
+            for cle, libelle in Calcul.INDICATEURS
+        ],
+        "jours_ouverts_realise": resultat["jours_ouverts"],
+        "anomalies": resultat["anomalies"],
+        "jours": resultat["jours"],
+        "lignes": resultat["lignes"],
+    }
+
+
 def CampagneSeptembre(annee, referentiel, presets, source=None, date_reference=None):
     """Calcule plusieurs dossiers AFAS avec isolation des erreurs par dossier.
 
@@ -306,7 +335,19 @@ def CampagneSeptembre(annee, referentiel, presets, source=None, date_reference=N
             motif = " ; ".join(rapport["motifs_non_validable"])
             etat = "VALIDABLE" if rapport["validable"] else "A_CORRIGER"
         except (ValueError, Calendrier.CalendrierIncomplet) as erreur:
-            rapport, motif, etat = None, str(erreur), "CALCUL_IMPOSSIBLE"
+            motif = str(erreur)
+            rapport, etat = None, "CALCUL_IMPOSSIBLE"
+            # Ne pas perdre le realise annuel au seul motif que les jours
+            # de prevision ou l'historique N-1 ne sont pas qualifies.
+            if any(marqueur in motif.lower()
+                   for marqueur in ("prévision", "n-1", "jour d'ouverture")):
+                try:
+                    rapport = RealiseSeptembreSansPrevision(
+                        candidat, referentiel, annee, source=source,
+                        date_reference=date_reference)
+                    etat = "PREVISION_A_COMPLETER"
+                except (ValueError, Calendrier.CalendrierIncomplet) as detail:
+                    motif += " ; réalisé indisponible : " + str(detail)
         lignes.append({"nom": candidat["nom"], "equipement": candidat["equipement"],
                        "mode": candidat["mode"], "etat": etat, "motif": motif,
                        "rapport": rapport})
