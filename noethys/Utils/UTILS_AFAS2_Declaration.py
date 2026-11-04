@@ -208,6 +208,7 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
     realise = CalculerPeriode(preset, referentiel, couples, source, debut_r, fin_r, date_reference) if debut_r else None
     historique_n1 = None
     prevision = None
+    base_prevision = None
     jours_prevision = 0
     if debut_p:
         jours_prevision = len({d for a, u, g, d in source.Ouvertures(list(couples), debut_p, fin_p)})
@@ -229,6 +230,18 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
                 prevision[cle] = None if valeur is None else int(round(UTILS_AFAS.EstimerPeriode(
                     UTILS_AFAS.METHODE_N1_AJUSTE, [{"heures": valeur, "jours_ouverts": historique_n1["jours_ouverts"]}],
                     jours_prevision)))
+            # Justification reproductible de la projection. Ne la confondre
+            # ni avec les réservations futures ni avec le bilan historique
+            # d'une autre période/paramétrage.
+            base_prevision = {
+                "methode": METHODE_N1,
+                "periode_reference": [str(debut_n1), str(fin_n1)],
+                "periode_cible": [str(debut_p), str(fin_p)],
+                "jours_ouverts_reference": historique_n1["jours_ouverts"],
+                "jours_ouverts_cible": jours_prevision,
+                "heures_reference": dict(historique_n1["indicateurs"]),
+                "heures_projetees": dict(prevision),
+            }
         else:
             raise DeclarationImpossible("Méthode de prévision inconnue")
 
@@ -262,6 +275,7 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
         "jours_ouverts_realise": realise["jours_ouverts"] if realise else 0,
         "jours_ouverts_prevision": jours_prevision,
         "jours_ouverts_n1": historique_n1["jours_ouverts"] if historique_n1 else None,
+        "base_prevision": base_prevision,
         "convention": convention, "version_regles": Conventions.VERSION_REGLES,
         "preset": instantane_preset, "empreinte_preset": Presets.Empreinte(instantane_preset),
         "sites": {site: referentiel["sites"][site] for site in instantane_preset["sites"]},
@@ -611,6 +625,25 @@ def ExporterControle(dossier, rapport, prefixe):
         [j["date"], j["IDindividu"], "oui" if j["aeeh"] else "non", Heures(j["amplitude"]) if j["amplitude"] else "",
          j.get("plages_ouverture", ""), j.get("justification_facture", "")]
         + [Heures(j.get(cle, 0)) for cle in cles] for j in rapport["jours"]])
+    base = rapport.get("base_prevision")
+    if base:
+        chemins["prevision_justification"] = os.path.join(
+            dossier, prefixe + "_JUSTIFICATIF_PREVISION.csv")
+        base_source = base["heures_reference"]
+        base_cible = base["heures_projetees"]
+        jours_source = base["jours_ouverts_reference"]
+        jours_cible = base["jours_ouverts_cible"]
+        _ecrire_csv(chemins["prevision_justification"], [[
+            "Indicateur", "Période de référence N-1", "Heures référence N-1",
+            "Jours ouverts N-1", "Période projetée", "Jours ouverts projetés",
+            "Heures projetées", "Méthode",
+        ]] + [[
+            libelle, " au ".join(base["periode_reference"]),
+            Heures(base_source.get(cle)),
+            jours_source, " au ".join(base["periode_cible"]),
+            jours_cible, Heures(base_cible.get(cle)),
+            "heures N-1 × jours ouverts projetés / jours ouverts N-1",
+        ] for cle, libelle in Calcul.INDICATEURS])
     chemins["anomalies"] = os.path.join(dossier, prefixe + "_anomalies.csv")
     _ecrire_csv(chemins["anomalies"], [["Date", "IDindividu", "Individu", "IDconso", "IDactivite", "IDgroupe", "Site",
                                         "IDunite", "Unité", "Nature", "Conséquence", "Bloquante"]] + [
@@ -634,6 +667,10 @@ def ExporterDeclaration(dossier, rapport, prefixe):
         ["Période réalisée", " au ".join(rapport["periode_realise"]) if rapport["periode_realise"] else "aucune"],
         ["Période prévue", " au ".join(rapport["periode_prevision"]) if rapport["periode_prevision"] else "aucune"],
         ["Méthode de prévision", rapport["methode_prevision"] or ""],
+        ["Base prévision N-1", " au ".join(rapport["base_prevision"]["periode_reference"])
+         if rapport.get("base_prevision") else "prévision manuelle ou non applicable"],
+        ["Jours d'ouverture N-1", rapport["jours_ouverts_n1"] or ""],
+        ["Jours d'ouverture prévus", rapport["jours_ouverts_prevision"] or ""],
         ["Convention", rapport["convention"]], ["Version des règles", rapport["version_regles"]],
         ["Preset", "%s (id %s, version %d)" % (preset["nom"], preset["preset_id"], preset["version"])],
         ["Empreinte du preset", rapport["empreinte_preset"]], ["Empreinte de la déclaration", rapport["empreinte"]],
