@@ -1,3 +1,12 @@
+Version Noethys SL 0.1.0 RC10.55 (04/11/2026) :
+
+- État global des consommations : sélecteur natif historique restauré ; quatre états libres ; suppression de l'alerte CAF et de la modification des profils ; tests de non-régression et interdiction de modification de la fenêtre sans accord de la direction.
+- AFAS V2 septembre 2026 : périodes de réalisé et de prévision conservées, repas méridien inclus selon l'accueil attesté sans double comptage, correctifs des préréglages ALSH et du Club Ados.
+- Prévision périscolaire : extrapolation N-1 recalculée avec les seuls jours ouverts admissibles au périscolaire, hors jours extrascolaires ; source et coefficient accessibles dans le contrôle.
+- Exports AFAS : justificatif CSV du prévisionnel, écarts de présence physique et d'heures conventionnelles par enfant et journée.
+- Adhésions, cotisations, facturation, situations communales, sauvegardes, Connecthys et fiches familles : maintien des corrections RC10.5.
+- Candidate Windows en préversion : Setup et ZIP portable. La version interne 1.3.4.4 reste inchangée ; aucune migration de données.
+
 Version Noethys SL 0.1.0 RC10.5 (03/11/2026) :
 
 - Lot A : controle hors ligne en lecture seule des archives Noethys .nod (CRC, DATA/PHOTOS/DOCUMENTS, manifeste SQL V1), sans presenter ce controle comme une restauration validee.
