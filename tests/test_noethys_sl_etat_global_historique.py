@@ -101,6 +101,37 @@ class ContratEditeurWxTests(unittest.TestCase):
         cls.wx = wx
         cls.controle = CTRL_Propertygrid.Propriete_multichoix
 
+    @unittest.skipUnless(sys.platform == "win32", "Vérification du dialogue wx sur Windows")
+    def test_wxpython_natif_propose_reellement_quatre_entrees(self):
+        wx = self.wx
+        app = wx.GetApp()
+        cree_app = app is None
+        if cree_app:
+            app = wx.App(False)
+        choix = ["Pointage en attente", "Présent", "Absence justifiée",
+                 "Absence injustifiée"]
+        dlg = wx.MultiChoiceDialog(None, "Cochez les états à inclure",
+                                   "États des consommations", choix)
+        try:
+            dlg.SetSelections([0, 1, 2, 3])
+            self.assertEqual(set(dlg.GetSelections()), {0, 1, 2, 3})
+
+            def trouver_listes(element):
+                resultats = []
+                for enfant in element.GetChildren():
+                    if isinstance(enfant, wx.ListBox):
+                        resultats.append(enfant)
+                    resultats.extend(trouver_listes(enfant))
+                return resultats
+
+            listes = trouver_listes(dlg)
+            self.assertTrue(any(liste.GetCount() == 4 for liste in listes),
+                            "Le dialogue multichoix n'a pas rendu ses quatre lignes")
+        finally:
+            dlg.Destroy()
+            if cree_app:
+                app.Destroy()
+
     def test_dialogue_recoit_les_quatre_libelles_et_initialise_les_coches(self):
         etats = [(0, "Pointage en attente"), (1, "Présent"),
                  (2, "Absence justifiée"), (3, "Absence injustifiée")]
