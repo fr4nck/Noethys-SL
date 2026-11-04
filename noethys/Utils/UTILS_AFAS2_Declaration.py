@@ -278,6 +278,81 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
     return rapport
 
 
+
+def CampagneSeptembre(annee, referentiel, presets, source=None, date_reference=None):
+    """Calcule plusieurs dossiers AFAS avec isolation des erreurs par dossier.
+
+    Utilise la même méthode N-1 que le calcul individuel, sans recopier ni
+    inventer de prévision. Les déclarations non validables restent visibles.
+    Aucune écriture dans Noethys, ni transmission à la Caf.
+    """
+    if type(annee) is not int or not 2000 <= annee <= 2100:
+        raise DeclarationImpossible("Année de campagne invalide")
+    if not isinstance(presets, (list, tuple)) or not presets:
+        raise DeclarationImpossible("Aucun profil AFAS pour la campagne de septembre")
+    source = source or Source()
+    lignes = []
+    vus = set()
+    for preset in presets:
+        candidat = Presets.ValiderPreset(preset)
+        if candidat["preset_id"] in vus:
+            raise DeclarationImpossible("Profil répété dans la campagne : %s" % candidat["nom"])
+        vus.add(candidat["preset_id"])
+        try:
+            rapport = Executer(
+                candidat, referentiel, annee,
+                UTILS_AFAS.PHASE_ACTUALISATION_SEPTEMBRE,
+                methode=METHODE_N1, source=source, date_reference=date_reference)
+            motif = " ; ".join(rapport["motifs_non_validable"])
+            etat = "VALIDABLE" if rapport["validable"] else "A_CORRIGER"
+        except (ValueError, Calendrier.CalendrierIncomplet) as erreur:
+            rapport, motif, etat = None, str(erreur), "CALCUL_IMPOSSIBLE"
+        lignes.append({"nom": candidat["nom"], "equipement": candidat["equipement"],
+                       "mode": candidat["mode"], "etat": etat, "motif": motif,
+                       "rapport": rapport})
+    return lignes
+
+
+def ExporterCampagneSeptembre(dossier, annee, campagne):
+    """Exports de CONTROLE uniquement, par dossier, plus tableau récapitulatif.
+
+    La production d'un contrôle ne signifie ni validation CAF ni dépôt.
+    Chaque export porte le nom de son équipement et de son mode.
+    """
+    if not isinstance(campagne, list) or not campagne:
+        raise DeclarationImpossible("Campagne vide")
+    os.makedirs(dossier, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    prefixe = "AFAS_%d_SEPT_CONTROLE_%s" % (annee, stamp)
+    tableaux = [[
+        "Dossier", "Équipement", "Mode", "Résultat", "Heures réalisées",
+        "Heures facturées", "Jours ouverts", "Anomalies", "Motif",
+        "Fichier anomalies",
+    ]]
+    for index, element in enumerate(campagne, 1):
+        rapport = element["rapport"]
+        heures = {l["cle"]: l for l in rapport["indicateurs"]} if rapport else {}
+        chemins = {}
+        if rapport is not None:
+            nom = "%s_%02d_%s_%s" % (
+                prefixe, index, element["equipement"], element["mode"])
+            chemins = ExporterControle(dossier, rapport, nom)
+        tableaux.append([
+            element["nom"], element["equipement"], element["mode"],
+            element["etat"],
+            Heures(heures["heures_realisees"]["realise"]) if "heures_realisees" in heures else "",
+            Heures(heures["heures_facturees"]["realise"]) if "heures_facturees" in heures else "",
+            rapport["jours_ouverts_realise"] if rapport else "",
+            len(rapport["anomalies"]) if rapport else "",
+            element["motif"],
+            os.path.basename(chemins.get("anomalies", "")),
+        ])
+    cible = os.path.join(dossier, prefixe + "_RECAP.csv")
+    _ecrire_csv(cible, tableaux)
+    return cible
+
+
+
 # --------------------------------------------------------------------------
 # Présentation, historique et exports
 # --------------------------------------------------------------------------
