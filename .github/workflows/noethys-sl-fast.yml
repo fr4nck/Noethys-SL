@@ -195,6 +195,8 @@ jobs:
           tests.test_vanilla_recette_menus
           tests.test_noethys_sl_afas_actualisation
           tests.test_noethys_sl_afas_profils_historiques
+          tests.test_noethys_sl_etat_global_historique
+          tests.test_noethys_sl_etat_global_calcul
           tests.test_afas2_conventions
           tests.test_afas2_calendrier
           tests.test_afas2_calcul
