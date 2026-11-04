@@ -26,6 +26,98 @@ def preset(**kw):
     return p
 
 
+
+
+class InitialisationPMSLTests(unittest.TestCase):
+    """Preconfiguration metier sur identifiants et horaires fictifs, sans base."""
+
+    def setUp(self):
+        from Utils import UTILS_AFAS2_Referentiel as R
+        self.R = R
+        self.groupes = {
+            1: (1, "La Guerche"),
+            2: (1, "Bais +6"),
+            3: (1, "Moutiers"),
+            27: (1, "Bais -6"),
+            50: (68, "Club ados"),  # hors des quatre dossiers ALSH
+        }
+        noms = {
+            1: ("Journée", "08:30", "17:30"),
+            2: ("Repas", None, None),
+            3: ("Matin", "08:30", "12:30"),
+            4: ("Après-midi", "13:30", "17:30"),
+            5: ("Garderie du matin", "07:30", "08:30"),
+            6: ("Garderie du soir", "17:30", "18:30"),
+            7: ("Animation", None, None),
+            8: ("Sortie", None, None),
+            56: ("Majoration garderie", None, None),
+            80: ("Nouvelle unité", None, None),
+        }
+        self.unites = {
+            identifiant: {"IDactivite": 1, "nom": nom,
+                          "heure_debut": debut, "heure_fin": fin}
+            for identifiant, (nom, debut, fin) in noms.items()
+        }
+
+    def test_quatre_profils_avec_referentiel_verifie_sans_ecriture(self):
+        r0 = self.R.ReferentielVide()
+        ref, profils = P.PreparerQuatrePresetsPMSL(self.groupes, self.unites, r0)
+        self.assertEqual(r0["sites"], {})  # jamais de modification de l'entree
+        self.assertEqual(len(profils), 4)
+        self.assertEqual(ref["sites"][self.R.BAIS_PLUS_6]["IDgroupe"], 2)
+        self.assertEqual(ref["sites"][self.R.BAIS_MOINS_6]["IDgroupe"], 27)
+        self.assertEqual(ref["sites"][self.R.MOUTIERS]["equipement"], "LA_GUERCHE_MOUTIERS")
+        for p in profils:
+            self.assertEqual(P.ValiderPreset(p), p)
+            self.assertEqual(p["plages_declarees"]["2"], "12:30-13:30")
+            self.assertEqual(p["unites"]["7"], "annexe")
+            self.assertEqual(p["unites"]["80"], "a_qualifier")
+            self.assertNotIn("annee", p)
+            self.assertNotIn("phase", p)
+        self.assertEqual(profils[0]["unites"]["1"], "accueil")
+        self.assertEqual(profils[1]["unites"]["1"], "journee")
+        self.assertEqual(profils[1]["unites"]["3"], "demi_journee")
+        self.assertEqual(profils[2]["sites"],
+                         [self.R.LA_GUERCHE, self.R.MOUTIERS])
+
+    def test_groupe_supprime_ambigu_ou_renomme_refuse(self):
+        for mutation in (
+            lambda g: g.pop(27),
+            lambda g: g.__setitem__(27, (1, "Bais generic")),
+            lambda g: g.__setitem__(90, (1, "Bais +6 ans")),
+        ):
+            groupes = dict(self.groupes)
+            mutation(groupes)
+            with self.assertRaises(P.PresetInvalide):
+                P.PreparerQuatrePresetsPMSL(groupes, self.unites,
+                                            self.R.ReferentielVide())
+
+    def test_horaires_absents_et_unite_dupliquee_refuses(self):
+        unites = {identifiant: dict(valeur) for identifiant, valeur in self.unites.items()}
+        unites[1]["heure_fin"] = None
+        with self.assertRaisesRegex(P.PresetInvalide, "horaire"):
+            P.PreparerQuatrePresetsPMSL(self.groupes, unites,
+                                       self.R.ReferentielVide())
+        unites = {identifiant: dict(valeur) for identifiant, valeur in self.unites.items()}
+        unites[89] = dict(unites[3])
+        with self.assertRaisesRegex(P.PresetInvalide, "ambigu"):
+            P.PreparerQuatrePresetsPMSL(self.groupes, unites,
+                                       self.R.ReferentielVide())
+
+    def test_referentiel_existant_conserve_ou_refuse_conflit(self):
+        ref, profils = P.PreparerQuatrePresetsPMSL(
+            self.groupes, self.unites, self.R.ReferentielVide())
+        copie, nouveaux = P.PreparerQuatrePresetsPMSL(
+            self.groupes, self.unites, ref)
+        self.assertEqual(copie, ref)
+        self.assertEqual([p["nom"] for p in nouveaux], [p["nom"] for p in profils])
+        conflit = json.loads(json.dumps(ref))
+        conflit["sites"][self.R.BAIS_PLUS_6]["IDgroupe"] = 1000
+        with self.assertRaisesRegex(P.PresetInvalide, "différente"):
+            P.PreparerQuatrePresetsPMSL(self.groupes, self.unites, conflit)
+
+
+
 class ValidationTests(unittest.TestCase):
     def test_preset_valide(self):
         self.assertEqual(P.ValiderPreset(preset())["sites"], ["Bais +6 ans", "Bais -6 ans"])
