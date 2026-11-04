@@ -208,6 +208,45 @@ class CampagneSeptembreTests(unittest.TestCase):
             self.assertTrue(all(row[6] == "" for row in lines if row[0] == "DOSSIER CAF"))
             self.assertTrue(all(row[7] == "" for row in lines if row[0] == "DOSSIER CAF"))
 
+    def test_ados_facture_absentj_reservation_et_demi_journees_sans_doublon(self):
+        def conso(child, date, unit, statut, facture=900):
+            return {
+                "IDindividu": child, "date": date,
+                "IDunite": unit, "etat": statut,
+                "IDprestation": facture if facture is not None else None,
+                "IDfacture": facture, "facture_etat": "editee",
+                "prestation_montant": 13,
+            }
+        data = [
+            conso(1, "2026-03-11", 10, "absentj"),
+            conso(1, "2026-03-11", 11, "reservation"),  # chevauchement, pas +1/2
+            conso(2, "2026-03-18", 11, "absenti"),
+            conso(2, "2026-03-18", 12, "reservation"),  # deux demis = 1
+            conso(3, "2026-03-25", 10, "reservation"),
+            conso(3, "2026-03-25", 13, "present"),  # repas, pas un 2e jour
+            conso(4, "2026-03-25", 10, "present", facture=None),
+            conso(5, "2026-03-25", 14, "present"),  # unité inconnue
+        ]
+        source = mock.Mock()
+        source.Groupes.return_value = {99: (68, "Club ados"), 100: (74, "Mini camps Ados")}
+        source.Unites.return_value = {
+            10: {"nom": "Journée"},
+            11: {"nom": "Matin"},
+            12: {"nom": "Après-midi"},
+            13: {"nom": "Repas"},
+            14: {"nom": "Atelier ados"},
+        }
+        source.Consommations.return_value = data
+        ados = DECL.DossierAdosEnAttente(source=source, annee=2026)
+        source.Consommations.assert_called_once_with(
+            [(68, 99)], D(2026, 1, 1), D(2026, 9, 30))
+        self.assertEqual(ados["controle_ados"]["jours_factures"], 3)
+        self.assertEqual(ados["controle_ados"]["enfants_jours"], 3)
+        self.assertEqual(ados["controle_ados"]["chevauchements"], 1)
+        self.assertEqual(ados["controle_ados"]["unites_non_classees"], 1)
+        self.assertIsNone(ados["rapport"])
+        self.assertEqual(ados["etat"], "CONVENTION_A_QUALIFIER")
+
     def test_doublon_profil_et_campagne_vide_refuses(self):
         p = preset()
         with self.assertRaises(DECL.DeclarationImpossible):
