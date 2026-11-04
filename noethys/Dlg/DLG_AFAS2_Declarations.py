@@ -96,7 +96,7 @@ class Dialog(wx.Dialog):
         for libelle, methode in (("Préparer les 4 ALSH PMSL", self.OnPreparerQuatreALSH),
                                  ("Référentiel…", self.OnReferentiel), ("Calculer", self.OnCalculer),
                                  ("Exporter la déclaration…", self.OnExporterDeclaration), ("Exporter le contrôle…", self.OnExporterControle),
-                                 ("Contrôles septembre (4 ALSH)…", self.OnCampagneSeptembre),
+                                 ("Dossier CAF septembre (5 structures)…", self.OnCampagneSeptembre),
                                  ("Historique…", self.OnHistorique)):
             bouton = wx.Button(self, label=libelle)
             bouton.Bind(wx.EVT_BUTTON, methode)
@@ -449,7 +449,7 @@ class Dialog(wx.Dialog):
             return False
 
     def OnCampagneSeptembre(self, event, dossier=None):
-        """Produit les quatre dossiers de controle CAF avec un recapitulatif."""
+        """Produit les quatre calculs ALSH et la ligne distincte Club Ados."""
         if self.erreur_referentiel:
             self.Erreur("Référentiel AFAS invalide : " + self.erreur_referentiel)
             return None
@@ -469,6 +469,7 @@ class Dialog(wx.Dialog):
                        for nom in attendus]
             campagne = Declaration.CampagneSeptembre(
                 self.ctrl_annee.GetValue(), self.referentiel, profils)
+            campagne.append(Declaration.DossierAdosEnAttente())
             chemin = Declaration.ExporterCampagneSeptembre(
                 dossier, self.ctrl_annee.GetValue(), campagne)
         except (ValueError, OSError) as erreur:
@@ -476,8 +477,10 @@ class Dialog(wx.Dialog):
             return None
         conformes = sum(l["etat"] == "VALIDABLE" for l in campagne)
         self.Message(
-            "%d contrôles ALSH créés. %d validable(s), %d avec actions à traiter.\n"
+            "%d dossiers CAF suivis : 4 ALSH calculés, 1 Ados à qualifier.\n"
+            "%d validable(s), %d avec actions à traiter.\n"
             "Récapitulatif : %s\n"
+            "Budget AG 2026 exporté séparément, sans ventilation fictive.\n"
             "Aucune déclaration n'a été envoyée à la Caf."
             % (len(campagne), conformes, len(campagne) - conformes,
                os.path.basename(chemin)))
