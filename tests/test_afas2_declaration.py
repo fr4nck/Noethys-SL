@@ -129,12 +129,12 @@ class CampagneSeptembreTests(unittest.TestCase):
         }
         with mock.patch.object(
                 DECL, "Executer",
-                side_effect=[rapport, DECL.DeclarationImpossible("Calendrier N-1 incomplet")]) as exe:
+                side_effect=[rapport, DECL.DeclarationImpossible("Groupe Noethys absent")]) as exe:
             campagnes = DECL.CampagneSeptembre(
                 2026, referentiel(), [p1, p2], source=SourceFactice())
         self.assertEqual([c["etat"] for c in campagnes],
                          ["VALIDABLE", "CALCUL_IMPOSSIBLE"])
-        self.assertIn("Calendrier N-1", campagnes[1]["motif"])
+        self.assertIn("Groupe Noethys", campagnes[1]["motif"])
         self.assertEqual(exe.call_count, 2)
         self.assertEqual(exe.call_args_list[0].args[3],
                          AFAS.PHASE_ACTUALISATION_SEPTEMBRE)
@@ -151,7 +151,31 @@ class CampagneSeptembreTests(unittest.TestCase):
             self.assertEqual(lignes[1][4], "9,00")
             self.assertEqual(lignes[2][3], "CALCUL_IMPOSSIBLE")
             self.assertEqual(lignes[2][4], "")
-            self.assertIn("Calendrier N-1 incomplet", lignes[2][8])
+            self.assertIn("Groupe Noethys absent", lignes[2][8])
+
+    def test_prevision_absente_conserve_le_realise_sans_validabilite(self):
+        source = SourceFactice()
+        modele = preset()
+        realise = {
+            "indicateurs": {cle: (None if cle in ("heures_facturees", "heures_facturees_aeeh")
+                                  else 9 * H if cle == "heures_realisees" else 0)
+                             for cle, libelle in DECL.Calcul.INDICATEURS},
+            "jours_ouverts": 1,
+            "anomalies": [],
+            "jours": [],
+            "lignes": [],
+        }
+        with mock.patch.object(
+                DECL, "Executer",
+                side_effect=DECL.DeclarationImpossible("Aucun jour d'ouverture programmé")):
+            with mock.patch.object(DECL, "CalculerPeriode", return_value=realise) as calc:
+                campagne = DECL.CampagneSeptembre(
+                    2026, referentiel(), [modele], source=source)
+        self.assertEqual(calc.call_count, 1)
+        self.assertEqual(campagne[0]["etat"], "PREVISION_A_COMPLETER")
+        self.assertFalse(campagne[0]["rapport"]["validable"])
+        self.assertEqual(campagne[0]["rapport"]["indicateurs"][0]["realise"], 9 * H)
+        self.assertEqual(campagne[0]["rapport"]["indicateurs"][0]["prevision"], "non_qualifie")
 
     def test_doublon_profil_et_campagne_vide_refuses(self):
         p = preset()
