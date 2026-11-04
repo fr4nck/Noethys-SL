@@ -74,8 +74,8 @@ jobs:
             "Commit: $env:GITHUB_SHA"
             "Workflow run: $env:GITHUB_RUN_ID"
           ) | Set-Content -Path 'dist/Noethys/AFAS-RECETTE-LISEZ-MOI.txt' -Encoding UTF8
-          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip' -Force
-          if ($LASTEXITCODE -ne 0) { throw 'Archive AFAS impossible' }
+          Compress-Archive -Path 'dist/Noethys/*' -DestinationPath 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip' -Force -ErrorAction Stop
+          if (-not (Test-Path 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip')) { throw 'Archive AFAS absente' }
           if ((Get-Item 'afas-output/Noethys-SL-AFAS-2026-Windows-recette.zip').Length -lt 1000000) {
             throw 'Archive AFAS anormalement petite'
           }
