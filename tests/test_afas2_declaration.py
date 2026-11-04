@@ -11,6 +11,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parents[1]
@@ -108,6 +109,57 @@ def executer(p, annee, phase, source, **kw):
 
 def ligne(rapport, cle):
     return next(l for l in rapport["indicateurs"] if l["cle"] == cle)
+
+
+
+
+class CampagneSeptembreTests(unittest.TestCase):
+    def test_quatre_dossiers_isoles_et_recapitulatif_exportable(self):
+        p1 = preset()
+        p2 = preset(mode="extrascolaire")
+        rapport = {
+            "indicateurs": [
+                {"cle": "heures_realisees", "realise": 9 * H},
+                {"cle": "heures_facturees", "realise": None},
+            ],
+            "jours_ouverts_realise": 1,
+            "anomalies": [],
+            "validable": True,
+            "motifs_non_validable": [],
+        }
+        with mock.patch.object(
+                DECL, "Executer",
+                side_effect=[rapport, DECL.DeclarationImpossible("Calendrier N-1 incomplet")]) as exe:
+            campagnes = DECL.CampagneSeptembre(
+                2026, referentiel(), [p1, p2], source=SourceFactice())
+        self.assertEqual([c["etat"] for c in campagnes],
+                         ["VALIDABLE", "CALCUL_IMPOSSIBLE"])
+        self.assertIn("Calendrier N-1", campagnes[1]["motif"])
+        self.assertEqual(exe.call_count, 2)
+        self.assertEqual(exe.call_args_list[0].args[3],
+                         AFAS.PHASE_ACTUALISATION_SEPTEMBRE)
+        with tempfile.TemporaryDirectory() as dossier:
+            with mock.patch.object(
+                    DECL, "ExporterControle",
+                    return_value={"anomalies": str(Path(dossier) / "test_anomalies.csv")}) as exp:
+                path = DECL.ExporterCampagneSeptembre(dossier, 2026, campagnes)
+            self.assertEqual(exp.call_count, 1)
+            with open(path, encoding="utf-8-sig", newline="") as sortie:
+                lignes = list(csv.reader(sortie, delimiter=";"))
+            self.assertEqual(len(lignes), 3)
+            self.assertEqual(lignes[1][3], "VALIDABLE")
+            self.assertEqual(lignes[1][4], "9,00")
+            self.assertEqual(lignes[2][3], "CALCUL_IMPOSSIBLE")
+            self.assertEqual(lignes[2][4], "")
+            self.assertIn("Calendrier N-1 incomplet", lignes[2][8])
+
+    def test_doublon_profil_et_campagne_vide_refuses(self):
+        p = preset()
+        with self.assertRaises(DECL.DeclarationImpossible):
+            DECL.CampagneSeptembre(2026, referentiel(), [], source=SourceFactice())
+        with self.assertRaises(DECL.DeclarationImpossible):
+            DECL.CampagneSeptembre(
+                2026, referentiel(), [p, p], source=SourceFactice())
 
 
 class PhasesTests(unittest.TestCase):
