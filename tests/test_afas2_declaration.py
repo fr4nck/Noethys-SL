@@ -311,6 +311,22 @@ class PhasesTests(unittest.TestCase):
         r = executer(preset(), 2026, AFAS.PHASE_ACTUALISATION_SEPTEMBRE, source)
         self.assertEqual(ligne(r, "heures_realisees")["prevision"], 4 * (H + 15 * 60))
         self.assertEqual((r["jours_ouverts_n1"], r["jours_ouverts_prevision"]), (2, 4))
+        base = r["base_prevision"]
+        self.assertEqual(base["periode_reference"], ["2025-10-01", "2025-12-31"])
+        self.assertEqual(base["periode_cible"], ["2026-10-01", "2026-12-31"])
+        self.assertEqual((base["jours_ouverts_reference"], base["jours_ouverts_cible"]), (2, 4))
+        self.assertEqual(base["heures_reference"]["heures_realisees"], 2 * (H + 15 * 60))
+        self.assertEqual(base["heures_projetees"]["heures_realisees"], 4 * (H + 15 * 60))
+        with tempfile.TemporaryDirectory() as dossier:
+            chemins = DECL.ExporterControle(dossier, r, "controle_periscolaire")
+            self.assertIn("prevision_justification", chemins)
+            with open(chemins["prevision_justification"], encoding="utf-8-sig", newline="") as fichier:
+                lignes = list(csv.reader(fichier, delimiter=";"))
+            indice = {ligne[0]: ligne for ligne in lignes[1:]}
+            self.assertEqual(indice["Heures de présence conventionnelles CAF"][2], "2,50")
+            self.assertEqual(indice["Heures de présence conventionnelles CAF"][3], "2")
+            self.assertEqual(indice["Heures de présence conventionnelles CAF"][5], "4")
+            self.assertEqual(indice["Heures de présence conventionnelles CAF"][6], "5,00")
 
     def test_prevision_n1_impossible_sans_historique(self):
         source = source_peri([], ouvertures_supp=[D(2026, 10, 5)])
