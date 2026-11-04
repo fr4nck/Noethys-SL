@@ -134,6 +134,12 @@ jobs:
           tests.test_noethys_sl_adhesions_echeances
           tests.test_noethys_sl_facturation_cotisations_erreur
           tests.test_noethys_sl_adhesions_facturation_wx
+          tests.test_noethys_sl_adhesions_activites
+          tests.test_noethys_sl_adhesions_inscriptions
+          tests.test_noethys_sl_adhesions_inscriptions_wx
+          tests.test_noethys_sl_adhesions_signalement
+          tests.test_noethys_sl_adhesions_titulaire
+          tests.test_type_structure_familles
           tests.test_vanilla_facture_prestation_sans_activite
           tests.test_noethys_sl_backup_zip_lifecycle
           tests.test_rail1_reportlab5
@@ -236,6 +242,14 @@ jobs:
           tests.test_piece_quotient_dialog
           tests.test_noethys_sl_type_cotisation_saisie
           tests.test_noethys_sl_type_cotisation_erreurs
+          tests.test_afas2_calcul
+          tests.test_afas2_calendrier
+          tests.test_afas2_conventions
+          tests.test_afas2_declaration
+          tests.test_afas2_interface
+          tests.test_afas2_presets
+          tests.test_afas2_qualification_bases
+          tests.test_afas2_referentiel_donnees
           tests.test_noethys_sl_impression_depot_perimetre
           -v
 
@@ -249,7 +263,7 @@ jobs:
           $liste = Join-Path $env:RUNNER_TEMP 'modules-noethys-rc105.txt'
           pyi-archive_viewer -l -r dist/Noethys/Noethys.exe | Set-Content -LiteralPath $liste
           if ($LASTEXITCODE -ne 0) { throw 'Inventaire PyInstaller impossible' }
-          foreach ($module in @('Utils.UTILS_MySQL_backup', 'Utils.UTILS_Sauvegarde_auto', 'Utils.UTILS_Portail_synchro', 'Utils.UTILS_Portail_securite', 'Utils.UTILS_Portail_controle', 'Utils.UTILS_Documents_Controle_RC105', 'Ctrl.CTRL_Portail_serveur', 'Utils.UTILS_Depannage', 'Utils.UTILS_Attente', 'concurrent.futures.thread')) {
+          foreach ($module in @('Dlg.DLG_AFAS2_Declarations', 'Utils.UTILS_AFAS2_Calcul', 'Utils.UTILS_AFAS2_Declaration', 'Utils.UTILS_AFAS2_Presets', 'Utils.UTILS_Adhesions_echeances', 'Utils.UTILS_MySQL_backup', 'Utils.UTILS_Sauvegarde_auto', 'Utils.UTILS_Portail_synchro', 'Utils.UTILS_Portail_securite', 'Utils.UTILS_Portail_controle', 'Utils.UTILS_Documents_Controle_RC105', 'Ctrl.CTRL_Portail_serveur', 'Utils.UTILS_Depannage', 'Utils.UTILS_Attente', 'concurrent.futures.thread')) {
             if (-not (Select-String -LiteralPath $liste -SimpleMatch -Pattern $module -Quiet)) {
               throw "Module critique absent du paquet : $module"
             }
@@ -296,7 +310,7 @@ jobs:
             python tests/recette_mysql_jetable_preparer.py
             if ($LASTEXITCODE -ne 0) { throw 'Préparation du serveur de recette en échec' }
             $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
-            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql -v
+            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql tests.test_noethys_sl_adhesions_inscriptions_mysql -v
             if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
           }
           finally {
@@ -354,6 +368,10 @@ jobs:
             'Version publique: 0.1.0-rc.10.5'
             'Correctif: fermeture SSH/SFTP et thread Connecthys #438, sauvegardes surveillees #437, correctifs precedents conserves'
             'Facturation: controle SQL strict et choix explicite de continuer avec prestations existantes seulement si verification des cotisations impossible (#426)'
+            'Adhesions: echeances, facturation, inscriptions, types de cotisation et controle des erreurs inclus et testes'
+            'AFAS: actualisation septembre 2026, quatre ALSH et Club Ados, journees facturees retenues et controles exportables'
+            'Communes: toute journee valide facturee compte dans la frequentation, sans discrimination de statut'
+            'Budget CAF: partie financiere renseignee separement par la direction; aucune ventilation inventee'
             'Details: Versions.txt et docs/releases/noethys-sl-0.1.0-rc.10.5.md'
             'Version interne: 1.3.4.4 ; aucune migration'
             "Commit: $env:GITHUB_SHA"
