@@ -531,6 +531,23 @@ class Dialog(wx.Dialog):
         etat = "VALIDABLE" if rapport["validable"] else "NON VALIDABLE : " + " ; ".join(rapport["motifs_non_validable"])
         self.label_statut.SetLabel("%s — %s — convention %s — %s" % (rapport["libelle_phase"], ", ".join(periodes),
                                                                      rapport["convention"] or "aucune", etat))
+        base = rapport.get("base_prevision")
+        if base:
+            reference = base["heures_reference"].get("heures_realisees")
+            estimee = base["heures_projetees"].get("heures_realisees")
+            details = (
+                "PRÉVISION EXTRAPOLÉE, non issue des réservations de l'année en cours.\n"
+                "Période source : %s au %s ; heures N-1 : %s.\n"
+                "Jours ouverts N-1 : %d ; jours projetés : %d.\n"
+                "Formule : heures N-1 × jours projetés / jours N-1 = %s.\n"
+                "Utiliser Exporter le contrôle pour le justificatif CSV."
+                % (base["periode_reference"][0], base["periode_reference"][1],
+                   Declaration.Heures(reference), base["jours_ouverts_reference"],
+                   base["jours_ouverts_cible"], Declaration.Heures(estimee))
+            )
+            self.label_statut.SetToolTip(details)
+        else:
+            self.label_statut.SetToolTip("Prévision manuelle ou aucune prévision.")
         self.Layout()
 
     def _prefixe(self):
