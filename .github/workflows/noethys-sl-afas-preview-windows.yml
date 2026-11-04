@@ -5,6 +5,9 @@ on:
     branches: [wx]
     paths:
       - '.github/workflows/noethys-sl-afas-preview-windows.yml'
+      - 'noethys/Utils/UTILS_AFAS2_Presets.py'
+      - 'tests/test_afas2_presets.py'
+      - 'tests/test_afas2_interface.py'
   workflow_dispatch:
 
 permissions:
