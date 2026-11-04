@@ -41,8 +41,8 @@ import Noethys  # noqa: E402
 class IdentitePubliqueTests(unittest.TestCase):
     def test_identite_publique_attendue(self):
         self.assertEqual(Identite.PRODUCT_NAME, u"Noethys SL")
-        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.10.5")
-        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC10.5")
+        self.assertEqual(Identite.PRODUCT_VERSION, "0.1.0-rc.10.55")
+        self.assertEqual(Identite.PRODUCT_VERSION_DISPLAY, u"0.1.0 RC10.55")
 
     def test_titre_fenetre_affiche_identite_publique(self):
         frame = Noethys.MainFrame.__new__(Noethys.MainFrame)
