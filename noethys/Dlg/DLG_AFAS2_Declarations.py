@@ -93,7 +93,8 @@ class Dialog(wx.Dialog):
         self.ctrl_anomalies.SetMinSize((-1, 150))
 
         actions = []
-        for libelle, methode in (("Référentiel…", self.OnReferentiel), ("Calculer", self.OnCalculer),
+        for libelle, methode in (("Préparer les 4 ALSH PMSL", self.OnPreparerQuatreALSH),
+                                 ("Référentiel…", self.OnReferentiel), ("Calculer", self.OnCalculer),
                                  ("Exporter la déclaration…", self.OnExporterDeclaration), ("Exporter le contrôle…", self.OnExporterControle),
                                  ("Historique…", self.OnHistorique)):
             bouton = wx.Button(self, label=libelle)
@@ -397,6 +398,52 @@ class Dialog(wx.Dialog):
             if dlg.ShowModal() == wx.ID_OK:
                 self.ChargerReferentiel()
                 self.OnContexte(None)
+
+    def OnPreparerQuatreALSH(self, event):
+        """Prepare les 4 profils ALSH connus sans ecraser les presets existants."""
+        try:
+            groupes = Referentiel.ChargerGroupes()
+            unites = Donnees.ChargerUnites([1])
+            reference, candidats = Presets.PreparerQuatrePresetsPMSL(
+                groupes, unites, self.referentiel)
+            existants = {Presets._normalise(nom): ID
+                         for ID, nom in Presets.ListerPresets()}
+            nouveaux = [p for p in candidats
+                        if Presets._normalise(p["nom"]) not in existants]
+            if not self.Confirmer(
+                    "Préparer les quatre dossiers ALSH de Bais et La Guerche-Moutiers ?\n\n"
+                    "%d profil(s) à créer ; %d profil(s) existant(s) seront conservés.\n"
+                    "Les correspondances de groupes et les horaires reconnus seront "
+                    "préremplis, jamais remplacés s'ils sont différents.\n"
+                    "Club Ados et minicamps restent à traiter séparément."
+                    % (len(nouveaux), len(candidats) - len(nouveaux))):
+                return False
+            # L'ensemble est prepare et valide avant la premiere ecriture.
+            self.referentiel = Referentiel.EnregistrerReferentiel(reference)
+            crees = []
+            for candidat in nouveaux:
+                identifiant, sauvegarde = Presets.EnregistrerPreset(candidat)
+                crees.append((identifiant, sauvegarde["nom"]))
+            self.erreur_referentiel = None
+            self.MajListePresets()
+            identifiant = crees[0][0] if crees else existants.get(
+                Presets._normalise(candidats[0]["nom"]))
+            if identifiant is not None:
+                self.ChargerPreset(identifiant)
+            self.ctrl_annee.SetValue(2026)
+            self.ctrl_phase.SetSelection(2)  # Actualisation de septembre
+            self.OnMethode(None)
+            self.rapport = None
+            self.ctrl_resultats.DeleteAllItems()
+            self.ctrl_anomalies.DeleteAllItems()
+            self.label_statut.SetLabel(
+                "Actualisation de septembre 2026 : %d profil(s) ALSH créé(s), "
+                "%d conservé(s). Sélectionner le profil, puis Calculer."
+                % (len(crees), len(candidats) - len(crees)))
+            return True
+        except (ValueError, Referentiel.ReferentielInvalide) as erreur:
+            self.Erreur("Préparation ALSH impossible : %s" % erreur)
+            return False
 
     # ------------------------------------------------------------------ calcul et exports
     def Calculer(self):
