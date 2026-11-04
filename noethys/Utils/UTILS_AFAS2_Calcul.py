@@ -328,9 +328,9 @@ class Calculateur(object):
 
     def _Jour(self, IDindividu, date, consos, anomalies, lignes):
         mode_jour = Calendrier.ModeDate(date, self.ctx["calendrier"], self.samedis)
-        # Deux passes : la présence d'un repas ne prouve pas à elle seule
-        # un accueil réalisé. La preuve doit concerner le même site/jour,
-        # et une unité principale déjà qualifiée comme retenue.
+        # Le repas périscolaire est une composante directe de l'accueil.
+        # Ne pas le conditionner au pointage d'une autre unité du jour.
+        # L'extrascolaire conserve ses règles de justification distinctes.
         qualifies = [(c,) + self._Qualifier(c, mode_jour, anomalies)
                      for c in sorted(consos, key=lambda c: (str(c.get("heure_debut")), c.get("IDconso") or 0))]
         accueils_presents = {
@@ -342,7 +342,8 @@ class Calculateur(object):
         retenues = []
         for conso, statut, motif in qualifies:
             unite = self.unites.get(conso["IDunite"], {})
-            if (statut == "retenue" and conso.get("etat") in self.etats_realise
+            if (self.mode == EXTRA
+                    and statut == "retenue" and conso.get("etat") in self.etats_realise
                     and unite.get("categorie") == "repas"
                     and (conso["IDactivite"], conso["IDgroupe"]) not in accueils_presents):
                 self._anomalie(anomalies, conso,
@@ -359,10 +360,9 @@ class Calculateur(object):
                 retenues.append(conso)
         if not retenues:
             return None
-        # Une consommation "Repas" seule peut contenir une plage déclarée
-        # explicite sans qu'une présence en accueil soit établie ce jour-là.
-        # Ne pas la rendre déclarable par simple attribution d'une heure :
-        # vérifier le pointage dans le même site (pas celui d'un autre site).
+        # Pour l'extrascolaire uniquement, le repas isolé reste soumis à
+        # la preuve d'un accueil principal. En périscolaire, sa plage compte
+        # normalement dans les heures, sans condition d'unité supplémentaire.
         accueils_presents = {
             (c["IDactivite"], c["IDgroupe"]) for c in retenues
             if c.get("etat") in self.etats_realise
@@ -370,7 +370,8 @@ class Calculateur(object):
             and self.unites[c["IDunite"]]["categorie"] != "repas"
         }
         for c in retenues:
-            if (self.unites[c["IDunite"]]["categorie"] == "repas"
+            if (self.mode == EXTRA
+                    and self.unites[c["IDunite"]]["categorie"] == "repas"
                     and c.get("etat") in self.etats_realise
                     and (c["IDactivite"], c["IDgroupe"]) not in accueils_presents):
                 self._anomalie(
@@ -529,9 +530,10 @@ class Calculateur(object):
 
     def _JourPeri(self, IDindividu, date, consos, anomalies):
         realise = [c for c in consos if c.get("etat") in self.etats_realise]
-        categories_caf = list(CATEGORIES_PLAGE_PERI)
-        if self.options["inclure_repas_meridien"]:
-            categories_caf.append("repas")
+        # Le repas fait partie du périscolaire : ce n'est pas une option
+        # d'éligibilité. Son intervalle est fusionné avec les autres plages
+        # pour éviter tout double comptage et conserver le plafond journalier.
+        categories_caf = list(CATEGORIES_PLAGE_PERI) + ["repas"]
         if self.options["inclure_garderie_caf"]:
             categories_caf.extend(CATEGORIES_GARDERIE)
         plages = self._plages([c for c in realise if self.unites[c["IDunite"]]["categorie"] in categories_caf], anomalies)
