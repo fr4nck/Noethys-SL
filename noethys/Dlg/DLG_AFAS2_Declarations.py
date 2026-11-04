@@ -469,7 +469,8 @@ class Dialog(wx.Dialog):
                        for nom in attendus]
             campagne = Declaration.CampagneSeptembre(
                 self.ctrl_annee.GetValue(), self.referentiel, profils)
-            campagne.append(Declaration.DossierAdosEnAttente())
+            campagne.append(Declaration.DossierAdosEnAttente(
+                source=Declaration.Source(), annee=self.ctrl_annee.GetValue()))
             chemin = Declaration.ExporterCampagneSeptembre(
                 dossier, self.ctrl_annee.GetValue(), campagne)
         except (ValueError, OSError) as erreur:
