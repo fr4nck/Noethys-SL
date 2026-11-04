@@ -58,15 +58,21 @@ class ProfilsHistoriquesTests(unittest.TestCase):
         self.assertIs(identique, parametres)
         self.assertFalse(modifie)
 
-    def test_ecran_guard_charge_et_controle_sans_persistance_implicite(self):
+    def test_ecran_etat_global_ne_force_plus_les_profils_caf(self):
+        # Le helper historique peut rester disponible pour un audit externe,
+        # mais l'état global doit être un outil autonome dont les choix sont
+        # intégralement respectés, sans boîte d'alerte.
         code = (NOETHYS / "Dlg" / "DLG_Etat_global.py").read_text(encoding="utf-8")
         arbre = ast.parse(code)
         dlg = next(n for n in arbre.body if isinstance(n, ast.ClassDef) and n.name == "Dialog")
         fonctions = {n.name: n for n in dlg.body if isinstance(n, ast.FunctionDef)}
         chargement = ast.unparse(fonctions["SetParametres"])
         apercu = ast.unparse(fonctions["Apercu"])
-        self.assertIn("PreparerProfilCAFHistorique", chargement)
-        self.assertIn("ErreurEtatsProfilCAFHistorique", apercu)
+        self.assertNotIn("PreparerProfilCAFHistorique", code)
+        self.assertNotIn("ErreurEtatsProfilCAFHistorique", code)
+        self.assertNotIn("MessageBox", chargement)
+        self.assertNotIn("MessageBox", apercu)
+        self.assertIn("self.ctrl_options.SetParametres(dictParametres)", chargement)
         self.assertNotIn("SetParametres(categorie=", chargement)
         self.assertNotIn("ReqInsert", chargement)
         self.assertNotIn("ReqDEL", chargement)
