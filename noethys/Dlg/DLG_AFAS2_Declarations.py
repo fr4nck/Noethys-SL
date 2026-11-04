@@ -403,6 +403,8 @@ class Dialog(wx.Dialog):
     def OnPreparerQuatreALSH(self, event):
         """Prepare les 4 profils ALSH connus sans ecraser les presets existants."""
         try:
+            if self.erreur_referentiel:
+                raise ValueError("Référentiel enregistré invalide : " + self.erreur_referentiel)
             groupes = Referentiel.ChargerGroupes()
             unites = Donnees.ChargerUnites([1])
             reference, candidats = Presets.PreparerQuatrePresetsPMSL(
