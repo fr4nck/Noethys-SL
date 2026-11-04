@@ -236,17 +236,23 @@ class DialogueTests(unittest.TestCase):
 
     def test_nom_temporalise_est_enregistre_sans_piloter_annee_ni_phase(self):
         self.configurer()
-        self.dlg.ctrl_nom.SetValue("ALSH Bais actualisation septembre 2026")
-        self.dlg.ctrl_annee.SetValue(2027)
-        self.dlg.ctrl_phase.SetSelection(1)
+        nom = "Bais - Réel Septembre / Prèv Décembre"
+        self.dlg.ctrl_nom.SetValue(nom)
+        self.dlg.ctrl_annee.SetValue(2026)
+        self.dlg.ctrl_phase.SetSelection(2)
         self.assertTrue(self.dlg.OnEnregistrer(None), self.messages)
         from Utils import UTILS_AFAS2_Presets as P
         relu = P.ChargerPreset(self.dlg.IDprofil)
-        self.assertEqual(relu["nom"], "ALSH Bais actualisation septembre 2026")
+        self.assertEqual(relu["nom"], nom)
         self.assertNotIn("annee", relu)
         self.assertNotIn("phase", relu)
+        self.assertEqual(self.dlg.ctrl_annee.GetValue(), 2026)
+        self.assertEqual(self.dlg.ctrl_phase.GetSelection(), 2)
+        # Le meme preset reste utilisable l'annee suivante : les bornes
+        # de calcul sont selectionnees dans le dialogue, pas dans le nom.
+        self.dlg.ctrl_annee.SetValue(2027)
+        self.assertEqual(P.ChargerPreset(self.dlg.IDprofil)["nom"], nom)
         self.assertEqual(self.dlg.ctrl_annee.GetValue(), 2027)
-        self.assertEqual(self.dlg.ctrl_phase.GetSelection(), 1)
 
     def test_annee_et_phase_jamais_dans_le_preset(self):
         self.configurer()
