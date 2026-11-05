@@ -2,7 +2,7 @@
 
 État du 28 octobre 2026 : moteur de contrôle manuel, sans écriture, qualifié localement.
 La réception des PDF/jpg existe déjà dans Connecthys ; aucune nouvelle collecte ou
-modification du serveur hébergé par Ivan Lucas n'est demandée.
+modification du serveur Connecthys hébergé n'est demandée.
 
 ## Circuit existant vérifié
 
@@ -68,7 +68,7 @@ de wx/Qt et n'active ni wx, ni Qt, ni portail à lui seul.
 - La réception de la fiche famille est déjà traitée comme pièce familiale ;
   aucun enrichissement familial n'est lancé dans ce sous-lot.
 - La future collecte numérique structurée et les signatures restent réservées
-  au portail PMSL ultérieur ; Connecthys d'Ivan Lucas reste inchangé.
+  au portail PMSL ultérieur ; Connecthys d'origine reste inchangé.
 
 ## Suites restant à faire
 
