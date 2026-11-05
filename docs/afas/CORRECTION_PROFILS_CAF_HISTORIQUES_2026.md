@@ -1,5 +1,7 @@
 # AFAS — correction des profils CAF historiques (03/11/2026)
 
+> **Historique — correctif retiré le 05/11/2026.** `UTILS_AFAS_ProfilsHistoriques.py` et son test ont été supprimés lors du retour à l'état global d'origine d'Ivan Lucas : les profils « Caf - Périscolaire » et « Caf - Extrascolaire » sont de nouveau calculés avec les états qu'ils enregistrent, comme dans Noethys, et le forfait méridien n'existe plus. Le constat ci-dessous reste valable pour AFAS V2. Voir `docs/dev/REPRISE_CODEX.md`.
+
 ## Constat sur la sauvegarde ALSH du 22/10/2026
 
 La sauvegarde `.nod` a été auditée **en lecture seule**. Les deux profils de

@@ -1,5 +1,7 @@
 # Préparer les déclarations AFAS par équipement
 
+> **Historique — fonctionnalité retirée le 05/11/2026.** Le bouton « CAF / AFAS » de l'état global et la chaîne AFAS V1 associée ont été supprimés lors du retour à l'état global d'origine d'Ivan Lucas (voir `docs/dev/REPRISE_CODEX.md`). Ce document n'est conservé que comme trace ; les déclarations passent par AFAS V2 (`Consommations > Déclarations AFAS`).
+
 Dans **Consommations → État global**, sélectionner les activités d'un équipement CAF et charger/configurer le profil de calcul du réalisé (coefficients ou temps réels), les états de consommation, les jours scolaires/vacances et les éventuels plafonds. Cliquer sur **CAF / AFAS**.
 
 Pour réutiliser un équipement enregistré, ouvrir directement **CAF / AFAS** et choisir sa configuration ; il n’est pas nécessaire de sélectionner à nouveau les activités dans l’état global.
