@@ -261,7 +261,12 @@ class RecetteEtatGlobalWx(unittest.TestCase):
             constat["coches"] = [i for i in range(liste.GetCount()) if liste.IsChecked(i)]
             for i in range(liste.GetCount()):
                 liste.Check(i, i in a_cocher)
-            self.capturer(dialogue, capture)
+            try:
+                self.capturer(dialogue, capture)
+            except Exception as erreur:
+                # La capture n'est qu'une preuve visuelle : elle ne doit pas
+                # empêcher le clic sur OK.
+                constat["capture"] = repr(erreur)
             bouton = dialogue.FindWindowById(wx.ID_OK)
             evenement = wx.CommandEvent(wx.wxEVT_COMMAND_BUTTON_CLICKED, wx.ID_OK)
             evenement.SetEventObject(bouton)
@@ -286,6 +291,8 @@ class RecetteEtatGlobalWx(unittest.TestCase):
             self.patienter()
         self.assertEqual(erreurs, [], nom)
         self.assertEqual(constat.get("dialogues"), 1, (nom, constat))
+        if "capture" in constat:
+            print("Capture du dialogue %s impossible : %s" % (nom, constat["capture"]), file=sys.stderr)
         return propriete, constat
 
     def test_03b_tranches_d_age_saisies_dans_la_grille(self):
