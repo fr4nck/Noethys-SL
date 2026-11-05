@@ -211,7 +211,13 @@ class RecetteEtatGlobalWx(unittest.TestCase):
                 dialogue = dialogues[0]
                 listes = [e for e in self.descendants(dialogue) if isinstance(e, wx.ListBox)]
                 constat["lignes"] = [listes[0].GetString(i) for i in range(listes[0].GetCount())] if listes else []
-                constat["coches"] = list(dialogue.GetSelections())
+                # GetSelections() du dialogue n'est fiable qu'après l'interaction
+                # sous MSW : on lit les coches réellement affichées.
+                liste = listes[0]
+                if isinstance(liste, wx.CheckListBox):
+                    constat["coches"] = [i for i in range(liste.GetCount()) if liste.IsChecked(i)]
+                else:
+                    constat["coches"] = list(liste.GetSelections())
                 self.capturer(dialogue, "03_etats_consommations.png")
                 dialogue.SetSelections([1, 3])
                 dialogue.EndModal(wx.ID_OK)
