@@ -218,6 +218,21 @@ class Propriete_multichoix(ArrayStringProperty):
             return retval
         return False
 
+    def DisplayEditorDialog(self, pg, value):
+        """ Noethys SL : avec wxPython 4.2 (wxWidgets 3.2), le bouton du champ appelle
+        ce dialogue de ArrayStringProperty sans passer par OnEvent. Le dialogue C++
+        attend une liste de textes et échoue sur les identifiants : on ouvre ici le
+        même MultiChoiceDialog que OnEvent. """
+        selections = value if isinstance(value, (list, tuple)) else (self.m_value or [])
+        dlg = wx.MultiChoiceDialog(pg, _(u"Cochez les éléments à sélectionner :"), _(u"sélection"), [x[1] for x in self.liste_choix])
+        dlg.SetSelections([index for index, (id, valeur) in enumerate(self.liste_choix) if id in selections])
+        if dlg.ShowModal() == wx.ID_OK:
+            resultat = (True, [self.liste_choix[index][0] for index in dlg.GetSelections()])
+        else:
+            resultat = (False, value)
+        dlg.Destroy()
+        return resultat
+
 
 
 # -------------------------------------------------------------------------------------------------
