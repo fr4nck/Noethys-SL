@@ -48,7 +48,8 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         from _fixtures_noethys_db import RedirectionGestionDB, _sql_valeur
 
         cls.wx = wx
-        cls.app = wx.GetApp() or wx.App(False)
+        from test_noethys_sl_etat_global_historique import application_wx
+        cls.app = application_wx(wx)
         cls.sortie = Path(os.environ.get("NOETHYS_SL_RECETTE_SORTIE") or tempfile.mkdtemp(prefix="recette-etat-global-"))
         cls.sortie.mkdir(parents=True, exist_ok=True)
 

@@ -87,6 +87,17 @@ def empreinte_git(texte):
     return hashlib.sha1(b"blob %d\0" % len(donnees) + donnees).hexdigest()
 
 
+_APPLICATION = []
+
+
+def application_wx(wx):
+    """ Une seule wx.App, conservée jusqu'à la fin du processus : détruire
+    puis recréer une application wx fait planter wxPython sous Windows. """
+    if wx.GetApp() is None:
+        _APPLICATION.append(wx.App(False))
+    return wx.GetApp()
+
+
 def methode(fichier, classe, fonction):
     arbre = ast.parse(texte_normalise(fichier))
     objet = next(n for n in arbre.body if isinstance(n, ast.ClassDef) and n.name == classe)
@@ -164,7 +175,7 @@ class ProfilsWxTests(unittest.TestCase):
 
     def test_profil_ancien_recharge_et_resauvegarde_sans_cle_parasite(self):
         wx = self.wx
-        app = wx.GetApp() or wx.App(False)
+        application_wx(wx)
         cadre = wx.Frame(None)
         try:
             with mock.patch("GestionDB.DB") as base:
@@ -207,10 +218,7 @@ class ContratEditeurWxTests(unittest.TestCase):
                          "Dialogue affiché uniquement sur le runner Windows isolé")
     def test_wxpython_natif_propose_reellement_quatre_entrees(self):
         wx = self.wx
-        app = wx.GetApp()
-        cree_app = app is None
-        if cree_app:
-            app = wx.App(False)
+        application_wx(wx)
         choix = ["Pointage en attente", "Présent", "Absence justifiée", "Absence injustifiée"]
         dlg = wx.MultiChoiceDialog(None, "Cochez les états à inclure", "États des consommations", choix)
         try:
@@ -230,8 +238,6 @@ class ContratEditeurWxTests(unittest.TestCase):
                             "Le dialogue multichoix n'a pas rendu ses quatre lignes")
         finally:
             dlg.Destroy()
-            if cree_app:
-                app.Destroy()
 
     def _faux(self, liste_choix, valeur):
         class FauxPropriete:
