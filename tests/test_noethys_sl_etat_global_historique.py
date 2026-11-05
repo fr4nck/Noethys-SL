@@ -4,8 +4,9 @@
 Référence : https://github.com/Noethys/Noethys (branche master, commit
 199353efb86e37a9785260ec4225b49aced03db9). Les quatre fichiers de la page
 doivent rester identiques à l'original. Seules sont admises, dans
-DLG_Etat_global.py, les adaptations Python 3 listées dans ADAPTATIONS_PY3 :
-en les retirant, on doit retrouver l'empreinte Git exacte du fichier original.
+DLG_Etat_global.py, les adaptations Python 3 listées dans ADAPTATIONS_PY3, et
+dans CTRL_Propertygrid.py l'adaptation wxPython 4.2 de ADAPTATION_WX42 : en les
+retirant, on doit retrouver l'empreinte Git exacte du fichier original.
 
 Ces tests n'accèdent à aucune donnée et n'affichent aucune fenêtre sur un
 poste de travail (le seul test qui en ouvre une est réservé au runner CI).
@@ -59,6 +60,27 @@ ADAPTATIONS_PY3 = [
      u"            if \"Permission denied\" in err :\n"),
 ]
 
+# wxPython 4.2 (wxWidgets 3.2) : le bouton « ... » d'un ArrayStringProperty
+# appelle DisplayEditorDialog et non OnEvent. Le dialogue C++ refuse les
+# identifiants (assertion « Function called for incompatible property ») : la
+# méthode ajoutée ouvre le même MultiChoiceDialog que OnEvent.
+ADAPTATION_WX42 = (
+    u"\n    def DisplayEditorDialog(self, pg, value):\n"
+    u"        \"\"\" Noethys SL : avec wxPython 4.2 (wxWidgets 3.2), le bouton du champ appelle\n"
+    u"        ce dialogue de ArrayStringProperty sans passer par OnEvent. Le dialogue C++\n"
+    u"        attend une liste de textes et échoue sur les identifiants : on ouvre ici le\n"
+    u"        même MultiChoiceDialog que OnEvent. \"\"\"\n"
+    u"        selections = value if isinstance(value, (list, tuple)) else (self.m_value or [])\n"
+    u"        dlg = wx.MultiChoiceDialog(pg, _(u\"Cochez les éléments à sélectionner :\"), _(u\"sélection\"), [x[1] for x in self.liste_choix])\n"
+    u"        dlg.SetSelections([index for index, (id, valeur) in enumerate(self.liste_choix) if id in selections])\n"
+    u"        if dlg.ShowModal() == wx.ID_OK:\n"
+    u"            resultat = (True, [self.liste_choix[index][0] for index in dlg.GetSelections()])\n"
+    u"        else:\n"
+    u"            resultat = (False, value)\n"
+    u"        dlg.Destroy()\n"
+    u"        return resultat\n"
+)
+
 # Ajouts retirés : ils ne doivent pas revenir dans la page ni dans son calcul.
 AJOUTS_RETIRES = (
     "presence_midi", "bouton_afas", "OnAFAS", "AFAS", "CTRL_Grille_periode",
@@ -108,10 +130,15 @@ class FideliteOriginalTests(unittest.TestCase):
 
     def test_controles_identiques_a_l_original(self):
         for relatif in ("Ctrl/CTRL_Etat_global_options.py",
-                        "Ctrl/CTRL_Etat_global_parametres.py",
-                        "Ctrl/CTRL_Propertygrid.py"):
+                        "Ctrl/CTRL_Etat_global_parametres.py"):
             self.assertEqual(empreinte_git(texte_normalise(relatif)),
                              EMPREINTES_ORIGINALES[relatif], relatif)
+
+    def test_propertygrid_identique_a_l_original_hors_adaptation_wx42(self):
+        texte = texte_normalise("Ctrl/CTRL_Propertygrid.py")
+        self.assertEqual(texte.count(ADAPTATION_WX42), 1)
+        texte = texte.replace(ADAPTATION_WX42, u"")
+        self.assertEqual(empreinte_git(texte), EMPREINTES_ORIGINALES["Ctrl/CTRL_Propertygrid.py"])
 
     def test_dialogue_identique_a_l_original_hors_adaptations_python3(self):
         texte = texte_normalise("Dlg/DLG_Etat_global.py")
@@ -271,6 +298,27 @@ class ContratEditeurWxTests(unittest.TestCase):
             self.assertEqual(cree_dialogue.call_args.args[3], [libelle for _, libelle in etats])
             dialogue.SetSelections.assert_called_once_with([1, 3])
             dialogue.Destroy.assert_called_once()
+
+    def test_bouton_wx42_ouvre_le_meme_dialogue_et_rend_les_identifiants(self):
+        wx = self.wx
+        jours = [(0, "Lundi"), (1, "Mardi"), (2, "Mercredi"), (3, "Jeudi"), (4, "Vendredi"), (5, "Samedi"), (6, "Dimanche")]
+        faux = self._faux(jours, [])
+        with mock.patch.object(wx, "MultiChoiceDialog") as cree_dialogue:
+            dialogue = cree_dialogue.return_value
+            dialogue.ShowModal.return_value = wx.ID_OK
+            dialogue.GetSelections.return_value = [2, 5]
+            self.assertEqual(self.controle.DisplayEditorDialog(faux, None, [0, 1, 2, 3, 4]), (True, [2, 5]))
+            self.assertEqual(cree_dialogue.call_args.args[3], [libelle for _, libelle in jours])
+            dialogue.SetSelections.assert_called_once_with([0, 1, 2, 3, 4])
+            dialogue.Destroy.assert_called_once()
+
+    def test_bouton_wx42_annuler_garde_la_valeur(self):
+        wx = self.wx
+        faux = self._faux([(0, "Réservation"), (1, "Présent")], [1])
+        with mock.patch.object(wx, "MultiChoiceDialog") as cree_dialogue:
+            cree_dialogue.return_value.ShowModal.return_value = wx.ID_CANCEL
+            self.assertEqual(self.controle.DisplayEditorDialog(faux, None, None), (False, None))
+            cree_dialogue.return_value.SetSelections.assert_called_once_with([1])
 
     def test_annuler_ne_change_pas_les_etats_enregistres(self):
         wx = self.wx

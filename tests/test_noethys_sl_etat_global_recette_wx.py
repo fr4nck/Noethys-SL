@@ -218,6 +218,12 @@ class RecetteEtatGlobalWx(unittest.TestCase):
             dialogues = [w for w in wx.GetTopLevelWindows() if isinstance(w, wx.MultiChoiceDialog)]
             constat["dialogues"] = len(dialogues)
             if not dialogues:
+                # Autre dialogue (éditeur C++ de wx) : on le ferme pour ne pas
+                # bloquer la recette et on le signale.
+                autres = [w for w in wx.GetTopLevelWindows() if isinstance(w, wx.Dialog) and w.IsModal()]
+                constat["autres"] = [type(w).__name__ + " " + w.GetTitle() for w in autres]
+                for autre in autres:
+                    autre.EndModal(wx.ID_CANCEL)
                 return
             dialogue = dialogues[0]
             liste = [e for e in self.descendants(dialogue) if isinstance(e, wx.CheckListBox)][0]
@@ -239,14 +245,38 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         self.patienter()
         boutons = [e for e in self.descendants(options) if isinstance(e, wx.Button) and e.IsShown()]
         self.assertEqual(len(boutons), 1, nom)
+        # Les erreurs levées dans les gestionnaires wx (assertions C++ comprises)
+        # ne font qu'afficher une trace : on les collecte pour les refuser.
+        erreurs = []
         wx.CallLater(800, repondre)
         clic = wx.CommandEvent(wx.wxEVT_COMMAND_BUTTON_CLICKED, boutons[0].GetId())
         clic.SetEventObject(boutons[0])
-        boutons[0].GetEventHandler().ProcessEvent(clic)
-        self.patienter()
-        options.CommitChangesFromEditor()
-        self.assertEqual(constat.get("dialogues"), 1, nom)
+        with mock.patch.object(sys, "excepthook", lambda *e: erreurs.append(repr(e[1]))):
+            boutons[0].GetEventHandler().ProcessEvent(clic)
+            self.patienter()
+            options.CommitChangesFromEditor()
+            self.patienter()
+        self.assertEqual(erreurs, [], nom)
+        self.assertEqual(constat.get("dialogues"), 1, (nom, constat))
         return propriete, constat
+
+    def test_03b_tranches_d_age_saisies_dans_la_grille(self):
+        wx = self.wx
+        options = self.dlg.ctrl_options
+        propriete = options.GetPropertyByName("regroupement_age")
+        self.assertTrue(options.SelectProperty(propriete, True))
+        self.patienter()
+        editeur = options.GetEditorControl()
+        self.assertIsInstance(editeur, wx.TextCtrl)
+        erreurs = []
+        with mock.patch.object(sys, "excepthook", lambda *e: erreurs.append(repr(e[1]))):
+            editeur.SetValue(u"6, 12")
+            options.CommitChangesFromEditor()
+            self.patienter()
+        self.assertEqual(erreurs, [])
+        self.assertEqual(options.GetParametres()["regroupement_age"], [6, 12])
+        self.capturer(self.dlg, "03b_tranches_age.png")
+        options.SetParametres({"regroupement_age": []})
 
     def test_03_selecteurs_multiples_natifs(self):
         jours = [u"Lundi", u"Mardi", u"Mercredi", u"Jeudi", u"Vendredi", u"Samedi", u"Dimanche"]
