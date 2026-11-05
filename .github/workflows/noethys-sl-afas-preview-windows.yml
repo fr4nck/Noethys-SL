@@ -12,7 +12,6 @@ on:
       - 'noethys/Ctrl/CTRL_Propertygrid.py'
       - 'tests/test_noethys_sl_etat_global_historique.py'
       - 'tests/test_noethys_sl_etat_global_calcul.py'
-      - 'tests/test_noethys_sl_afas_profils_historiques.py'
   workflow_dispatch:
 
 permissions:
@@ -46,7 +45,7 @@ jobs:
         run: |
           python -m compileall -q noethys/Utils noethys/Dlg
           if ($LASTEXITCODE -ne 0) { throw 'Compilation AFAS echouee' }
-          python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface tests.test_noethys_sl_etat_global_historique tests.test_noethys_sl_etat_global_calcul tests.test_noethys_sl_afas_profils_historiques
+          python -m unittest -v tests.test_afas2_presets tests.test_afas2_declaration tests.test_afas2_interface tests.test_noethys_sl_etat_global_historique tests.test_noethys_sl_etat_global_calcul
           if ($LASTEXITCODE -ne 0) { throw 'Tests AFAS echoues' }
 
       - name: Construire Noethys.exe avec Etat global historique et AFAS

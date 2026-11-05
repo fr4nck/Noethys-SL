@@ -1,0 +1,53 @@
+name: Noethys SL - Etat global d'origine, recette graphique Windows
+
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-etat-global-recette-windows.yml'
+      - 'noethys/Dlg/DLG_Etat_global.py'
+      - 'noethys/Ctrl/CTRL_Etat_global_options.py'
+      - 'noethys/Ctrl/CTRL_Etat_global_parametres.py'
+      - 'noethys/Ctrl/CTRL_Propertygrid.py'
+      - 'tests/test_noethys_sl_etat_global_historique.py'
+      - 'tests/test_noethys_sl_etat_global_calcul.py'
+      - 'tests/test_noethys_sl_etat_global_recette_wx.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recette:
+    name: Fenetre reelle sur base fictive
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      NOETHYS_SL_RECETTE_SORTIE: ${{ github.workspace }}\recette-etat-global
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Fidelite a l'original, calcul et recette graphique
+        shell: pwsh
+        run: |
+          python -m unittest -v tests.test_000_garde_reseau tests.test_noethys_sl_etat_global_historique tests.test_noethys_sl_etat_global_calcul tests.test_noethys_sl_etat_global_recette_wx
+          if ($LASTEXITCODE -ne 0) { throw 'Recette Etat global en echec' }
+      - name: Captures et PDF de recette
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: recette-etat-global-wx
+          path: recette-etat-global
+          if-no-files-found: warn

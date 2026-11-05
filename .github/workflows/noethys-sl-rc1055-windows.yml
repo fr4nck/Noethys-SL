@@ -131,7 +131,6 @@ jobs:
           tests.test_type_structure_familles
           tests.test_noethys_sl_etat_global_historique
           tests.test_noethys_sl_etat_global_calcul
-          tests.test_noethys_sl_afas_profils_historiques
           tests.test_afas2_calcul
           tests.test_afas2_calendrier
           tests.test_afas2_conventions
@@ -279,7 +278,6 @@ jobs:
           tests.test_noethys_sl_type_cotisation_erreurs
           tests.test_noethys_sl_etat_global_historique
           tests.test_noethys_sl_etat_global_calcul
-          tests.test_noethys_sl_afas_profils_historiques
           tests.test_afas2_calcul
           tests.test_afas2_calendrier
           tests.test_afas2_conventions

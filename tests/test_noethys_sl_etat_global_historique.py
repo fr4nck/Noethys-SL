@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Contrat de non-regression : Etat global des consommations historique.
+"""Contrat de fidélité : État global des consommations d'Ivan Lucas.
 
-La direction demande de garder la page de controle independante d'AFAS :
-- les quatre statuts sont modifiables sans transformation ;
-- le profil sauvegarde est recharge sans forcer Present ;
-- aucun avertissement CAF n'apparait au chargement ou a l'apercu ;
-- le selecteur multiple natif de l'ancienne version reste disponible ;
-- les evolutions AFAS se font dans leur propre module.
+Référence : https://github.com/Noethys/Noethys (branche master, commit
+199353efb86e37a9785260ec4225b49aced03db9). Les quatre fichiers de la page
+doivent rester identiques à l'original. Seules sont admises, dans
+DLG_Etat_global.py, les adaptations Python 3 listées dans ADAPTATIONS_PY3 :
+en les retirant, on doit retrouver l'empreinte Git exacte du fichier original.
 
-Ces tests n'accedent a aucune donnee de production.
+Ces tests n'accèdent à aucune donnée et n'affichent aucune fenêtre sur un
+poste de travail (le seul test qui en ouvre une est réservé au runner CI).
 """
 import ast
+import hashlib
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -21,76 +23,176 @@ NOETHYS = ROOT / "noethys"
 if str(NOETHYS) not in sys.path:
     sys.path.insert(0, str(NOETHYS))
 
+# Empreintes Git (blob) des fichiers originaux de Noethys.
+EMPREINTES_ORIGINALES = {
+    "Dlg/DLG_Etat_global.py": "8fbf28506b490856f8b8fb800c51d34eb5decffe",
+    "Ctrl/CTRL_Etat_global_options.py": "c9948b98107b15dad9dd4da7c4bbab0fec8d42b8",
+    "Ctrl/CTRL_Etat_global_parametres.py": "7692529d432aeb3f3191d0382a45a421ed1b6aef",
+    "Ctrl/CTRL_Propertygrid.py": "7727b1c4e8f835b19831be5c0a69f74a6b859c2b",
+}
+
+# (texte adapté, texte original) : adaptations techniques Python 3 sans
+# changement de résultat. Python 2 faisait une division entière avec « / »
+# et savait trier None avec des chaînes ou des nombres.
+ADAPTATIONS_PY3 = [
+    (u"    # Noethys SL : divisions entières explicites (//) pour retrouver sous Python 3\n"
+     u"    # le résultat exact de la division entière Python 2 d'origine.\n"
+     u"    heures = (valeur.days*24) + (valeur.seconds//3600)\n"
+     u"    minutes = valeur.seconds%3600//60\n",
+     u"    heures = (valeur.days*24) + (valeur.seconds/3600)\n"
+     u"    minutes = valeur.seconds%3600/60\n"),
+    (u"        minDecimal = int(minutes)*100//60\n",
+     u"        minDecimal = int(minutes)*100/60\n"),
+    (u"\ndef CleTriPython2(valeur):\n"
+     u"    \"\"\" Noethys SL : ordre de tri de Python 2, où None précède tout, les nombres\n"
+     u"    précèdent les autres types et les types différents se classent par nom.\n"
+     u"    Python 3 refuse de comparer None à une chaîne ou à un nombre. \"\"\"\n"
+     u"    if valeur is None :\n"
+     u"        return (0, \"\", 0)\n"
+     u"    if isinstance(valeur, (int, float)) :\n"
+     u"        return (1, \"\", valeur)\n"
+     u"    return (2, type(valeur).__name__, valeur)\n",
+     u""),
+    (u"        regroupements.sort(key=CleTriPython2)\n",
+     u"        regroupements.sort()\n"),
+    (u"            if \"Permission denied\" in six.text_type(err) :\n",
+     u"            if \"Permission denied\" in err :\n"),
+]
+
+# Ajouts retirés : ils ne doivent pas revenir dans la page ni dans son calcul.
+AJOUTS_RETIRES = (
+    "presence_midi", "bouton_afas", "OnAFAS", "AFAS", "CTRL_Grille_periode",
+    "ctrl_periode", "CalculateurEtatGlobal", "ErreurCalculEtatGlobal",
+    "DecoderArrondi", "listeGroupes", "listeCouples", "controle_doublons",
+    "controle_temps_facture",
+)
+
+MODULES_AFAS_V1_RETIRES = (
+    "Dlg/DLG_AFAS_Actualisation.py",
+    "Utils/UTILS_AFAS_Actualisation.py",
+    "Utils/UTILS_AFAS_Donnees.py",
+    "Utils/UTILS_AFAS_Perimetre.py",
+    "Utils/UTILS_AFAS_Historique.py",
+    "Utils/UTILS_AFAS_ProfilsHistoriques.py",
+)
+
+
+def texte_normalise(relatif):
+    """ Contenu tel que Git le stocke (fins de ligne LF). """
+    return (NOETHYS / relatif).read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+
+
+def empreinte_git(texte):
+    donnees = texte.encode("utf-8")
+    return hashlib.sha1(b"blob %d\0" % len(donnees) + donnees).hexdigest()
+
 
 def methode(fichier, classe, fonction):
-    source = (NOETHYS / fichier).read_text(encoding="utf-8")
-    arbre = ast.parse(source)
-    objet = next(
-        n for n in arbre.body if isinstance(n, ast.ClassDef) and n.name == classe
-    )
-    return next(
-        n for n in objet.body if isinstance(n, ast.FunctionDef) and n.name == fonction
-    )
+    arbre = ast.parse(texte_normalise(fichier))
+    objet = next(n for n in arbre.body if isinstance(n, ast.ClassDef) and n.name == classe)
+    return next(n for n in objet.body if isinstance(n, ast.FunctionDef) and n.name == fonction)
 
 
-class ContratPageHistoriqueTests(unittest.TestCase):
-    def test_etats_a_l_origine_et_selection_libre(self):
+class FideliteOriginalTests(unittest.TestCase):
+
+    def test_controles_identiques_a_l_original(self):
+        for relatif in ("Ctrl/CTRL_Etat_global_options.py",
+                        "Ctrl/CTRL_Etat_global_parametres.py",
+                        "Ctrl/CTRL_Propertygrid.py"):
+            self.assertEqual(empreinte_git(texte_normalise(relatif)),
+                             EMPREINTES_ORIGINALES[relatif], relatif)
+
+    def test_dialogue_identique_a_l_original_hors_adaptations_python3(self):
+        texte = texte_normalise("Dlg/DLG_Etat_global.py")
+        for adapte, original in ADAPTATIONS_PY3:
+            self.assertEqual(texte.count(adapte), 1, adapte)
+            texte = texte.replace(adapte, original)
+        self.assertEqual(empreinte_git(texte), EMPREINTES_ORIGINALES["Dlg/DLG_Etat_global.py"])
+
+    def test_aucun_ajout_retire_ne_revient(self):
+        for relatif in ("Dlg/DLG_Etat_global.py", "Ctrl/CTRL_Etat_global_options.py"):
+            texte = texte_normalise(relatif)
+            for ajout in AJOUTS_RETIRES:
+                self.assertNotIn(ajout, texte, (relatif, ajout))
+
+    def test_chaine_afas_v1_retiree(self):
+        for relatif in MODULES_AFAS_V1_RETIRES:
+            self.assertFalse((NOETHYS / relatif).exists(), relatif)
+
+    def test_periode_par_deux_dates_comme_l_original(self):
+        initialisation = ast.unparse(methode("Dlg/DLG_Etat_global.py", "Parametres", "__init__"))
+        self.assertIn("self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)", initialisation)
+        self.assertIn("self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)", initialisation)
+
+    def test_trois_boutons_d_origine(self):
+        disposition = ast.unparse(methode("Dlg/DLG_Etat_global.py", "Dialog", "__do_layout"))
+        self.assertIn("wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)", disposition)
+        for bouton in ("bouton_aide", "bouton_ok", "bouton_fermer"):
+            self.assertIn("grid_sizer_boutons.Add(self.%s" % bouton, disposition)
+
+    def test_etats_de_consommation_d_origine(self):
         fonction = methode("Ctrl/CTRL_Etat_global_options.py", "CTRL", "Remplissage")
         listes = [
             n for n in ast.walk(fonction)
             if isinstance(n, ast.Assign)
-            and any(isinstance(t, ast.Attribute) and t.attr == "liste_codes_etats"
-                    for t in n.targets)
+            and any(isinstance(t, ast.Attribute) and t.attr == "liste_codes_etats" for t in n.targets)
         ]
         self.assertEqual(len(listes), 1)
-        self.assertEqual(ast.literal_eval(listes[0].value),
-                         ["reservation", "present", "absentj", "absenti"])
-        texte = ast.unparse(fonction)
-        for titre in ("Pointage en attente", "Présent",
-                      "Absence justifiée", "Absence injustifiée"):
-            self.assertIn(titre, texte)
+        self.assertEqual(ast.literal_eval(listes[0].value), ["reservation", "present", "absentj", "absenti"])
 
-    def test_profil_recharge_fidelement_sans_alerte_ni_filtre_caf(self):
-        rechargement = ast.unparse(
-            methode("Dlg/DLG_Etat_global.py", "Dialog", "SetParametres"))
-        self.assertIn("self.ctrl_options.SetParametres(dictParametres)", rechargement)
+    def test_profil_recharge_tel_qu_enregistre(self):
+        rechargement = ast.unparse(methode("Dlg/DLG_Etat_global.py", "Dialog", "SetParametres"))
         self.assertIn("self.ctrl_parametres.SetParametres(dictParametres)", rechargement)
-        self.assertNotIn("UTILS_AFAS_ProfilsHistoriques", rechargement)
-        self.assertNotIn("PreparerProfilCAFHistorique", rechargement)
+        self.assertIn("self.ctrl_options.SetParametres(dictParametres)", rechargement)
         self.assertNotIn("MessageBox", rechargement)
 
-    def test_apercu_ne_change_pas_les_quatre_etats(self):
-        apercu = ast.unparse(
-            methode("Dlg/DLG_Etat_global.py", "Dialog", "Apercu"))
-        self.assertIn("self.ctrl_options.GetParametres()", apercu)
-        self.assertNotIn("ErreurEtatsProfilCAFHistorique", apercu)
-        self.assertNotIn("Profil CAF : états incompatibles", apercu)
-        self.assertNotIn("PreparerProfilCAFHistorique", apercu)
 
-    def test_fenetre_historique_reste_independante_d_afas_v2(self):
-        initialisation = ast.unparse(
-            methode("Dlg/DLG_Etat_global.py", "Dialog", "__init__"))
-        disposition = ast.unparse(
-            methode("Dlg/DLG_Etat_global.py", "Dialog", "__do_layout"))
-        self.assertIn("self.bouton_afas = wx.Button", initialisation)
-        self.assertIn("self.Bind(wx.EVT_BUTTON, self.OnAFAS, self.bouton_afas)",
-                      initialisation)
-        self.assertNotIn("self.bouton_afas.Hide", initialisation)
-        self.assertIn("grid_sizer_boutons.Add(self.bouton_afas", disposition)
-        self.assertNotIn("UTILS_AFAS_ProfilsHistoriques",
-                         (NOETHYS / "Dlg/DLG_Etat_global.py").read_text(encoding="utf-8"))
+class ProfilsWxTests(unittest.TestCase):
+    """ Un profil enregistré par une version précédente (options du midi
+    comprises) se recharge sans erreur : les clés inconnues sont ignorées,
+    comme dans l'original. Les contrôles sont créés sans être affichés. """
 
-    def test_editeur_multiple_natif_pas_le_remplacement_vide(self):
-        fonction = ast.unparse(methode(
-            "Ctrl/CTRL_Propertygrid.py", "Propriete_multichoix", "OnEvent"))
-        self.assertIn("wx.MultiChoiceDialog", fonction)
-        self.assertIn("dlg.SetSelections(", fonction)
-        self.assertIn("dlg.GetSelections()", fonction)
-        self.assertIn("self.SetValueInEvent(", fonction)
-        self.assertNotIn("wx.CheckListBox(", fonction)
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import wx
+            from Ctrl import CTRL_Etat_global_options
+        except (ImportError, RuntimeError):
+            raise unittest.SkipTest("wxPython indisponible sur ce runner")
+        cls.wx = wx
+        cls.module = CTRL_Etat_global_options
+
+    def test_profil_ancien_recharge_et_resauvegarde_sans_cle_parasite(self):
+        wx = self.wx
+        app = wx.GetApp() or wx.App(False)
+        cadre = wx.Frame(None)
+        try:
+            with mock.patch("GestionDB.DB") as base:
+                base.return_value.ResultatReq.return_value = []
+                ctrl = self.module.CTRL(cadre)
+            ancien_profil = dict(ctrl.GetParametres())
+            ancien_profil.update({
+                "forfait_presence_midi": 45,
+                "heure_debut_presence_midi": "12:30",
+                "heure_fin_presence_midi": "13:30",
+                "etat_consommations": ["present", "absenti"],
+                "plafond_journalier_individu": 600,
+                "format_donnees": "decimal",
+            })
+            ctrl.SetParametres(ancien_profil)
+            parametres = ctrl.GetParametres()
+            self.assertEqual(parametres["etat_consommations"], ["present", "absenti"])
+            self.assertEqual(parametres["plafond_journalier_individu"], 600)
+            self.assertEqual(parametres["format_donnees"], "decimal")
+            for cle in ("forfait_presence_midi", "heure_debut_presence_midi", "heure_fin_presence_midi"):
+                self.assertNotIn(cle, parametres)
+        finally:
+            cadre.Destroy()
 
 
 class ContratEditeurWxTests(unittest.TestCase):
+    """ Sélection multiple native d'origine (wx.MultiChoiceDialog). """
+
     @classmethod
     def setUpClass(cls):
         try:
@@ -101,20 +203,17 @@ class ContratEditeurWxTests(unittest.TestCase):
         cls.wx = wx
         cls.controle = CTRL_Propertygrid.Propriete_multichoix
 
-    @unittest.skipUnless(sys.platform == "win32", "Vérification du dialogue wx sur Windows")
+    @unittest.skipUnless(sys.platform == "win32" and os.environ.get("GITHUB_ACTIONS") == "true",
+                         "Dialogue affiché uniquement sur le runner Windows isolé")
     def test_wxpython_natif_propose_reellement_quatre_entrees(self):
         wx = self.wx
         app = wx.GetApp()
         cree_app = app is None
         if cree_app:
             app = wx.App(False)
-        choix = ["Pointage en attente", "Présent", "Absence justifiée",
-                 "Absence injustifiée"]
-        dlg = wx.MultiChoiceDialog(None, "Cochez les états à inclure",
-                                   "États des consommations", choix)
+        choix = ["Pointage en attente", "Présent", "Absence justifiée", "Absence injustifiée"]
+        dlg = wx.MultiChoiceDialog(None, "Cochez les états à inclure", "États des consommations", choix)
         try:
-            # GetSelections() n'est fiable qu'après l'interaction modale :
-            # avant cela, wx/MSW peut ne retourner que le dernier élément.
             dlg.SetSelections([0, 1, 2, 3])
             dlg.Show()
             wx.YieldIfNeeded()
@@ -127,68 +226,53 @@ class ContratEditeurWxTests(unittest.TestCase):
                     resultats.extend(trouver_listes(enfant))
                 return resultats
 
-            listes = trouver_listes(dlg)
-            self.assertTrue(any(liste.GetCount() == 4 for liste in listes),
+            self.assertTrue(any(liste.GetCount() == 4 for liste in trouver_listes(dlg)),
                             "Le dialogue multichoix n'a pas rendu ses quatre lignes")
         finally:
             dlg.Destroy()
             if cree_app:
                 app.Destroy()
 
-    def test_dialogue_recoit_les_quatre_libelles_et_initialise_les_coches(self):
-        etats = [(0, "Pointage en attente"), (1, "Présent"),
-                 (2, "Absence justifiée"), (3, "Absence injustifiée")]
-
+    def _faux(self, liste_choix, valeur):
         class FauxPropriete:
-            liste_choix = etats
-            valeur = [1, 3]
-
-            def GetValue(self):
-                return list(self.valeur)
+            def __init__(self):
+                self.liste_choix = liste_choix
+                self.m_value = list(valeur)
+                self.recu = None
 
             def SetValueInEvent(self, valeurs):
-                self.valeur = valeurs
+                self.recu = valeurs
+        return FauxPropriete()
+
+    def _clic(self):
+        wx = self.wx
 
         class FauxEvenement:
             def GetEventType(self):
                 return wx.wxEVT_COMMAND_BUTTON_CLICKED
+        return FauxEvenement()
 
+    def test_dialogue_recoit_les_libelles_et_initialise_les_coches(self):
         wx = self.wx
-        faux = FauxPropriete()
+        etats = [(0, "Pointage en attente"), (1, "Présent"), (2, "Absence justifiée"), (3, "Absence injustifiée")]
+        faux = self._faux(etats, [1, 3])
         with mock.patch.object(wx, "MultiChoiceDialog") as cree_dialogue:
             dialogue = cree_dialogue.return_value
             dialogue.ShowModal.return_value = wx.ID_OK
             dialogue.GetSelections.return_value = [0, 1, 2, 3]
-            resultat = self.controle.OnEvent(faux, None, None, FauxEvenement())
-            self.assertTrue(resultat)
-            self.assertEqual(faux.valeur, [0, 1, 2, 3])
-            arguments = cree_dialogue.call_args.args
-            self.assertEqual(arguments[3], [libelle for _, libelle in etats])
+            self.assertTrue(self.controle.OnEvent(faux, None, None, self._clic()))
+            self.assertEqual(faux.recu, [0, 1, 2, 3])
+            self.assertEqual(cree_dialogue.call_args.args[3], [libelle for _, libelle in etats])
             dialogue.SetSelections.assert_called_once_with([1, 3])
             dialogue.Destroy.assert_called_once()
 
     def test_annuler_ne_change_pas_les_etats_enregistres(self):
         wx = self.wx
-
-        class FauxPropriete:
-            liste_choix = [(0, "Réservation"), (1, "Présent")]
-            valeur = [0, 1]
-
-            def GetValue(self):
-                return list(self.valeur)
-
-            def SetValueInEvent(self, valeurs):
-                raise AssertionError("Annuler ne doit rien modifier")
-
-        class FauxEvenement:
-            def GetEventType(self):
-                return wx.wxEVT_COMMAND_BUTTON_CLICKED
-
-        faux = FauxPropriete()
+        faux = self._faux([(0, "Réservation"), (1, "Présent")], [0, 1])
         with mock.patch.object(wx, "MultiChoiceDialog") as cree_dialogue:
             cree_dialogue.return_value.ShowModal.return_value = wx.ID_CANCEL
-            self.assertFalse(self.controle.OnEvent(faux, None, None, FauxEvenement()))
-        self.assertEqual(faux.valeur, [0, 1])
+            self.assertFalse(self.controle.OnEvent(faux, None, None, self._clic()))
+        self.assertIsNone(faux.recu)
 
 
 if __name__ == "__main__":

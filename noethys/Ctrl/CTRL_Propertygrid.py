@@ -197,37 +197,28 @@ class Propriete_multichoix(ArrayStringProperty):
         return (True, liste_id)
 
     def OnEvent(self, propgrid, primaryEditor, event):
-        """Sélection multiple historique, compatible avec wxPython Phoenix.
-
-        Les identifiants persistés sont ceux de liste_choix, jamais les
-        positions visibles. La validation OK remplace la sélection ;
-        Annuler laisse l'état inchangé.
-        """
-        if event.GetEventType() != wx.wxEVT_COMMAND_BUTTON_CLICKED:
-            return False
-
-        # Revenir au sélecteur natif d'origine. Le dialogue CheckListBox
-        # introduit depuis ne présente plus aucun libellé sur Windows.
-        dlg = wx.MultiChoiceDialog(
-            propgrid,
-            _(u"Cochez les éléments à sélectionner :"),
-            _(u"sélection"),
-            [libelle for identifiant, libelle in self.liste_choix],
-        )
-        try:
-            etats_selectionnes = self.GetValue() or []
-            dlg.SetSelections([
-                index for index, (identifiant, libelle) in enumerate(self.liste_choix)
-                if identifiant in etats_selectionnes
-            ])
-            if dlg.ShowModal() != wx.ID_OK:
-                return False
-            self.SetValueInEvent([
-                self.liste_choix[index][0] for index in dlg.GetSelections()
-            ])
-            return True
-        finally:
+        if event.GetEventType() == wx.wxEVT_COMMAND_BUTTON_CLICKED:
+            dlg = wx.MultiChoiceDialog(propgrid, _(u"Cochez les éléments à sélectionner :"), _(u"sélection"), [x[1] for x in self.liste_choix])
+            liste_index = []
+            index = 0
+            for id, valeur in self.liste_choix :
+                if id in (self.m_value or []):
+                    liste_index.append(index)
+                index += 1
+            dlg.SetSelections(liste_index)
+            if dlg.ShowModal() == wx.ID_OK:
+                liste_id = []
+                for index in dlg.GetSelections() :
+                    liste_id.append(self.liste_choix[index][0])
+                self.SetValueInEvent(liste_id)
+                retval = True
+            else:
+                retval = False
             dlg.Destroy()
+            return retval
+        return False
+
+
 
 # -------------------------------------------------------------------------------------------------
 
