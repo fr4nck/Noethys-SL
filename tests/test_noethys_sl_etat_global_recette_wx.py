@@ -12,10 +12,12 @@ ne doit jamais l'être sur un poste de travail. Les captures d'écran et les
 PDF sont écrits dans NOETHYS_SL_RECETTE_SORTIE (artefact du workflow).
 """
 import datetime
+import faulthandler
 import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -110,6 +112,27 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         finally:
             cls.redirection.__exit__()
             cls._tmp.cleanup()
+
+    def setUp(self):
+        # Chien de garde : un dialogue modal resté ouvert (boîte native
+        # comprise) ne doit pas bloquer le runner sans diagnostic. Après 90 s,
+        # capture de l'écran, pile Python de tous les fils, puis arrêt.
+        def blocage():
+            try:
+                from PIL import ImageGrab
+                ImageGrab.grab().save(str(self.sortie / ("blocage_%s.png" % self._testMethodName)))
+            except Exception as erreur:
+                print("Capture du blocage impossible : %r" % (erreur,), file=sys.stderr)
+            print("BLOCAGE dans %s" % self._testMethodName, file=sys.stderr)
+            faulthandler.dump_traceback(all_threads=True)
+            sys.stderr.flush()
+            os._exit(3)
+        self._garde = threading.Timer(90, blocage)
+        self._garde.daemon = True
+        self._garde.start()
+
+    def tearDown(self):
+        self._garde.cancel()
 
     # ------------------------------------------------------------------ outils
 
@@ -217,6 +240,11 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         def repondre():
             dialogues = [w for w in wx.GetTopLevelWindows() if isinstance(w, wx.MultiChoiceDialog)]
             constat["dialogues"] = len(dialogues)
+            constat["essais"] = constat.get("essais", 0) + 1
+            if not dialogues and constat["essais"] < 20:
+                # Le dialogue peut s'ouvrir après le clic : nouvel essai.
+                wx.CallLater(300, repondre)
+                return
             if not dialogues:
                 # Autre dialogue (éditeur C++ de wx) : on le ferme pour ne pas
                 # bloquer la recette et on le signale.
