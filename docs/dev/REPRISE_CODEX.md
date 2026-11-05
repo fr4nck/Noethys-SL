@@ -1,5 +1,59 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## État global des consommations — retour à l'original d'Ivan Lucas (05/11/2026)
+
+**Référence fonctionnelle :** `Noethys/Noethys` master `199353efb86e37a9785260ec4225b49aced03db9`. Aucune branche, aucune PR, aucune migration, aucune base réelle utilisée. Rien n'est publié : aucun candidat, `Versions.txt` inchangé.
+
+**Commits**
+
+| Branche | Restauration | Sélecteurs wx 4.2 + recette | Documentation AFAS V1 | Tête après le chantier |
+|---|---|---|---|---|
+| `wx` | `a580cb80` (+ tests `a3f1b037`, `13300b46`, `34744f47`) | `cf78fa26`, `d7c14141`, `1e18d842`, `6761b2d9`, `4f68b494`, `b2079371` | `27c9c836` | commit de cette entrée |
+| `main` | `219335b5` | `5e51934d`, `398059f4`, `a6d66014`, `fa90ebde`, `9b3969d3`, `0026f215` | `65bb6c58` | commit de cette entrée (au-dessus de `8fb32e0c` README, poussé entre-temps par un tiers et conservé) |
+| `qt` | `d7c449a5` | `0dfe1dec`, `7c1641f6`, puis les quatre commits de recette jusqu'à `ecd91b7e` | `e5a0e1bc` | commit de cette entrée |
+
+Les mises à jour sont des fast-forwards (main : commits locaux replacés au-dessus de `8fb32e0c` avant le push, sans réécrire l'historique distant).
+
+**Fidélité (empreintes Git, identiques sur les trois branches)**
+
+- `CTRL_Etat_global_options.py` (`c9948b98`) et `CTRL_Etat_global_parametres.py` (`7692529d`) : identiques à l'original.
+- `DLG_Etat_global.py` : original `8fbf2850` et cinq adaptations Python 3 sans effet sur les résultats (`//` dans `FormateValeur`, `CleTriPython2` pour trier `None` comme Python 2, `six.text_type(err)`). Le test `test_dialogue_identique_a_l_original_hors_adaptations_python3` retire ces adaptations et retrouve l'empreinte exacte.
+- `CTRL_Propertygrid.py` : original `7727b1c4` et une seule méthode ajoutée, `Propriete_multichoix.DisplayEditorDialog` (voir le défaut ci-dessous). `test_propertygrid_identique_a_l_original_hors_adaptation_wx42` retrouve l'empreinte exacte.
+- Retirés : forfait et plages méridiens (`forfait_presence_midi`, `heure_debut/fin_presence_midi`), bouton « CAF / AFAS », chaîne AFAS V1 (`DLG_AFAS_Actualisation`, `UTILS_AFAS_Actualisation/_Donnees/_Perimetre/_Historique/_ProfilsHistoriques`), avec leurs tests et workflows. Les seules mentions restantes se trouvent dans des tests de garde.
+- Conservés : profils enregistrés (aucune écriture SQL ; un ancien profil contenant les clés méridiennes se recharge, les clés inconnues étant ignorées comme dans l'original), seuils, plafonds, coefficients, formules, arrondis, filtres, regroupements, aperçus PDF. AFAS V2 (`DLG_AFAS2_Declarations`) et `UTILS_AFAS.py` ne sont pas modifiés.
+- **Changement de comportement assumé :** `UTILS_AFAS_ProfilsHistoriques` (garde du 03/11/2026, qui forçait « Présent » pour « Caf - Périscolaire / Extrascolaire ») est retiré avec la chaîne V1. Ces profils calculent de nouveau avec les états qu'ils enregistrent, comme dans Noethys. `docs/afas/CORRECTION_PROFILS_CAF_HISTORIQUES_2026.md` (wx) et `docs/afas/actualisation-septembre.md` portent un bandeau « Historique ».
+
+**Défaut trouvé et corrigé : sélecteurs multiples sous wxPython 4.2**
+
+Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProperty` appelle `DisplayEditorDialog` sans passer par l'`OnEvent` Python d'origine. Le dialogue C++ levait `wxArrayStringProperty::DisplayEditorDialog(): Function called for incompatible property` (run 42025741884) sur les trois champs : jours hors vacances, jours de vacances et état des consommations. Les anciens correctifs SL (`04a218d9`, `64434ea1`) ne surchargeaient que `OnEvent` et ne couvraient donc pas ce chemin. L'ancienne recette appelait `OnEvent` directement et masquait le défaut. Correctif : `DisplayEditorDialog` ouvre le même `wx.MultiChoiceDialog` d'origine ; `OnEvent` reste intact. Le correctif profite aussi aux autres écrans qui utilisent `Propriete_multichoix` (`DLG_Options_impression_menu`), sans recette dédiée.
+
+**Preuves**
+
+- Recette graphique Windows réelle (runner GitHub isolé, base fictive, fenêtre affichée, vrai clic sur « … » dans la grille, cases cochées, bouton OK, valeur relue, texte affiché, aucune erreur wx tolérée) : wx `b2079371` run 42030997791, **deux exécutions vertes** (41 tests) ; main `0026f215` run 42031787504 SUCCESS ; qt `ecd91b7e` run 42031757281 SUCCESS. L'artefact `recette-etat-global-wx` contient les captures des trois dialogues, la grille validée (« Mercredi, Samedi », « Lundi, Dimanche », « Présent, Absence injustifiée »), la saisie des tranches d'âge, le profil rechargé et deux PDF (horaire et décimal).
+- Calcul : 17 tests exécutent le vrai `Dialog.Apercu` sur une base fictive (seuils, plafonds, durées, arrondi, coefficient × quantité, temps facturé une seule fois, formule, plafond journalier, états/jours/périodes, régime inconnu, tranches d'âge, décimal, tri, PDF verrouillé). Le même jeu exécuté sur le fichier original pur donne des valeurs identiques sur les 12 scénarios ; ses 5 autres échecs sont des plantages Python 3 de l'original.
+- CI rapide : main `0026f215` run 42031787469 SUCCESS. wx `b2079371` run 42030997684 : 2222 tests, **un seul échec préexistant** hors périmètre (`test_vanilla_identite_noethys_sl`, « RC10.55 » ≠ « RC10.5 », déjà présent au run 41883015415 sur `dec70c1b`). Sur qt, la CI rapide n'est pas déclenchée (workflow limité à main/wx) ; tests locaux `.venv` OK.
+
+**Défauts de l'original conservés (non corrigés, par fidélité)**
+
+- Format décimal : 1h05 → 1.8 (minutes converties en centièmes puis accolées, comme sous Python 2).
+- Regroupement par « étiquette » : plante dans l'original (liste utilisée comme clé), sous Python 2 également.
+
+**Matrice**
+
+| Élément | main | wx | qt |
+|---|---|---|---|
+| Page wx d'origine (4 fichiers, empreintes) | VALIDÉ `0026f215` | VALIDÉ `b2079371` | VALIDÉ `ecd91b7e` (code wx hérité) |
+| Retrait midi / CAF-AFAS / AFAS V1 | VALIDÉ | VALIDÉ | VALIDÉ |
+| Sélecteurs multiples (3 champs) sous Windows | VALIDÉ run 42031787504 | VALIDÉ run 42030997791 ×2 | VALIDÉ run 42031757281 (wx) |
+| Calcul comparé à l'original | VALIDÉ | VALIDÉ | VALIDÉ (local + recette) |
+| Profils (enregistrement, rechargement, anciens profils) | VALIDÉ | VALIDÉ | VALIDÉ (wx) |
+| Écran Qt natif « État global » | NON APPLICABLE | NON APPLICABLE | **ABSENT / EN ATTENTE** : aucun écran dans `noethys_qt` |
+| Recette sur copie d'une base réelle | EN ATTENTE | EN ATTENTE | EN ATTENTE |
+
+**Qt :** la réussite sur `qt` ne démontre que le code wx hérité (`noethys/`) porté par cette branche. L'interface Qt native ne possède pas d'écran « État global ». Son développement (mêmes paramètres, calcul partagé, sélection multiple native Qt) est un chantier distinct, non commencé.
+
+**Suite :** recette métier sur une **copie** de base (profils Caf existants, comparaison avec Noethys d'origine) avant tout candidat ; corriger séparément le test d'identité RC10.55 ; planifier l'écran Qt natif. Worktrees temporaires `nslm`/`nslq` supprimés.
+
 ## C19 — 12 consultations comptables et administratives dans Qt (3 novembre 2026)
 
 **État : EN QUALIFICATION sur fixtures fictives** jusqu'à confirmation
