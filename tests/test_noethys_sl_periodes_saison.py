@@ -188,24 +188,18 @@ class PeriodesSaisonTests(unittest.TestCase):
         self.assertIn("wx.LB_EXTENDED if selection_multiple else wx.LB_SINGLE", source)
         self.assertIn("callback_selection=None", source)
 
-    def test_etat_global_reutilise_le_selecteur_commun(self):
+    def test_etat_global_garde_ses_deux_dates_d_origine(self):
+        # L'état global est restauré tel qu'Ivan Lucas l'a conçu : période
+        # « Du / Au » saisie par deux dates, sans sélecteur de saison.
+        # Fidélité complète : tests/test_noethys_sl_etat_global_historique.py.
         source = DLG_ETAT_GLOBAL.read_text(encoding="utf-8")
-        self.assertIn("from Ctrl import CTRL_Grille_periode", source)
-        self.assertIn("self.ctrl_periode = CTRL_Grille_periode.CTRL(", source)
-        self.assertIn("selection_multiple=False", source)
-        self.assertIn("callback_selection=self.OnChoixDate", source)
-        self.assertNotIn("CTRL_Saisie_date.Date2", source)
-
-    def test_etat_global_conserve_une_periode_continue(self):
-        source = DLG_ETAT_GLOBAL.read_text(encoding="utf-8")
-        self.assertIn("liste_periodes = self.ctrl_periode.GetDatesSelections()", source)
-        self.assertIn("if len(liste_periodes) != 1:", source)
-        self.assertIn("date_debut, date_fin = self.panel_parametres.GetPeriode()", source)
+        self.assertNotIn("CTRL_Grille_periode", source)
+        self.assertIn("self.ctrl_date_debut = CTRL_Saisie_date.Date2(self)", source)
+        self.assertIn("self.ctrl_date_fin = CTRL_Saisie_date.Date2(self)", source)
 
 
     def test_ecrans_metier_reutilisent_le_selecteur_commun(self):
         fichiers = [
-            DLG_ETAT_GLOBAL,
             DLG_ETAT_NOMIN,
             DLG_DEVIS,
             DLG_SYNTHESE,
@@ -217,7 +211,7 @@ class PeriodesSaisonTests(unittest.TestCase):
             self.assertIn("selection_multiple=False", source, fichier.name)
 
     def test_anciens_selecteurs_de_periode_sont_retires(self):
-        for fichier in (DLG_ETAT_GLOBAL, DLG_DEVIS, DLG_SYNTHESE, DLG_LOT):
+        for fichier in (DLG_DEVIS, DLG_SYNTHESE, DLG_LOT):
             source = fichier.read_text(encoding="utf-8")
             self.assertNotIn("ctrl_date_debut", source, fichier.name)
             self.assertNotIn("ctrl_date_fin", source, fichier.name)
@@ -232,20 +226,13 @@ class PeriodesSaisonTests(unittest.TestCase):
         self.assertNotIn("CTRL_Saisie_date.Date", bloc_periode)
 
     def test_ecrans_continus_refusent_plusieurs_periodes(self):
-        for fichier in (DLG_ETAT_GLOBAL, DLG_ETAT_NOMIN, DLG_DEVIS, DLG_SYNTHESE, DLG_LOT):
+        for fichier in (DLG_ETAT_NOMIN, DLG_DEVIS, DLG_SYNTHESE, DLG_LOT):
             source = fichier.read_text(encoding="utf-8")
             self.assertIn("GetDatesSelections()", source, fichier.name)
             self.assertTrue(
                 "len(liste) != 1" in source or "len(liste_periodes) != 1" in source,
                 fichier.name,
             )
-
-
-
-    def test_etat_global_affiche_les_cinq_onglets_sans_navigation(self):
-        source = DLG_ETAT_GLOBAL.read_text(encoding="utf-8")
-        self.assertIn("self.ctrl_periode.SetMinSize((300, 205))", source)
-        self.assertIn("self.SetMinSize((315, -1))", source)
 
 
 
