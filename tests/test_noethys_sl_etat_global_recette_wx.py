@@ -125,14 +125,22 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         fenetre.Raise()
         fenetre.Update()
         self.patienter()
+        import ctypes
         largeur, hauteur = fenetre.GetSize()
-        dc = wx.WindowDC(fenetre)
+        # 1. Rendu complet de la fenêtre par Windows (PW_RENDERFULLCONTENT).
         image = wx.Bitmap(largeur, hauteur)
         memoire = wx.MemoryDC(image)
-        memoire.Blit(0, 0, largeur, hauteur, dc, 0, 0)
+        ctypes.windll.user32.PrintWindow(fenetre.GetHandle(), memoire.GetHandle(), 2)
         memoire.SelectObject(wx.NullBitmap)
         chemin = self.sortie / nom
         self.assertTrue(image.SaveFile(str(chemin), wx.BITMAP_TYPE_PNG))
+        # 2. Pixels réellement affichés à l'écran, pour comparaison.
+        x, y = fenetre.GetScreenPosition()
+        ecran = wx.Bitmap(largeur, hauteur)
+        memoire = wx.MemoryDC(ecran)
+        memoire.Blit(0, 0, largeur, hauteur, wx.ScreenDC(), x, y)
+        memoire.SelectObject(wx.NullBitmap)
+        self.assertTrue(ecran.SaveFile(str(self.sortie / nom.replace(".png", "_ecran.png")), wx.BITMAP_TYPE_PNG))
         return chemin
 
     def descendants(self, fenetre):
