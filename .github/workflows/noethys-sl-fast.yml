@@ -154,12 +154,8 @@ jobs:
           tests.test_vanilla_consommations_fermeture
           tests.test_vanilla_gestionnaire_conso_fermeture
           tests.test_vanilla_recette_menus
-          tests.test_noethys_sl_afas_actualisation
-          tests.test_noethys_sl_afas_separation_etats
-          tests.test_noethys_sl_afas_couples
-          tests.test_noethys_sl_afas_doublons
-          tests.test_noethys_sl_afas_temps_facture
-          tests.test_noethys_sl_afas_profils
+          tests.test_noethys_sl_etat_global_historique
+          tests.test_noethys_sl_etat_global_calcul
           tests.test_afas2_conventions
           tests.test_afas2_calendrier
           tests.test_afas2_calcul
