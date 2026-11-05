@@ -205,43 +205,71 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         self.assertEqual(donnees[101]["coeff"], 1.0)
         self.capturer(self.dlg, "02_activite_et_unites.png")
 
-    def test_03_selecteur_multiple_natif_des_etats(self):
+    def ouvrir_selecteur(self, nom, initial, a_cocher, capture):
+        """ Ouvre le vrai MultiChoiceDialog du champ, lit les coches affichées,
+        coche/décoche comme l'utilisateur puis clique sur le bouton OK. """
         wx = self.wx
         options = self.dlg.ctrl_options
-        options.SetParametres({"etat_consommations": ["present"]})
-        propriete = options.GetPropertyByName("etat_consommations")
+        options.SetParametres({nom: initial})
+        propriete = options.GetPropertyByName(nom)
         constat = {}
 
         def repondre():
             dialogues = [w for w in wx.GetTopLevelWindows() if isinstance(w, wx.MultiChoiceDialog)]
             constat["dialogues"] = len(dialogues)
-            if dialogues:
-                dialogue = dialogues[0]
-                listes = [e for e in self.descendants(dialogue) if isinstance(e, wx.ListBox)]
-                constat["lignes"] = [listes[0].GetString(i) for i in range(listes[0].GetCount())] if listes else []
-                # GetSelections() du dialogue n'est fiable qu'après l'interaction
-                # sous MSW : on lit les coches réellement affichées.
-                liste = listes[0]
-                if isinstance(liste, wx.CheckListBox):
-                    constat["coches"] = [i for i in range(liste.GetCount()) if liste.IsChecked(i)]
-                else:
-                    constat["coches"] = list(liste.GetSelections())
-                self.capturer(dialogue, "03_etats_consommations.png")
-                dialogue.SetSelections([1, 3])
-                dialogue.EndModal(wx.ID_OK)
+            if not dialogues:
+                return
+            dialogue = dialogues[0]
+            liste = [e for e in self.descendants(dialogue) if isinstance(e, wx.CheckListBox)][0]
+            constat["lignes"] = [liste.GetString(i) for i in range(liste.GetCount())]
+            # GetSelections() du dialogue n'est fiable qu'après l'interaction
+            # sous MSW : on lit les coches réellement affichées.
+            constat["coches"] = [i for i in range(liste.GetCount()) if liste.IsChecked(i)]
+            for i in range(liste.GetCount()):
+                liste.Check(i, i in a_cocher)
+            self.capturer(dialogue, capture)
+            bouton = dialogue.FindWindowById(wx.ID_OK)
+            evenement = wx.CommandEvent(wx.wxEVT_COMMAND_BUTTON_CLICKED, wx.ID_OK)
+            evenement.SetEventObject(bouton)
+            bouton.GetEventHandler().ProcessEvent(evenement)
 
-        class Clic:
-            def GetEventType(self):
-                return wx.wxEVT_COMMAND_BUTTON_CLICKED
-
+        # Chemin utilisateur : ligne sélectionnée dans la grille, clic sur le
+        # bouton « ... » de l'éditeur, validation par la grille elle-même.
+        self.assertTrue(options.SelectProperty(propriete, True))
+        self.patienter()
+        boutons = [e for e in self.descendants(options) if isinstance(e, wx.Button) and e.IsShown()]
+        self.assertEqual(len(boutons), 1, nom)
         wx.CallLater(800, repondre)
-        self.assertTrue(propriete.OnEvent(options, None, Clic()))
-        self.assertEqual(constat.get("dialogues"), 1)
-        self.assertEqual(len(constat["lignes"]), 4, constat)
-        self.assertEqual(constat["lignes"], [u"Pointage en attente", u"Présent",
-                                             u"Absence justifiée", u"Absence injustifiée"])
-        self.assertEqual(constat["coches"], [1])
-        options.SetParametres({"etat_consommations": ["present"]})
+        clic = wx.CommandEvent(wx.wxEVT_COMMAND_BUTTON_CLICKED, boutons[0].GetId())
+        clic.SetEventObject(boutons[0])
+        boutons[0].GetEventHandler().ProcessEvent(clic)
+        self.patienter()
+        options.CommitChangesFromEditor()
+        self.assertEqual(constat.get("dialogues"), 1, nom)
+        return propriete, constat
+
+    def test_03_selecteurs_multiples_natifs(self):
+        jours = [u"Lundi", u"Mardi", u"Mercredi", u"Jeudi", u"Vendredi", u"Samedi", u"Dimanche"]
+        cas = [
+            ("jours_hors_vacances", [0, 1, 2, 3, 4], [2, 5], jours, [2, 5], u"Mercredi, Samedi"),
+            ("jours_vacances", [0, 1, 2, 3, 4, 5, 6], [0, 6], jours, [0, 6], u"Lundi, Dimanche"),
+            ("etat_consommations", ["present"], [1, 3],
+             [u"Pointage en attente", u"Présent", u"Absence justifiée", u"Absence injustifiée"],
+             ["present", "absenti"], u"Présent, Absence injustifiée"),
+        ]
+        initiales = {"jours_hors_vacances": [0, 1, 2, 3, 4], "jours_vacances": [0, 1, 2, 3, 4, 5, 6],
+                     "etat_consommations": [1]}
+        for nom, initial, a_cocher, lignes, attendu, affichage in cas:
+            with self.subTest(champ=nom):
+                propriete, constat = self.ouvrir_selecteur(nom, initial, a_cocher, "03_%s.png" % nom)
+                self.assertEqual(constat["lignes"], lignes)
+                self.assertEqual(constat["coches"], initiales[nom])
+                self.assertEqual(self.dlg.ctrl_options.GetParametres()[nom], attendu)
+                self.assertEqual(propriete.GetValueAsString(), affichage)
+        self.capturer(self.dlg, "03_selecteurs_valides.png")
+        self.dlg.ctrl_options.SetParametres({"jours_hors_vacances": [0, 1, 2, 3, 4, 5, 6],
+                                             "jours_vacances": [0, 1, 2, 3, 4, 5, 6],
+                                             "etat_consommations": ["present"]})
 
     def test_04_profil_enregistre_puis_recharge(self):
         wx = self.wx
