@@ -294,7 +294,7 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         propriete = options.GetPropertyByName("regroupement_age")
         self.assertTrue(options.SelectProperty(propriete, True))
         self.patienter()
-        editeur = options.GetEditorControl()
+        editeur = options.GetEditorTextCtrl()
         self.assertIsInstance(editeur, wx.TextCtrl)
         erreurs = []
         with mock.patch.object(sys, "excepthook", lambda *e: erreurs.append(repr(e[1]))):
