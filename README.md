@@ -14,7 +14,7 @@ Noethys SL est la lignée de développement wxPython maintenue dans ce dépôt.
 Sa numérotation publique est volontairement distincte de la numérotation
 historique de Noethys. Cette séparation évite toute collision ou fausse
 continuité avec la nomenclature et les numéros de version de Noethys
-d'origine, créé par Ivan LUCAS, ainsi qu'avec ses évolutions ultérieures.
+d'origine, ainsi qu'avec ses évolutions ultérieures.
 
 Le fichier `noethys/Versions.txt` conserve donc la version de compatibilité
 interne historique, nécessaire notamment aux migrations de base et à certains
