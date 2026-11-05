@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Comportement réel de l'État global des consommations restauré.
 
-La page est celle d'Ivan Lucas (noethys/Dlg/DLG_Etat_global.py de
+La page est celle d'origine (noethys/Dlg/DLG_Etat_global.py de
 https://github.com/Noethys/Noethys). Ces tests exécutent son vrai
 Dialog.Apercu() sur une base SQLite fictive et lisent les tableaux du PDF
 produit par reportlab : aucune base réelle, aucune fenêtre affichée.

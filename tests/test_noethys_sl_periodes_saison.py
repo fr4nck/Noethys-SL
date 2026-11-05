@@ -189,7 +189,7 @@ class PeriodesSaisonTests(unittest.TestCase):
         self.assertIn("callback_selection=None", source)
 
     def test_etat_global_garde_ses_deux_dates_d_origine(self):
-        # L'état global est restauré tel qu'Ivan Lucas l'a conçu : période
+        # L'état global est restauré conformément à l'origine : période
         # « Du / Au » saisie par deux dates, sans sélecteur de saison.
         # Fidélité complète : tests/test_noethys_sl_etat_global_historique.py.
         source = DLG_ETAT_GLOBAL.read_text(encoding="utf-8")

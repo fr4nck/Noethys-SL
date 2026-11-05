@@ -1,6 +1,6 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
-## État global des consommations — retour à l'original d'Ivan Lucas (05/11/2026)
+## Restauration de l'État global des consommations (05/11/2026)
 
 **Référence fonctionnelle :** `Noethys/Noethys` master `199353efb86e37a9785260ec4225b49aced03db9`. Aucune branche, aucune PR, aucune migration, aucune base réelle utilisée. Rien n'est publié : aucun candidat, `Versions.txt` inchangé.
 
@@ -14,16 +14,16 @@
 
 Les mises à jour sont des fast-forwards (main : commits locaux replacés au-dessus de `8fb32e0c` avant le push, sans réécrire l'historique distant).
 
-**Fidélité (empreintes Git, identiques sur les trois branches)**
+**Conformité au fonctionnement d'origine (empreintes Git, identiques sur les trois branches)**
 
 - `CTRL_Etat_global_options.py` (`c9948b98`) et `CTRL_Etat_global_parametres.py` (`7692529d`) : identiques à l'original.
-- `DLG_Etat_global.py` : original `8fbf2850` et cinq adaptations Python 3 sans effet sur les résultats (`//` dans `FormateValeur`, `CleTriPython2` pour trier `None` comme Python 2, `six.text_type(err)`). Le test `test_dialogue_identique_a_l_original_hors_adaptations_python3` retire ces adaptations et retrouve l'empreinte exacte.
+- `DLG_Etat_global.py` : original `8fbf2850` et cinq adaptations de compatibilité Python 3 / wxPython sans effet sur les résultats (`//` dans `FormateValeur`, `CleTriPython2` pour trier `None` comme Python 2, `six.text_type(err)`). Le test `test_dialogue_identique_a_l_original_hors_adaptations_python3` retire ces adaptations et retrouve l'empreinte exacte.
 - `CTRL_Propertygrid.py` : original `7727b1c4` et une seule méthode ajoutée, `Propriete_multichoix.DisplayEditorDialog` (voir le défaut ci-dessous). `test_propertygrid_identique_a_l_original_hors_adaptation_wx42` retrouve l'empreinte exacte.
-- Retirés : forfait et plages méridiens (`forfait_presence_midi`, `heure_debut/fin_presence_midi`), bouton « CAF / AFAS », chaîne AFAS V1 (`DLG_AFAS_Actualisation`, `UTILS_AFAS_Actualisation/_Donnees/_Perimetre/_Historique/_ProfilsHistoriques`), avec leurs tests et workflows. Les seules mentions restantes se trouvent dans des tests de garde.
+- Retirés : forfait et plages méridiens (`forfait_presence_midi`, `heure_debut/fin_presence_midi`), bouton « CAF / AFAS », chaîne AFAS V1 (`DLG_AFAS_Actualisation`, `UTILS_AFAS_Actualisation/_Donnees/_Perimetre/_Historique/_ProfilsHistoriques`), avec leurs tests et workflows. Les seules mentions restantes se trouvent dans des tests de garde. Les documents AFAS V1 (`docs/afas/actualisation-septembre.md` ; `docs/afas/CORRECTION_PROFILS_CAF_HISTORIQUES_2026.md` n'existait que sur wx) sont supprimés.
 - Conservés : profils enregistrés (aucune écriture SQL ; un ancien profil contenant les clés méridiennes se recharge, les clés inconnues étant ignorées comme dans l'original), seuils, plafonds, coefficients, formules, arrondis, filtres, regroupements, aperçus PDF. AFAS V2 (`DLG_AFAS2_Declarations`) et `UTILS_AFAS.py` ne sont pas modifiés.
-- **Changement de comportement assumé :** `UTILS_AFAS_ProfilsHistoriques` (garde du 03/11/2026, qui forçait « Présent » pour « Caf - Périscolaire / Extrascolaire ») est retiré avec la chaîne V1. Ces profils calculent de nouveau avec les états qu'ils enregistrent, comme dans Noethys. `docs/afas/CORRECTION_PROFILS_CAF_HISTORIQUES_2026.md` (wx) et `docs/afas/actualisation-septembre.md` portent un bandeau « Historique ».
+- **Changement de comportement assumé :** `UTILS_AFAS_ProfilsHistoriques` (garde du 03/11/2026, qui forçait « Présent » pour « Caf - Périscolaire / Extrascolaire ») est retiré avec la chaîne V1. Ces profils calculent de nouveau avec les états qu'ils enregistrent, comme dans Noethys.
 
-**Défaut trouvé et corrigé : sélecteurs multiples sous wxPython 4.2**
+**Correction des sélecteurs multiples (wxPython 4.2)**
 
 Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProperty` appelle `DisplayEditorDialog` sans passer par l'`OnEvent` Python d'origine. Le dialogue C++ levait `wxArrayStringProperty::DisplayEditorDialog(): Function called for incompatible property` (run 42025741884) sur les trois champs : jours hors vacances, jours de vacances et état des consommations. Les anciens correctifs SL (`04a218d9`, `64434ea1`) ne surchargeaient que `OnEvent` et ne couvraient donc pas ce chemin. L'ancienne recette appelait `OnEvent` directement et masquait le défaut. Correctif : `DisplayEditorDialog` ouvre le même `wx.MultiChoiceDialog` d'origine ; `OnEvent` reste intact. Le correctif profite aussi aux autres écrans qui utilisent `Propriete_multichoix` (`DLG_Options_impression_menu`), sans recette dédiée.
 
@@ -33,7 +33,7 @@ Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProper
 - Calcul : 17 tests exécutent le vrai `Dialog.Apercu` sur une base fictive (seuils, plafonds, durées, arrondi, coefficient × quantité, temps facturé une seule fois, formule, plafond journalier, états/jours/périodes, régime inconnu, tranches d'âge, décimal, tri, PDF verrouillé). Le même jeu exécuté sur le fichier original pur donne des valeurs identiques sur les 12 scénarios ; ses 5 autres échecs sont des plantages Python 3 de l'original.
 - CI rapide : main `0026f215` run 42031787469 SUCCESS. wx `b2079371` run 42030997684 : 2222 tests, **un seul échec préexistant** hors périmètre (`test_vanilla_identite_noethys_sl`, « RC10.55 » ≠ « RC10.5 », déjà présent au run 41883015415 sur `dec70c1b`). Sur qt, la CI rapide n'est pas déclenchée (workflow limité à main/wx) ; tests locaux `.venv` OK.
 
-**Défauts de l'original conservés (non corrigés, par fidélité)**
+**Défauts d'origine conservés (non corrigés, par conformité)**
 
 - Format décimal : 1h05 → 1.8 (minutes converties en centièmes puis accolées, comme sous Python 2).
 - Regroupement par « étiquette » : plante dans l'original (liste utilisée comme clé), sous Python 2 également.
@@ -45,14 +45,16 @@ Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProper
 | Page wx d'origine (4 fichiers, empreintes) | VALIDÉ `0026f215` | VALIDÉ `b2079371` | VALIDÉ `ecd91b7e` (code wx hérité) |
 | Retrait midi / CAF-AFAS / AFAS V1 | VALIDÉ | VALIDÉ | VALIDÉ |
 | Sélecteurs multiples (3 champs) sous Windows | VALIDÉ run 42031787504 | VALIDÉ run 42030997791 ×2 | VALIDÉ run 42031757281 (wx) |
-| Calcul comparé à l'original | VALIDÉ | VALIDÉ | VALIDÉ (local + recette) |
+| Calcul comparé à l'origine | VALIDÉ | VALIDÉ | VALIDÉ (local + recette) |
 | Profils (enregistrement, rechargement, anciens profils) | VALIDÉ | VALIDÉ | VALIDÉ (wx) |
 | Écran Qt natif « État global » | NON APPLICABLE | NON APPLICABLE | **ABSENT / EN ATTENTE** : aucun écran dans `noethys_qt` |
 | Recette sur copie d'une base réelle | EN ATTENTE | EN ATTENTE | EN ATTENTE |
 
-**Qt :** la réussite sur `qt` ne démontre que le code wx hérité (`noethys/`) porté par cette branche. L'interface Qt native ne possède pas d'écran « État global ». Son développement (mêmes paramètres, calcul partagé, sélection multiple native Qt) est un chantier distinct, non commencé.
+**Qt :** la réussite sur `qt` ne porte que sur le code wx hérité (`noethys/`). L'écran Qt natif (mêmes paramètres, calcul partagé, sélection multiple native) reste un chantier distinct, non commencé.
 
 **Suite :** recette métier sur une **copie** de base (profils Caf existants, comparaison avec Noethys d'origine) avant tout candidat ; corriger séparément le test d'identité RC10.55 ; planifier l'écran Qt natif. Worktrees temporaires `nslm`/`nslq` supprimés.
+
+**Nettoyage documentaire :** intitulés techniques neutres dans la documentation, les tests (docstrings et commentaires), les commentaires de code et les noms d'étapes de workflow ; suppression des documents AFAS V1 et de leur entrée `mkdocs.yml`. Sont conservés : crédits et notices de copyright requis par la licence (`README.md`, `docs/index.md`, `Identite.py`, `Licence.txt`, `DLG_A_propos.py`, `setup.py`, en-têtes des sources), données métier (exports PES/JVS), chemins d'exemple traduits et `docs/archives/`. Aucune logique métier modifiée, aucun commit publié réécrit. Départ : main `d4a25aad`, wx `d8fcce65`, qt `18f39857`.
 
 ## C19 — 12 consultations comptables et administratives dans Qt (3 novembre 2026)
 
