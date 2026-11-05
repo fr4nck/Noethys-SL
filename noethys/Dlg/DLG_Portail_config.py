@@ -405,7 +405,7 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
         propriete.SetAttribute("UseCheckbox", True)
         self.Append(propriete)
 
-        # Aucun changement par defaut pour le Connecthys d'Ivan Lucas.
+        # Aucun changement par defaut pour le Connecthys d'origine.
         # Cette option demande un serveur SFTP compatible posix-rename.
         nom = "ssh_config_atomique"
         propriete = wxpg.BoolProperty(label=_(u"Publication atomique de config.py (SSH)"),
@@ -528,7 +528,7 @@ class CTRL_Parametres(CTRL_Propertygrid.CTRL) :
         # Catégorie
         self.Append( wxpg.PropertyCategory(_(u"Sécurité")) )
 
-        # Empreinte du seul models.py : opt-in, compatible avec Connecthys Ivan Lucas.
+        # Empreinte du seul models.py : opt-in, compatible avec le Connecthys d'origine.
         # Ne couvre pas les autres modules que models.py pourrait importer.
         nom = "models_sha256"
         propriete = wxpg.StringProperty(label=_(u"Empreinte du modele Connecthys (SHA256)"),

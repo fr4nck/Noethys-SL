@@ -6,7 +6,7 @@ Version publique prévue : `0.1.0-rc.10.5`. Version interne historique :
 `1.3.4.4` conservée ; aucune migration de base.
 
 Ce dossier ne remplace pas la recette fonctionnelle du Connecthys
-original d'Ivan Lucas ni la restauration MySQL du poste de travail PMSL.
+d'origine ni la restauration MySQL du poste de travail PMSL.
 
 ## Contrat de sortie commun
 
@@ -74,7 +74,7 @@ de cinq enfants ne peut pas être imprimée silencieusement en n'en
 montrant que quatre : édition à étendre dans un lot ultérieur selon
 un modèle papier adapté, sans signer des données omises.
 
-## Lot D — invariant Connecthys Ivan Lucas
+## Lot D — invariant Connecthys d'origine
 
 Tous les champs `ssh_host_key_sha256`, `models_sha256`,
 `ssh_config_prive`, `ssh_config_atomique` restent vides/faux par

@@ -8,7 +8,7 @@ Date de l'audit : 2026-09-07.
 
 ## Méthode et limites
 
-Cet audit ne modifie aucun runtime, aucune logique métier, aucune base de données et aucun composant Connecthys/Ivan. Il combine : inspection du code exact de `maintenance/vanilla`, inspection des bindings wx, analyse des cycles `ShowModal`/`Destroy`/timers/callbacks, analyse de la CI Windows de la branche et éléments de recette humaine déjà fournis.
+Cet audit ne modifie aucun runtime, aucune logique métier, aucune base de données et aucun composant Connecthys. Il combine : inspection du code exact de `maintenance/vanilla`, inspection des bindings wx, analyse des cycles `ShowModal`/`Destroy`/timers/callbacks, analyse de la CI Windows de la branche et éléments de recette humaine déjà fournis.
 
 L'environnement de cette passe ne fournit pas de poste Windows interactif avec la base Docker de recette. En conséquence, aucune interaction Windows 100/150/200 %, aucun clic métier et aucune validation Event Viewer n'est inventé : les scénarios non réellement exécutés sont marqués `NON TESTABLE`.
 

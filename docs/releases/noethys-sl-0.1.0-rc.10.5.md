@@ -65,7 +65,7 @@ demeurent des conditions de livraison, non couvertes par les tests fictifs.
   independamment) ; une autre cle est rejetee pendant l'echange SSH, avant
   l'authentification. Les deux clients SSH du produit utilisent ce controle.
   Si le champ est vide, politique historique inchangee : le serveur
-  Connecthys d'Ivan Lucas ne requiert aucune mise a jour. Les messages de
+  Connecthys d'origine ne requiert aucune mise a jour. Les messages de
   diagnostic n'affichent plus les URL contenant les jetons de synchronisation.
 - **S1 — empreinte facultative du code `models.py`** : l'administrateur
   peut renseigner `models_sha256` (64 caracteres hexadecimaux, releves
@@ -87,7 +87,7 @@ demeurent des conditions de livraison, non couvertes par les tests fictifs.
   d'envoi, meme si l'upload echoue. Un transfert ou un reload WSGI connu
   en echec n'est plus annonce comme succes. La copie telechargee du
   serveur pour comparaison est aussi supprimee apres lecture.
-  Aucun changement du contenu attendu par Connecthys Ivan Lucas.
+  Aucun changement du contenu attendu par le Connecthys d'origine.
 - **S1 — droits distants facultatifs** : `ssh_config_prive` est
   **desactive par defaut**. Si explicitement active en SSH/SFTP,
   `application/data/config.py` est passe en mode `0600`, meme lorsque
@@ -168,9 +168,9 @@ options `ssh_config_prive` et `ssh_config_atomique`.
 N'activer ni l'une ni l'autre en production avant qualification du
 processus web, du serveur SFTP et de la procedure de retour arriere.
 
-## Compatibilite Connecthys Ivan Lucas — CONTRAT NON REGRESSION
+## Compatibilite Connecthys d'origine — CONTRAT NON REGRESSION
 
-La compatibilite avec le **Connecthys historique d'Ivan Lucas** est une
+La compatibilite avec le **Connecthys d'origine** est une
 exigence bloquante pour RC10.5 et les versions suivantes. Le renforcement
 de la securite du client Noethys-SL ne doit pas exiger une modification ou
 une mise a jour du serveur Connecthys de l'association.

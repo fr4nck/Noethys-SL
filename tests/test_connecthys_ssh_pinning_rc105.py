@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""RC10.5 S1 : SSH epingle optionnel, sans modification du Connecthys Ivan Lucas.
+"""RC10.5 S1 : SSH epingle optionnel, sans modification du Connecthys d'origine.
 
 Aucune authentification, aucun serveur, aucun acces reseau : seul un client
 Paramiko simule et des cles publiques entierement factices sont utilises.

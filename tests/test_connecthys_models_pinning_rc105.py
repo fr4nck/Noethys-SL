@@ -2,7 +2,7 @@
 """S1 RC10.5 : ne jamais executer un models.py different du SHA256 configure.
 
 Banc local et synthetique, aucune connexion, aucune vraie configuration.
-Le mode sans empreinte est volontairement celui du Connecthys d'Ivan Lucas.
+Le mode sans empreinte est volontairement celui du Connecthys d'origine.
 """
 import hashlib
 import sys

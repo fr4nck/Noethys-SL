@@ -126,7 +126,7 @@ Le premier changement runtime recommandé après validation de ce rapport est **
 - Ne pas mélanger Qt, Teamworks ou adaptations locales.
 - Ne jamais tester sur production.
 - Ne pas introduire de migration BDD dans ce chantier.
-- Ne pas modifier Connecthys/Ivan dans ce chantier.
+- Ne pas modifier Connecthys dans ce chantier.
 - Aucun refactoring général tant que les défauts bloquants et majeurs ne sont pas isolés et couverts.
 
 ## Addendum du 12/10/2026 (branches canoniques `main` / `wx` / `qt`)

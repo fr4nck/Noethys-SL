@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Contrat de fidélité : État global des consommations d'Ivan Lucas.
+"""Conformité au fonctionnement d'origine : État global des consommations.
 
 Référence : https://github.com/Noethys/Noethys (branche master, commit
 199353efb86e37a9785260ec4225b49aced03db9). Les quatre fichiers de la page

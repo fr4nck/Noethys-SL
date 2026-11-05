@@ -2,7 +2,7 @@
 
 État du 28 octobre 2026 : moteur de contrôle manuel, sans écriture, qualifié localement.
 La réception des PDF/jpg existe déjà dans Connecthys ; aucune nouvelle collecte ou
-modification du serveur hébergé par Ivan Lucas n'est demandée.
+modification du serveur Connecthys hébergé n'est demandée.
 
 ## Circuit existant vérifié
 
@@ -68,7 +68,7 @@ de wx/Qt et n'active ni wx, ni Qt, ni portail à lui seul.
 - La réception de la fiche famille est déjà traitée comme pièce familiale ;
   aucun enrichissement familial n'est lancé dans ce sous-lot.
 - La future collecte numérique structurée et les signatures restent réservées
-  au portail PMSL ultérieur ; Connecthys d'Ivan Lucas reste inchangé.
+  au portail PMSL ultérieur ; Connecthys d'origine reste inchangé.
 
 
 ## Audit de l'existant — contrôle des données médicales (28/10/2026)
@@ -184,7 +184,7 @@ Les actions 2/3 **écrivent immédiatement après confirmation explicite**,
 indépendamment de « Ok » sur la fiche enfant (seule la réponse AEEH
 Oui/Non proposée suit l'ancienne sauvegarde du contrôle Identité).
 L'équipe ne doit pas confondre ces deux mécanismes. Aucune modification
-n'est apportée à la transmission Connecthys hébergée par Ivan Lucas.
+n'est apportée à la transmission Connecthys hébergée.
 
 CI et recette : tests SQLite fictifs du service, contrats statiques wx,
 compilation et suite Windows ; affichage réel à qualifier sur Windows.

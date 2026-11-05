@@ -11,7 +11,7 @@ Base de comparaison : [RC9.1 du 26 octobre](https://github.com/fr4nck/Noethys-SL
 - Traitement des créneaux Journée/Matin/Après-midi : contrôle des disponibilités, priorité de la Journée si elle est réellement disponible, repli ciblé sur les demi-journées, garde de quantité, reprise contrôlée des demandes ambiguës et traçabilité.
 - Prévention des réapplications de consommation lors de reprises et neutralisation des doubles quantités indues, sous les réserves de concurrence interpostes documentées dans `docs/recette/UI_435_QUALIFICATION.md`.
 - Synchronisation et interface wx : opérations longues coopératives, diagnostic facultatif de réactivité, accès aux informations de traitement et garde-fous supplémentaires.
-- Aucun changement imposé au serveur Connecthys d'Ivan Lucas.
+- Aucun changement imposé au serveur Connecthys d'origine.
 
 ### Questionnaires et repas — #430, #433
 

@@ -122,7 +122,7 @@ def PublierConfigAtomiqueSFTP(sftp, source, mode=0o644):
     La copie temporaire est mode 0600 AVANT le premier octet secret et
     son contenu est relu sur le serveur pour comparer le SHA256 aux octets
     source. L'extension posix-rename remplace ensuite config.py d'un seul
-    coup. Tous les noms et le format definitif demeurent ceux d'Ivan Lucas.
+    coup. Tous les noms et le format definitif demeurent ceux de Connecthys d'origine.
     """
     if mode not in (0o600, 0o644):
         raise ValueError("Mode SFTP config.py interdit")

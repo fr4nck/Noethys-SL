@@ -1,6 +1,6 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
-## État global des consommations — retour à l'original d'Ivan Lucas (05/11/2026)
+## Restauration de l'État global des consommations (05/11/2026)
 
 **Référence fonctionnelle :** `Noethys/Noethys` master `199353efb86e37a9785260ec4225b49aced03db9`. Aucune branche, aucune PR, aucune migration, aucune base réelle utilisée. Rien n'est publié : aucun candidat, `Versions.txt` inchangé.
 
@@ -14,16 +14,16 @@
 
 Les mises à jour sont des fast-forwards (main : commits locaux replacés au-dessus de `8fb32e0c` avant le push, sans réécrire l'historique distant).
 
-**Fidélité (empreintes Git, identiques sur les trois branches)**
+**Conformité au fonctionnement d'origine (empreintes Git, identiques sur les trois branches)**
 
 - `CTRL_Etat_global_options.py` (`c9948b98`) et `CTRL_Etat_global_parametres.py` (`7692529d`) : identiques à l'original.
-- `DLG_Etat_global.py` : original `8fbf2850` et cinq adaptations Python 3 sans effet sur les résultats (`//` dans `FormateValeur`, `CleTriPython2` pour trier `None` comme Python 2, `six.text_type(err)`). Le test `test_dialogue_identique_a_l_original_hors_adaptations_python3` retire ces adaptations et retrouve l'empreinte exacte.
+- `DLG_Etat_global.py` : original `8fbf2850` et cinq adaptations de compatibilité Python 3 / wxPython sans effet sur les résultats (`//` dans `FormateValeur`, `CleTriPython2` pour trier `None` comme Python 2, `six.text_type(err)`). Le test `test_dialogue_identique_a_l_original_hors_adaptations_python3` retire ces adaptations et retrouve l'empreinte exacte.
 - `CTRL_Propertygrid.py` : original `7727b1c4` et une seule méthode ajoutée, `Propriete_multichoix.DisplayEditorDialog` (voir le défaut ci-dessous). `test_propertygrid_identique_a_l_original_hors_adaptation_wx42` retrouve l'empreinte exacte.
-- Retirés : forfait et plages méridiens (`forfait_presence_midi`, `heure_debut/fin_presence_midi`), bouton « CAF / AFAS », chaîne AFAS V1 (`DLG_AFAS_Actualisation`, `UTILS_AFAS_Actualisation/_Donnees/_Perimetre/_Historique/_ProfilsHistoriques`), avec leurs tests et workflows. Les seules mentions restantes se trouvent dans des tests de garde.
+- Retirés : forfait et plages méridiens (`forfait_presence_midi`, `heure_debut/fin_presence_midi`), bouton « CAF / AFAS », chaîne AFAS V1 (`DLG_AFAS_Actualisation`, `UTILS_AFAS_Actualisation/_Donnees/_Perimetre/_Historique/_ProfilsHistoriques`), avec leurs tests et workflows. Les seules mentions restantes se trouvent dans des tests de garde. Les documents AFAS V1 (`docs/afas/actualisation-septembre.md` et, sur wx, `docs/afas/CORRECTION_PROFILS_CAF_HISTORIQUES_2026.md`) sont supprimés.
 - Conservés : profils enregistrés (aucune écriture SQL ; un ancien profil contenant les clés méridiennes se recharge, les clés inconnues étant ignorées comme dans l'original), seuils, plafonds, coefficients, formules, arrondis, filtres, regroupements, aperçus PDF. AFAS V2 (`DLG_AFAS2_Declarations`) et `UTILS_AFAS.py` ne sont pas modifiés.
-- **Changement de comportement assumé :** `UTILS_AFAS_ProfilsHistoriques` (garde du 03/11/2026, qui forçait « Présent » pour « Caf - Périscolaire / Extrascolaire ») est retiré avec la chaîne V1. Ces profils calculent de nouveau avec les états qu'ils enregistrent, comme dans Noethys. `docs/afas/CORRECTION_PROFILS_CAF_HISTORIQUES_2026.md` (wx) et `docs/afas/actualisation-septembre.md` portent un bandeau « Historique ».
+- **Changement de comportement assumé :** `UTILS_AFAS_ProfilsHistoriques` (garde du 03/11/2026, qui forçait « Présent » pour « Caf - Périscolaire / Extrascolaire ») est retiré avec la chaîne V1. Ces profils calculent de nouveau avec les états qu'ils enregistrent, comme dans Noethys.
 
-**Défaut trouvé et corrigé : sélecteurs multiples sous wxPython 4.2**
+**Correction des sélecteurs multiples (wxPython 4.2)**
 
 Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProperty` appelle `DisplayEditorDialog` sans passer par l'`OnEvent` Python d'origine. Le dialogue C++ levait `wxArrayStringProperty::DisplayEditorDialog(): Function called for incompatible property` (run 42025741884) sur les trois champs : jours hors vacances, jours de vacances et état des consommations. Les anciens correctifs SL (`04a218d9`, `64434ea1`) ne surchargeaient que `OnEvent` et ne couvraient donc pas ce chemin. L'ancienne recette appelait `OnEvent` directement et masquait le défaut. Correctif : `DisplayEditorDialog` ouvre le même `wx.MultiChoiceDialog` d'origine ; `OnEvent` reste intact. Le correctif profite aussi aux autres écrans qui utilisent `Propriete_multichoix` (`DLG_Options_impression_menu`), sans recette dédiée.
 
@@ -33,7 +33,7 @@ Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProper
 - Calcul : 17 tests exécutent le vrai `Dialog.Apercu` sur une base fictive (seuils, plafonds, durées, arrondi, coefficient × quantité, temps facturé une seule fois, formule, plafond journalier, états/jours/périodes, régime inconnu, tranches d'âge, décimal, tri, PDF verrouillé). Le même jeu exécuté sur le fichier original pur donne des valeurs identiques sur les 12 scénarios ; ses 5 autres échecs sont des plantages Python 3 de l'original.
 - CI rapide : main `0026f215` run 42031787469 SUCCESS. wx `b2079371` run 42030997684 : 2222 tests, **un seul échec préexistant** hors périmètre (`test_vanilla_identite_noethys_sl`, « RC10.55 » ≠ « RC10.5 », déjà présent au run 41883015415 sur `dec70c1b`). Sur qt, la CI rapide n'est pas déclenchée (workflow limité à main/wx) ; tests locaux `.venv` OK.
 
-**Défauts de l'original conservés (non corrigés, par fidélité)**
+**Défauts d'origine conservés (non corrigés, par conformité)**
 
 - Format décimal : 1h05 → 1.8 (minutes converties en centièmes puis accolées, comme sous Python 2).
 - Regroupement par « étiquette » : plante dans l'original (liste utilisée comme clé), sous Python 2 également.
@@ -45,14 +45,16 @@ Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProper
 | Page wx d'origine (4 fichiers, empreintes) | VALIDÉ `0026f215` | VALIDÉ `b2079371` | VALIDÉ `ecd91b7e` (code wx hérité) |
 | Retrait midi / CAF-AFAS / AFAS V1 | VALIDÉ | VALIDÉ | VALIDÉ |
 | Sélecteurs multiples (3 champs) sous Windows | VALIDÉ run 42031787504 | VALIDÉ run 42030997791 ×2 | VALIDÉ run 42031757281 (wx) |
-| Calcul comparé à l'original | VALIDÉ | VALIDÉ | VALIDÉ (local + recette) |
+| Calcul comparé à l'origine | VALIDÉ | VALIDÉ | VALIDÉ (local + recette) |
 | Profils (enregistrement, rechargement, anciens profils) | VALIDÉ | VALIDÉ | VALIDÉ (wx) |
 | Écran Qt natif « État global » | NON APPLICABLE | NON APPLICABLE | **ABSENT / EN ATTENTE** : aucun écran dans `noethys_qt` |
 | Recette sur copie d'une base réelle | EN ATTENTE | EN ATTENTE | EN ATTENTE |
 
-**Qt :** la réussite sur `qt` ne démontre que le code wx hérité (`noethys/`) porté par cette branche. L'interface Qt native ne possède pas d'écran « État global ». Son développement (mêmes paramètres, calcul partagé, sélection multiple native Qt) est un chantier distinct, non commencé.
+**Qt :** la réussite sur `qt` ne porte que sur le code wx hérité (`noethys/`). L'écran Qt natif (mêmes paramètres, calcul partagé, sélection multiple native) reste un chantier distinct, non commencé.
 
 **Suite :** recette métier sur une **copie** de base (profils Caf existants, comparaison avec Noethys d'origine) avant tout candidat ; corriger séparément le test d'identité RC10.55 ; planifier l'écran Qt natif. Worktrees temporaires `nslm`/`nslq` supprimés.
+
+**Nettoyage documentaire :** intitulés techniques neutres dans la documentation, les tests (docstrings et commentaires), les commentaires de code et les noms d'étapes de workflow ; suppression des documents AFAS V1 et de leur entrée `mkdocs.yml`. Sont conservés : crédits et notices de copyright requis par la licence (`README.md`, `docs/index.md`, `Identite.py`, `Licence.txt`, `DLG_A_propos.py`, `setup.py`, en-têtes des sources), données métier (exports PES/JVS), chemins d'exemple traduits et `docs/archives/`. Aucune logique métier modifiée, aucun commit publié réécrit. Départ : main `d4a25aad`, wx `d8fcce65`, qt `18f39857`.
 
 ## Lot A / RC10.5 cumulative — preparation du 03/11/2026
 
@@ -260,7 +262,7 @@ Sous wxPython 4.2.5 (wxWidgets 3.2), le bouton « … » d'un `ArrayStringProper
 ### #436 - reception des fiches enfants, controle wx (28/10/2026)
 
 - **Branche wx** initiale `70fa4a7ea44d053c0ec4b338643947b0ae05612b`. **Main** contient le noyau commun `cf447a6b221b357284b84d27ffcf11e1366f134b`. Pas de merge global, pas de nouvelle branche. Propagation ciblée sur wx du moteur d'accueil commun du premier lot #436 et de son test (33 cas), du moteur de contrôle de réception (18 cas) et de son test. Changements wx propres dans `noethys/Dlg/DLG_Individu.py` et `noethys/Dlg/DLG_Reception_fiche_enfant.py` avec 6 garde-fous statiques.
-- **Audit réel** : Connecthys d'Ivan Lucas hébergé par un tiers reçoit déjà PDF/JPG/PNG dans « Pièces » ; `DLG_Saisie_portail_demande.Traitement_pieces` télécharge, déchiffre puis enregistre la pièce. Cela n'actualise pas les informations médicales ou AEEH de la fiche.
+- **Audit réel** : Connecthys d'origine hébergé par un tiers reçoit déjà PDF/JPG/PNG dans « Pièces » ; `DLG_Saisie_portail_demande.Traitement_pieces` télécharge, déchiffre puis enregistre la pièce. Cela n'actualise pas les informations médicales ou AEEH de la fiche.
 - **Raccordement wx de première étape** : depuis la fiche individuelle d'un enfant existant, `Outils → Contrôler une fiche enfant reçue`. L'opérateur doit consulter le PDF papier/portail dans l'onglet Pièces, confirmer l'enfant concerné et recopier explicitement Oui/Non/Non renseigné. Le dialogue compare à `individus.aeeh` via le contrôle Identité existant ; il ne fait AUCUN write SQL. C'est le bouton Ok habituel de la fiche individuelle qui enregistre. Les périodes AEEH sont lues comme référence et jamais modifiées ici ; les vaccins, allergies, traitements, PAI et consignes sont rappelés comme **à vérifier dans Médical**.
 - **Tests locaux** : 18 PASS Python 3.13, compilation du dialogue wx PASS ; les 6 tests statiques wx compilent. Sur CI wx, exécuter les 33 + 18 + 6 tests et toute la recette rapide existante ; **résultat du nouveau run à vérifier séparément**. La fenêtre graphique n'a PAS été ouverte en local et une recette visuelle Windows demeure requise avant diffusion.
 - **Non touchés** : bases réelles PMSL, profil Portable, portail Connecthys hébergé, synchronisation, tables, migrations, documents Pêle-Mêle originaux, réservations #435, facturation. Aucune promesse de classification automatique des PDF ni d'actualisation des périodes.
@@ -564,7 +566,7 @@ Tests de contrat: tests/test_connecthys_ui1_dialog_owner.py. Les comportements d
 
 - **Anomalies traitées (audit différentiel)** : sémantique incohérente d'une confirmation partielle (SMTP : validée ; Mailjet : refusée) et renvoi aux adresses déjà acceptées lors d'un nouvel essai ; moteur Mailjet message par message appliqué à tous les lots, y compris depuis l'éditeur affiché ; tests Mailjet asynchrone et pièce/quotient absents de toute CI.
 - **Correctif** : `DLG_Mailer.envoi_complet` défini pour tous les chemins (faux pour un message de test) ; `EnvoiEmailFamille` renvoie vrai seulement si toutes les adresses sont acceptées. Confirmations Connecthys sans éditeur (réponse, reçu, facture) : clé de suivi par demande et document, adresses acceptées mémorisées localement (`Utils/UTILS_Emails_acceptes.py`, table native `parametres`, catégorie `noethys_sl_emails_acceptes`, JSON, sans migration) ; un nouvel essai n'envoie qu'aux adresses restantes, la mémoire est effacée quand la confirmation est complète. Chemin Mailjet hors UI réservé au Mailer caché ; l'éditeur affiché retrouve `Mailjet.Envoyer_lot` (RC8.1).
-- **Compatibilité Connecthys (I. Lucas)** : aucun nouvel état de demande, réponses et `email_date` inchangés, aucun paramètre de catégorie `portail` ; la synchronisation ne lit pas la nouvelle catégorie (test).
+- **Compatibilité Connecthys d'origine** : aucun nouvel état de demande, réponses et `email_date` inchangés, aucun paramètre de catégorie `portail` ; la synchronisation ne lit pas la nouvelle catégorie (test).
 - **Défaut révélé par la mise en CI de `test_piece_quotient_dialog`** : la validité illimitée de pièce + quotient (RC9) n'avait jamais été exécutée. Le premier run a bloqué la CI Windows 20 min sur une boîte modale ; une garde de test (MessageBox/MessageDialog/ShowModal → échec explicite) a donné le message réel (run [40080174235](https://github.com/fr4nck/Noethys-SL/actions/runs/40080174235)) : « La date que vous venez de saisir semble trop élevée ». Cause : `DLG_Saisie_quotient.ctrl_date_fin` est un `Date2` borné par défaut au 01/01/2030 ; la fin 2999-01-01 transmise par la pièce était refusée (pièce enregistrée, quotient non). Correctif : borne `date_max="01/01/2999"` sur ce seul champ ; test direct de saisie du quotient illimité ajouté. La borne 2030 des autres `Date2` n'est pas modifiée (hors périmètre, à examiner).
 - **Tests** : `test_connecthys_confirmation_partielle` (nouveau), `test_connecthys_mailjet_lot_asynchrone` (contrats mis à jour), `test_piece_quotient_dialog` désormais en CI rapide ; ancrage de `test_audit_reseau_emails` mis à jour (contrat « reçu non envoyé → attente » inchangé).
 - **Qualification CI** : CI rapide [40080770764](https://github.com/fr4nck/Noethys-SL/actions/runs/40080770764) sur `add1b62` **SUCCESS** — 922 tests, 911 PASS, 0 FAIL, 11 SKIP (Windows, wx réel). Aucun build candidat lancé, aucun tag ni release RC9 (API : 404). Reste : recette manuelle Windows d'une confirmation Connecthys partielle (SMTP et Mailjet) et de la réception pièce + quotient illimité ; borne 2030 des autres champs `Date2` à examiner.
