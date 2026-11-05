@@ -153,7 +153,11 @@ class RecetteEtatGlobalWx(unittest.TestCase):
         # 1. Rendu complet de la fenêtre par Windows (PW_RENDERFULLCONTENT).
         image = wx.Bitmap(largeur, hauteur)
         memoire = wx.MemoryDC(image)
-        ctypes.windll.user32.PrintWindow(fenetre.GetHandle(), memoire.GetHandle(), 2)
+        from ctypes import wintypes
+        imprimer = ctypes.windll.user32.PrintWindow
+        # Poignées 64 bits : sans argtypes, ctypes les tronque en int 32 bits.
+        imprimer.argtypes = [wintypes.HWND, wintypes.HDC, wintypes.UINT]
+        imprimer(fenetre.GetHandle(), memoire.GetHandle(), 2)
         memoire.SelectObject(wx.NullBitmap)
         chemin = self.sortie / nom
         self.assertTrue(image.SaveFile(str(chemin), wx.BITMAP_TYPE_PNG))
