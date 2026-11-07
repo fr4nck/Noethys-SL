@@ -1,5 +1,22 @@
 # Reprise du chantier Noethys-SL — état au 28/10/2026
 
+## Sécurité — profils de connexion exclus de Git et incident de publication (07/11/2026)
+
+**Correctif `.gitignore`** (seul fichier modifié, fast-forward, sans force-push) : main `10bef139` → `ea21929f`, wx `25189fe7` → `f3bd1dde`, qt `e9173511` → `8144c084`. Règle `**/Portable/Config.json*` ajoutée sur les trois branches ; sur wx, elle complète `**/Portable/Config.json` et `**/Portable/Config.json.*`, qui laissaient passer `Config.json~`, `Config.json_bak` et `Config.json (1)`.
+
+**Vérifications**
+
+- `git check-ignore -v`, branche par branche : `Config.json`, `.bak`, `.old`, `~`, `_bak`, ` (1)` et suffixe daté exclus sur main, wx et qt.
+- Aucun `Portable/Config.json*` suivi sur les trois branches ; les cinq journaux de `Portable/` sont ignorés.
+- Le ZIP portable publié de rc.7 (seul tag dont l'arbre contient le profil) ne contient que `Portable/README.txt` (liste des noms, sans extraction).
+- Workflows : aucun secret utilisé ; les seuls quadruplets numériques sont des numéros de version ou `127.0.0.1`.
+
+**Incident (ouvert)** : un profil portable de connexion réseau a été versionné par `67ca93a4` (13/10/2026) puis retiré du suivi par `2267d776` (14/10/2026, #425). Il reste lisible dans l'historique public de wx et dans dix tags (`noethys-sl-0.1.0-rc.7` à `rc.10.55`). Contenu : chaînes de connexion MySQL réseau dont le mot de passe n'est encodé qu'en Base64 (réversible) ; aucune clé SMTP, Mailjet ou API. Au 07/11/2026, le compte exposé (serveur MySQL à adresse publique) est toujours employé avec le mot de passe publié par Noethys (fichier actif), TeamWorks, le profil portable de développement et une copie de profil. Un second compte, sur un serveur MySQL local, porte un mot de passe distinct. Inventaire réalisé par étiquettes anonymes, sans afficher de valeur. Une sortie d'outil d'une session d'assistance a affiché un extrait du profil local ; rien n'a été publié.
+
+**Décisions** : pas de purge de l'historique ni de réécriture des tags à ce stade ; aucune création de compte, aucun changement de mot de passe, aucune intervention sur une base sans autorisation distincte. Rotation prévue : nouveau compte limité aux bases utilisées, bascule contrôlée de tous les profils, validation des connexions, puis verrouillage immédiat de l'ancien compte (pas de période de coexistence).
+
+**Anomalie distincte, non corrigée** : `test_json_dict_au_lieu_de_liste_leve_hors_du_try` (`tests/test_audit_reseau_connecthys.py`) échoue sous Windows sur un fichier temporaire verrouillé, avec ou sans le nettoyage documentaire ; le test n'est pas modifié.
+
 ## Restauration de l'État global des consommations (05/11/2026)
 
 **Référence fonctionnelle :** `Noethys/Noethys` master `199353efb86e37a9785260ec4225b49aced03db9`. Aucune branche, aucune PR, aucune migration, aucune base réelle utilisée. Rien n'est publié : aucun candidat, `Versions.txt` inchangé.
