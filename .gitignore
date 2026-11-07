@@ -166,3 +166,4 @@ dev/db/exports/
 # (identifiants MySQL compris). Ne jamais le versionner, ni ses copies.
 **/Portable/Config.json
 **/Portable/Config.json.*
+**/Portable/Config.json*
