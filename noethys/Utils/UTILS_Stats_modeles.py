@@ -33,6 +33,33 @@ COULEUR_BLEU_CIEL = (174, 212, 253)
 LISTE_NOMS_MOIS = (_(u"Janvier"), _(u"Février"), _(u"Mars"), _(u"Avril"), _(u"Mai"), _(u"Juin"), _(u"Juillet"), _(u"Août"), _(u"Septembre"), _(u"Octobre"), _(u"Novembre"), _(u"Décembre"))
 
 
+def LireCacheStats(DB, cle, parametres):
+    """Cache isole par connexion ; jamais de resultats d'un autre dossier."""
+    donnees = getattr(DB, "_statistiques_cache", None)
+    if not isinstance(donnees, dict):
+        return False, None
+    entree = donnees.get(cle)
+    if entree is None or entree["parametres"] != parametres:
+        return False, None
+    return True, entree["valeur"]
+
+
+def EcrireCacheStats(DB, cle, parametres, valeur):
+    """Figer les parametres apres succes, sans etat global transversal."""
+    import copy
+    donnees = getattr(DB, "_statistiques_cache", None)
+    if not isinstance(donnees, dict):
+        donnees = {}
+        try:
+            DB._statistiques_cache = donnees
+        except (AttributeError, TypeError):
+            # Connexion non extensible : recalcul plutot que cache dangereux.
+            return valeur
+    donnees[cle] = {"parametres": copy.deepcopy(parametres),
+                    "valeur": valeur}
+    return valeur
+
+
 def DateEngEnDateDD(dateEng):
     if type(dateEng) == datetime.date: return dateEng
     return datetime.date(int(dateEng[:4]), int(dateEng[5:7]), int(dateEng[8:10]))
