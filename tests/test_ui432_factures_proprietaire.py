@@ -121,7 +121,7 @@ class FacturesProprietaireTests(unittest.TestCase):
 
     def test_erreur_sql_libere_toujours_la_fenetre_attente(self):
         fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
-        fenetre = mock.Mock()
+        fenetre = mock.MagicMock()
         fenetre.__enter__ = mock.Mock(return_value=fenetre)
         fenetre.__exit__ = mock.Mock(return_value=False)
         with mock.patch.object(UTILS_Facturation.UTILS_Attente, "BusyInfo",
