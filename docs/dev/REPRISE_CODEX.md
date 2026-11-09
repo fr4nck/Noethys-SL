@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## CONNECTHYS-SL — candidat installé + MySQL local qualifiés (09/11/2026)
+
+- **PASS 145/145** : [CI Windows ciblée #42674823345](https://github.com/fr4nck/Noethys-SL/actions/runs/42674823345) sur `wx` au SHA `55fabfaf` : 128 tests métier SQLite, 5 tests GUI wx (calendrier en zone défilante inclus), 12 tests **MySQL 5.7.44 local jetable**. Reprise du marqueur sans verrou durable, exclusion du clic simultané inter-connexions, états/finalisations, suivis d'emails fictifs, solde, factures ventilées, adhésion et taux d'annulation familial.
+- **PASS build / Setup / lancement** : [CI Windows #42673996161](https://github.com/fr4nck/Noethys-SL/actions/runs/42673996161), SHA `8a090255` : vraie construction PyInstaller, installation silencieuse Inno dans `RUNNER_TEMP`, création d'une **base de recette fictive**, puis démarrage du véritable exe jusqu'à `ETAPE oninit_fin`. Le banc de création fictif a constaté **0 tentative réseau** ; [diagnostics non personnels](https://github.com/fr4nck/Noethys-SL/actions/runs/42673996161/artifacts/13698924006). Pas d'installation sur le PC utilisateur ni d'email réel.
+- **Échecs d'ordonnancement distincts** : les anciens runs MySQL RC9 et candidat RC10.55 avec **zéro job de test créé** n'avaient pas valeur de régression métier ; les workflows indépendants ci-dessus ont réellement exécuté les contrôles.
+- **Matrice de code vérifiée** : les blobs des modules clés Connecthys et des tests sont identiques sur la branche `wx` contrôlée et les SHA de recette précités. [Rapport et protocole complet](../recette/CONNECTHYS_SITUATION_FAMILIALE_WX_20261109.md).
+- **Verdict : GO lot Connecthys pour intégration dans un candidat de recette, avec preuves ciblées. STOP-GATE publication RC générale conservé** : le vrai parcours de clics de réservation/annulation dans l'exe installé, les déconnexions de deux postes et les autres lots de la RC ne sont pas tous prouvés. Aucune release/tag publiée, aucune donnée PMSL touchée.
+
+
+
 ## CONNECTHYS-SL — recette graphique réelle wx et correctif petits écrans (09/11/2026)
 
 - **PASS** : [CI Windows ciblée #42667482310](https://github.com/fr4nck/Noethys-SL/actions/runs/42667482310), SHA source `0274601078203960c278e3a5956aa8e74d52c84c` : **128 tests métier + 4 recettes graphiques wx PASS** (aucun test ignoré parmi les quatre graphiques). Contrôles d'écran 1044 × 800, défilement métier, commandes fixes, famille changée, adhésion, factures, solde, taux d'annulation, indisponibilité sans blocage. Screenshots fictifs dans l'[artefact du run](https://github.com/fr4nck/Noethys-SL/actions/runs/42667482310/artifacts/13697192624).
