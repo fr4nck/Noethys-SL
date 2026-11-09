@@ -1,6 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## Connecthys — reprise sans verrou persistant, prochaine RC (09/11/2026)
+
+- Décision de direction : pouvoir utiliser **Automatique** ou **Manuel** même après une tentative de réservations interrompue ; suppression de la modale bloquante « Réconciliation requise » et du mode manuel spécial qui désactivait « Appliquer la demande ». La trace persistante devient un indicateur de reprise, jamais une quarantaine.
+- Branche Windows `wx` : correctif `63379dcb` ; qualification des tests `c95c5d8d` ; reprise Quantité partielle avec provenance et gestion des places `8dd28475`. Aucune donnée PMSL modifiée et aucune migration SQL.
+- Protection conservée : exclusion uniquement pendant deux traitements simultanés, lecture de la grille durable, refus de modifier les consommations facturées/pointées/attribuées à une autre inscription, quantité cible absolue = 1, confirmation d'email non rejouée. Une erreur de précontrôle ne sauvegarde pas la grille incomplète ; le bouton Manuel reste disponible.
+- Reprise après panne SQL de finalisation : les autres demandes et la fermeture sont accessibles. Trace conservée jusqu'à finalisation ; une demande déjà validée ne repasse pas par le métier.
+- Tests : `test_connecthys_ui3c1_reconciliation.py`, `test_connecthys_ui3c_sauvegarde.py`, `test_connecthys_priorites_435.py`. Statut de qualification Windows à consulter dans la CI du SHA final ; **pas de validation Windows ou MySQL réelle revendiquée avant résultat**.
+- Matrice : `wx = CORRECTIF INTÉGRÉ EN DÉVELOPPEMENT / RC EN ATTENTE` ; `main = ABSENT` ; `qt = ABSENT/NON QUALIFIÉ`. Reporter uniquement après comparaison des invariants, sans fusion globale. Aucun paquet ni tag RC annoncé à ce stade.
+
+
+
 ## UI-432J — statistiques et audit transversal (09/11/2026)
 
 - Signal utilisateur : fenetre principale perd son etat maximise pendant « Statistiques » ; capture « Actualisation des donnees… » / Individus, Age, periode 2026. Reproduction directe Win32 sur poste utilisateur **non realisee**.
