@@ -54,7 +54,7 @@ class QuotientsTests(unittest.TestCase):
         self.assertEqual(partition([(0, 99), (0, 99), (200, 299)]),
                          [(0, 99), (200, 299)])
 
-    def tester_mode(self, mode):
+    def verifier_mode(self, mode):
         params = {"mode": mode, "listeActivites": [3],
                   "periode": {"date_debut": datetime.date(2026, 1, 1),
                               "date_fin": datetime.date(2026, 12, 31)}}
@@ -84,10 +84,10 @@ class QuotientsTests(unittest.TestCase):
             self.assertIn("consommations.etat", db.queries[0])
 
     def test_presents(self):
-        self.tester_mode("presents")
+        self.verifier_mode("presents")
 
     def test_inscrits(self):
-        self.tester_mode("inscrits")
+        self.verifier_mode("inscrits")
 
 
 if __name__ == "__main__":
