@@ -1282,7 +1282,7 @@ class Dialog(wx.Dialog):
             # Aucun refus ni nouvelle boite de dialogue.
             self.situation_solde_jour.SetLabel(_(u"Solde du jour : indisponible"))
             self.situation_solde_annulations.SetLabel(
-                _(u"Taux d'annulation : indisponibles"))
+                _(u"Taux d'annulation : indisponible"))
             self.situation_solde_historique.SetLabel("")
             self.situation_factures_titre.SetLabel(_(u"Factures impayées"))
             self.situation_factures_total.SetLabel(_(u"Données indisponibles"))

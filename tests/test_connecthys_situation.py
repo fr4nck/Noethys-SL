@@ -341,7 +341,11 @@ class SituationConnecthysTests(unittest.TestCase):
         self.assertIn('_(u"N° facture")', methodes["_ConstruireSituationFamille"])
         self.assertIn('_(u"Restant dû")', methodes["_ConstruireSituationFamille"])
         self.assertIn("self.panel_situation.Show(False)", methodes["MAJ_situation"])
-        self.assertIn("Situation du jour indisponible", methodes["MAJ_situation"])
+        # La maquette validee distribue l'indisponibilite entre les trois
+        # cartes et ne doit jamais afficher une valeur de zero fictive.
+        self.assertIn('Solde du jour : indisponible', methodes["MAJ_situation"])
+        self.assertIn('Données indisponibles', methodes["MAJ_situation"])
+        self.assertIn('Situation indisponible', methodes["MAJ_situation"])
         self.assertNotIn("INSERT", methodes["MAJ_situation"])
         self.assertNotIn("UPDATE", methodes["MAJ_situation"])
 
