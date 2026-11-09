@@ -70,8 +70,8 @@ jobs:
       - name: Contrats statistiques UI-432J sans dependances GUI
         run: python -m unittest -v tests.test_ui432_statistiques tests.test_ui432_audit_transversal
 
-      - name: Contrats STATS-RESTORE (ages, QF et VFS, sans donnees reelles)
-        run: python -m unittest -v tests.test_stats_restore_ages tests.test_stats_restore_quotients tests.test_stats_restore_vfs
+      - name: Contrats STATS-RESTORE (ages, QF, VFS et impression, sans donnees reelles)
+        run: python -m unittest -v tests.test_stats_restore_ages tests.test_stats_restore_quotients tests.test_stats_restore_vfs tests.test_stats_restore_impression
 
       - name: Qualifier le consommateur session-attendance/1 isolé
         run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery tests.test_noethys_sl_interdomain_secrets tests.test_noethys_sl_interdomain_mailbox_client
