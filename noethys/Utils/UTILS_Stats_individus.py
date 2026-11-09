@@ -247,9 +247,8 @@ def GetDictVilles(DB, dictParametres):
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
     conditionsActivites = MODELES.GetConditionActivites(dictParametres)
 
-    from Utils import UTILS_Titulaires
-    dictTitulaires = UTILS_Titulaires.GetTitulaires() 
-    
+    # Aucun recours a UTILS_Titulaires : son resultat n'etait jamais utilise
+    # et il chargeait toutes les familles, les individus et les rattachements.
     # Récupère les adresses de tous les individus de la base
     req = """SELECT IDindividu, nom, prenom, rue_resid, cp_resid, ville_resid FROM individus;"""
     DB.ExecuterReq(req)
