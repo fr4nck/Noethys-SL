@@ -46,7 +46,7 @@ def scenario():
         def __init__(self, code):
             self.code = code
             self.bitmap = None
-            self.stockImages = wx.MemoryFSHandler()
+            self.stockImages = wx.MemoryFSHandler
 
         def ConvertMPLtoBMP(self, figure):
             return wx.Bitmap(16, 16)
