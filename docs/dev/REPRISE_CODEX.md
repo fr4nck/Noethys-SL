@@ -1,5 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+
+## CONNECTHYS-SL — qualification Windows dédiée de la synthèse familiale (09/11/2026)
+
+- **PASS ciblé** : [GitHub Actions #42662954503](https://github.com/fr4nck/Noethys-SL/actions/runs/42662954503), SHA `8e1aaf6ec925686c711e9e3da290305f517bb68b` : **128 tests Windows / 128 réussis** en 68,983 s. Python 3.10, wxPython 4.2.5, données SQLite fictives et garde contre les connexions réelles. Campagne indépendante des tests du module Statistiques, workflow `noethys-sl-connecthys-qualification.yml`.
+- Contrôle réparé : la variable `{SOLDE_FAMILLE}` est produite par `Dialog.CreationPDF()`, et non par `Dialog.Envoyer()`. Le test précédent portait sur la mauvaise fonction ; les assertions d'indisponibilité ont aussi été mises à jour selon les trois cartes de la maquette validée. Ces corrections n'ont changé ni les calculs comptables, ni les opérations de réservation.
+- Couverture : modes manuel/automatique, refus des doubles écritures, reprise après interruption, dates/états de réservation, solde et factures, adhésions, taux d'annulation historique de toutes les demandes familiales passées par le portail, ainsi que leurs contrats de raccordement à l'UI.
+- **Limite** : cette preuve automatisée ne démontre pas le rendu ni le parcours utilisateur complet de l'application Windows installée, ni un traitement MySQL réseau réel. Pour la prochaine RC, vérifier visuellement sur **copie isolée** : trois cartes à la bonne taille, pas de solde rouge doublonné ; chiffres de solde et de factures, adhésion et taux d'annulation ; navigation entre familles ; modes manuel/automatique et non-duplication après interruption ; email sans double envoi. Ne pas publier une RC stable sur ce seul résultat.
+- **GO du lot pour passage à la recette fonctionnelle / NO GO publication RC générale** tant que les autres chantiers et la recette installée restent non qualifiés. Aucun paquet, aucun tag, aucune base de production touchée.
+
+
 ## STATS-RESTORE Q3 — MemoryFS Windows qualifié, STOP-GATE RC maintenu (09/11/2026)
 
 - **Rouge→vert natif** : le cycle de vie VFS a été reproduit en échec (`0xC000041D`, #42655909784), isolé par comparaison gestionnaire par objet vs classe statique (#42661604488) et corrigé sur main `68bc99fe`, qt `66795742`, wx `fb1e320a`. La CI Windows ciblée #42662525508 : **7/7 PASS**, 100 actualisations + 100 créations/libérations + 202 ouvertures, code de sortie normal.
