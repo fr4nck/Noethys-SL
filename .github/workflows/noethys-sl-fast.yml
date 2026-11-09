@@ -284,6 +284,7 @@ jobs:
           tests.test_mailer_unique_uncertain
           tests.test_connecthys_confirmation_partielle
           tests.test_connecthys_reprises
+          tests.test_vanilla_connecthys_synchro
           tests.test_piece_quotient_dialog
           tests.test_noethys_sl_type_cotisation_saisie
           tests.test_noethys_sl_type_cotisation_erreurs

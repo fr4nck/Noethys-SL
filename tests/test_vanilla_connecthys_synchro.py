@@ -183,17 +183,20 @@ class ServeurEffectuerCycleTests(unittest.TestCase):
         serveur.active = True
 
         appels = {"n": 0}
-        original_sleep = CTRL_Portail_serveur.time.sleep
 
-        def faux_sleep(secondes):
+        def fausse_attente(secondes):
             appels["n"] += 1
-            serveur.keepGoing = False  # une seule itération de la boucle
+            serveur.keepGoing = False  # une seule iteration de la boucle
+            return False
 
+        # Le worker utilise Event.wait(), plus time.sleep(). Ne jamais laisser
+        # cette contre-epreuve entrer dans une boucle sans fin en CI.
         with mock.patch.object(CTRL_Portail_serveur.UTILS_Portail_synchro, "Synchro") as FauxSynchroClasse, \
-             mock.patch.object(CTRL_Portail_serveur.time, "sleep", side_effect=faux_sleep):
+             mock.patch.object(serveur._arret, "wait", side_effect=fausse_attente):
             FauxSynchroClasse.return_value.Synchro_totale.side_effect = RuntimeError("crash simulé")
             serveur.run()  # ne doit pas lever
 
+        self.assertEqual(appels["n"], 1)
         self.assertFalse(serveur.synchro_en_cours)
         self.assertTrue(any("crash simulé" in m for m in parent.logs))
 
@@ -313,6 +316,10 @@ class ChargeModuleModelsTests(unittest.TestCase):
         self.addCleanup(self._tmpdir.cleanup)
         self.chemin = self._tmpdir.name
         self.synchro = UTILS_Portail_synchro.Synchro.__new__(UTILS_Portail_synchro.Synchro)
+        # ChargeModuleModels lit maintenant la politique SHA256 optionnelle.
+        # Une instance creee via __new__ ne possede pas cet attribut.
+        # Le mode historique non epingle doit etre explicitement simule.
+        self.synchro.dict_parametres = {"models_sha256": ""}
 
     def _ecrire(self, nom, contenu):
         (Path(self.chemin) / nom).write_text(contenu, encoding="utf-8")
