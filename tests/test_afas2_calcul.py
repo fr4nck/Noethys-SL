@@ -905,6 +905,18 @@ class AFAS04MoisClosTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
         self.assertEqual(natures(r), [])
 
+    def test_reservation_deja_facturee_pendant_mois_ouvert(self):
+        # Une réservation déjà facturée est retenue dans les actes CAF
+        # même si le mois n'est pas clos ; elle ne prouve aucune présence.
+        c = conso(LUNDI_VACANCES, 201, etat="reservation",
+                  IDprestation=81236, IDfacture=15)
+        r = calculer(M.EXTRA, [c], date_reference=D(2026, 10, 20))
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertEqual(r["indicateurs"]["heures_physiques"], 0)
+        self.assertEqual(natures(r), [])
+
     def test_demi_journee_mois_clos(self):
         c = conso(LUNDI_VACANCES, 202, etat="reservation")
         r = calculer(M.EXTRA, [c],
