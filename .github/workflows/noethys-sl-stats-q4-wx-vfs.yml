@@ -1,0 +1,40 @@
+name: Noethys SL wx - Q4 15 graphes MemoryFS Windows natif
+
+# Verifie sur sous-processus Windows les vrais objets Graphes:
+# Matplotlib PNG -> wx.Bitmap -> MemoryFS -> liberation naturelle.
+# Aucune base PMSL ni service distant, aucune installation.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - 'tests/test_stats_q4_wx_vfs_end_to_end.py'
+      - '.github/workflows/noethys-sl-stats-q4-wx-vfs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: q4-wx-vfs-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  native-windows:
+    name: Q4-C2 - 15 graphes MemoryFS et exit 0
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+      PYTHONDONTWRITEBYTECODE: '1'
+      NOETHYS_STATS_Q4_WX: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Installer les dependances natives du banc
+        run: python -m pip install wxPython==4.2.5 numpy matplotlib Pillow six
+      - name: Compiler le banc wx
+        run: python -m py_compile tests/test_stats_q4_wx_vfs_end_to_end.py
+      - name: Sous-processus natif avec 15 images, 15 ouvertures et 15 liberations
+        run: python -m unittest -v tests.test_stats_q4_wx_vfs_end_to_end
