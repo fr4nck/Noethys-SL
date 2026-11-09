@@ -66,24 +66,37 @@ class FacturesProprietaireTests(unittest.TestCase):
             {42: {"{NUMERO_FACTURE}": "000042"}},
         ))
         fac.EcritStatusbar = mock.Mock()
-        with mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progress, \
-             mock.patch.object(UTILS_Facturation.wx, "MessageDialog") as erreur_dlg, \
-             mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
-                               side_effect=RuntimeError("PDF fictif en echec") if erreur else None) as pdf, \
-             mock.patch.object(UTILS_Facturation.traceback, "print_exc"):
-            resultat = fac.Impression(
-                listeFactures=[42], dictOptions={"IDmodele": 3},
-                afficherDoc=False, repertoireTemp=True, parent=owner)
-            self.assertIs(fac.GetDonneesImpression.call_args.kwargs["parent"], owner)
-            self.assertIs(progress.call_args.kwargs["parent"], owner)
-            progress.return_value.Destroy.assert_called_once()
+
+        def rendu_fictif(*args, **kwargs):
             if erreur:
-                self.assertIs(resultat, False)
-                self.assertIs(erreur_dlg.call_args.args[0], owner)
+                raise RuntimeError("PDF fictif en echec")
+            Path(kwargs["nomFichier"]).write_bytes(
+                b"%PDF-1.4\\n" + b"fictif" * 20 + b"\\n%%EOF\\n")
+
+        with tempfile.TemporaryDirectory(
+                prefix="ui432-facture-", dir=_garde_reseau.PROFIL_TEST) as rep:
+            with mock.patch.object(UTILS_Facturation.UTILS_Fichiers, "GetRepTemp",
+                                   return_value=rep), \
+                 mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progress, \
+                 mock.patch.object(UTILS_Facturation.wx, "MessageDialog") as erreur_dlg, \
+                 mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
+                                   side_effect=rendu_fictif) as pdf, \
+                 mock.patch.object(UTILS_Facturation.traceback, "print_exc"):
+                resultat = fac.Impression(
+                    listeFactures=[42], dictOptions={"IDmodele": 3},
+                    afficherDoc=False, repertoireTemp=True, parent=owner)
+                self.assertIs(fac.GetDonneesImpression.call_args.kwargs["parent"], owner)
+                self.assertIs(progress.call_args.kwargs["parent"], owner)
+                progress.return_value.Destroy.assert_called_once()
                 pdf.assert_called_once()
-            else:
-                self.assertIn(42, resultat[1])
-                erreur_dlg.assert_not_called()
+                if erreur:
+                    self.assertIs(resultat, False)
+                    self.assertIs(erreur_dlg.call_args.args[0], owner)
+                    self.assertEqual(os.listdir(rep), [])
+                else:
+                    self.assertIn(42, resultat[1])
+                    self.assertTrue(Path(resultat[1][42]).is_file())
+                    erreur_dlg.assert_not_called()
 
     def test_pdf_fictif_proprietaire_conserve(self):
         self._impression_pdf_fictive()
@@ -189,16 +202,23 @@ class FacturesProprietaireTests(unittest.TestCase):
 
         def generer_pdf(*args, **kwargs):
             commandes.append(kwargs["nomFichier"])
+            Path(kwargs["nomFichier"]).write_bytes(
+                b"%PDF-1.4\\n" + b"fictif" * 20 + b"\\n%%EOF\\n")
 
-        with mock.patch.object(UTILS_Facturation.wx, "IsMainThread", return_value=True), \
-             mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progression, \
-             mock.patch.object(UTILS_Facturation.UTILS_Etapes_ui, "Executer",
-                               side_effect=executer) as attente, \
-             mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
-                               side_effect=generer_pdf):
-            resultat = fac.Impression(
-                listeFactures=[42, 43], dictOptions={"IDmodele": 3},
-                afficherDoc=False, repertoireTemp=True, parent=owner)
+        with tempfile.TemporaryDirectory(
+                prefix="ui432-lot-", dir=_garde_reseau.PROFIL_TEST) as rep:
+            with mock.patch.object(UTILS_Facturation.UTILS_Fichiers, "GetRepTemp",
+                                   return_value=rep), \
+                 mock.patch.object(UTILS_Facturation.wx, "IsMainThread", return_value=True), \
+                 mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progression, \
+                 mock.patch.object(UTILS_Facturation.UTILS_Etapes_ui, "Executer",
+                                   side_effect=executer) as attente, \
+                 mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
+                                   side_effect=generer_pdf):
+                resultat = fac.Impression(
+                    listeFactures=[42, 43], dictOptions={"IDmodele": 3},
+                    afficherDoc=False, repertoireTemp=True, parent=owner)
+                self.assertTrue(all(Path(p).is_file() for p in resultat[1].values()))
         self.assertEqual(etapes, ["factures.generation_pdf"] * 2)
         self.assertEqual(len(commandes), 2)
         self.assertEqual(len(resultat[1]), 2)

@@ -17,6 +17,7 @@ from Utils.UTILS_Decimal import FloatToDecimal as FloatToDecimal
 from Dlg import DLG_Apercu_facture
 from Utils import UTILS_Dates
 from Utils import UTILS_Impression_facture
+from Utils import UTILS_PDF_securise
 from Utils import UTILS_Questionnaires
 from Utils import UTILS_Titulaires
 import FonctionsPerso
@@ -1234,10 +1235,17 @@ class Facturation():
                         # peuvent etre effaces apres une generation echouee.
                         if supprimer_partiels and not os.path.exists(cheminFichier):
                             nouveaux_fichiers.append(cheminFichier)
-                        UTILS_Impression_facture.Impression(
-                            dictComptesTemp, dictOptions,
-                            IDmodele=dictOptions["IDmodele"],
-                            ouverture=False, nomFichier=cheminFichier)
+                        def rendre(chemin):
+                            return UTILS_Impression_facture.Impression(
+                                dictComptesTemp, dictOptions,
+                                IDmodele=dictOptions["IDmodele"],
+                                ouverture=False, nomFichier=chemin)
+                        if supprimer_partiels:
+                            # Courriel : ne jamais remettre un PDF incomplet.
+                            # Le rendu reste sequentiel dans le thread wx.
+                            UTILS_PDF_securise.Generer(cheminFichier, rendre)
+                        else:
+                            rendre(cheminFichier)
                         dictPieces[IDfacture] = cheminFichier
                         index += 1
                         yield "factures.generation_pdf"

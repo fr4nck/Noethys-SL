@@ -177,6 +177,7 @@ jobs:
           tests.test_ui432k_factures_lecture
           tests.test_ui432k_worker_win32
           tests.test_ui432k_stats_unitaire
+          tests.test_ui432k_pdf_atomique
           tests.test_ui432k_stats_win32
           tests.test_noethys_sl_performance_grille
           tests.test_noethys_sl_grille_synthetic
