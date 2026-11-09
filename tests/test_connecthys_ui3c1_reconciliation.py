@@ -331,16 +331,17 @@ class ReconciliationTests(unittest.TestCase):
             self.assertFalse(self.ui.Traitement())
         self.assertEqual(self.ui.ctrl_grille.saisies, 0)
         self.assertEqual(self.ui.ctrl_grille.saves, 0)
-    def test_deux_connexions_sqlite_une_seule_tentative(self):
+    def test_deux_connexions_sqlite_reprennent_mais_un_clic_a_la_fois(self):
         self.preparer()
-        def commencer():
-            try:
-                return Marqueurs.Commencer(7)
-            except Marqueurs.ReconciliationRequise:
-                return None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            resultats = list(pool.map(lambda _: commencer(), range(2)))
-        self.assertEqual(sum(v is not None for v in resultats), 1)
+        # Le marqueur durable n'est plus un verrou apres une interruption.
+        premier = Marqueurs.Commencer(7)
+        jeton, reprise = Marqueurs.Commencer(7, avec_origine=True)
+        self.assertEqual(jeton, premier)
+        self.assertTrue(reprise)
+        with Marqueurs.ExecutionExclusive(7):
+            with self.assertRaises(Marqueurs.ReconciliationRequise):
+                with Marqueurs.ExecutionExclusive(7):
+                    pass
         self.assertTrue(Marqueurs.EnAttente(7))
 
     def _lier_reprise_operateur_435(self):
