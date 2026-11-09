@@ -84,7 +84,9 @@ def _processus(conn, source, comptes, options, modele, chemin):
         conn.send(("ok",))
     except BaseException as erreur:
         try:
-            conn.send(("error", type(erreur).__name__))
+            module = (getattr(erreur, "name", None)
+                      if isinstance(erreur, ImportError) else None)
+            conn.send(("error", type(erreur).__name__, module))
         except Exception:
             pass
     finally:
@@ -138,7 +140,12 @@ def Generer(comptes, options, modele, chemin, source_db, delai=180, donnees_pret
             processus.join(timeout=5)
             raise RuntimeError("Processus PDF impossible a fermer")
         if processus.exitcode != 0 or verdict != ("ok",):
-            typ = verdict[1] if len(verdict) == 2 else "ProcessusInconnu"
+            typ = verdict[1] if len(verdict) > 1 else "ProcessusInconnu"
+            module = verdict[2] if len(verdict) > 2 else None
+            if module and isinstance(module, str):
+                raise RuntimeError(
+                    "Rendu PDF isole refuse : %s (module %s)" %
+                    (typ, module[:100]))
             raise RuntimeError("Rendu PDF isole refuse : %s" % typ)
         return chemin
     finally:
