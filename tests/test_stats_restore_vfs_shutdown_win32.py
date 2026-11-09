@@ -9,6 +9,9 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+# Un sous-processus lance sur un fichier ne conserve pas toujours le paquet tests.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def scenario(mode):
