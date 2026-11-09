@@ -268,8 +268,11 @@ class HTML():
         self.liste_objets = liste_objets
         self.dictParametres = {}
         
-        # Création du stock d'images
-        wx.FileSystem.AddHandler(wx.MemoryFSHandler())
+        # Le gestionnaire MemoryFS appartient au processus, pas a chaque
+        # fenetre Statistiques. Ne l'enregistrer qu'une fois.
+        if not getattr(HTML, "_memory_fs_registered", False):
+            wx.FileSystem.AddHandler(wx.MemoryFSHandler())
+            HTML._memory_fs_registered = True
         self.stockImages = wx.MemoryFSHandler()
     
     def SetParametres(self, dictParametres={}) :
