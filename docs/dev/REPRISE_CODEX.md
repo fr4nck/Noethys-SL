@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## STATS-RESTORE R2 — qualification des correctifs et impressions (09/11/2026)
+
+- Tests `tests/test_stats_restore_{ages,quotients,vfs}.py` ajoutés explicitement à la CI rapide du `wx` au commit `ef9c9580`. CI #42641981221 : 10 tests utiles PASS, 1 ERROR dû à `tester_mode` découvert à tort comme test `unittest`. 
+- Le helper est renommé `verifier_mode` sans changement d'assertions : wx `7bb97c34`, main `deb1a1b3`, qt `5a50fe4b`. CI #42642206923 : contrôle Ubuntu PASS ; job Windows annulé après un nouveau push Connecthys. CI de remplacement #42642848389 : contrôle Ubuntu PASS, Windows en cours lors de la lecture.
+- Correction supplémentaire source, ciblée et non qualifiée : `HTML.GetHTML(mode=impression)` calcule uniquement les pages cochées et `CTRL_Stats_objets.Coche()` vérifie les objets enfants ; test isolé `tests/test_stats_restore_impression.py`. main `2a51c6f7`, qt `5124b01e`; **pas encore propagé ni testé sur wx** afin de ne pas annuler sa CI Windows en cours.
+- Point métier ouvert : `tarifs.IDtype_quotient` et `quotients.IDtype_quotient` déterminent le type de QF ; les statistiques ignorent actuellement cette distinction, et les dates historiques sont écrasées par l'ordre des lignes. Ne pas inventer une politique de sélection. Un contrôle indépendant de la date de référence et du type tarifaire est requis avant correction.
+- MemoryFS : UUID par objet intégré précédemment, mais libération des fichiers à la fermeture et persistance durant l'aperçu restent à qualifier. Gel UI, distance réseau et #432 toujours ouverts.
+- **STOP-GATE : pas de nouvelle RC publiée et aucun GO Windows tant que les tests et les points ci-dessus ne sont pas qualifiés.** Travail GitHub uniquement, aucune base ni profil de production.
 ## STATS-RESTORE — premiers correctifs transversaux (09/11/2026)
 
 - Trois corrections sources (âges, identifiants VFS, tranches QF/mode Inscrits) sur main/wx/qt avec tests nouveaux NON EXECUTES.
