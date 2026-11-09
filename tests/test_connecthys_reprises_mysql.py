@@ -73,16 +73,16 @@ class SuiviConnecthysMySQLTests(unittest.TestCase):
     def suivi_brut(self, cle=CLE):
         return self.lignes("SELECT parametre FROM parametres WHERE categorie='%s' AND nom='%s'" % (Suivis.CATEGORIE, cle))
 
-    def test_435_marqueur_durable_mysql_cycle_sans_rejeu(self):
-        """Un même IDaction ne peut pas créer deux tentatives durables."""
+    def test_435_marqueur_durable_mysql_reprise_sans_second_jeton(self):
+        """Une demande interrompue conserve sa trace, pas un verrou permanent."""
         from Utils import UTILS_Portail_reconciliation as Marqueurs
         self.assertFalse(Marqueurs.EnAttente(7))
         jeton = Marqueurs.Commencer(7)
         self.assertRegex(jeton, r"^[0-9a-f]{32}$")
         self.assertTrue(Marqueurs.EnAttente(7))
         self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
-        with self.assertRaises(Marqueurs.ReconciliationRequise):
-            Marqueurs.Commencer(7)
+        self.assertEqual(Marqueurs.Commencer(7, avec_origine=True), (jeton, True))
+        self.assertEqual(Marqueurs.Commencer(7), jeton)
         self.assertEqual(self.lignes("SELECT etat FROM portail_actions WHERE IDaction=7"),
                          [("attente",)])
         Marqueurs.Terminer(7, jeton)
@@ -106,6 +106,86 @@ class SuiviConnecthysMySQLTests(unittest.TestCase):
         jeton = Marqueurs.Commencer(7)
         self.assertEqual(Marqueurs.LireReprise(7), (jeton, "attente"))
         Marqueurs.Terminer(7, jeton)
+
+    def test_435_verrou_execution_sans_quarantaine_entre_postes(self):
+        """Le verrou court empeche deux actions simultanees mais pas la reprise."""
+        from Utils import UTILS_Portail_reconciliation as Marqueurs
+        autre = self.connexion()
+        self.addCleanup(autre.Close)
+        expression = "CONCAT('noethys_resa_exec_', LEFT(MD5(DATABASE()), 12), '_7')"
+        autre.cursor.execute("SELECT GET_LOCK(%s, 0)" % expression)
+        self.assertEqual(autre.cursor.fetchall()[0][0], 1)
+        try:
+            with self.assertRaises(Marqueurs.ReconciliationRequise):
+                with Marqueurs.ExecutionExclusive(7):
+                    self.fail("Deux postes auraient traite simultanement")
+            self.assertFalse(Marqueurs.EnAttente(7))
+        finally:
+            autre.cursor.execute("SELECT RELEASE_LOCK(%s)" % expression)
+            self.assertEqual(autre.cursor.fetchall()[0][0], 1)
+        with Marqueurs.ExecutionExclusive(7):
+            jeton, reprise = Marqueurs.Commencer(7, avec_origine=True)
+            self.assertEqual(len(jeton), 32)
+            self.assertFalse(reprise)
+            with self.assertRaises(Marqueurs.ReconciliationRequise):
+                with Marqueurs.ExecutionExclusive(7):
+                    self.fail("Double traitement local autorise")
+        jeton2, reprise = Marqueurs.Commencer(7, avec_origine=True)
+        self.assertEqual((jeton2, reprise), (jeton, True))
+        Marqueurs.Terminer(7, jeton)
+
+    def test_situation_familiale_sur_mysql_local_jetable(self):
+        """Chiffres, adhesions et annulations en vraie base MySQL 5.7 isolee."""
+        import datetime
+        from decimal import Decimal
+        from Utils import UTILS_Portail_situation as Situation
+
+        db = self.connexion()
+        try:
+            for table in ("reglements", "factures", "factures_prefixes",
+                          "portail_reservations"):
+                db.CreationTable(table, dicoDB=Tables.DB_DATA)
+            commandes = [
+                "INSERT INTO factures (IDfacture, numero, IDcompte_payeur, "
+                "date_edition, date_echeance) VALUES "
+                "(600, 600, 11, '2026-10-01', '2026-10-15')",
+                "INSERT INTO prestations (IDprestation, IDfamille, IDcompte_payeur, "
+                "IDfacture, date, montant) VALUES "
+                "(901, 1, 11, 600, '2026-10-01', 40.00)",
+                "INSERT INTO reglements (IDreglement, IDcompte_payeur, date, "
+                "montant) VALUES (92, 11, '2026-10-06', 15.00)",
+                "INSERT INTO ventilation (IDventilation, IDcompte_payeur, "
+                "IDprestation, montant) VALUES (92, 11, 901, 10.00)",
+                "INSERT INTO cotisations (IDcotisation, IDindividu, "
+                "IDtype_cotisation, IDunite_cotisation, date_debut, date_fin) "
+                "VALUES (800, 100, 1, 11, '2026-09-01', '2027-08-31')",
+                "UPDATE portail_actions SET etat='validation', "
+                "categorie='reservations', horodatage='2026-09-02 10:00:00' "
+                "WHERE IDaction=7",
+                "INSERT INTO portail_actions (IDaction, IDfamille, categorie, "
+                "etat, horodatage) VALUES "
+                "(8, 1, 'reservations', 'validation', '2026-09-06 10:00:00')",
+                "INSERT INTO portail_reservations (IDreservation, IDaction, "
+                "date, IDinscription, IDunite, etat) VALUES "
+                "(71, 7, '2026-10-10', 199, 9, 1)",
+                "INSERT INTO portail_reservations (IDreservation, IDaction, "
+                "date, IDinscription, IDunite, etat) VALUES "
+                "(72, 8, '2026-10-10', 199, 9, 0)",
+            ]
+            for sql in commandes:
+                db.cursor.execute(sql)
+            db.Commit()
+        finally:
+            db.Close()
+        resultat = Situation.LireSituation(
+            1, 100, date_reference=datetime.date(2026, 11, 9))
+        self.assertEqual(resultat["solde_du_jour"], Decimal("-25.00"))
+        self.assertEqual(resultat["total_factures"], Decimal("30.00"))
+        self.assertEqual(len(resultat["factures_impayees"]), 1)
+        self.assertEqual(resultat["adhesion"]["statut"], "en_cours")
+        hist = resultat["historique_annulations"]
+        self.assertEqual((hist["reservations"], hist["annulations"]), (1, 1))
+        self.assertEqual(hist["taux"], Decimal("100.0"))
 
     def test_435_mauvais_jeton_ne_supprime_pas_le_marqueur_mysql(self):
         from Utils import UTILS_Portail_reconciliation as Marqueurs
