@@ -168,7 +168,10 @@ def cliquer(win,libelle):
             if matches:
                 button=matches[0]
                 print("CLICK",libelle,backend,button.class_name(),flush=True)
-                button.click_input()
+                # Une simulation souris physique sur un runner CI peut
+                # seulement afficher l'infobulle sans declencher EVT_BUTTON.
+                # WM_CLICK via pywinauto est deterministe pour wx.Button.
+                button.click()
                 return
         except Exception as e:
             print("CLICK_RETRY",backend,libelle,str(e)[:160],flush=True)
