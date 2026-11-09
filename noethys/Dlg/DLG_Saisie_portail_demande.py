@@ -351,8 +351,11 @@ class Dialog(wx.Dialog):
 
         self.bouton_famille = wx.BitmapButton(self, -1, wx.Bitmap(Chemins.GetStaticPath("Images/16x16/Famille.png"), wx.BITMAP_TYPE_ANY))
 
-        self.label_solde = wx.StaticText(self, -1, _(u"Solde :"))
+        # Le solde global est affiche dans la carte "Soldes" ci-dessous.
+        # Conserver ce controle masque pour le calcul et {SOLDE_FAMILLE}
+        # dans les modeles de reponse email (compatibilite fonctionnelle).
         self.ctrl_solde = CTRL_Solde(self)
+        self.ctrl_solde.Hide()
 
         self.label_description = wx.StaticText(self, -1, _(u"Description :"))
         self.ctrl_description = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
@@ -593,12 +596,9 @@ class Dialog(wx.Dialog):
         # Famille
         grid_sizer_demande.Add(self.label_famille, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
 
-        grid_sizer_famille = wx.FlexGridSizer(rows=1, cols=5, vgap=5, hgap=5)
+        grid_sizer_famille = wx.FlexGridSizer(rows=1, cols=2, vgap=5, hgap=5)
         grid_sizer_famille.Add(self.ctrl_famille, 1, wx.EXPAND, 0)
         grid_sizer_famille.Add(self.bouton_famille, 0, 0, 0)
-        grid_sizer_famille.Add( (20, 5), 0, 0, 0)
-        grid_sizer_famille.Add(self.label_solde, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
-        grid_sizer_famille.Add(self.ctrl_solde, 0, 0, 0)
         grid_sizer_famille.AddGrowableCol(0)
         grid_sizer_demande.Add(grid_sizer_famille, 1, wx.EXPAND, 0)
 

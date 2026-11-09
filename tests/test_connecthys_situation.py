@@ -201,6 +201,17 @@ class SituationConnecthysTests(unittest.TestCase):
         self.assertIn("self.situation_adhesion_statut.SetLabel(", methodes["MAJ_situation"])
         self.assertIn("self.panel_situation.Show(True)", methodes["MAJ_situation"])
         self.assertIn("self.situation_solde_jour.SetLabel(", methodes["MAJ_situation"])
+        # Non-redondance : le solde rouge historique ne figure plus sur la
+        # ligne Famille. Le controle cache reste requis pour le mail.
+        self.assertIn("self.ctrl_solde.Hide()", methodes["__init__"])
+        self.assertNotIn("self.label_solde", methodes["__init__"])
+        self.assertNotIn("self.label_solde", methodes["__do_layout"])
+        self.assertNotIn("grid_sizer_famille.Add(self.ctrl_solde",
+                         methodes["__do_layout"])
+        self.assertIn("rows=1, cols=2", methodes["__do_layout"])
+        self.assertIn("self.ctrl_solde.GetSolde()", methodes["MAJ_situation"])
+        self.assertIn('dict_champs["{SOLDE_FAMILLE}"] = self.ctrl_solde.GetSolde()',
+                      methodes["Envoyer"] if "Envoyer" in methodes else source)
         self.assertIn("self.situation_factures_carte", methodes["_ConstruireSituationFamille"])
         self.assertIn("self.situation_solde_carte", methodes["_ConstruireSituationFamille"])
         self.assertIn("self.situation_adhesion_carte", methodes["_ConstruireSituationFamille"])

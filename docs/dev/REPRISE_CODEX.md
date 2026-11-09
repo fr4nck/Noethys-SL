@@ -10,6 +10,7 @@
 ## Connecthys — synthèse familiale à l'ouverture d'une demande (09/11/2026)
 
 - **Présentation validée par la direction le 09/11/2026** : adopter la maquette en **encart pleine largeur** et **trois cartes côte à côte** « Soldes », « Factures impayées », « Adhésion ». Le visuel validé était illustratif ; ne jamais injecter ses noms ou montants fictifs dans la base ou les tests.
+- Ajustement complémentaire validé : supprimer le champ rouge **Solde** en haut à droite de la ligne Famille car il fait doublon avec **Solde global** dans la carte Soldes. Le contrôle interne reste masqué pour conserver son calcul et l'expansion du jeton `{SOLDE_FAMILLE}` dans les emails ; aucun changement de calcul ni de données.
 - Affichage wx demandé : soldes actuel/au jour différenciés ; factures sous forme de tableau N° facture, Période, Montant, Restant dû avec défilement et total ; adhésion avec statut coloré, période, type et montant de l'unité de cotisation s'il existe. Lecture SQL uniquement, pas de modale, pas de nouvel état métier. Les demandes d'une autre catégorie masquent l'encart.
 - Qualification : la première CI du lot compact (run 42607300613) a compilé mais échoué sur **2 tests / 2261 exécutés** (affichage d'une cotisation inconnue et navigation après panne SQL). La présente intégration trois colonnes contient les corrections correspondantes et les tests mis à jour ; **verdict Windows/recette graphique à établir avant publication**.
 
