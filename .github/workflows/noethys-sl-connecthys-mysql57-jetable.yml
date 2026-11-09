@@ -1,0 +1,78 @@
+name: Noethys SL wx - MySQL Connecthys 5.7 local jetable
+
+# Workflow autonome a UN SEUL JOB, sans publication ni acces PMSL.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-connecthys-mysql57-jetable.yml'
+      - 'tests/test_connecthys_reprises_mysql.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connecthys-mysql57:
+    name: Connecthys - MySQL 5.7 local jetable (sans publication)
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
+      NOETHYS_TEST_MYSQL_PORT: '3399'
+      NOETHYS_TEST_MYSQL_USER: recette_connecthys
+      NOETHYS_TEST_MYSQL_PASSWORD: 'only_fictional_ci_mysql'
+      NOETHYS_TEST_MYSQL_EXIGER: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de tests Noethys MySQL
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Installation Noethys impossible' }
+          python -m pip install pyttsx3 wxPython==4.2.5
+          if ($LASTEXITCODE -ne 0) { throw 'Installation wxPython impossible' }
+      - name: Telecharger MySQL officiel 5.7.44 et verifier SHA-256
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $archive
+          $sha = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($sha -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Echec d'integrite MySQL 5.7.44 : $sha"
+          }
+          Write-Host 'Archive MySQL 5.7.44 verifiee'
+      - name: Tester reprise, verrou inter-postes et situation familiale sur MySQL jetable
+        shell: pwsh
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP 'connecthys-mysql57-recette'
+          $archive = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          python -c "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); [z.extract(m,sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m == 'mysql-5.7.44-winx64/bin/mysqld.exe']" $archive $base
+          if ($LASTEXITCODE -ne 0) { throw 'Extraction MySQL jetable en echec' }
+          $racine = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'data'
+          & "$racine/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$racine" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation MySQL jetable en echec' }
+          $serveur = Start-Process -WindowStyle Hidden -FilePath "$racine/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$racine", "--datadir=$data", '--port=3399',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8'
+          )
+          try {
+            python tests/recette_mysql_jetable_preparer.py
+            if ($LASTEXITCODE -ne 0) { throw 'Preparation serveur MySQL jetable en echec' }
+            python -m unittest -v tests.test_connecthys_reprises_mysql.SuiviConnecthysMySQLTests
+            if ($LASTEXITCODE -ne 0) { throw 'Qualification MySQL Connecthys echouee' }
+          }
+          finally {
+            Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
+          }
+
