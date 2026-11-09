@@ -119,5 +119,47 @@ class FacturesProprietaireTests(unittest.TestCase):
                 os.remove(chemin)
 
 
+    def test_erreur_sql_libere_toujours_la_fenetre_attente(self):
+        fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
+        fenetre = mock.Mock()
+        fenetre.__enter__ = mock.Mock(return_value=fenetre)
+        fenetre.__exit__ = mock.Mock(return_value=False)
+        with mock.patch.object(UTILS_Facturation.UTILS_Attente, "BusyInfo",
+                               return_value=fenetre), \
+             mock.patch.object(UTILS_Facturation.GestionDB, "DB",
+                               side_effect=RuntimeError("SQL fictif")):
+            with self.assertRaisesRegex(RuntimeError, "SQL fictif"):
+                fac.GetDonneesImpression([42], {"afficher_classes": False}, parent=object())
+        fenetre.__exit__.assert_called_once()
+
+    def test_pdf_temp_partiel_efface_si_generation_echoue(self):
+        fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
+        fac.GetDonneesImpression = mock.Mock(return_value=(
+            {42: {"select": True, "num_facture": "000042", "nomSansCivilite": "Fictive"}},
+            {42: {"{NUMERO_FACTURE}": "000042"}},
+        ))
+        fac.EcritStatusbar = mock.Mock()
+        traces = []
+        with tempfile.TemporaryDirectory(prefix="ui432-pdf-", dir=_garde_reseau.PROFIL_TEST) as rep:
+            def ecriture_partielle(*args, **kwargs):
+                chemin = kwargs["nomFichier"]
+                Path(chemin).write_bytes(b"%PDF-1.4\\npartiel")
+                traces.append(chemin)
+                raise RuntimeError("PDF fictif incomplet")
+            with mock.patch.object(UTILS_Facturation.UTILS_Fichiers, "GetRepTemp",
+                                   return_value=rep), \
+                 mock.patch.object(UTILS_Facturation.wx, "ProgressDialog"), \
+                 mock.patch.object(UTILS_Facturation.wx, "MessageDialog"), \
+                 mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
+                                   side_effect=ecriture_partielle), \
+                 mock.patch.object(UTILS_Facturation.traceback, "print_exc"):
+                resultat = fac.Impression(
+                    listeFactures=[42], dictOptions={"IDmodele": 3},
+                    afficherDoc=False, repertoireTemp=True, parent=object())
+            self.assertIs(resultat, False)
+            self.assertEqual(len(traces), 1)
+            self.assertFalse(Path(traces[0]).exists())
+
+
 if __name__ == "__main__":
     unittest.main()

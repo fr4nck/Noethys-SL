@@ -28,6 +28,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Utils import UTILS_Attente
 import datetime
+import os
 import six
 import sys
 import traceback
@@ -792,9 +793,13 @@ class Facturation():
         return dictComptes
 
     def GetDonneesImpression(self, listeFactures=[], dictOptions=None, parent=None):
-        """ Impression des factures """
-        dlgAttente = UTILS_Attente.BusyInfo(
-            _(u"Recherche des données de facturation..."), parent)
+        """ Fenetre d'attente automatiquement detruite meme sur exception. """
+        with UTILS_Attente.BusyInfo(
+                _(u"Recherche des données de facturation..."), parent):
+            return self._GetDonneesImpression_core(listeFactures, dictOptions)
+
+    def _GetDonneesImpression_core(self, listeFactures=[], dictOptions=None):
+        """ Calcul des donnees sans gestion de fenetre ni de cycle modal. """
         try:
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
@@ -902,7 +907,7 @@ class Facturation():
                 "pes_lot_id_poste": id_poste, "pes_lot_code_etab": code_etab,
             }
         if len(listeDonnees) == 0:
-            del dlgAttente
+
             DB.Close()
             return False
 
@@ -1101,7 +1106,6 @@ class Facturation():
 
             index += 1
 
-        del dlgAttente
         self.EcritStatusbar("")
 
         if len(dictFactures) == 0:
@@ -1142,8 +1146,9 @@ class Facturation():
         dictFactures, dictChampsFusion = resultat
 
         # Création des PDF à l'unité
-        def CreationPDFunique(repertoireCible=""):
+        def CreationPDFunique(repertoireCible="", supprimer_partiels=False):
             dictPieces = {}
+            nouveaux_fichiers = []
             dlgProgress = wx.ProgressDialog(_(u"Génération des factures au format PDF"), _(u"Initialisation..."), maximum=len(
                 dictFactures), parent=parent, style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
             try:
@@ -1176,6 +1181,10 @@ class Facturation():
                                                             len(dictFactures), nomFichier)
                         self.EcritStatusbar(texte)
                         dlgProgress.Update(index + 1, texte)
+                        # Ne supprimer apres erreur que les PDF temp deja inexistants
+                        # avant l'operation, jamais des copies de l'utilisateur.
+                        if supprimer_partiels and not os.path.exists(cheminFichier):
+                            nouveaux_fichiers.append(cheminFichier)
                         UTILS_Impression_facture.Impression(
                             dictComptesTemp, dictOptions, IDmodele=dictOptions["IDmodele"], ouverture=False, nomFichier=cheminFichier)
                         dictPieces[IDfacture] = cheminFichier
@@ -1185,6 +1194,13 @@ class Facturation():
                 return dictPieces
             except Exception as err:
                 dlgProgress.Destroy()
+                if supprimer_partiels:
+                    for chemin in nouveaux_fichiers:
+                        try:
+                            if os.path.isfile(chemin):
+                                os.remove(chemin)
+                        except OSError:
+                            pass
                 traceback.print_exc(file=sys.stdout)
                 dlg = wx.MessageDialog(parent, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
                     u"Erreur"), wx.OK | wx.ICON_ERROR)
@@ -1201,7 +1217,7 @@ class Facturation():
         # Répertoire TEMP (pour Emails)
         dictPieces = {}
         if repertoireTemp == True:
-            dictPieces = CreationPDFunique(UTILS_Fichiers.GetRepTemp())
+            dictPieces = CreationPDFunique(UTILS_Fichiers.GetRepTemp(), supprimer_partiels=True)
             if dictPieces == False:
                 return False
 
