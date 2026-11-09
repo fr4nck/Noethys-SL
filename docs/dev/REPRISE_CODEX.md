@@ -1,6 +1,16 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## UI-432K — calculs simples et PDF atomique (09/11/2026)
+
+- **Stats** : commit [`952f69fa`](https://github.com/fr4nck/Noethys-SL/commit/952f69faf00a0342e0024ed50d47a54c1cd00440), sept objets texte/tableau en lecture SQL indépendante dans un worker (trois tableaux d'âges). Le rendu, les graphiques, les caches complexes et les widgets restent sur wx. Fichier `UTILS_Stats_unitaire.py` à liste blanche, restitution DTO par `UTILS_Etapes_ui.TravailFond`. [CI ciblée #42695391714](https://github.com/fr4nck/Noethys-SL/actions/runs/42695391714) **25/25 PASS**, y compris calcul fictif unique de huit secondes et états Win32/owners.
+- **PDF d'email** : commits [`241928f1`](https://github.com/fr4nck/Noethys-SL/commit/241928f1d90003fe8adeb04773bfcf70f8e43910) et [`9606dc23`](https://github.com/fr4nck/Noethys-SL/commit/9606dc2347ea97531816e9d857abe66709bf3398). `UTILS_PDF_securise.Generer` écrit vers un fichier provisoire dans le même dossier, exige une signature PDF et un marqueur de fin, puis remplace le fichier final seulement après contrôle. Le rendu ReportLab est encore **synchrone** sur wx, pour éviter toute concurrence non qualifiée sur les globaux et les modèles Noedoc. [CI ciblée #42696478032](https://github.com/fr4nck/Noethys-SL/actions/runs/42696478032) **30/30 PASS**, y compris exceptions, nettoyage et non-altération du PDF final lors d'un échec.
+- **Tests synthétiques seulement** : pas de preuve de rendu réel de factures et d'équivalence comptable, ni de réactivité pendant un seul graphe ou un seul rendu PDF. Les objets statistiques hors liste blanche et `Facturation.__init__` restent bloquants. Les calculs et documents réels SQLite/MySQL doivent être comparés avant GO.
+- **Branches** : `wx` = intégrations présentes/CI ciblées PASS ; `main` et `qt` = non modifiés, propagation des composants métier communs non qualifiée. Conserver la matrice complète de compatibilité.
+- **Release** : candidat RC10.56 construit lors d'un autre chantier mais publication non prouvée ; dernière release GitHub observée RC10.55. Aucun tag/release ni paquet créé dans UI-432K. Issue [#432](https://github.com/fr4nck/Noethys-SL/issues/432) **OUVERTE**, pas de GO résolution générale ; les tests Win32 sur le poste utilisateur restent attendus.
+
+
+
 ## CONNECTHYS-SL — candidat installé + MySQL local qualifiés (09/11/2026)
 
 - **PASS 145/145** : [CI Windows ciblée #42674823345](https://github.com/fr4nck/Noethys-SL/actions/runs/42674823345) sur `wx` au SHA `55fabfaf` : 128 tests métier SQLite, 5 tests GUI wx (calendrier en zone défilante inclus), 12 tests **MySQL 5.7.44 local jetable**. Reprise du marqueur sans verrou durable, exclusion du clic simultané inter-connexions, états/finalisations, suivis d'emails fictifs, solde, factures ventilées, adhésion et taux d'annulation familial.
