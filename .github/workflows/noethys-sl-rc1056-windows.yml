@@ -1,5 +1,7 @@
 name: Noethys SL wx - candidat 0.1.0 RC10.56 Windows (Setup + portable)
 # Autorisation explicite de la direction pour la preversion RC10.56 ;
+# Qualification relancee apres mise a jour des tests Connecthys
+# (Event.wait et parametres SHA256 fictifs), publication conditionnelle.
 # publication uniquement sur PASS du build et de la suite de tests renforcee.
 
 # Par défaut, un lancement manuel ou un commit marqué [candidate rc105] ne
