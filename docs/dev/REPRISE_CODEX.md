@@ -1,5 +1,14 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-432K — reprise traitement unitaire (09/11/2026)
+
+- Lot sur wx : [`3ff57b3d`](https://github.com/fr4nck/Noethys-SL/commit/3ff57b3d1ac4440300fa27ad7e9b14965a430125). Lecture SQL/aggregation d'impression facture possible sur worker sans acces wx, connexion independante non poolee, annulation sans envoi. Tests fictifs et HWND Windows integres a la CI rapide.
+- Suivi [#432](https://github.com/fr4nck/Noethys-SL/issues/432#issuecomment-6744350636), [rapport UI-432K](../recette/UI_432K_UNITAIRE_20261109.md).
+- CI syntaxe du commit UI-432K PASS ; job Windows annule par push concurrent. CI `262a5035` : 5 erreurs Decimal/str dans STATS-RESTORE, job Windows saute. Un correctif concurrent `1a37188e` a restaure le job syntaxe ; Windows encore en cours au controle de cette reprise. **Aucun PASS Windows UI-432K declare.**
+- Toujours ouverts : lecture initiale `Facturation()`, rendu d'un seul PDF ReportLab/Noedoc, SQL et matplotlib d'un seul objet Stats, equivalence des donnees sur SQLite/MySQL fictifs et recette utilisateur. L'issue #432 reste ouverte, prochaine RC STOP-GATE.
+- Matrice : wx = candidat lecture seulement ; main et qt = non modifies/non qualifies pour UI-432K.
+
+
 ## STATS-RESTORE R2 — qualification des correctifs et impressions (09/11/2026)
 
 - Tests `tests/test_stats_restore_{ages,quotients,vfs}.py` ajoutés explicitement à la CI rapide du `wx` au commit `ef9c9580`. CI #42641981221 : 10 tests utiles PASS, 1 ERROR dû à `tester_mode` découvert à tort comme test `unittest`. 
