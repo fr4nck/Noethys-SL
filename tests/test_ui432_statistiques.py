@@ -181,22 +181,35 @@ class DialogueStatistiquesTests(unittest.TestCase):
         dialogue = mock.Mock()
         dialogue.ShowModal.return_value = 5100
         dialogue.GetDictParametres.return_value = params
+        principale = object()
+        visible = [False]
+        proprietaires = []
         vue = SimpleNamespace(
             dictParametres={}, ctrl_parametres=mock.Mock(),
             baseHTML=mock.Mock(), MAJpageAffichee=mock.Mock(),
+            IsShownOnScreen=lambda: visible[0],
+            GetParent=lambda: principale,
         )
+        def creer_parametres(owner):
+            proprietaires.append(owner)
+            return dialogue
         espace = {
             "datetime": datetime,
-            "DLG_Stats_parametres": SimpleNamespace(Dialog=lambda owner: dialogue),
+            "DLG_Stats_parametres": SimpleNamespace(Dialog=creer_parametres),
             "wx": SimpleNamespace(ID_OK=5100, CallAfter=lambda fn: suite.append(fn)),
         }
         methode = charger(DIALOGUE, "Dialog", "ModificationParametres", espace)
         self.assertTrue(methode(vue, premiere=True))
+        self.assertIs(proprietaires[0], principale,
+                      "Le dialogue initial ne doit pas appartenir a Stats cachee")
         vue.MAJpageAffichee.assert_not_called()
         self.assertEqual(suite, [vue.MAJpageAffichee])
         suite[0]()
         vue.MAJpageAffichee.assert_called_once()
+        visible[0] = True
         self.assertTrue(methode(vue, premiere=False))
+        self.assertIs(proprietaires[1], vue,
+                      "Les modifications ulterieures appartiennent a Stats visible")
         self.assertEqual(vue.MAJpageAffichee.call_count, 2)
         self.assertEqual(dialogue.Destroy.call_count, 2)
 

@@ -654,8 +654,11 @@ class Dialog(wx.Dialog):
             annee = dateJour.year
             self.dictParametres = {"mode":"presents", "periode":{"type":"annee", "annee":annee, "date_debut":datetime.date(annee, 1, 1), "date_fin":datetime.date(annee, 12, 31)}, "listeActivites":[], "dictActivites":{} }
         
-        # Demande les paramètres à l'utilisateur
-        dlg = DLG_Stats_parametres.Dialog(self)
+        # A la premiere ouverture, Stats n'est pas encore affichee.
+        # Un dialogue modal ne doit jamais appartenir a une fenetre cachee :
+        # prendre le proprietaire visible, puis reprendre Stats une fois ouverte.
+        parent_parametres = self if self.IsShownOnScreen() else (self.GetParent() or self)
+        dlg = DLG_Stats_parametres.Dialog(parent_parametres)
         dlg.SetParametres(self.dictParametres)
         if dlg.ShowModal() == wx.ID_OK:
             self.dictParametres = dlg.GetDictParametres()
