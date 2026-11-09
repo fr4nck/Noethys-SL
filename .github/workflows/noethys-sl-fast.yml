@@ -172,6 +172,8 @@ jobs:
           tests.test_ui432_audit_transversal
           tests.test_noethys_sl_facture_export_options
           tests.test_ui432_factures_proprietaire
+          tests.test_ui432k_factures_lecture
+          tests.test_ui432k_worker_win32
           tests.test_noethys_sl_performance_grille
           tests.test_noethys_sl_grille_synthetic
           tests.test_noethys_sl_profilage_conso

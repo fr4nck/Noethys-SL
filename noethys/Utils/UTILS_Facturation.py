@@ -28,6 +28,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Utils import UTILS_Attente
 from Utils import UTILS_Etapes_ui
+from Utils import UTILS_Travail_long
 import datetime
 import os
 import six
@@ -58,6 +59,8 @@ class Facturation():
         """ Récupération de toutes les données de base """
 
         DB = GestionDB.DB()
+        # Capture du descripteur source sur le thread wx.
+        self._source_db = getattr(DB, "nomFichier", None)
 
         # Récupération de tous les individus de la base
         req = """SELECT IDindividu, IDcivilite, nom, prenom, date_naiss, adresse_auto, rue_resid, cp_resid, ville_resid
@@ -126,6 +129,14 @@ class Facturation():
         self.infosIndividus = UTILS_Infos_individus.Informations(
             mode_adresse_facturation=True)
 
+    @staticmethod
+    def _OuvrirLecture(source_db=None):
+        """Connexion independante du worker, sans acces a wx."""
+        if isinstance(source_db, str) and source_db:
+            return GestionDB.DB(nomFichier=source_db, suffixe=None,
+                                pooling=False)
+        return GestionDB.DB()
+
     def RechercheAgrement(self, IDactivite, date):
         for IDactiviteTmp, agrement, date_debut, date_fin in self.listeAgrements:
             if IDactivite == IDactiviteTmp and date >= date_debut and date <= date_fin:
@@ -155,7 +166,7 @@ class Facturation():
                 texte = texte.replace(key, six.text_type(valeur))
         return texte
 
-    def GetDonnees(self, listeFactures=[], liste_activites=[], date_debut=None, date_fin=None, date_edition=None, date_echeance=None, prestations=["consommation", "cotisation", "location", "autre"], typeLabel=0, date_anterieure=None, mention1="", mention2="", mention3="", inclure_cotisations_si_conso=False):
+    def GetDonnees(self, listeFactures=[], liste_activites=[], date_debut=None, date_fin=None, date_edition=None, date_echeance=None, prestations=["consommation", "cotisation", "location", "autre"], typeLabel=0, date_anterieure=None, mention1="", mention2="", mention3="", inclure_cotisations_si_conso=False, source_db=None):
         """ Recherche des factures à créer """
 
         dictFactures = {}
@@ -197,245 +208,247 @@ class Facturation():
             conditionPrestations = " prestations.categorie IN %s" % str(
                 tuple(prestations)).replace("u'", "'")
 
-        DB = GestionDB.DB()
+        DB = self._OuvrirLecture(source_db)
+        try:
 
-        # Recherche des prestations de la période
-        if len(listeFactures) == 0:
-            conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND %s AND %s" % (
-                conditionActivites, conditionDates, conditionPrestations)
-        else:
-            conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
-        req = """
-        SELECT prestations.IDprestation, prestations.IDcompte_payeur, prestations.date, categorie, 
-        label, prestations.montant_initial, prestations.montant, prestations.tva, 
-        prestations.IDactivite, activites.nom, activites.abrege,
-        prestations.IDtarif, noms_tarifs.nom, categories_tarifs.nom, IDfacture, 
-        prestations.IDindividu, prestations.IDfamille,
-        forfait_date_debut, forfait_date_fin
-        FROM prestations
-        LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
-        LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
-        LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
-        LEFT JOIN categories_tarifs ON tarifs.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
-        %s
-        GROUP BY prestations.IDprestation
-        ORDER BY prestations.date
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listePrestations = DB.ResultatReq()
-
-        # Petite liste pour savoir si l'individu a des consommations sur la facture (pour l'option Inclure cotisations si individu sur activité)
-        famille_has_prestations_activite = {
-            valeurs[1]: True for valeurs in listePrestations if valeurs[3] == "consommation"}
-
-        # Recherche de la ventilation des prestations
-        if len(listeFactures) == 0:
-            conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND %s" % (
-                conditionActivites, conditionDates)
-        else:
-            conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
-        req = """
-        SELECT ventilation.IDprestation, ventilation.IDreglement, ventilation.IDcompte_payeur, SUM(ventilation.montant) AS montant_ventilation,
-        reglements.date, reglements.montant, reglements.numero_piece, modes_reglements.label, emetteurs.nom, payeurs.nom
-        FROM ventilation
-        LEFT JOIN prestations ON prestations.IDprestation = ventilation.IDprestation
-        LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
-        LEFT JOIN reglements ON reglements.IDreglement = ventilation.IDreglement
-        LEFT JOIN modes_reglements ON modes_reglements.IDmode = reglements.IDmode
-        LEFT JOIN emetteurs ON emetteurs.IDemetteur = reglements.IDemetteur
-        LEFT JOIN payeurs ON payeurs.IDpayeur = reglements.IDpayeur
-        %s
-        GROUP BY ventilation.IDprestation, ventilation.IDreglement, ventilation.IDcompte_payeur
-        ORDER BY prestations.date
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeVentilationPrestations = DB.ResultatReq()
-        dictVentilationPrestations = {}
-        dictReglements = {}
-        for IDprestation, IDreglement, IDcompte_payeur, montant_ventilation, date, montant, numero_piece, mode, emetteur, payeur in listeVentilationPrestations:
-            date = UTILS_Dates.DateEngEnDateDD(date)
-            montant = FloatToDecimal(montant)
-            montant_ventilation = FloatToDecimal(montant_ventilation)
-
-            # Mémorisation des règlements
-            if (IDcompte_payeur in dictReglements) == False:
-                dictReglements[IDcompte_payeur] = {}
-            if (IDreglement in dictReglements[IDcompte_payeur]) == False:
-                dictReglements[IDcompte_payeur][IDreglement] = {"date": date, "montant": montant, "mode": mode,
-                                                                "emetteur": emetteur, "numero": numero_piece, "payeur": payeur, "ventilation": FloatToDecimal(0.0)}
-            dictReglements[IDcompte_payeur][IDreglement]["ventilation"] += montant_ventilation
-
-            # Mémorisation de la ventilation
-            if (IDprestation in dictVentilationPrestations) == False:
-                dictVentilationPrestations[IDprestation] = FloatToDecimal(0.0)
-            dictVentilationPrestations[IDprestation] += montant_ventilation
-
-        # Recherche des QF aux dates concernées
-        if len(listeFactures) == 0:
-            date_min = date_debut
-            date_max = date_fin
-        else:
-            date_min = datetime.date(9999, 12, 31)
-            date_max = datetime.date(1, 1, 1)
-            for IDprestation, IDcompte_payeur, date, categorie, label, montant_initial, montant, tva, IDactivite, nomActivite, abregeActivite, IDtarif, nomTarif, nomCategorieTarif, IDfacture, IDindividu, IDfamille, forfait_date_debut, forfait_date_fin in listePrestations:
-                if dictFactures[IDfacture]["date_debut"] < date_min:
-                    date_min = dictFactures[IDfacture]["date_debut"]
-                if dictFactures[IDfacture]["date_fin"] > date_max:
-                    date_max = dictFactures[IDfacture]["date_fin"]
-        conditions = "WHERE quotients.date_fin>='%s' AND quotients.date_debut<='%s' " % (
-            date_min, date_max)
-        req = """
-        SELECT quotients.IDfamille, quotients.quotient, quotients.date_debut, quotients.date_fin
-        FROM quotients
-        %s
-        ORDER BY quotients.date_debut
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeQfdates = DB.ResultatReq()
-
-        # Recherche des anciennes prestations impayées (=le report antérieur)
-        if len(listeFactures) == 0:
-            conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND prestations.date<'%s' " % (
-                conditionActivites, date_debut)
-        else:
-            conditions = ""
-        req = """
-        SELECT prestations.IDprestation, prestations.IDcompte_payeur, prestations.date, categorie, 
-        label, prestations.montant, 
-        prestations.IDactivite, activites.nom, activites.abrege,
-        prestations.IDtarif, noms_tarifs.nom, categories_tarifs.nom, IDfacture, 
-        prestations.IDindividu, prestations.IDfamille,
-        forfait_date_debut, forfait_date_fin
-        FROM prestations
-        LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
-        LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
-        LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
-        LEFT JOIN categories_tarifs ON tarifs.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
-        %s
-        GROUP BY prestations.IDprestation
-        ORDER BY prestations.date
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeReports = DB.ResultatReq()
-
-        # Recherche de la ventilation des reports
-        if len(listeFactures) == 0:
-            conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND prestations.date<'%s' " % (
-                conditionActivites, date_debut)
-        else:
-            conditions = ""
-        req = """
-        SELECT ventilation.IDprestation, SUM(ventilation.montant) AS montant_ventilation
-        FROM ventilation
-        LEFT JOIN prestations ON prestations.IDprestation = ventilation.IDprestation
-        LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
-        %s 
-        GROUP BY ventilation.IDprestation
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeVentilationReports = DB.ResultatReq()
-        dictVentilationReports = {}
-        for IDprestation, montant_ventilation in listeVentilationReports:
-            dictVentilationReports[IDprestation] = montant_ventilation
-
-        # Recherche des déductions
-        if len(listeFactures) == 0:
-            conditions = ""
-        else:
-            conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
-        req = u"""
-        SELECT IDdeduction, deductions.IDprestation, deductions.date, deductions.montant, deductions.label, deductions.IDaide
-        FROM deductions
-        LEFT JOIN prestations ON prestations.IDprestation = deductions.IDprestation
-        %s
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeDeductionsTemp = DB.ResultatReq()
-        dictDeductions = {}
-        for IDdeduction, IDprestation, date, montant, label, IDaide in listeDeductionsTemp:
-            if (IDprestation in dictDeductions) == False:
-                dictDeductions[IDprestation] = []
-            dictDeductions[IDprestation].append(
-                {"IDdeduction": IDdeduction, "date": date, "montant": montant, "label": label, "IDaide": IDaide})
-
-        # Recherche des consommations (sert pour les forfaits)
-        if len(listeFactures) == 0:
-            conditions = "WHERE prestations.IDactivite IN %s AND %s" % (
-                conditionActivites, conditionDates)
-        else:
-            conditions = ""
-        req = """
-        SELECT IDconso, consommations.date, consommations.IDprestation, consommations.etat
-        FROM consommations
-        LEFT JOIN prestations ON prestations.IDprestation = consommations.IDprestation
-        %s
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeConsommations = DB.ResultatReq()
-        dictConsommations = {}
-        for IDconso, date, IDprestation, etat in listeConsommations:
-            if (IDprestation in dictConsommations) == False:
-                dictConsommations[IDprestation] = []
-            dictConsommations[IDprestation].append(
-                {"date": UTILS_Dates.DateEngEnDateDD(date), "etat": etat})
-
-        # Recherche du solde du compte
-        listeComptesPayeurs = []
-        for temp in listePrestations:
-            IDcompte_payeur = temp[1]
-            if IDcompte_payeur not in listeComptesPayeurs:
-                listeComptesPayeurs.append(IDcompte_payeur)
-        if len(listeComptesPayeurs) == 0:
-            conditions_comptes_payeurs = "()"
-        elif len(listeComptesPayeurs) == 1:
-            conditions_comptes_payeurs = "(%d)" % listeComptesPayeurs[0]
-        else:
-            conditions_comptes_payeurs = str(tuple(listeComptesPayeurs))
-
-        req = """SELECT IDcompte_payeur, SUM(montant)
-        FROM prestations
-        WHERE IDcompte_payeur IN %s
-        GROUP BY IDcompte_payeur
-        ;""" % conditions_comptes_payeurs
-        DB.ExecuterReq(req)
-        liste_prestations = DB.ResultatReq()
-        dict_prestations = {}
-        for IDcompte_payeur, total_prestations in liste_prestations:
-            dict_prestations[IDcompte_payeur] = total_prestations
-
-        req = """SELECT IDcompte_payeur, SUM(montant)
-        FROM reglements
-        WHERE IDcompte_payeur IN %s
-        GROUP BY IDcompte_payeur
-        ;""" % conditions_comptes_payeurs
-        DB.ExecuterReq(req)
-        liste_reglements = DB.ResultatReq()
-        dict_reglements = {}
-        for IDcompte_payeur, total_reglements in liste_reglements:
-            dict_reglements[IDcompte_payeur] = total_reglements
-
-        dict_soldes_comptes = {}
-        for IDcompte_payeur in listeComptesPayeurs:
-            if IDcompte_payeur in dict_prestations:
-                total_prestations = FloatToDecimal(
-                    dict_prestations[IDcompte_payeur])
+            # Recherche des prestations de la période
+            if len(listeFactures) == 0:
+                conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND %s AND %s" % (
+                    conditionActivites, conditionDates, conditionPrestations)
             else:
-                total_prestations = FloatToDecimal(0.0)
-            if IDcompte_payeur in dict_reglements:
-                total_reglements = FloatToDecimal(
-                    dict_reglements[IDcompte_payeur])
+                conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
+            req = """
+            SELECT prestations.IDprestation, prestations.IDcompte_payeur, prestations.date, categorie, 
+            label, prestations.montant_initial, prestations.montant, prestations.tva, 
+            prestations.IDactivite, activites.nom, activites.abrege,
+            prestations.IDtarif, noms_tarifs.nom, categories_tarifs.nom, IDfacture, 
+            prestations.IDindividu, prestations.IDfamille,
+            forfait_date_debut, forfait_date_fin
+            FROM prestations
+            LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
+            LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
+            LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
+            LEFT JOIN categories_tarifs ON tarifs.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
+            %s
+            GROUP BY prestations.IDprestation
+            ORDER BY prestations.date
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listePrestations = DB.ResultatReq()
+
+            # Petite liste pour savoir si l'individu a des consommations sur la facture (pour l'option Inclure cotisations si individu sur activité)
+            famille_has_prestations_activite = {
+                valeurs[1]: True for valeurs in listePrestations if valeurs[3] == "consommation"}
+
+            # Recherche de la ventilation des prestations
+            if len(listeFactures) == 0:
+                conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND %s" % (
+                    conditionActivites, conditionDates)
             else:
-                total_reglements = FloatToDecimal(0.0)
-            solde_compte = total_reglements - total_prestations
+                conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
+            req = """
+            SELECT ventilation.IDprestation, ventilation.IDreglement, ventilation.IDcompte_payeur, SUM(ventilation.montant) AS montant_ventilation,
+            reglements.date, reglements.montant, reglements.numero_piece, modes_reglements.label, emetteurs.nom, payeurs.nom
+            FROM ventilation
+            LEFT JOIN prestations ON prestations.IDprestation = ventilation.IDprestation
+            LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
+            LEFT JOIN reglements ON reglements.IDreglement = ventilation.IDreglement
+            LEFT JOIN modes_reglements ON modes_reglements.IDmode = reglements.IDmode
+            LEFT JOIN emetteurs ON emetteurs.IDemetteur = reglements.IDemetteur
+            LEFT JOIN payeurs ON payeurs.IDpayeur = reglements.IDpayeur
+            %s
+            GROUP BY ventilation.IDprestation, ventilation.IDreglement, ventilation.IDcompte_payeur
+            ORDER BY prestations.date
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeVentilationPrestations = DB.ResultatReq()
+            dictVentilationPrestations = {}
+            dictReglements = {}
+            for IDprestation, IDreglement, IDcompte_payeur, montant_ventilation, date, montant, numero_piece, mode, emetteur, payeur in listeVentilationPrestations:
+                date = UTILS_Dates.DateEngEnDateDD(date)
+                montant = FloatToDecimal(montant)
+                montant_ventilation = FloatToDecimal(montant_ventilation)
 
-            if solde_compte > FloatToDecimal(0.0):
-                solde_compte = u"+%.2f %s" % (solde_compte, SYMBOLE)
+                # Mémorisation des règlements
+                if (IDcompte_payeur in dictReglements) == False:
+                    dictReglements[IDcompte_payeur] = {}
+                if (IDreglement in dictReglements[IDcompte_payeur]) == False:
+                    dictReglements[IDcompte_payeur][IDreglement] = {"date": date, "montant": montant, "mode": mode,
+                                                                    "emetteur": emetteur, "numero": numero_piece, "payeur": payeur, "ventilation": FloatToDecimal(0.0)}
+                dictReglements[IDcompte_payeur][IDreglement]["ventilation"] += montant_ventilation
+
+                # Mémorisation de la ventilation
+                if (IDprestation in dictVentilationPrestations) == False:
+                    dictVentilationPrestations[IDprestation] = FloatToDecimal(0.0)
+                dictVentilationPrestations[IDprestation] += montant_ventilation
+
+            # Recherche des QF aux dates concernées
+            if len(listeFactures) == 0:
+                date_min = date_debut
+                date_max = date_fin
             else:
-                solde_compte = u"%.2f %s" % (solde_compte, SYMBOLE)
+                date_min = datetime.date(9999, 12, 31)
+                date_max = datetime.date(1, 1, 1)
+                for IDprestation, IDcompte_payeur, date, categorie, label, montant_initial, montant, tva, IDactivite, nomActivite, abregeActivite, IDtarif, nomTarif, nomCategorieTarif, IDfacture, IDindividu, IDfamille, forfait_date_debut, forfait_date_fin in listePrestations:
+                    if dictFactures[IDfacture]["date_debut"] < date_min:
+                        date_min = dictFactures[IDfacture]["date_debut"]
+                    if dictFactures[IDfacture]["date_fin"] > date_max:
+                        date_max = dictFactures[IDfacture]["date_fin"]
+            conditions = "WHERE quotients.date_fin>='%s' AND quotients.date_debut<='%s' " % (
+                date_min, date_max)
+            req = """
+            SELECT quotients.IDfamille, quotients.quotient, quotients.date_debut, quotients.date_fin
+            FROM quotients
+            %s
+            ORDER BY quotients.date_debut
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeQfdates = DB.ResultatReq()
 
-            dict_soldes_comptes[IDcompte_payeur] = solde_compte
+            # Recherche des anciennes prestations impayées (=le report antérieur)
+            if len(listeFactures) == 0:
+                conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND prestations.date<'%s' " % (
+                    conditionActivites, date_debut)
+            else:
+                conditions = ""
+            req = """
+            SELECT prestations.IDprestation, prestations.IDcompte_payeur, prestations.date, categorie, 
+            label, prestations.montant, 
+            prestations.IDactivite, activites.nom, activites.abrege,
+            prestations.IDtarif, noms_tarifs.nom, categories_tarifs.nom, IDfacture, 
+            prestations.IDindividu, prestations.IDfamille,
+            forfait_date_debut, forfait_date_fin
+            FROM prestations
+            LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
+            LEFT JOIN tarifs ON prestations.IDtarif = tarifs.IDtarif
+            LEFT JOIN noms_tarifs ON tarifs.IDnom_tarif = noms_tarifs.IDnom_tarif
+            LEFT JOIN categories_tarifs ON tarifs.IDcategorie_tarif = categories_tarifs.IDcategorie_tarif
+            %s
+            GROUP BY prestations.IDprestation
+            ORDER BY prestations.date
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeReports = DB.ResultatReq()
 
-        DB.Close()
+            # Recherche de la ventilation des reports
+            if len(listeFactures) == 0:
+                conditions = "WHERE (prestations.IDactivite IN %s OR prestations.IDactivite IS NULL) AND prestations.date<'%s' " % (
+                    conditionActivites, date_debut)
+            else:
+                conditions = ""
+            req = """
+            SELECT ventilation.IDprestation, SUM(ventilation.montant) AS montant_ventilation
+            FROM ventilation
+            LEFT JOIN prestations ON prestations.IDprestation = ventilation.IDprestation
+            LEFT JOIN activites ON prestations.IDactivite = activites.IDactivite
+            %s 
+            GROUP BY ventilation.IDprestation
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeVentilationReports = DB.ResultatReq()
+            dictVentilationReports = {}
+            for IDprestation, montant_ventilation in listeVentilationReports:
+                dictVentilationReports[IDprestation] = montant_ventilation
+
+            # Recherche des déductions
+            if len(listeFactures) == 0:
+                conditions = ""
+            else:
+                conditions = "WHERE prestations.IDfacture IN %s" % conditionFactures
+            req = u"""
+            SELECT IDdeduction, deductions.IDprestation, deductions.date, deductions.montant, deductions.label, deductions.IDaide
+            FROM deductions
+            LEFT JOIN prestations ON prestations.IDprestation = deductions.IDprestation
+            %s
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeDeductionsTemp = DB.ResultatReq()
+            dictDeductions = {}
+            for IDdeduction, IDprestation, date, montant, label, IDaide in listeDeductionsTemp:
+                if (IDprestation in dictDeductions) == False:
+                    dictDeductions[IDprestation] = []
+                dictDeductions[IDprestation].append(
+                    {"IDdeduction": IDdeduction, "date": date, "montant": montant, "label": label, "IDaide": IDaide})
+
+            # Recherche des consommations (sert pour les forfaits)
+            if len(listeFactures) == 0:
+                conditions = "WHERE prestations.IDactivite IN %s AND %s" % (
+                    conditionActivites, conditionDates)
+            else:
+                conditions = ""
+            req = """
+            SELECT IDconso, consommations.date, consommations.IDprestation, consommations.etat
+            FROM consommations
+            LEFT JOIN prestations ON prestations.IDprestation = consommations.IDprestation
+            %s
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeConsommations = DB.ResultatReq()
+            dictConsommations = {}
+            for IDconso, date, IDprestation, etat in listeConsommations:
+                if (IDprestation in dictConsommations) == False:
+                    dictConsommations[IDprestation] = []
+                dictConsommations[IDprestation].append(
+                    {"date": UTILS_Dates.DateEngEnDateDD(date), "etat": etat})
+
+            # Recherche du solde du compte
+            listeComptesPayeurs = []
+            for temp in listePrestations:
+                IDcompte_payeur = temp[1]
+                if IDcompte_payeur not in listeComptesPayeurs:
+                    listeComptesPayeurs.append(IDcompte_payeur)
+            if len(listeComptesPayeurs) == 0:
+                conditions_comptes_payeurs = "()"
+            elif len(listeComptesPayeurs) == 1:
+                conditions_comptes_payeurs = "(%d)" % listeComptesPayeurs[0]
+            else:
+                conditions_comptes_payeurs = str(tuple(listeComptesPayeurs))
+
+            req = """SELECT IDcompte_payeur, SUM(montant)
+            FROM prestations
+            WHERE IDcompte_payeur IN %s
+            GROUP BY IDcompte_payeur
+            ;""" % conditions_comptes_payeurs
+            DB.ExecuterReq(req)
+            liste_prestations = DB.ResultatReq()
+            dict_prestations = {}
+            for IDcompte_payeur, total_prestations in liste_prestations:
+                dict_prestations[IDcompte_payeur] = total_prestations
+
+            req = """SELECT IDcompte_payeur, SUM(montant)
+            FROM reglements
+            WHERE IDcompte_payeur IN %s
+            GROUP BY IDcompte_payeur
+            ;""" % conditions_comptes_payeurs
+            DB.ExecuterReq(req)
+            liste_reglements = DB.ResultatReq()
+            dict_reglements = {}
+            for IDcompte_payeur, total_reglements in liste_reglements:
+                dict_reglements[IDcompte_payeur] = total_reglements
+
+            dict_soldes_comptes = {}
+            for IDcompte_payeur in listeComptesPayeurs:
+                if IDcompte_payeur in dict_prestations:
+                    total_prestations = FloatToDecimal(
+                        dict_prestations[IDcompte_payeur])
+                else:
+                    total_prestations = FloatToDecimal(0.0)
+                if IDcompte_payeur in dict_reglements:
+                    total_reglements = FloatToDecimal(
+                        dict_reglements[IDcompte_payeur])
+                else:
+                    total_reglements = FloatToDecimal(0.0)
+                solde_compte = total_reglements - total_prestations
+
+                if solde_compte > FloatToDecimal(0.0):
+                    solde_compte = u"+%.2f %s" % (solde_compte, SYMBOLE)
+                else:
+                    solde_compte = u"%.2f %s" % (solde_compte, SYMBOLE)
+
+                dict_soldes_comptes[IDcompte_payeur] = solde_compte
+
+        finally:
+            DB.Close()
 
         # Analyse et regroupement des données
         num_facture = 0
@@ -794,18 +807,37 @@ class Facturation():
         return dictComptes
 
     def GetDonneesImpression(self, listeFactures=[], dictOptions=None, parent=None):
-        """ Fenetre d'attente automatiquement detruite meme sur exception. """
+        """Lecture worker si proprietaire visible, sans modifier le rendu PDF."""
+        source_db = getattr(self, "_source_db", None)
+        if (isinstance(source_db, str) and source_db and
+                parent is not None and isinstance(parent, wx.Window) and
+                wx.IsMainThread() and parent.IsShownOnScreen()):
+            factures = list(listeFactures)
+            options = dict(dictOptions) if dictOptions is not None else None
+            try:
+                return UTILS_Travail_long.ExecuterLecture(
+                    parent,
+                    lambda: self._GetDonneesImpression_core(
+                        factures, options, source_db=source_db,
+                        hors_interface=True),
+                    titre=_(u"Recherche des factures"),
+                    texte=_(u"Recherche des données de facturation..."))
+            except UTILS_Travail_long.LectureAnnulee:
+                return False
+
         with UTILS_Attente.BusyInfo(
                 _(u"Recherche des données de facturation..."), parent):
             return self._GetDonneesImpression_core(listeFactures, dictOptions)
 
-    def _GetDonneesImpression_core(self, listeFactures=[], dictOptions=None):
-        """ Calcul des donnees sans gestion de fenetre ni de cycle modal. """
-        try:
-            if 'phoenix' not in wx.PlatformInfo:
-                wx.Yield()
-        except:
-            pass
+    def _GetDonneesImpression_core(self, listeFactures=[], dictOptions=None,
+                                  source_db=None, hors_interface=False):
+        """Lecture sans widget lorsque hors_interface est vrai."""
+        if not hors_interface:
+            try:
+                if 'phoenix' not in wx.PlatformInfo:
+                    wx.Yield()
+            except Exception:
+                pass
 
         # Récupère les données de la facture
         if len(listeFactures) == 0:
@@ -815,148 +847,148 @@ class Facturation():
         else:
             conditions = str(tuple(listeFactures))
 
-        DB = GestionDB.DB()
+        DB = self._OuvrirLecture(source_db)
+        try:
 
-        # Importation des factures
-        req = """
-        SELECT 
-        factures.IDfacture, factures.IDprefixe, factures_prefixes.prefixe, factures.numero, factures.IDcompte_payeur, factures.activites, factures.individus,
-        factures.date_edition, factures.date_echeance, factures.IDutilisateur,
-        factures.date_debut, factures.date_fin, factures.total, factures.regle, factures.solde,
-        factures.prestations, lots_factures.nom,
-        factures.mention1, factures.mention2, factures.mention3
-        FROM factures
-        LEFT JOIN lots_factures ON lots_factures.IDlot = factures.IDlot
-        LEFT JOIN factures_prefixes ON factures_prefixes.IDprefixe = factures.IDprefixe
-        WHERE factures.IDfacture IN %s
-        GROUP BY factures.IDfacture
-        ORDER BY factures.date_edition
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeDonnees = DB.ResultatReq()
-
-        # Importation des classes
-        dict_scolarites = {}
-        if dictOptions.get("afficher_classes"):
-            req = """SELECT scolarite.IDindividu, ecoles.nom, classes.nom, classes.date_debut, classes.date_fin
-            FROM scolarite 
-            LEFT JOIN ecoles ON ecoles.IDecole = scolarite.IDecole
-            LEFT JOIN classes ON classes.IDclasse = scolarite.IDclasse;"""
+            # Importation des factures
+            req = """
+            SELECT 
+            factures.IDfacture, factures.IDprefixe, factures_prefixes.prefixe, factures.numero, factures.IDcompte_payeur, factures.activites, factures.individus,
+            factures.date_edition, factures.date_echeance, factures.IDutilisateur,
+            factures.date_debut, factures.date_fin, factures.total, factures.regle, factures.solde,
+            factures.prestations, lots_factures.nom,
+            factures.mention1, factures.mention2, factures.mention3
+            FROM factures
+            LEFT JOIN lots_factures ON lots_factures.IDlot = factures.IDlot
+            LEFT JOIN factures_prefixes ON factures_prefixes.IDprefixe = factures.IDprefixe
+            WHERE factures.IDfacture IN %s
+            GROUP BY factures.IDfacture
+            ORDER BY factures.date_edition
+            ;""" % conditions
             DB.ExecuterReq(req)
-            listeScolarites = DB.ResultatReq()
-            for IDindividu, nom_ecole, nom_classe, date_debut, date_fin in listeScolarites:
-                dict_scolarites.setdefault(IDindividu, [])
-                dict_scolarites[IDindividu].append({
-                    "nom_classe": nom_classe, "nom_ecole": nom_ecole,
-                    "date_debut": UTILS_Dates.DateEngEnDateDD(date_debut), "date_fin": UTILS_Dates.DateEngEnDateDD(date_fin),
-                })
+            listeDonnees = DB.ResultatReq()
 
-        # Récupération des prélèvements
-        req = """SELECT 
-        prelevements.IDprelevement, prelevements.prelevement_numero, prelevements.prelevement_iban,
-        prelevements.IDfacture, prelevements.montant, prelevements.statut, 
-        comptes_payeurs.IDcompte_payeur, lots_prelevements.date,
-        prelevement_reference_mandat, comptes_bancaires.code_ics
-        FROM prelevements
-        LEFT JOIN lots_prelevements ON lots_prelevements.IDlot = prelevements.IDlot
-        LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = prelevements.IDfamille
-        LEFT JOIN comptes_bancaires ON comptes_bancaires.IDcompte = lots_prelevements.IDcompte
-        WHERE prelevements.IDfacture IN %s
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listePrelevements = DB.ResultatReq()
+            # Importation des classes
+            dict_scolarites = {}
+            if dictOptions.get("afficher_classes"):
+                req = """SELECT scolarite.IDindividu, ecoles.nom, classes.nom, classes.date_debut, classes.date_fin
+                FROM scolarite 
+                LEFT JOIN ecoles ON ecoles.IDecole = scolarite.IDecole
+                LEFT JOIN classes ON classes.IDclasse = scolarite.IDclasse;"""
+                DB.ExecuterReq(req)
+                listeScolarites = DB.ResultatReq()
+                for IDindividu, nom_ecole, nom_classe, date_debut, date_fin in listeScolarites:
+                    dict_scolarites.setdefault(IDindividu, [])
+                    dict_scolarites[IDindividu].append({
+                        "nom_classe": nom_classe, "nom_ecole": nom_ecole,
+                        "date_debut": UTILS_Dates.DateEngEnDateDD(date_debut), "date_fin": UTILS_Dates.DateEngEnDateDD(date_fin),
+                    })
 
-        # Pièces PES ORMC
-        req = """SELECT
-        pes_pieces.IDpiece, pes_pieces.numero, pes_pieces.prelevement_iban, pes_pieces.IDfacture,
-        pes_pieces.montant, pes_pieces.prelevement_statut, comptes_payeurs.IDcompte_payeur,
-        pes_lots.date_prelevement, pes_pieces.prelevement_IDmandat, comptes_bancaires.code_ics
-        FROM pes_pieces
-        LEFT JOIN pes_lots ON pes_lots.IDlot = pes_pieces.IDlot
-        LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = pes_pieces.IDfamille
-        LEFT JOIN comptes_bancaires ON comptes_bancaires.IDcompte = pes_lots.IDcompte
-        WHERE pes_pieces.prelevement_IDmandat IS NOT NULL AND pes_pieces.prelevement=1 AND pes_pieces.IDfacture IN %s
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listePieces = DB.ResultatReq()
-        dictPrelevements = {}
-        for listeDonneesPrel in (listePrelevements, listePieces):
-            for IDprelevement, numero_compte, iban, IDfacture, montant, statut, IDcompte_payeur, datePrelevement, rum, code_ics in (listeDonneesPrel):
-                datePrelevement = UTILS_Dates.DateEngEnDateDD(datePrelevement)
-                dictPrelevements[IDfacture] = {
-                    "IDprelevement": IDprelevement, "numero_compte": numero_compte, "montant": montant,
-                    "statut": statut, "IDcompte_payeur": IDcompte_payeur, "datePrelevement": datePrelevement,
-                    "iban": iban, "rum": rum, "code_ics": code_ics,
+            # Récupération des prélèvements
+            req = """SELECT 
+            prelevements.IDprelevement, prelevements.prelevement_numero, prelevements.prelevement_iban,
+            prelevements.IDfacture, prelevements.montant, prelevements.statut, 
+            comptes_payeurs.IDcompte_payeur, lots_prelevements.date,
+            prelevement_reference_mandat, comptes_bancaires.code_ics
+            FROM prelevements
+            LEFT JOIN lots_prelevements ON lots_prelevements.IDlot = prelevements.IDlot
+            LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = prelevements.IDfamille
+            LEFT JOIN comptes_bancaires ON comptes_bancaires.IDcompte = lots_prelevements.IDcompte
+            WHERE prelevements.IDfacture IN %s
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listePrelevements = DB.ResultatReq()
+
+            # Pièces PES ORMC
+            req = """SELECT
+            pes_pieces.IDpiece, pes_pieces.numero, pes_pieces.prelevement_iban, pes_pieces.IDfacture,
+            pes_pieces.montant, pes_pieces.prelevement_statut, comptes_payeurs.IDcompte_payeur,
+            pes_lots.date_prelevement, pes_pieces.prelevement_IDmandat, comptes_bancaires.code_ics
+            FROM pes_pieces
+            LEFT JOIN pes_lots ON pes_lots.IDlot = pes_pieces.IDlot
+            LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = pes_pieces.IDfamille
+            LEFT JOIN comptes_bancaires ON comptes_bancaires.IDcompte = pes_lots.IDcompte
+            WHERE pes_pieces.prelevement_IDmandat IS NOT NULL AND pes_pieces.prelevement=1 AND pes_pieces.IDfacture IN %s
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listePieces = DB.ResultatReq()
+            dictPrelevements = {}
+            for listeDonneesPrel in (listePrelevements, listePieces):
+                for IDprelevement, numero_compte, iban, IDfacture, montant, statut, IDcompte_payeur, datePrelevement, rum, code_ics in (listeDonneesPrel):
+                    datePrelevement = UTILS_Dates.DateEngEnDateDD(datePrelevement)
+                    dictPrelevements[IDfacture] = {
+                        "IDprelevement": IDprelevement, "numero_compte": numero_compte, "montant": montant,
+                        "statut": statut, "IDcompte_payeur": IDcompte_payeur, "datePrelevement": datePrelevement,
+                        "iban": iban, "rum": rum, "code_ics": code_ics,
+                    }
+
+            # Infos PES ORMC
+            req = """SELECT
+            pes_pieces.IDlot, pes_pieces.IDfacture, pes_lots.nom, pes_lots.exercice, pes_lots.mois, pes_lots.objet_dette, pes_lots.id_bordereau, pes_lots.code_prodloc, pes_lots.code_etab,
+            pes_lots.code_collectivite, pes_lots.id_collectivite, pes_lots.id_poste
+            FROM pes_pieces
+            LEFT JOIN pes_lots ON pes_lots.IDlot = pes_pieces.IDlot
+            WHERE pes_pieces.IDfacture IN %s
+            ;""" % conditions
+            DB.ExecuterReq(req)
+            listeInfosPes = DB.ResultatReq()
+            dictPes = {}
+            for IDlot_pes, IDfacture, nom_lot_pes, exercice, mois, objet, id_bordereau, code_produit, code_etab, code_collectivite, id_collectivite, id_poste in (listeInfosPes):
+                dictPes[IDfacture] = {
+                    "pes_IDlot": IDlot_pes, "pes_nom_lot": nom_lot_pes, "pes_lot_exercice": exercice, "pes_lot_mois": mois,
+                    "pes_lot_objet": objet, "pes_lot_id_bordereau": id_bordereau, "pes_lot_code_produit": code_produit,
+                    "pes_lot_code_collectivite": code_collectivite, "pes_lot_id_collectivite": id_collectivite,
+                    "pes_lot_id_poste": id_poste, "pes_lot_code_etab": code_etab,
                 }
+            if len(listeDonnees) == 0:
+                return False
 
-        # Infos PES ORMC
-        req = """SELECT
-        pes_pieces.IDlot, pes_pieces.IDfacture, pes_lots.nom, pes_lots.exercice, pes_lots.mois, pes_lots.objet_dette, pes_lots.id_bordereau, pes_lots.code_prodloc, pes_lots.code_etab,
-        pes_lots.code_collectivite, pes_lots.id_collectivite, pes_lots.id_poste
-        FROM pes_pieces
-        LEFT JOIN pes_lots ON pes_lots.IDlot = pes_pieces.IDlot
-        WHERE pes_pieces.IDfacture IN %s
-        ;""" % conditions
-        DB.ExecuterReq(req)
-        listeInfosPes = DB.ResultatReq()
-        dictPes = {}
-        for IDlot_pes, IDfacture, nom_lot_pes, exercice, mois, objet, id_bordereau, code_produit, code_etab, code_collectivite, id_collectivite, id_poste in (listeInfosPes):
-            dictPes[IDfacture] = {
-                "pes_IDlot": IDlot_pes, "pes_nom_lot": nom_lot_pes, "pes_lot_exercice": exercice, "pes_lot_mois": mois,
-                "pes_lot_objet": objet, "pes_lot_id_bordereau": id_bordereau, "pes_lot_code_produit": code_produit,
-                "pes_lot_code_collectivite": code_collectivite, "pes_lot_id_collectivite": id_collectivite,
-                "pes_lot_id_poste": id_poste, "pes_lot_code_etab": code_etab,
-            }
-        if len(listeDonnees) == 0:
+            listeFactures = []
+            index = 0
+            for IDfacture, IDprefixe, prefixe, numero, IDcompte_payeur, activites, individus, date_edition, date_echeance, IDutilisateur, date_debut, date_fin, total, regle, solde, typesPrestations, nomLot, mention1, mention2, mention3 in listeDonnees:
 
+                if not hors_interface:
+                    self.EcritStatusbar(_(u"Recherche de la facture %d sur %d") % (
+                        index+1, len(listeDonnees)))
+
+                if numero == None:
+                    numero = 0
+                date_edition = UTILS_Dates.DateEngEnDateDD(date_edition)
+                date_debut = UTILS_Dates.DateEngEnDateDD(date_debut)
+                date_fin = UTILS_Dates.DateEngEnDateDD(date_fin)
+                date_echeance = UTILS_Dates.DateEngEnDateDD(date_echeance)
+
+                if typesPrestations != None:
+                    prestations = typesPrestations.split(";")
+                else:
+                    prestations = ["consommation",
+                                   "cotisation", "location", "autre"]
+
+                liste_activites = []
+                if len(activites) > 0:
+                    for IDactivite in activites.split(";"):
+                        liste_activites.append(int(IDactivite))
+
+                liste_individus = []
+                for IDindividu in individus.split(";"):
+                    liste_individus.append(int(IDindividu))
+
+                if not mention1:
+                    mention1 = ""
+                if not mention2:
+                    mention2 = ""
+                if not mention3:
+                    mention3 = ""
+
+                dictFacture = {
+                    "IDfacture": IDfacture, "IDprefixe": IDprefixe, "prefixe": prefixe, "numero": numero, "IDcompte_payeur": IDcompte_payeur, "date_edition": date_edition, "date_echeance": date_echeance,
+                    "IDutilisateur": IDutilisateur, "date_debut": date_debut, "date_fin": date_fin, "total": total, "regle": regle, "solde": solde,
+                    "activites": liste_activites, "individus": liste_individus, "prestations": prestations, "mention1": mention1, "mention2": mention2, "mention3": mention3,
+                }
+                listeFactures.append(dictFacture)
+                index += 1
+        finally:
             DB.Close()
-            return False
-
-        listeFactures = []
-        index = 0
-        for IDfacture, IDprefixe, prefixe, numero, IDcompte_payeur, activites, individus, date_edition, date_echeance, IDutilisateur, date_debut, date_fin, total, regle, solde, typesPrestations, nomLot, mention1, mention2, mention3 in listeDonnees:
-
-            self.EcritStatusbar(_(u"Recherche de la facture %d sur %d") % (
-                index+1, len(listeDonnees)))
-
-            if numero == None:
-                numero = 0
-            date_edition = UTILS_Dates.DateEngEnDateDD(date_edition)
-            date_debut = UTILS_Dates.DateEngEnDateDD(date_debut)
-            date_fin = UTILS_Dates.DateEngEnDateDD(date_fin)
-            date_echeance = UTILS_Dates.DateEngEnDateDD(date_echeance)
-
-            if typesPrestations != None:
-                prestations = typesPrestations.split(";")
-            else:
-                prestations = ["consommation",
-                               "cotisation", "location", "autre"]
-
-            liste_activites = []
-            if len(activites) > 0:
-                for IDactivite in activites.split(";"):
-                    liste_activites.append(int(IDactivite))
-
-            liste_individus = []
-            for IDindividu in individus.split(";"):
-                liste_individus.append(int(IDindividu))
-
-            if not mention1:
-                mention1 = ""
-            if not mention2:
-                mention2 = ""
-            if not mention3:
-                mention3 = ""
-
-            dictFacture = {
-                "IDfacture": IDfacture, "IDprefixe": IDprefixe, "prefixe": prefixe, "numero": numero, "IDcompte_payeur": IDcompte_payeur, "date_edition": date_edition, "date_echeance": date_echeance,
-                "IDutilisateur": IDutilisateur, "date_debut": date_debut, "date_fin": date_fin, "total": total, "regle": regle, "solde": solde,
-                "activites": liste_activites, "individus": liste_individus, "prestations": prestations, "mention1": mention1, "mention2": mention2, "mention3": mention3,
-            }
-            listeFactures.append(dictFacture)
-            index += 1
-
-        DB.Close()
 
         # Récupération des données de facturation
         typeLabel = 0
@@ -964,7 +996,8 @@ class Facturation():
             typeLabel = dictOptions["intitules"]
 
         dictComptes = self.GetDonnees(
-            listeFactures=listeFactures, typeLabel=typeLabel)
+            listeFactures=listeFactures, typeLabel=typeLabel,
+            source_db=source_db)
 
         dictFactures = {}
         dictChampsFusion = {}
@@ -1107,7 +1140,8 @@ class Facturation():
 
             index += 1
 
-        self.EcritStatusbar("")
+        if not hors_interface:
+            self.EcritStatusbar("")
 
         if len(dictFactures) == 0:
             return False
