@@ -70,6 +70,10 @@ def preparer():
                 raise AssertionError("Table requise absente : %s" % t)
         if con.execute("SELECT COUNT(*) FROM portail_actions WHERE IDaction>=1001").fetchone()[0]:
             raise AssertionError("Fixture deja appliquee : refus de reprendre un etat non vierge")
+        # Eviter la proposition de ventilation au chargement du fichier de
+        # test : ce reglement non ventile appartient a la fixture generique,
+        # jamais a la demande portail de cette recette.
+        con.execute("DELETE FROM reglements WHERE IDreglement=1")
         con.execute("INSERT INTO portail_periodes "
                     "(IDperiode,IDactivite,nom,date_debut,date_fin,affichage) "
                     "VALUES (101,1,'Periode fictive','2026-10-05','2026-10-30',1)")
@@ -93,6 +97,20 @@ def preparer():
                 "(IDreservation,date,IDinscription,IDunite,IDaction,etat) "
                 "VALUES (?,?,?,?,?,?)",
                 (action,DATE,INSCRIPTION,101,action,etat))
+    # Premier demarrage d'une application empaquetee : sans cette valeur
+    # fictive, la modale Bienvenue bloque l'ouverture differee du fichier.
+    profil=exe.parent/"Portable"/"Config.json"
+    if not profil.is_file():
+        raise AssertionError("Profil de recette attendu absent")
+    with profil.open("r",encoding="utf-8") as entree:
+        config=json.load(entree)
+    if config.get("nomFichier")!="Recette":
+        raise AssertionError("Profil utilisateur non fictif : STOP")
+    config["annonce"]=[999,999,999,999]
+    config["assistant_demarrage"]=True
+    config["propose_maj"]=False
+    with profil.open("w",encoding="utf-8") as sortie_config:
+        json.dump(config,sortie_config,ensure_ascii=False)
     print("FICTIVE_FIXTURE",lire(),flush=True)
 
 
@@ -162,6 +180,33 @@ def valider_saisie(auto=True):
     main=attendre(proc.pid,"Noethys",limite=70)
     print("FENETRES_DEMARRAGE",[(a,b,h) for a,b,h,_ in liste_fenetres(proc.pid)],flush=True)
     capture(main,"00_main_fictif.png")
+    # L'ouverture du dernier fichier passe par une authentification
+    # GUI reelle. Mot de passe uniquement du compte de recette fictif.
+    authentifie=False
+    fichier_ouvert=False
+    stop=time.monotonic()+55
+    while time.monotonic()<stop:
+        noms=liste_fenetres(proc.pid)
+        if "[Recette]" in main.window_text():
+            fichier_ouvert=True
+            break
+        for titre,cls,handle,fenetre in noms:
+            if titre.startswith("Ouverture du fichier Recette"):
+                if not authentifie:
+                    print("IDENTIFICATION_FICTIVE",titre,flush=True)
+                    capture(fenetre,"00_identification_fictive.png")
+                    fenetre.set_focus()
+                    keyboard.send_keys("recette2026",pause=0.06)
+                    authentifie=True
+                    time.sleep(1)
+            elif titre=="Bienvenue":
+                raise AssertionError("La modale de bienvenue ne devait pas etre visible dans le profil fictif")
+        time.sleep(0.5)
+    print("FICHIER_FICTIF_OUVERT",fichier_ouvert, "AUTH",authentifie,
+          "TITLE",main.window_text(),flush=True)
+    if not fichier_ouvert:
+        raise AssertionError("Base fictive non ouverte : "+
+                             repr([(t,c) for t,c,h,w in liste_fenetres(proc.pid)]))
     etiquettes(main)
     try:
         menus=[i.text() for i in main.menu().items()]
