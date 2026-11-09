@@ -1,5 +1,17 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+
+## UI-432I — stabilisation facture : correctifs bornes, recettes manquantes (09/11/2026)
+
+- Issue [#432](https://github.com/fr4nck/Noethys-SL/issues/432), signal complementaire factures [UI-432H](https://github.com/fr4nck/Noethys-SL/issues/432#issuecomment-6735704790) ; rapport [UI_432_FACTURES_20261109.md](../recette/UI_432_FACTURES_20261109.md).
+- Base wx `ec6d5e5a`. Commits de code : `36ce189d` (owner et nettoyage Mailer), `7774a0db` (attente contextuelle et PDF partiel), `823cc4cb` (test), `c30a184b` (generation cooperative **entre** PDF, sans threads ReportLab), `56116a3d` (libelle d'erreur). Aucune modification `main` / `qt` ; SHA de reference `main=07d672a2`, `qt=b6bc25ba`.
+- 8 tests unitaires fictifs dans `tests/test_ui432_factures_proprietaire.py`, inclus a la CI rapide. Compilation Python de `56116a3d` : **PASS** ; [CI Windows rapide #42592740688](https://github.com/fr4nck/Noethys-SL/actions/runs/42592740688) : **EN COURS au moment de la consignation**, resultat non anticipe. Aucun envoi reel ni base PMSL utilises ; aucun tag ou binaire.
+- Invariants : pas de `Maximize(True)` compensatoire, pas de `STAY_ON_TOP` global, proprietaires explicites pour le circuit facture, nettoyage des seuls PDF temporaires produits par le lot, rendu ReportLab toujours sequentiel sur wx. Les autres appelants conservent les API facultatives.
+- **Risques ouverts :** `Facturation.__init__`, `GetDonneesImpression` et **chaque PDF individuel** peuvent toujours bloquer le thread wx ; aucune recette Win32 reelle sur le poste utilisateur, ni comparaison de PDF reel avant/apres, ni preuve de suppression definitive de l'iconisation. Issue #432 **OUVERTE** ; prochain candidat RC **NON QUALIFIE**.
+- Matrice : `wx=correctifs presents, CI/recette a qualifier` ; `main=non modifie, propagation des logiques communes a qualifier` ; `qt=non modifie, GUI wx non applicable, composants communs a qualifier`.
+- Suite requise : collecter sur fixture Windows les durées **SQL / un seul PDF / lot PDF** et états Win32/owners ; qualifier un traitement long non bloquant sans manipuler wx ou connexion SQL hors de leur thread ; contre-recette Connecthys / facturation sur profil fictif, puis recette utilisateur sans double envoi. **Pas de GO RC** avant ces preuves.
+
+
 ## Sécurité — profils de connexion exclus de Git et incident de publication (07/11/2026)
 
 **Correctif `.gitignore`** (seul fichier modifié, fast-forward, sans force-push) : main `10bef139` → `ea21929f`, wx `25189fe7` → `f3bd1dde`, qt `e9173511` → `8144c084`. Règle `**/Portable/Config.json*` ajoutée sur les trois branches ; sur wx, elle complète `**/Portable/Config.json` et `**/Portable/Config.json.*`, qui laissaient passer `Config.json~`, `Config.json_bak` et `Config.json (1)`.
