@@ -8,6 +8,18 @@ import unittest
 SOURCE = Path(__file__).resolve().parents[1] / "noethys" / "Utils" / "UTILS_Stats_modeles.py"
 
 
+def destructeur():
+    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    classe = next(x for x in tree.body if isinstance(x, ast.ClassDef) and x.name == "Graphe")
+    methode = next(x for x in classe.body if isinstance(x, ast.FunctionDef)
+                   and x.name == "__del__")
+    module = ast.Module(body=[methode], type_ignores=[])
+    ast.fix_missing_locations(module)
+    ns = {}
+    exec(compile(module, str(SOURCE), "exec"), ns)
+    return ns["__del__"]
+
+
 def memoriser():
     tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
     classe = next(x for x in tree.body if isinstance(x, ast.ClassDef) and x.name == "Graphe")
@@ -57,6 +69,28 @@ class MemoryFSTests(unittest.TestCase):
             self.methode(objet, figure=object())
         self.assertEqual(len(FauxVFS.fichiers), 1)
         self.assertIn(objet.nomImage, FauxVFS.fichiers)
+
+    def test_erreur_conversion_preserve_ancienne_image(self):
+        objet = self.nouveau("graphe_qf_tarifs")
+        self.methode(objet, figure=object())
+        nom = objet.nomImage
+        ancien_bitmap = objet.bitmap
+
+        def echec_conversion(_figure):
+            raise RuntimeError("Conversion Matplotlib interrompue")
+        objet.ConvertMPLtoBMP = echec_conversion
+        with self.assertRaisesRegex(RuntimeError, "interrompue"):
+            self.methode(objet, figure=object())
+        self.assertIn(nom, FauxVFS.fichiers)
+        self.assertIs(objet.bitmap, ancien_bitmap)
+
+    def test_destruction_libere_image(self):
+        objet = self.nouveau("graphe_nombre_individus")
+        self.methode(objet, figure=object())
+        methode_destructeur = destructeur()
+        self.assertIsNotNone(methode_destructeur)
+        methode_destructeur(objet)
+        self.assertEqual(FauxVFS.fichiers, {})
 
     def test_codes_differents_noms_differents(self):
         a = self.nouveau("graphe_qf_tarifs")

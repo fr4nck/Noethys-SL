@@ -223,49 +223,95 @@ def _TranchesTarifsExclusives(tranches):
     return resultat
 
 
+def _QuotientsAlaDate(lignes, date_reference):
+    """Un seul QF par famille au jour de reference, sans hasard d'ordre SQL.
+
+    Si plusieurs types de QF portent des valeurs actives contradictoires,
+    signaler "a_verifier" plutot que selectionner arbitrairement.
+    """
+    from decimal import Decimal, InvalidOperation
+    reference = datetime.date.fromisoformat(str(date_reference)[:10])
+    groupes = {}
+    for ligne in lignes:
+        IDfamille, IDquotient, debut, fin, quotient = ligne[:5]
+        if IDfamille is None:
+            continue
+        etat = groupes.setdefault(IDfamille, {"valeurs": set(), "invalide": False})
+        if IDquotient is None:
+            continue
+        try:
+            if debut is None or fin is None:
+                raise ValueError("Dates absentes")
+            date_debut = datetime.date.fromisoformat(str(debut)[:10])
+            date_fin = datetime.date.fromisoformat(str(fin)[:10])
+            if date_debut > date_fin:
+                raise ValueError("Dates inversees")
+        except (ValueError, TypeError):
+            etat["invalide"] = True
+            continue
+        if date_debut <= reference <= date_fin:
+            try:
+                valeur = Decimal(str(quotient))
+                if not valeur.is_finite():
+                    raise ValueError("QF non fini")
+                etat["valeurs"].add(valeur)
+            except (ValueError, InvalidOperation, TypeError):
+                etat["invalide"] = True
+    resultat = {}
+    for IDfamille, etat in groupes.items():
+        valeurs = etat["valeurs"]
+        if etat["invalide"] or len(valeurs) > 1:
+            resultat[IDfamille] = "a_verifier"
+        elif valeurs:
+            resultat[IDfamille] = next(iter(valeurs))
+        else:
+            resultat[IDfamille] = None
+    return resultat
+
+
 DICT_QUOTIENTS = {"dictParametres" : {}, "dictResultats" : {} }
 
 def GetDictQuotients(DB, dictParametres):
-    # Vérifie si les données n'existent pas déjà
-    global DICT_QUOTIENTS
-    if DICT_QUOTIENTS["dictParametres"] == dictParametres :
-        return DICT_QUOTIENTS["dictResultats"]
-
+    # Cache limite a cette connexion et cette date de reference.
+    # Il ne doit pas traverser un changement de dossier de donnees.
     # Recherche des paramètres
     conditionsActivites = MODELES.GetConditionActivites(dictParametres)
     
     if dictParametres["mode"] == "presents" :
         date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
-        req = """SELECT familles.IDfamille, IDquotient, date_debut, date_fin, quotient
+        req = """SELECT familles.IDfamille, quotients.IDquotient, quotients.date_debut, quotients.date_fin, quotients.quotient, quotients.IDtype_quotient
         FROM familles
         LEFT JOIN quotients ON quotients.IDfamille = familles.IDfamille
         LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = familles.IDfamille
         LEFT JOIN consommations ON consommations.IDcompte_payeur = comptes_payeurs.IDcompte_payeur
-        WHERE date>='%s' AND date<='%s' 
+        WHERE consommations.date>='%s' AND consommations.date<='%s' 
         AND consommations.etat IN ('reservation', 'present')
-        AND IDactivite IN %s
+        AND consommations.IDactivite IN %s
         GROUP BY familles.IDfamille, IDquotient
         ;""" % (date_debut, date_fin, conditionsActivites)
     else:
         date_debut = MODELES.GetDateExtremeActivites(DB, listeActivites=dictParametres["listeActivites"], typeDate="date_debut", mode="min")
         date_fin = MODELES.GetDateExtremeActivites(DB, listeActivites=dictParametres["listeActivites"], typeDate="date_fin", mode="max")
-        req = """SELECT familles.IDfamille, IDquotient, date_debut, date_fin, quotient
+        req = """SELECT familles.IDfamille, quotients.IDquotient, quotients.date_debut, quotients.date_fin, quotients.quotient, quotients.IDtype_quotient
         FROM familles
         LEFT JOIN quotients ON quotients.IDfamille = familles.IDfamille
         LEFT JOIN comptes_payeurs ON comptes_payeurs.IDfamille = familles.IDfamille
         LEFT JOIN inscriptions ON inscriptions.IDcompte_payeur = comptes_payeurs.IDcompte_payeur
-        WHERE inscriptions.statut='ok' AND IDactivite IN %s
+        WHERE inscriptions.statut='ok' AND inscriptions.IDactivite IN %s
         GROUP BY familles.IDfamille, IDquotient
         ;""" % conditionsActivites
 
+    # Presents : photographie au dernier jour de la periode.
+    # Inscrits (sans periode dans l'interface) : photographie au jour actuel.
+    date_reference = (date_fin if dictParametres["mode"] == "presents"
+                      else datetime.date.today())
+    cache = getattr(DB, "_stats_qf_cache", None)
+    if (cache is not None and cache["date_reference"] == date_reference
+            and cache["dictParametres"] == dictParametres):
+        return cache["dictResultats"]
     DB.ExecuterReq(req)
     listeDonnees = DB.ResultatReq()
-    dictQuotients = {}
-    for IDfamille, IDquotient, date_debut_qf, date_fin_qf, quotient in listeDonnees :
-        if IDquotient == None or (date_debut_qf <= str(date_fin) and date_fin_qf >= str(date_debut)) :
-            dictQuotients[IDfamille] = quotient
-        else :
-            dictQuotients[IDfamille] = None
+    dictQuotients = _QuotientsAlaDate(listeDonnees, date_reference)
     
     # Recherche des tranches de QF existantes
     req = """SELECT IDligne, qf_min, qf_max
@@ -275,14 +321,14 @@ def GetDictQuotients(DB, dictParametres):
     ;""" % conditionsActivites
     DB.ExecuterReq(req)
     listeDonnees = DB.ResultatReq()
-    dictTranchesTarifs = {"pasqf" : 0, "autre" : 0}
+    dictTranchesTarifs = {"pasqf" : 0, "a_verifier": 0, "autre" : 0}
     plages_tarifs = [(qf_min, qf_max) for IDligne, qf_min, qf_max
                      in listeDonnees]
     for tranche in _TranchesTarifsExclusives(plages_tarifs):
         dictTranchesTarifs[tranche] = 0
     
     # Création des tranches de 100
-    dictTranchesDefaut = {"pasqf" : 0, "autre" : 0}
+    dictTranchesDefaut = {"pasqf" : 0, "a_verifier": 0, "autre" : 0}
     for x in range(0, 3000, 100) :
         tranche = (x+1, x+100)
         if x == 0 : tranche = (0, 100)
@@ -294,6 +340,8 @@ def GetDictQuotients(DB, dictParametres):
         for dictTranches in (dictTranchesDefaut, dictTranchesTarifs) :
             if quotient == None :
                 dictTranches["pasqf"] += 1
+            elif quotient == "a_verifier":
+                dictTranches["a_verifier"] += 1
             else :
                 found = False
                 for tranche in list(dictTranches.keys()) :
@@ -304,24 +352,22 @@ def GetDictQuotients(DB, dictParametres):
                 if found == False :
                     dictTranches["autre"] += 1
 
-    # Mémorisation des résultats
-    DICT_QUOTIENTS["dictParametres"] = dictParametres
-    DICT_QUOTIENTS["dictResultats"] = {"dictTranchesTarifs" : dictTranchesTarifs, "dictTranchesDefaut" : dictTranchesDefaut}
-    return DICT_QUOTIENTS["dictResultats"]
+    import copy
+    resultat = {"dictTranchesTarifs": dictTranchesTarifs,
+                "dictTranchesDefaut": dictTranchesDefaut,
+                "date_reference": date_reference}
+    DB._stats_qf_cache = {"dictParametres": copy.deepcopy(dictParametres),
+                          "date_reference": date_reference,
+                          "dictResultats": resultat}
+    return resultat
 
 
-def TrierQF(listeTranches=[]):
-    def Tri(tranche1, tranche2):
-        if type(tranche1) != tuple or type(tranche2) != tuple:
-            return -1
-        if tranche1 < tranche2: return -1
-        elif tranche1 > tranche2: return 1
-        else: return 0
-    if six.PY2:
-        listeTranches.sort(cmp=Tri)
-    else:
-        listeTranches.sort(key=functools.cmp_to_key(Tri))
-    return listeTranches
+def TrierQF(listeTranches=None):
+    """Tranches numeriques puis sans QF, a verifier et autre."""
+    ordre = {"pasqf": 0, "a_verifier": 1, "autre": 2}
+    return sorted(listeTranches or [], key=lambda x: (
+        (0, x[0], x[1]) if isinstance(x, tuple)
+        else (1, ordre.get(x, 9), 0)))
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -669,7 +715,10 @@ class Tableau_qf_tarifs(MODELES.Tableau):
         self.lignes = []
         self.totaux = []
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesTarifs"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesTarifs"]
+        self.nom = _(u"Quotients familiaux par tranches de tarifs") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         # Création du tableau
         self.largeur = "400"
@@ -690,6 +739,8 @@ class Tableau_qf_tarifs(MODELES.Tableau):
                     label = None
             elif tranche == "pasqf" :
                 label = _(u"Sans QF")
+            elif tranche == "a_verifier":
+                label = _(u"QF à vérifier")
             else :
                 label = u"%d - %d" % tranche
             if label != None :
@@ -707,7 +758,10 @@ class Graphe_qf_tarifs(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesTarifs"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesTarifs"]
+        self.nom = _(u"Quotients familiaux par tranches de tarifs") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         listeValeurs = []
         listeLabels = []
@@ -733,6 +787,8 @@ class Graphe_qf_tarifs(MODELES.Graphe):
                         label = None
                 elif tranche == "pasqf" :
                     label = _(u"Sans QF")
+                elif tranche == "a_verifier":
+                    label = _(u"QF à vérifier")
                 else :
                     label = u"%d - %d" % tranche
                 if label != None :
@@ -768,7 +824,10 @@ class Tableau_qf_defaut(MODELES.Tableau):
         self.lignes = []
         self.totaux = []
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         # Création du tableau
         self.largeur = "400"
@@ -788,6 +847,8 @@ class Tableau_qf_defaut(MODELES.Tableau):
                     label = None
             elif tranche == "pasqf" :
                 label = _(u"Sans QF")
+            elif tranche == "a_verifier":
+                label = _(u"QF à vérifier")
             else :
                 label = u"%d - %d" % tranche
             if label != None :
@@ -805,7 +866,10 @@ class Graphe_qf_defaut2(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         listeValeurs = []
         listeLabels = []
@@ -830,6 +894,8 @@ class Graphe_qf_defaut2(MODELES.Graphe):
                     label = None
             elif tranche == "pasqf" :
                 label = _(u"Sans QF")
+            elif tranche == "a_verifier":
+                label = _(u"QF à vérifier")
             else :
                 label = u"%d - %d" % tranche
             if label != None and valeur != 0 :
@@ -864,7 +930,10 @@ class Graphe_qf_defaut(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
 
         listeValeurs = []
         listeLabels = []
@@ -880,7 +949,7 @@ class Graphe_qf_defaut(MODELES.Graphe):
             valeur = dictTranches[tranche]
             if tranche == "autre" : 
                 label = None
-            elif tranche == "pasqf" :
+            elif tranche in ("pasqf", "a_verifier"):
                 label = None
             else :
                 label = u"%d - %d" % tranche

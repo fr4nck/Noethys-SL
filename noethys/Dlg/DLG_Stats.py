@@ -427,6 +427,8 @@ class Dialog(wx.Dialog):
         preview.SetZoom(100)
         frame = wx.GetApp().GetTopWindow() 
         preview_window = wx.PreviewFrame(preview, None, _(u"Aperçu avant impression"))
+        # L'aperçu conserve les images jusqu'a sa propre fermeture.
+        preview_window._stats_html_owner = self.baseHTML
         preview_window.Initialize()
         # preview_window.Show(False)
         preview_window.SetPosition(frame.GetPosition())

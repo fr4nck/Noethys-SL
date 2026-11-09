@@ -268,8 +268,11 @@ class HTML():
         self.liste_objets = liste_objets
         self.dictParametres = {}
         
-        # Création du stock d'images
-        wx.FileSystem.AddHandler(wx.MemoryFSHandler())
+        # Le gestionnaire MemoryFS appartient au processus, pas a chaque
+        # fenetre Statistiques. Ne l'enregistrer qu'une fois.
+        if not getattr(HTML, "_memory_fs_registered", False):
+            wx.FileSystem.AddHandler(wx.MemoryFSHandler())
+            HTML._memory_fs_registered = True
         self.stockImages = wx.MemoryFSHandler()
     
     def SetParametres(self, dictParametres={}) :
@@ -516,13 +519,41 @@ class Graphe(Objet):
         if not hasattr(self, "nomImage"):
             from uuid import uuid4
             self.nomImage = "image-%s-%s" % (self.code, uuid4().hex)
-        if self.bitmap is not None:
-            self.stockImages.RemoveFile(self.nomImage)
+        # Convertir avant de retirer l'ancienne image : une erreur de
+        # Matplotlib ne doit jamais priver l'HTML de sa ressource actuelle.
+        nouvelle_image = self.ConvertMPLtoBMP(figure)
+        ancienne_image = self.bitmap
+        if ancienne_image is not None:
+            try:
+                self.stockImages.RemoveFile(self.nomImage)
+            except Exception:
+                # La prochaine operation AddFile signale une collision reelle.
+                pass
+        try:
+            self.stockImages.AddFile(self.nomImage, nouvelle_image,
+                                     wx.BITMAP_TYPE_PNG)
+        except Exception:
+            if ancienne_image is not None:
+                try:
+                    self.stockImages.AddFile(self.nomImage, ancienne_image,
+                                             wx.BITMAP_TYPE_PNG)
+                except Exception:
+                    pass
+            raise
+        self.bitmap = nouvelle_image
 
-        # Mémorise l'image dans le stockImages
-        self.bitmap = self.ConvertMPLtoBMP(figure)
-        self.stockImages.AddFile(self.nomImage, self.bitmap , wx.BITMAP_TYPE_PNG)
-        
+    def __del__(self):
+        # Chaque Graphe possede son nom unique. Le libere lorsque le dernier
+        # proprietaire (dialogue ou apercu d'impression) le relache.
+        try:
+            nom = getattr(self, "nomImage", None)
+            stock = getattr(self, "stockImages", None)
+            if nom is not None and stock is not None:
+                stock.RemoveFile(nom)
+        except Exception:
+            # La destruction peut arriver pendant l'arret de wx.
+            pass
+
     def GetObjetHTML(self):
         if self.bitmap == None : return u""
         # Création Html
