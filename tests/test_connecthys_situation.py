@@ -25,7 +25,8 @@ class SituationConnecthysTests(unittest.TestCase):
         self.addCleanup(self.base.fermer)
         for table in ("comptes_payeurs", "reglements", "factures",
                       "factures_prefixes", "ventilation", "types_cotisations",
-                      "cotisations", "unites_cotisations"):
+                      "cotisations", "unites_cotisations",
+                      "portail_actions", "portail_reservations"):
             if not self.base.db.IsTableExists(table):
                 self.base.db.CreationTable(table, dicoDB=Tables.DB_DATA)
         self.base.db.Commit()
@@ -170,6 +171,109 @@ class SituationConnecthysTests(unittest.TestCase):
         self.assertIn("Prêt de matériel",
                       S.FormaterSituationHtml(self.lire()))
 
+
+    def actions_reservations(self, lignes):
+        """(id, famille, date_action, etat_action, categorie)"""
+        self.base.inserer("portail_actions",
+            ["IDaction", "IDfamille", "horodatage", "etat", "categorie"],
+            lignes)
+
+    def demandes_reservations(self, lignes):
+        """(id, action, jour, inscription, unite, ajout_ou_suppression)"""
+        self.base.inserer("portail_reservations",
+            ["IDreservation", "IDaction", "date", "IDinscription",
+             "IDunite", "etat"], lignes)
+
+    def test_annulations_connecthys_historique_famille_entier(self):
+        """Tout le passe de la famille, deux enfants, re-reservation permise."""
+        self.actions_reservations([
+            (1, 3, "2024-09-01 09:00:00", "validation", "reservations"),
+            (2, 3, "2024-09-02 09:00:00", "validation", "reservations"),
+            (3, 3, "2025-01-01 09:00:00", "validation", "reservations"),
+            (4, 3, "2025-01-02 09:00:00", "validation", "reservations"),
+            (5, 3, "2025-03-01 09:00:00", "validation", "reservations"),
+            (6, 3, "2026-10-01 09:00:00", "validation", "reservations"),
+            (7, 3, "2026-10-05 09:00:00", "validation", "reservations"),
+            (8, 4, "2026-10-06 09:00:00", "validation", "reservations"),
+            (9, 3, "2026-10-07 09:00:00", "attente", "reservations"),
+            (10, 3, "2026-11-20 09:00:00", "validation", "reservations"),
+            (11, 3, "2026-10-08 09:00:00", "validation", "renseignements"),
+        ])
+        self.demandes_reservations([
+            (1, 1, "2024-10-10", 701, 12, 1),
+            (2, 2, "2024-10-10", 701, 12, 1),  # doublon historique
+            (3, 3, "2024-10-10", 701, 12, 0),
+            (4, 4, "2024-10-10", 701, 12, 1),  # re-reservation
+            (5, 5, "2024-10-10", 701, 12, 0),
+            (6, 6, "2026-11-20", 702, 13, 1),  # autre enfant de la famille
+            (7, 7, "2026-09-17", 701, 99, 0),  # sans ajout initial
+            (8, 8, "2026-09-17", 900, 19, 1),  # autre famille
+            (9, 9, "2026-09-19", 701, 21, 1),  # action non traitee
+            (10, 10, "2026-12-19", 701, 22, 1),  # action future
+            (11, 11, "2026-09-20", 701, 23, 1),  # autre categorie
+        ])
+        resultat = self.lire(enfant=77)["historique_annulations"]
+        self.assertEqual(resultat["perimetre"], "connecthys_traites_conserves")
+        self.assertEqual(resultat["reservations"], 3)
+        self.assertEqual(resultat["annulations"], 2)
+        self.assertEqual(resultat["taux"], Decimal("66.7"))
+        self.assertEqual(resultat["annulations_non_appariees"], 1)
+        self.assertEqual(resultat["doublons_ajout"], 1)
+        self.assertEqual(resultat["premiere_demande"],
+                         datetime.date(2024, 9, 1))
+        self.assertEqual(self.lire(enfant=78)["historique_annulations"]
+                         ["reservations"], 3)  # agregation famille, pas enfant
+
+    def test_annulations_absence_historique_ne_devient_pas_zero_pourcent(self):
+        h = self.lire()["historique_annulations"]
+        self.assertIsNone(h["taux"])
+        self.assertEqual((h["reservations"], h["annulations"]), (0, 0))
+        self.assertIsNone(h["premiere_demande"])
+
+    def test_annulations_en_attente_et_suppression_orpheline_exclues(self):
+        self.actions_reservations([
+            (11, 3, "2026-10-01 10:00:00", "attente", "reservations"),
+            (12, 3, "2026-10-02 10:00:00", "validation", "reservations")])
+        self.demandes_reservations([
+            (11, 11, "2026-11-01", 701, 10, 1),
+            (12, 12, "2026-11-01", 701, 10, 0)])
+        h = self.lire()["historique_annulations"]
+        self.assertIsNone(h["taux"])
+        self.assertEqual(h["reservations"], 0)
+        self.assertEqual(h["annulations_non_appariees"], 1)
+
+    def test_annulations_zero_sur_reservations_confirmees(self):
+        self.actions_reservations([
+            (22, 3, "2025-01-01 10:00:00", "validation", "reservations")])
+        self.demandes_reservations([
+            (22, 22, "2025-02-03", 701, 10, 1)])
+        h = self.lire()["historique_annulations"]
+        self.assertEqual((h["reservations"], h["annulations"]), (1, 0))
+        self.assertEqual(h["taux"], Decimal("0.0"))
+
+    def test_annulations_historique_manquant_ne_cache_pas_soldes_adhesion(self):
+        self.base.db.ExecuterReq("DROP TABLE portail_reservations")
+        self.base.db.Commit()
+        self.base.inserer("reglements",
+            ["IDreglement", "IDcompte_payeur", "date", "montant"],
+            [(333, 30, "2026-10-01", 14.0)])
+        situation = self.lire()
+        self.assertEqual(situation["solde_du_jour"], Decimal("14.00"))
+        self.assertEqual(situation["historique_annulations"]["perimetre"],
+                         "indisponible")
+        self.assertIsNone(situation["historique_annulations"]["taux"])
+
+    def test_annulations_demandes_manuelles_ne_sont_pas_reconstruites(self):
+        if not self.base.db.IsTableExists("historique"):
+            self.base.db.CreationTable("historique", dicoDB=Tables.DB_DATA)
+            self.base.db.Commit()
+        self.base.inserer("historique",
+            ["IDaction", "IDfamille", "IDcategorie", "action"],
+            [(99, 3, 10, "Suppression de 10 consommations")])
+        h = self.lire()["historique_annulations"]
+        self.assertEqual((h["reservations"], h["annulations"]), (0, 0))
+        self.assertIsNone(h["taux"])
+
     def test_html_echappe_les_donnees_de_facture_et_d_adhesion(self):
         rendu = S.FormaterSituationHtml({
             "date": JOUR, "solde_du_jour": Decimal("-10.00"),
@@ -201,6 +305,11 @@ class SituationConnecthysTests(unittest.TestCase):
         self.assertIn("self.situation_adhesion_statut.SetLabel(", methodes["MAJ_situation"])
         self.assertIn("self.panel_situation.Show(True)", methodes["MAJ_situation"])
         self.assertIn("self.situation_solde_jour.SetLabel(", methodes["MAJ_situation"])
+        self.assertIn("self.situation_solde_annulations.SetLabel(",
+                      methodes["MAJ_situation"])
+        self.assertIn("self.situation_solde_historique.SetLabel(",
+                      methodes["MAJ_situation"])
+        self.assertIn("self.situation_solde_annulations", methodes["_ConstruireSituationFamille"])
         # Non-redondance : le solde rouge historique ne figure plus sur la
         # ligne Famille. Le controle cache reste requis pour le mail.
         self.assertIn("self.ctrl_solde.Hide()", methodes["__init__"])

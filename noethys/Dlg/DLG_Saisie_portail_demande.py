@@ -470,10 +470,24 @@ class Dialog(wx.Dialog):
         self.situation_solde_global = wx.StaticText(
             self.situation_solde_carte, -1, _(u"Solde global : —"),
             style=wx.ST_NO_AUTORESIZE)
+        self.situation_solde_annulations = wx.StaticText(
+            self.situation_solde_carte, -1, _(u"Annulations Connecthys : —"),
+            style=wx.ST_NO_AUTORESIZE)
+        self.situation_solde_historique = wx.StaticText(
+            self.situation_solde_carte, -1, _(u"Historique non disponible"),
+            style=wx.ST_NO_AUTORESIZE)
+        self.situation_solde_annulations.SetToolTip(wx.ToolTip(
+            _(u"Taux calculé sur les demandes Connecthys traitées et conservées "
+              u"pour toute la famille. Les annulations manuelles dans Noethys "
+              u"ne peuvent pas être reconstituées avec certitude.")))
         sizer_soldes = wx.BoxSizer(wx.VERTICAL)
         sizer_soldes.Add(self.situation_solde_titre, 0, wx.ALL, 8)
         sizer_soldes.Add(self.situation_solde_jour, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
-        sizer_soldes.Add(self.situation_solde_global, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer_soldes.Add(self.situation_solde_global, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 7)
+        sizer_soldes.Add(self.situation_solde_annulations, 0,
+                         wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 7)
+        sizer_soldes.Add(self.situation_solde_historique, 0,
+                         wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 7)
         self.situation_solde_carte.SetSizer(sizer_soldes)
 
         self.situation_factures_titre = titre(
@@ -531,7 +545,7 @@ class Dialog(wx.Dialog):
         encart.Add(self.situation_titre, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 9)
         encart.Add(cartes, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         self.panel_situation.SetSizer(encart)
-        self.panel_situation.SetMinSize((-1, 172))
+        self.panel_situation.SetMinSize((-1, 187))
 
     def __set_properties(self):
         self.SetTitle(_(u"Traitement des demandes"))
@@ -1266,6 +1280,9 @@ class Dialog(wx.Dialog):
             # Les comptes indisponibles ne sont pas des comptes a zero.
             # Aucun refus ni nouvelle boite de dialogue.
             self.situation_solde_jour.SetLabel(_(u"Solde du jour : indisponible"))
+            self.situation_solde_annulations.SetLabel(
+                _(u"Annulations Connecthys : indisponibles"))
+            self.situation_solde_historique.SetLabel("")
             self.situation_factures_titre.SetLabel(_(u"Factures impayées"))
             self.situation_factures_total.SetLabel(_(u"Données indisponibles"))
             self.situation_adhesion_statut.SetLabel(_(u"À vérifier"))
@@ -1281,6 +1298,39 @@ class Dialog(wx.Dialog):
             (jour.strftime("%d/%m/%Y"), self._MontantSituation(montant)))
         self.situation_solde_jour.SetForegroundColour(
             wx.Colour(189, 22, 31) if montant < 0 else wx.Colour(25, 122, 53))
+
+        historique = situation.get("historique_annulations") or {}
+        taux = historique.get("taux")
+        if taux is None:
+            self.situation_solde_annulations.SetLabel(
+                _(u"Annulations Connecthys : non calculable"))
+            if historique.get("perimetre") == "indisponible":
+                self.situation_solde_historique.SetLabel(
+                    _(u"Historique indisponible"))
+            else:
+                self.situation_solde_historique.SetLabel(
+                    _(u"Aucune réservation de référence conservée"))
+        else:
+            self.situation_solde_annulations.SetLabel(
+                _(u"Annulations Connecthys : %s %%") %
+                (u"%.1f" % taux).replace(".", ","))
+            ligne = _(u"%d annulation(s) / %d réservation(s)") % (
+                historique["annulations"], historique["reservations"])
+            if (historique.get("annulations_non_appariees", 0) or
+                    historique.get("lignes_inexploitables", 0)):
+                ligne += _(u" (historique partiel)")
+            self.situation_solde_historique.SetLabel(ligne)
+        origine = historique.get("premiere_demande")
+        details = _(
+            u"Demandes de réservation traitées via Connecthys et encore conservées, "
+            u"pour toute la famille ; annulations manuelles non comptabilisées.")
+        if origine is not None:
+            details += _(u" Historique depuis le %s.") % origine.strftime("%d/%m/%Y")
+        if historique.get("annulations_non_appariees", 0):
+            details += _(u" %d suppression(s) sans réservation initiale retrouvée.") % (
+                historique["annulations_non_appariees"],)
+        self.situation_solde_annulations.SetToolTip(details)
+        self.situation_solde_historique.SetToolTip(details)
 
         factures = situation["factures_impayees"]
         self.situation_factures_titre.SetLabel(

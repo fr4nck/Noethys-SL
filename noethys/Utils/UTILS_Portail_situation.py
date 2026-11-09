@@ -133,6 +133,76 @@ def _adhesion(db, IDfamille, IDindividu, au_jour):
     return {"statut": "absente"}
 
 
+
+def _historique_annulations_connecthys(db, IDfamille, au_jour):
+    """Rapport entre les demandes annulees et les reservations demandees.
+
+    Perimetre : historique encore conserve de la famille dans
+    portail_actions + portail_reservations, actions de reservations TRAITEES.
+    Ceci ne reconstitue PAS les cancellations manuelles dans Noethys :
+    'historique' les enregistre en texte libre, souvent en lots, sans
+    identifiant de reservation stable. Le calcul n'est jamais presente
+    comme exhaustif de toutes les annulations de la famille.
+
+    Une cle de reservation est (inscription, unite portail, jour). Une
+    demande repetee sur une cle encore active n'est pas une deuxieme
+    reservation ; une suppression sans ajout anterieur retrouve est
+    comptabilisee comme non appariee, pas comme annulation demontree.
+    Apres suppression, un nouvel ajout constitue une nouvelle reservation.
+    """
+    lignes = _lire(db, """SELECT r.IDinscription, r.IDunite, r.date, r.etat,
+           a.horodatage, a.IDaction, r.IDreservation
+        FROM portail_reservations r
+        JOIN portail_actions a ON a.IDaction=r.IDaction
+        WHERE a.IDfamille=?
+          AND a.categorie='reservations'
+          AND a.etat='validation'
+          AND a.horodatage<=?
+        ORDER BY a.horodatage, a.IDaction, r.IDreservation""",
+        (IDfamille, "%s 23:59:59" % au_jour.isoformat()))
+
+    actives = set()
+    reservations = annulations = orphelines = ignorees = doublons = 0
+    premier = dernier = None
+    for IDinscription, IDunite, jour, etat, horodatage, _action, _resa in lignes:
+        date_seance = _date(jour)
+        date_demande = _date(horodatage)
+        if (IDinscription is None or IDunite is None or date_seance is None
+                or date_demande is None or str(etat) not in ("0", "1")):
+            ignorees += 1
+            continue
+        try:
+            cle = (int(IDinscription), int(IDunite), date_seance)
+            if cle[0] <= 0 or cle[1] <= 0:
+                raise ValueError("identifiant nul")
+        except (TypeError, ValueError):
+            ignorees += 1
+            continue
+        premier = min(premier, date_demande) if premier else date_demande
+        dernier = max(dernier, date_demande) if dernier else date_demande
+        if str(etat) == "1":
+            if cle not in actives:
+                actives.add(cle)
+                reservations += 1
+            else:
+                doublons += 1
+        elif cle in actives:
+            actives.remove(cle)
+            annulations += 1
+        else:
+            orphelines += 1
+
+    taux = (Decimal(annulations * 100) / Decimal(reservations)).quantize(
+        Decimal("0.1"), rounding=ROUND_HALF_UP) if reservations else None
+    return {
+        "perimetre": "connecthys_traites_conserves",
+        "reservations": reservations, "annulations": annulations,
+        "taux": taux, "premiere_demande": premier, "derniere_demande": dernier,
+        "annulations_non_appariees": orphelines,
+        "lignes_inexploitables": ignorees, "doublons_ajout": doublons,
+    }
+
+
 def LireSituation(IDfamille, IDindividu=None, date_reference=None):
     """Retourne un bilan lu en base, sans rien enregistrer.
 
@@ -184,10 +254,23 @@ def LireSituation(IDfamille, IDindividu=None, date_reference=None):
                                          montant=_montant(prestations.get(id_facture)),
                                          reste=reste))
         adhesion = _adhesion(db, IDfamille, IDindividu, jour)
+        try:
+            historique_annulations = _historique_annulations_connecthys(
+                db, IDfamille, jour)
+        except SituationIndisponible:
+            # Un historique absent/incomplet ne doit pas empecher l'affichage
+            # des soldes, des factures ou des cotisations de la famille.
+            historique_annulations = {
+                "perimetre": "indisponible", "taux": None,
+                "reservations": 0, "annulations": 0,
+                "annulations_non_appariees": 0, "lignes_inexploitables": 0,
+                "premiere_demande": None, "derniere_demande": None,
+            }
         return dict(date=jour, solde_du_jour=solde,
                     factures_impayees=impayees,
                     total_factures=sum((f["reste"] for f in impayees), Decimal("0.00")),
-                    adhesion=adhesion)
+                    adhesion=adhesion,
+                    historique_annulations=historique_annulations)
     except SituationIndisponible:
         raise
     except Exception as erreur:
