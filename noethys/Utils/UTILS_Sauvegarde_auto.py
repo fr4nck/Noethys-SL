@@ -27,6 +27,83 @@ from Utils.UTILS_Divers import ConvertChaineEnListe, ConvertListeEnChaine
 from Utils import UTILS_Dates
 from Utils import UTILS_Identification
 from Utils import UTILS_Parametres
+from Utils import UTILS_Config
+import hashlib
+import json
+import tempfile
+
+
+def _CleRepertoirePoste(procedure):
+    # Identite stable : ne pas inclure le nom horodate de l'archive.
+    identite = [procedure.get(cle) for cle in (
+        "IDsauvegarde", "nom", "sauvegarde_repertoire",
+        "sauvegarde_fichiers_locaux", "sauvegarde_fichiers_reseau")]
+    donnees = json.dumps(identite, ensure_ascii=False, default=str).encode("utf-8")
+    return hashlib.sha256(donnees).hexdigest()
+
+
+def _VerifierRepertoireDestination(repertoire):
+    """Controle AVANT mysqldump ; la seule ecriture est un temoin temporaire."""
+    if not isinstance(repertoire, str) or not os.path.isdir(repertoire):
+        return False, u"Le dossier de destination est introuvable : %s" % repertoire
+    try:
+        with tempfile.NamedTemporaryFile(
+                prefix=".noethys-prevol-", dir=repertoire) as temoin:
+            pass
+    except OSError as err:
+        return False, u"Ecriture impossible dans %s : %s" % (repertoire, err)
+    return True, None
+
+
+def ChoisirRepertoirePoste(parent, procedure):
+    """Retourne (dossier, cle_a_memoriser), sans modifier la procedure SQL."""
+    repertoire = procedure["sauvegarde_repertoire"]
+    if repertoire is None:
+        # Envoi par courriel uniquement : ne pas imposer de dossier.
+        return None, None
+
+    cle = _CleRepertoirePoste(procedure)
+    dossiers = UTILS_Config.GetParametre("sauvegarde_repertoires_poste", defaut={})
+    if not isinstance(dossiers, dict):
+        dossiers = {}
+
+    # Priorite au choix local deja confirme, sinon a la procedure partagee.
+    for chemin in (dossiers.get(cle), repertoire):
+        if isinstance(chemin, str):
+            valide, _erreur = _VerifierRepertoireDestination(chemin)
+            if valide:
+                return chemin, None
+
+    valide, erreur = _VerifierRepertoireDestination(repertoire)
+    message = _(u"Le dossier de sauvegarde configure pour cette procedure est indisponible sur cet ordinateur :\n\n%s\n\n%s\n\nChoisissez un autre dossier. Ce choix sera conserve uniquement sur cet ordinateur apres une sauvegarde reussie.") % (repertoire, erreur)
+    dlg = wx.DirDialog(parent, message,
+                       style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+    try:
+        if dlg.ShowModal() != wx.ID_OK:
+            return False, None
+        choisi = dlg.GetPath()
+    finally:
+        dlg.Destroy()
+
+    valide, erreur = _VerifierRepertoireDestination(choisi)
+    if not valide:
+        dlgErreur = wx.MessageDialog(
+            parent, _(u"Impossible d'utiliser le dossier choisi :\n\n%s") % erreur,
+            _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+        dlgErreur.ShowModal()
+        dlgErreur.Destroy()
+        return False, None
+    return choisi, cle
+
+
+def MemoriserRepertoirePoste(cle, repertoire):
+    """N'enregistre le choix local qu'apres le succes de la sauvegarde."""
+    dossiers = UTILS_Config.GetParametre("sauvegarde_repertoires_poste", defaut={})
+    dossiers = dict(dossiers) if isinstance(dossiers, dict) else {}
+    dossiers[cle] = repertoire
+    UTILS_Config.SetParametre("sauvegarde_repertoires_poste", dossiers)
+    # Quitter() ecrit parfois Config.json AVANT de lancer la sauvegarde.
+    UTILS_Config.FichierConfig().SetItemConfig("sauvegarde_repertoires_poste", dossiers)
 
 
 class Sauvegarde_auto():
@@ -48,6 +125,7 @@ class Sauvegarde_auto():
         for dictSauvegarde in self.listeSauvegardes :
             valide = True
             resultat = False
+            cleRepertoirePoste = None
             
             # Création du nom de la sauvegarde
             prefixe = dictSauvegarde["sauvegarde_nom"]
@@ -71,6 +149,14 @@ class Sauvegarde_auto():
                     valide = False
                 if reponse == wx.ID_CANCEL :
                     return wx.ID_CANCEL
+
+            # Un dossier partage invalide ne doit pas provoquer un long export.
+            # Le choix local ne change jamais la procedure en base.
+            if valide == True and dictSauvegarde["option_afficher_interface"] != "1" :
+                repertoirePoste, cleRepertoirePoste = ChoisirRepertoirePoste(self.parent, dictSauvegarde)
+                if repertoirePoste is False:
+                    return wx.ID_CANCEL
+                dictSauvegarde["sauvegarde_repertoire"] = repertoirePoste
 
             # Afficher interface
             if valide == True and dictSauvegarde["option_afficher_interface"] == "1" :
@@ -97,6 +183,19 @@ class Sauvegarde_auto():
 
             # Sauvegarde de la date de la sauvegarde
             if resultat == True :
+                if cleRepertoirePoste is not None:
+                    try:
+                        MemoriserRepertoirePoste(
+                            cleRepertoirePoste, dictSauvegarde["sauvegarde_repertoire"])
+                    except Exception:
+                        # L'archive deja creee reste un succes, meme si le
+                        # parametrage local ne peut pas etre memorise.
+                        dlg = wx.MessageDialog(
+                            self.parent,
+                            _(u"La sauvegarde est creee, mais le nouveau dossier n'a pas pu etre memorise sur cet ordinateur."),
+                            _(u"Sauvegarde"), wx.OK | wx.ICON_EXCLAMATION)
+                        dlg.ShowModal()
+                        dlg.Destroy()
                 DB = GestionDB.DB()
                 DB.ReqMAJ("sauvegardes_auto", [("date_derniere", str(datetime.date.today())),], "IDsauvegarde", dictSauvegarde["IDsauvegarde"])
                 DB.Close()
