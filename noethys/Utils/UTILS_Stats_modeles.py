@@ -326,7 +326,7 @@ class HTML():
         source_db = getattr(DB, "nomFichier", None)
         if (parent is not None and isinstance(source_db, str) and source_db
                 and parent.IsShownOnScreen() and wx.IsMainThread()):
-            from Utils import UTILS_Stats_unitaire, UTILS_Etapes_ui
+            from Utils import UTILS_Stats_unitaire, UTILS_Stats_graphes_worker, UTILS_Etapes_ui
             travail_autorise = True
         try:
             for dictRubrique in self.liste_objets:
@@ -348,6 +348,14 @@ class HTML():
                                     objet, self.dictParametres, source_db)
                                 donnees = yield UTILS_Etapes_ui.TravailFond(calcul)
                                 UTILS_Stats_unitaire.appliquer(objet, donnees)
+                            elif (travail_autorise
+                                    and UTILS_Stats_graphes_worker.est_compatible(objet)):
+                                # Matplotlib/Agg et SQL dans le worker ; seule la
+                                # conversion wx.Bitmap et le VFS sont dans la GUI.
+                                calcul = UTILS_Stats_graphes_worker.preparer(
+                                    objet, self.dictParametres, source_db)
+                                png = yield UTILS_Etapes_ui.TravailFond(calcul)
+                                objet.MemoriseImage(png_data=png)
                             elif objet.categorie == "graphe":
                                 figure = matplotlib.pyplot.figure()
                                 try:
@@ -565,7 +573,7 @@ class Graphe(Objet):
         else:
             self.decalage_x = 0.5
 
-    def MemoriseImage(self, figure=None):
+    def MemoriseImage(self, figure=None, png_data=None):
         # Le VFS wx est global au processus, meme si chaque Graphe instancie
         # son propre handler Python. Un nom base seulement sur le code produit
         # une collision a la reouverture de Statistiques.
@@ -574,7 +582,10 @@ class Graphe(Objet):
             self.nomImage = "image-%s-%s" % (self.code, uuid4().hex)
         # Convertir avant de retirer l'ancienne image : une erreur de
         # Matplotlib ne doit jamais priver l'HTML de sa ressource actuelle.
-        nouvelle_image = self.ConvertMPLtoBMP(figure)
+        if png_data is None:
+            nouvelle_image = self.ConvertMPLtoBMP(figure)
+        else:
+            nouvelle_image = self.ConvertPNGtoBMP(png_data)
         ancienne_image = self.bitmap
         if ancienne_image is not None:
             try:
@@ -612,6 +623,23 @@ class Graphe(Objet):
         # Création Html
         html = """<CENTER><A HREF='%s'><img src="memory:%s"></A></CENTER>""" % (self.code, self.nomImage)
         return html
+
+
+    def ConvertPNGtoBMP(self, png_data):
+        """Conversion graphique reservee au thread wx, jamais au worker."""
+        if not wx.IsMainThread():
+            raise RuntimeError("Conversion wx.Bitmap hors thread principal")
+        im = Image.open(six.BytesIO(png_data))
+        if 'phoenix' in wx.PlatformInfo:
+            self.wximage = wx.Image(im.size[0], im.size[1])
+        else:
+            self.wximage = wx.EmptyImage(im.size[0], im.size[1])
+        self.wximage.SetData(im.convert("RGB").tobytes())
+        if 'phoenix' in wx.PlatformInfo:
+            self.wximbmp = wx.Bitmap(self.wximage)
+        else:
+            self.wximbmp = wx.BitmapFromImage(self.wximage)
+        return self.wximbmp
 
     def ConvertMPLtoBMP(self, figure=None):
         dpi = 90

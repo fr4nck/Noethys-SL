@@ -9,6 +9,7 @@ on:
       - 'noethys/Utils/UTILS_Facturation.py'
       - 'noethys/Utils/UTILS_Etapes_ui.py'
       - 'noethys/Utils/UTILS_Stats_modeles.py'
+      - 'noethys/Utils/UTILS_Stats_graphes_worker.py'
       - 'noethys/Utils/UTILS_Stats_unitaire.py'
       - 'noethys/Utils/UTILS_PDF_securise.py'
       - 'noethys/Dlg/DLG_Stats.py'
@@ -51,3 +52,5 @@ jobs:
           tests.test_ui432k_stats_unitaire
           tests.test_ui432k_pdf_atomique
           tests.test_ui432k_stats_win32
+          tests.test_ui432k_graphes_worker
+          tests.test_ui432k_graphes_win32
