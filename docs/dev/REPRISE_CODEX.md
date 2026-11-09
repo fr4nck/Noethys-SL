@@ -1,5 +1,11 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## STATS-RESTORE — premiers correctifs transversaux (09/11/2026)
+
+- Trois corrections sources (âges, identifiants VFS, tranches QF/mode Inscrits) sur main/wx/qt avec tests nouveaux NON EXECUTES.
+- Voir docs/recette/STATS_RESTORE_20261109.md : SHA, limites, preuves et STOP-GATE.
+- QF historiques, VFS lifecycle, gels wx, impression et issue #432 restent ouverts ; aucune nouvelle RC qualifiée.
+
 
 ## Connecthys — synthèse familiale à l'ouverture d'une demande (09/11/2026)
 
