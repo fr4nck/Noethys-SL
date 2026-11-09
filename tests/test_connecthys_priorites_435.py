@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """#435 : priorités entre réservations successives, sans DB réelle."""
 import unittest
-from Utils.UTILS_Portail_reservations import planifier_priorites, ArbitrageManuelRequis, decision_quantite
+from Utils.UTILS_Portail_reservations import (planifier_priorites, planifier_sur_grille,
+                                               ArbitrageManuelRequis, decision_quantite)
 
 UNITS = {1: {'role_portail': 'journee'}, 2: {'role_portail': 'matin'},
          3: {'role_portail': 'apres_midi'}, 4: {'role_portail': 'repas'}}
@@ -99,6 +100,44 @@ class PriorityTests(unittest.TestCase):
         result, _ = planifier_priorites(source, UNITS,
                                           lambda r, name: None, lambda r: True)
         self.assertEqual(len(result), 3)
+
+
+
+class RepriseQuantitePartielleTests(unittest.TestCase):
+    def test_une_unite_deja_enregistree_et_une_absente_rejouables(self):
+        from types import SimpleNamespace as NS
+        DATE = "2026-11-04"
+        def conso(etat):
+            if etat is None:
+                return NS(etat=None, quantite=None, IDfacture=None,
+                          verrouillage=0, GetListeConso=lambda: [])
+            ligne = NS(etat=etat, IDinscription=10, IDfacture=None,
+                       verrouillage=0)
+            return NS(etat=etat, quantite=1, IDfacture=None, verrouillage=0,
+                      GetListeConso=lambda: [ligne])
+        cas = {101: conso('reservation'), 102: conso(None)}
+        classe = NS(
+            dictUnites={101: {'type': 'Quantite'}, 102: {'type': 'Quantite'}})
+        grille = NS(grille=classe,
+                    GetCase=lambda identifiant, date: cas[identifiant],
+                    IsOuvert=lambda **kw: True,
+                    HasPlacesDisponibles=lambda **kw: True)
+        unites = {1: {'nom': 'Option Quantite', 'IDactivite': 7,
+                      'unites_principales': [101, 102],
+                      'unites_secondaires': [], 'role_portail': 'normal'}}
+        demandes = [{'IDreservation': 2, 'IDunite': 1, 'IDinscription': 10,
+                     'date': DATE, 'etat': 1}]
+        retenues, decisions = planifier_sur_grille(demandes, unites, grille, 7)
+        self.assertEqual(retenues, demandes)
+        self.assertEqual(decisions, [])
+        self.assertEqual(decision_quantite(cas[101], 10, 'reservation'), 'existant')
+        self.assertEqual(decision_quantite(cas[102], 10, 'reservation'), 'creer')
+
+    def test_reprise_quantite_autre_inscription_reste_protegee(self):
+        with self.assertRaises(ArbitrageManuelRequis):
+            # La provenance etrangere ne doit jamais etre ecrasee.
+            decision_quantite(QuantityDecisionTests.case(
+                etat='reservation', inscription=11), 10, 'reservation')
 
 
 class QuantityDecisionTests(unittest.TestCase):

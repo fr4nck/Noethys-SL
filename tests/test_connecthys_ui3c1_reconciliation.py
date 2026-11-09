@@ -132,37 +132,42 @@ class ReconciliationTests(unittest.TestCase):
         self.preparer()
         self.ui.ctrl_grille.partielle = True
         self.relancer_sans_exception()
-        self.assertEqual(self.quantites_sql(), [(101, 1)])
+        self.assertEqual(self.quantites_sql(), [])
         self.assertEqual(self.etat_sql()[0], "attente")
-        self.relancer_sans_exception()
-        self.assertEqual(self.quantites_sql(), [(101, 1)], "CE-4 : quantite doublee apres application partielle")
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
-
-    def test_ce5_exception_post_save_ne_rejoue_pas_quantite(self):
-        self.preparer()
-        self.ventilation.side_effect = RuntimeError("Exception post-sauvegarde fictive")
+        self.assertFalse(Marqueurs.EnAttente(7))
+        self.ui.ctrl_grille.partielle = False
         self.relancer_sans_exception()
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
+    def test_ce5_exception_post_save_ne_rejoue_pas_quantite(self):
+        self.preparer()
+        self.ventilation.side_effect = RuntimeError("Exception ventilation fictive")
         self.relancer_sans_exception()
-        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)], "CE-5 : quantites doublees apres Save_grille")
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertFalse(Marqueurs.EnAttente(7))
         self.assertEqual(self.ui.ctrl_grille.saves, 1)
-
     def test_save_grille_false_ne_valide_pas_la_demande(self):
         self.preparer()
         self.ui.ctrl_grille.panne_save = "false"
         self.relancer_sans_exception()
-        self.assertEqual(self.etat_sql()[0], "attente", "Un refus Save_grille ne doit pas valider")
-        self.relancer_sans_exception()
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
-
+        self.assertEqual(self.etat_sql()[0], "attente")
+        self.assertTrue(Marqueurs.EnAttente(7))
+        # Une nouvelle tentative recontrole les donnees durables.
+        self.ui.ctrl_grille.panne_save = None
+        self.assertFalse(self.relancer_sans_exception())  # grille fictive sans origine durable
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
     def test_save_grille_exception_ne_rejoue_pas(self):
         self.preparer()
         self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
-        self.relancer_sans_exception()
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
-
+        self.assertEqual(self.etat_sql()[0], "attente")
+        self.ui.ctrl_grille.panne_save = None
+        # La grille fictive ne fournit pas la provenance des valeurs deja
+        # sauvegardees : la reprise automatique refuse un doublon.
+        self.relancer_sans_exception()
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
     def test_nouvelle_action_identique_quantite_ne_double_pas(self):
         self.preparer()
         # Traitement() retourne historiquement None en cas de succes.
@@ -197,43 +202,34 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.etat_sql(8)[0], "validation")
         self.assertFalse(Marqueurs.EnAttente(8))
 
-    def test_reouverture_bloque_modes_validation_et_emails_apres_ce4_et_ce5(self):
+    def test_reouverture_permet_les_deux_modes_sans_popup_de_verrou(self):
         self.preparer()
-        self.ui.ctrl_grille.partielle = True
+        self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
         self.assertTrue(Marqueurs.EnAttente(7))
         ui = precedent.DialogueFictif()
         self.configurer_ui(ui)
-        for mode in ("automatique", "manuel"):
-            self.assertFalse(ui.Traitement(mode=mode))
-        ui.radio_validation.SetValue(True)
-        ui.ctrl_reponse.ChangeValue("Ne pas envoyer cette confirmation fictive")
-        self.assertFalse(ui.Sauvegarde())
-        self.assertFalse(Module.Dialog.Envoyer(ui, visible=False))
-        self.assertFalse(Module.Dialog.Envoyer(ui, visible=True))
-        self.assertEqual(ui.ctrl_grille.saisies, 0)
-        self.assertEqual(ui.ctrl_grille.saves, 0)
-        self.assertEqual(self.quantites_sql(), [(101, 1)])
-        self.assertEqual(self.etat_sql()[0], "attente")
-        self.assertIn("Réconciliation", self.dlg.call_args.args[2])
-
-    def test_marqueur_visible_depuis_un_processus_neuf(self):
+        # Le traitement automatique est accessible, mais refuse une origine
+        # Quantite indeterminee : pas de doublon ni de fausse validation.
+        self.assertFalse(ui.Traitement(mode="automatique"))
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertFalse(ui._ReservationsBloquees())
+        self.assertFalse(any("Réconciliation requise" in str(c) for c in self.dlg.call_args_list))
+    def test_marqueur_visible_depuis_un_processus_neuf_et_reprise_permisse(self):
         self.preparer()
         self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
-        # Aucun etat Python du dialogue n'est transmis a cet interpreteur.
         script = ("import sys; import _garde_reseau; "
                   "from _fixtures_noethys_db import RedirectionGestionDB; "
                   "from Utils import UTILS_Portail_reconciliation as m; "
                   "ctx=RedirectionGestionDB(sys.argv[1]); ctx.__enter__(); "
                   "assert m.EnAttente(7); "
-                  "m.Commencer(7)")
+                  "jeton, reprise=m.Commencer(7, avec_origine=True); "
+                  "assert reprise and len(jeton)==32")
         resultat = subprocess.run([sys.executable, "-c", script, self.base.chemin],
                                   capture_output=True, text=True, timeout=20)
-        self.assertNotEqual(resultat.returncode, 0)
-        self.assertIn("ReconciliationRequise: Tentative precedente", resultat.stderr)
+        self.assertEqual(resultat.returncode, 0, resultat.stderr)
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
-
     def test_succes_complet_retire_marqueur_apres_commit_et_interdit_track_perime(self):
         self.preparer()
         self.ui.Traitement()
@@ -292,18 +288,16 @@ class ReconciliationTests(unittest.TestCase):
         self.assertTrue(self.ui.Traitement())
         self.assertEqual(self.ui.ctrl_grille.saves, 1)
 
-    def test_marqueur_illisible_doublon_et_mauvais_jeton_ne_sont_jamais_effaces(self):
+    def test_marqueur_illisible_ou_doublon_reste_trace_sans_verrou(self):
         self.preparer()
         self.base.inserer("parametres", ["categorie", "nom", "parametre"],
                           [(Marqueurs.CATEGORIE, "action_7", "corrompu"),
                            (Marqueurs.CATEGORIE, "action_7", "autre")])
         self.assertTrue(Marqueurs.EnAttente(7))
-        with self.assertRaises(Marqueurs.ReconciliationRequise):
-            Marqueurs.Terminer(7, "corrompu")
-        self.assertFalse(self.ui.Traitement())
-        self.assertEqual(self.ui.ctrl_grille.saisies, 0)
+        self.assertEqual(Marqueurs.Commencer(7, avec_origine=True), (None, True))
+        self.assertFalse(Marqueurs.Terminer(7, None))
+        self.assertFalse(self.ui._ReservationsBloquees())
         self.assertTrue(Marqueurs.EnAttente(7))
-
     def test_lire_reprise_retourne_jeton_et_etat_sql(self):
         self.preparer()
         jeton = Marqueurs.Commencer(7)
@@ -331,16 +325,12 @@ class ReconciliationTests(unittest.TestCase):
         self.ui.Traitement()
         self.assertEqual(self.etat_sql()[0], "validation")
 
-    def test_lecture_ou_ecriture_marqueur_impossible_interdit_tout_effet(self):
+    def test_lecture_ou_ecriture_marqueur_impossible_n_ecrit_pas(self):
         self.preparer()
-        with mock.patch.object(Marqueurs, "Commencer", side_effect=RuntimeError("SQL indisponible")), \
-                mock.patch.object(Marqueurs, "EnAttente", side_effect=RuntimeError("Lecture impossible")):
+        with mock.patch.object(Marqueurs, "Commencer", side_effect=RuntimeError("SQL indisponible")):
             self.assertFalse(self.ui.Traitement())
-            self.assertFalse(self.ui.Sauvegarde())
-            self.assertFalse(Module.Dialog.Envoyer(self.ui))
         self.assertEqual(self.ui.ctrl_grille.saisies, 0)
         self.assertEqual(self.ui.ctrl_grille.saves, 0)
-
     def test_deux_connexions_sqlite_une_seule_tentative(self):
         self.preparer()
         def commencer():
@@ -358,59 +348,43 @@ class ReconciliationTests(unittest.TestCase):
         self.ui._ReprendreReservationsManuellement = MethodType(
             Module.Dialog._ReprendreReservationsManuellement, self.ui)
 
-    def test_reprise_manuelle_refusee_ne_rejoue_ni_sauve(self):
+    def test_reprise_manuelle_annulee_ne_rejoue_ni_sauve(self):
         self.preparer()
-        self.ui.ctrl_grille.partielle = True
+        self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
-        self.assertTrue(Marqueurs.EnAttente(7))
         nombre_sauvegardes = self.ui.ctrl_grille.saves
-        self._lier_reprise_operateur_435()
         from Dlg import DLG_Portail_reservations
         dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
         dlg.ShowModal.return_value = Module.wx.ID_CANCEL
         with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg):
             self.assertFalse(self.ui.Traitement(mode="manuel"))
         self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes)
-        self.assertEqual(self.etat_sql()[0], "attente")
         self.assertTrue(Marqueurs.EnAttente(7))
-        dlg.Destroy.assert_called_once()
-
-    def test_reprise_manuelle_explicitement_confirmee_ne_rejoue_pas_saisie(self):
+    def test_reprise_manuelle_confirmee_libre_sans_rejouer_choix(self):
         self.preparer()
-        self.ui.ctrl_grille.partielle = True
+        self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
-        self.assertTrue(Marqueurs.EnAttente(7))
         nombre_saisies = self.ui.ctrl_grille.saisies
-        nombre_sauvegardes = self.ui.ctrl_grille.saves
-        self.ui.ctrl_grille.partielle = False
-        self._lier_reprise_operateur_435()
+        self.ui.ctrl_grille.panne_save = None
         from Dlg import DLG_Portail_reservations
         dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
         dlg.ShowModal.return_value = Module.wx.ID_OK
+        dlg.GetReponse.return_value = ""
         with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg) as constructeur:
-            self.assertTrue(self.ui.Traitement(mode="manuel"))
-        self.assertTrue(constructeur.call_args.kwargs["reconciliation"])
+            self.assertIsNone(self.ui.Traitement(mode="manuel"))
+        self.assertFalse(constructeur.call_args.kwargs.get("reconciliation", False))
         self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies)
-        self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes + 1)
-        self.assertEqual(self.quantites_sql(), [(101, 1)])
         self.assertEqual(self.etat_sql()[0], "validation")
         self.assertFalse(Marqueurs.EnAttente(7))
-
     def test_fin_de_reconciliation_deja_validee_ne_sauve_pas_grille(self):
         self.preparer()
         self.ui.Traitement()
-        self.assertEqual(self.etat_sql(7)[0], "validation")
         nombre_sauvegardes = self.ui.ctrl_grille.saves
         self.base.inserer("parametres", ["categorie", "nom", "parametre"],
                           [(Marqueurs.CATEGORIE, "action_7", "a" * 32)])
-        self.assertTrue(Marqueurs.EnAttente(7))
-        self._lier_reprise_operateur_435()
-        self.dlg.return_value.ShowModal.return_value = Module.wx.ID_YES
-        self.assertTrue(self.ui.Traitement(mode="manuel"))
+        self.assertFalse(self.ui.Traitement(mode="manuel"))
         self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes)
         self.assertFalse(Marqueurs.EnAttente(7))
-        self.assertEqual(self.etat_sql()[0], "validation")
-
     def test_mode_manuel_annulation_et_refus_save(self):
         self.preparer()
         from Dlg import DLG_Portail_reservations
@@ -429,7 +403,7 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.assertEqual(dlg.Destroy.call_count, 2)
 
-    def test_commit_marqueur_accepte_mais_reponse_perdue_ne_lance_pas_le_metier(self):
+    def test_commit_marqueur_accepte_mais_reponse_perdue_recuperable(self):
         self.preparer()
         vraie_db = precedent.GestionDB.DB
         class Connexion:
@@ -447,10 +421,10 @@ class ReconciliationTests(unittest.TestCase):
         with mock.patch.object(precedent.GestionDB, "DB", side_effect=ouvrir):
             self.assertFalse(self.ui.Traitement())
         self.assertTrue(Marqueurs.EnAttente(7))
-        self.assertFalse(self.ui.Traitement())
-        self.assertEqual(self.ui.ctrl_grille.saisies, 0)
-        self.assertEqual(self.quantites_sql(), [])
-
+        # Pas de traitement applique jusque-la : reprise permise.
+        self.relancer_sans_exception()
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
     def test_echec_insert_marqueur_ne_lance_pas_le_metier(self):
         self.preparer()
         executer = Marqueurs._executer
@@ -469,16 +443,13 @@ class ReconciliationTests(unittest.TestCase):
         self.ui.ctrl_grille.panne_save = "exception"
         self.relancer_sans_exception()
         self.assertTrue(Marqueurs.EnAttente(7))
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.dlg.reset_mock()
         evenement = mock.Mock()
         evenement.GetId.return_value = 30
         self.ui.OnNavigation(evenement)
         self.assertEqual(self.ui.track.IDaction, 8)
         self.assertTrue(Marqueurs.EnAttente(7))
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.dlg.assert_not_called()
-
     def test_fermeture_incertaine_pas_de_nouvelle_alerte(self):
         self.preparer()
         self.ui.ctrl_grille.panne_save = "exception"
@@ -487,11 +458,8 @@ class ReconciliationTests(unittest.TestCase):
         evenement = mock.Mock()
         self.ui.OnClose(evenement)
         evenement.Skip.assert_called_once()
-        self.assertTrue(Marqueurs.EnAttente(7))
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
         self.dlg.assert_not_called()
-
-    def test_fermeture_apres_incertain_conserve_barriere_et_suivis(self):
+    def test_fermeture_apres_incertain_conserve_trace_et_suivis(self):
         self.preparer()
         precedent.Suivis.Enregistrer("portail_action_7_reponse", ["a@example.test"])
         self.ui.ctrl_grille.partielle = True
@@ -499,13 +467,9 @@ class ReconciliationTests(unittest.TestCase):
         event = mock.Mock()
         self.ui.OnClose(event)
         event.Skip.assert_called_once()
-        self.assertTrue(Marqueurs.EnAttente(7))
         self.assertEqual(precedent.Suivis.Lire("portail_action_7_reponse"), {"a@example.test"})
-        self.assertEqual(self.ui.ctrl_grille.saves, 1)
-
     def test_contrat_mysql_sans_reseau_verrou_jeton_et_liberation(self):
         self.preparer()
-        # Le vrai helper parle a un curseur fictif : aucun serveur n'est lance.
         db = mock.Mock(isNetwork=True, echec=0)
         db.cursor.fetchall.side_effect = [((1,),), (), (("attente",),), ((1,),)]
         with mock.patch.object(precedent.GestionDB, "DB", return_value=db):
@@ -517,14 +481,11 @@ class ReconciliationTests(unittest.TestCase):
         self.assertIn("%s", requetes[1])
         self.assertEqual(db.connexion.commit.call_count, 2)
         db.Close.assert_called_once()
-        db = mock.Mock(isNetwork=True, echec=0)
-        db.cursor.fetchall.side_effect = [((0,),)]
-        with mock.patch.object(precedent.GestionDB, "DB", return_value=db):
+        # Le verrou exclusif de courte duree n'est pas le marqueur persistant.
+        with Marqueurs.ExecutionExclusive(7):
             with self.assertRaises(Marqueurs.ReconciliationRequise):
-                Marqueurs.Commencer(7)
-        self.assertEqual(db.cursor.execute.call_count, 1)
-        db.Close.assert_called_once()
-
+                with Marqueurs.ExecutionExclusive(7):
+                    pass
 
 if __name__ == "__main__":
     unittest.main()

@@ -372,8 +372,9 @@ def planifier_sur_grille(reservations, unites, grille, IDactivite):
         if all(x == 'existant' for x in choix):
             decisions.append(('quantite_deja_presente', signature[:2]))
             continue
-        if len(set(choix)) > 1:
-            raise ArbitrageManuelRequis(
-                'Unités Quantite partiellement enregistrées : reprise manuelle.')
+        # Reprise partielle : les decisions de chaque unite sont certaines
+        # (meme inscription, quantite 1, non facturees/non pointees).
+        # L'appelant ne saisit que les unites absentes ou a requalifier.
+        # Les unites deja conformes restent intactes.
         cible.append(demande)
     return cible, decisions

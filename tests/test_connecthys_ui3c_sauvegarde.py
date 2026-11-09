@@ -250,7 +250,7 @@ class SauvegardeEchecTests(unittest.TestCase):
         self.assertFalse(self.ui._traitement_en_cours)
         self.assertEqual(self.ui.track.Refresh.call_count, 1)
 
-    def test_fermeture_et_navigation_interdites_pendant_echec_sql(self):
+    def test_fermeture_et_navigation_accessibles_apres_echec_sql(self):
         self.echec_sql = True
         compteur = []
         def simulation(**kw):
@@ -264,14 +264,14 @@ class SauvegardeEchecTests(unittest.TestCase):
             event = mock.Mock()
             event.CanVeto.return_value = True
             self.ui.OnClose(event)
-            event.Veto.assert_called_once()
-            event.Skip.assert_not_called()
+            event.Skip.assert_called_once()
+            event.Veto.assert_not_called()
             self.ui.OnBoutonFermer(None)
-            self.ui.EndModal.assert_not_called()
+            self.ui.EndModal.assert_called_once_with(Module.wx.ID_CANCEL)
             nav = mock.Mock()
             nav.GetId.return_value = 30
-            self.assertFalse(self.ui.OnNavigation(nav))
-            self.assertEqual(self.ui.track.IDaction, 7)
+            self.ui.OnNavigation(nav)
+            self.assertEqual(self.ui.track.IDaction, 8)
             self.assertEqual(compteur, [1])
             self.assertEqual(self.etat_sql(), ("attente", None, None))
 
