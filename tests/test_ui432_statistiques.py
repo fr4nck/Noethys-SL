@@ -3,8 +3,9 @@
 import ast
 import contextlib
 import datetime
+import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -212,6 +213,44 @@ class DialogueStatistiquesTests(unittest.TestCase):
                       "Les modifications ulterieures appartiennent a Stats visible")
         self.assertEqual(vue.MAJpageAffichee.call_count, 2)
         self.assertEqual(dialogue.Destroy.call_count, 2)
+
+
+    def test_lanceur_mainframe_detruit_stats_si_dialogue_echoue(self):
+        chemin = ROOT / "noethys" / "Noethys.py"
+        module = ModuleType("Dlg")
+        fenetre = mock.Mock()
+        fenetre.ModificationParametres.return_value = True
+        fenetre.ShowModal.side_effect = RuntimeError("fermeture fictive")
+        proprietaires = []
+        module.DLG_Stats = SimpleNamespace(
+            Dialog=lambda parent: proprietaires.append(parent) or fenetre)
+        contexte = {
+            "UTILS_Utilisateurs": SimpleNamespace(
+                VerificationDroitsUtilisateurActuel=lambda *args: True),
+        }
+        ouvrir = charger(chemin, "MainFrame", "On_outils_stats", contexte)
+        parent = object()
+        with mock.patch.dict(sys.modules, {"Dlg": module}):
+            with self.assertRaisesRegex(RuntimeError, "fermeture fictive"):
+                ouvrir(parent, None)
+        self.assertEqual(proprietaires, [parent])
+        fenetre.Destroy.assert_called_once_with()
+
+    def test_lanceur_mainframe_detruit_stats_si_parametres_annules(self):
+        chemin = ROOT / "noethys" / "Noethys.py"
+        module = ModuleType("Dlg")
+        fenetre = mock.Mock()
+        fenetre.ModificationParametres.return_value = False
+        module.DLG_Stats = SimpleNamespace(Dialog=lambda parent: fenetre)
+        contexte = {
+            "UTILS_Utilisateurs": SimpleNamespace(
+                VerificationDroitsUtilisateurActuel=lambda *args: True),
+        }
+        ouvrir = charger(chemin, "MainFrame", "On_outils_stats", contexte)
+        with mock.patch.dict(sys.modules, {"Dlg": module}):
+            ouvrir(object(), None)
+        fenetre.ShowModal.assert_not_called()
+        fenetre.Destroy.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -2643,9 +2643,13 @@ class MainFrame(wx.Frame):
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("outils_stats", "consulter") == False : return
         from Dlg import DLG_Stats
         dlg = DLG_Stats.Dialog(self)
-        if dlg.ModificationParametres(premiere=True) == True :
-            dlg.ShowModal() 
-        dlg.Destroy()
+        try:
+            if dlg.ModificationParametres(premiere=True) == True:
+                dlg.ShowModal()
+        finally:
+            # En cas d'erreur de parametrage ou de calcul, ne pas laisser
+            # un dialogue Stats cache vivant avec ses fenetres descendantes.
+            dlg.Destroy()
 
     def On_outils_nomadhys_synchro(self, event):
         from Dlg import DLG_Synchronisation
