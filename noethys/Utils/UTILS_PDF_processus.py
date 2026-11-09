@@ -77,6 +77,23 @@ def _processus(conn, source, comptes, options, modele, chemin):
                     pooling=False)
 
         GestionDB.DB = DBSource
+
+        # Les anciens imports Noethys attendent le paquet ObjectListView.
+        # Dans un processus spawn, le chemin interne ObjectListView/ peut
+        # passer avant noethys/ et faire importer ObjectListView.py comme
+        # module top-level, ce qui invalide ses imports relatifs.
+        import sys
+        import importlib
+        racine_noethys = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        source_olv = os.path.join(racine_noethys, "ObjectListView", "__init__.py")
+        if os.path.isfile(source_olv):
+            if racine_noethys in sys.path:
+                sys.path.remove(racine_noethys)
+            sys.path.insert(0, racine_noethys)
+            paquet_olv = importlib.import_module("ObjectListView")
+            if not hasattr(paquet_olv, "__path__"):
+                raise ImportError("ObjectListView doit etre charge comme paquet")
+
         from Utils import UTILS_Impression_facture
         UTILS_Impression_facture.Impression(
             comptes, options, IDmodele=modele,
