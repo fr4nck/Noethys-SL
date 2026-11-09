@@ -217,18 +217,19 @@ def GetDictAges(DB, dictParametres, mode_tranches=False) :
 DICT_DISTANCES_VILLES = {"dictParametres" : {}, "dictDistances" : {} }
 
 def GetDistancesVilles(dictParametres, origine="", destinations=[]):
+    # Les distances dependent des villes, pas seulement des filtres Stats.
+    # Figer tous les arguments pour detecter un changement de source,
+    # meme lorsque le dictionnaire de parametres est modifie sur place.
+    import copy
     global DICT_DISTANCES_VILLES
-    
-    # Vérifie si les données n'existent pas déjà
-    if DICT_DISTANCES_VILLES["dictParametres"] == dictParametres :
+    cle = copy.deepcopy((dictParametres, origine, destinations))
+    if DICT_DISTANCES_VILLES.get("cle") == cle:
         return DICT_DISTANCES_VILLES["dictDistances"]
-    
-    # Sinon on les recherche
+
     from Utils import UTILS_Distances_villes
-    dictDistances = UTILS_Distances_villes.GetDistances(origine, destinations) 
-    
-    # Mémorisation des résultats
-    DICT_DISTANCES_VILLES["dictParametres"] = dictParametres
+    dictDistances = UTILS_Distances_villes.GetDistances(origine, destinations)
+
+    DICT_DISTANCES_VILLES["cle"] = cle
     DICT_DISTANCES_VILLES["dictDistances"] = dictDistances
     return dictDistances
 
@@ -246,9 +247,8 @@ def GetDictVilles(DB, dictParametres):
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
     conditionsActivites = MODELES.GetConditionActivites(dictParametres)
 
-    from Utils import UTILS_Titulaires
-    dictTitulaires = UTILS_Titulaires.GetTitulaires() 
-    
+    # Aucun recours a UTILS_Titulaires : son resultat n'etait jamais utilise
+    # et il chargeait toutes les familles, les individus et les rattachements.
     # Récupère les adresses de tous les individus de la base
     req = """SELECT IDindividu, nom, prenom, rue_resid, cp_resid, ville_resid FROM individus;"""
     DB.ExecuterReq(req)
