@@ -1,0 +1,127 @@
+name: Noethys SL wx - Connecthys executable installe fictif
+
+# Construction et installation sur runner Windows jetable : JAMAIS de release.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-connecthys-install-smoke-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executable-fictif:
+    name: Construire installer et ouvrir Noethys sur profil fictif
+    runs-on: windows-latest
+    timeout-minutes: 55
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer dependances wx et PyInstaller
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Dependances Noethys manquantes' }
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+          if ($LASTEXITCODE -ne 0) { throw 'Dependances wx et PyInstaller manquantes' }
+          python -m compileall -q noethys
+          if ($LASTEXITCODE -ne 0) { throw 'Code Python invalide' }
+          Write-Host "SOURCE=$env:GITHUB_SHA"
+      - name: Verifier le rendu wx Connecthys de la source
+        run: python -m unittest -v tests.test_connecthys_gui_recette_wx
+      - name: Construire un vrai exe Windows non publie
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
+          if ($LASTEXITCODE -ne 0) { throw 'Construction PyInstaller impossible' }
+          if (-not (Test-Path 'dist/Noethys/Noethys.exe')) { throw 'Exe absent' }
+          foreach ($res in @('Static', 'Versions.txt', 'Licence.txt', 'Icone.ico')) {
+            if (-not (Test-Path (Join-Path 'dist/Noethys' $res))) {
+              throw "Ressource manquante : $res"
+            }
+          }
+          if (Test-Path 'dist/Noethys/_internal') { throw 'Layout exe incorrect' }
+      - name: Installer un Setup de recette dans le dossier temporaire du runner
+        shell: pwsh
+        run: |
+          Copy-Item 'dist/Noethys' 'dist/Noethys-installable' -Recurse
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup indisponible' }
+          }
+          & $iscc '/DMyAppVersion=0.1.0-rc.10.55' 'packaging\vanilla-installer.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Setup de recette impossible' }
+          $setup = (Resolve-Path 'installer-output/Noethys-Vanilla-Setup.exe').Path
+          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'connecthys-install-diagnostics'
+          New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
+          $argsInstall = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
+                           '/SP-', "/DIR=`"$cible`"",
+                           "/LOG=`"$diagnostics\setup.log`"")
+          $resultat = Start-Process -FilePath $setup -ArgumentList $argsInstall -Wait -PassThru
+          if ($resultat.ExitCode -ne 0) { throw "Installation echouee : $($resultat.ExitCode)" }
+          if (-not (Test-Path (Join-Path $cible 'Noethys.exe'))) {
+            throw 'Noethys.exe absent du dossier installe'
+          }
+          Write-Host "Setup installe dans le RUNNER_TEMP : $cible"
+      - name: Creer la base fictive et lancer le vrai exe installe
+        shell: pwsh
+        run: |
+          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
+          $portable = Join-Path $cible 'Portable'
+          New-Item -ItemType Directory -Path $portable -Force | Out-Null
+          python tests/recette_creer_fichier_fictif.py . $portable
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture locale Noethys invalide' }
+          foreach ($f in @('Config.json', 'Data/Recette_DATA.dat')) {
+            if (-not (Test-Path (Join-Path $portable $f))) {
+              throw "Fichier local fictif manquant : $f"
+            }
+          }
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'connecthys-install-diagnostics'
+          $rapport = Join-Path $diagnostics 'demarrage-installe.log'
+          $env:NOETHYS_DIAGNOSTIC_DEMARRAGE = $rapport
+          $env:NOETHYS_DIAGNOSTIC_DELAI_PILES = '20'
+          $exe = Join-Path $cible 'Noethys.exe'
+          $processus = Start-Process -FilePath $exe -WorkingDirectory $cible -WindowStyle Hidden -PassThru
+          $termine = $false
+          $limite = [DateTime]::UtcNow.AddSeconds(120)
+          try {
+            while ([DateTime]::UtcNow -lt $limite -and -not $processus.HasExited) {
+              if ((Test-Path $rapport) -and
+                  (Select-String -LiteralPath $rapport -Pattern ' ETAPE oninit_fin' -Quiet)) {
+                $termine = $true
+                break
+              }
+              Start-Sleep -Seconds 2
+            }
+          }
+          finally {
+            if (-not $processus.HasExited) {
+              Stop-Process -Id $processus.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+          if (Test-Path $rapport) {
+            Select-String -LiteralPath $rapport -Pattern ' (DEBUT|ETAPE|EXCEPTION|FIN_PROCESSUS)' |
+              ForEach-Object { Write-Host $_.Line }
+          }
+          if (-not $termine) { throw 'Exe installe : etape oninit_fin absente' }
+          Write-Host 'PASS exe installe et initialise avec base fictive'
+      - name: Conserver les diagnostics non personnels seulement
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: connecthys-install-fictif-diagnostics
+          path: ${{ runner.temp }}/connecthys-install-diagnostics/*
+          if-no-files-found: warn
+          retention-days: 7
