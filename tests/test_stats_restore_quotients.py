@@ -65,7 +65,8 @@ class QuotientsTests(unittest.TestCase):
             GetDateExtremeActivites=lambda *a, **k:
                 dates[0] if k["typeDate"] == "date_debut" else dates[1])
         cache = {"dictParametres": {}, "dictResultats": {}}
-        env = {"MODELES": modeles, "DICT_QUOTIENTS": cache,
+        env = {"MODELES": modeles, "datetime": datetime,
+               "DICT_QUOTIENTS": cache,
                "_TranchesTarifsExclusives": charger("_TranchesTarifsExclusives"),
                "_QuotientsAlaDate": charger("_QuotientsAlaDate", {"datetime": datetime})}
         fn = charger("GetDictQuotients", env)
