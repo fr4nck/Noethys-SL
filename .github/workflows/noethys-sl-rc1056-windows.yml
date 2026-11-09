@@ -7,8 +7,8 @@ name: Noethys SL wx - candidat 0.1.0 RC10.56 Windows (Setup + portable)
 # Par défaut, un lancement manuel ou un commit marqué [candidate rc105] ne
 # produit QUE des artefacts de recette (candidat + diagnostics de démarrage).
 # La publication est un job séparé, seul à disposer de l'écriture sur le
-# dépôt, exécuté uniquement sur lancement manuel depuis wx avec publier=true
-# ET après la réussite de toutes les barrières du job build.
+# dépôt, déclenché uniquement par un lancement manuel publier=true OU par
+# un commit wx portant [publish rc1056], après toutes les barrières du build.
 on:
   workflow_dispatch:
     inputs:
@@ -301,6 +301,27 @@ jobs:
           -v
 
           # Version RC10.56 de recette : ne pas valider le fonctionnement OCR (en développement).
+      - name: Q4 — 33 objets SQL, 15 PNG Agg et 15 MemoryFS natifs Windows (base fictive)
+        env:
+          MPLBACKEND: Agg
+          NOETHYS_STATS_Q4_AGG: '1'
+          NOETHYS_STATS_Q4_WX: '1'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: >-
+          python -m unittest -v
+          tests.test_stats_q4_familles_sqlite
+          tests.test_stats_q4_caisses_membres_sqlite
+          tests.test_stats_q4_graphes_familles_donnees
+          tests.test_stats_q4_individus_nombre_sqlite
+          tests.test_stats_q4_individus_genre_ages_sqlite
+          tests.test_stats_q4_individus_scolarite_sqlite
+          tests.test_stats_q4_individus_profession_anciennete_sqlite
+          tests.test_stats_q4_comparatifs_sqlite
+          tests.test_stats_q4_individus_villes_sqlite
+          tests.test_stats_q4_familles_qf_objets_sqlite
+          tests.test_stats_q4_matplotlib_agg
+          tests.test_stats_q4_wx_vfs_end_to_end
+
       - name: Construire le binaire wxPython
         run: pyinstaller --noconfirm --clean packaging/vanilla-noethys.spec
 
@@ -558,9 +579,9 @@ jobs:
           if ($env:GITHUB_REF_NAME -ne 'wx') { throw 'RC10.56 doit provenir de wx' }
 
   publish:
-    # Seul job autorisé à écrire sur le dépôt (tag et release). Jamais exécuté
-    # sur un push, ni sur un lancement manuel sans publier=true, ni hors wx,
-    # ni si une barrière du job build a échoué (needs).
+    # Seul job autorisé à écrire sur le dépôt (tag et release).
+    # Push avec marqueur explicite [publish rc1056], ou dispatch publier=true,
+    # uniquement sur wx et après toutes les barrières build (needs).
     needs: build
     if: >-
       github.ref == 'refs/heads/wx' &&
