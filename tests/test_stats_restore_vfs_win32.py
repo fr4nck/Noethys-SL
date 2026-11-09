@@ -74,13 +74,20 @@ def scenario():
             fichier = None
             mesures["ouvertures_vfs"] += 1
         assert fs.OpenFile("memory:" + nom_second) is not None, "Image d'un autre dialogue perdue"
-        graphes[0].__del__()
-        assert fs.OpenFile("memory:" + graphes[0].nomImage) is None, "Image non liberee"
-        assert fs.OpenFile("memory:" + nom_second) is not None
-        graphes[1].__del__()
-        assert fs.OpenFile("memory:" + nom_second) is None
+        # Ne jamais appeler __del__() directement : Python le rappellerait
+        # au relachement effectif de l'objet, avec risque de double finalisation
+        # des objets natifs wx. Qualifier la destruction par perte de reference.
+        premier, second = graphes
+        nom_premier = premier.nomImage
         graphes.clear()
+        del graphe  # ancienne variable de boucle maintenant "second"
+        del premier
         gc.collect()
+        assert fs.OpenFile("memory:" + nom_premier) is None, "Image non liberee"
+        assert fs.OpenFile("memory:" + nom_second) is not None
+        del second
+        gc.collect()
+        assert fs.OpenFile("memory:" + nom_second) is None
         for index in range(100):
             graphe = GrapheFictif("graphe_nombre_individus")
             graphe.MemoriseImage(None)
@@ -89,10 +96,10 @@ def scenario():
             assert fichier is not None, "Ressource absente a l'ouverture"
             fichier = None
             mesures["ouvertures_vfs"] += 1
-            graphe.__del__()
+            del graphe
+            gc.collect()
             assert fs.OpenFile("memory:" + nom) is None, "Ressource persistante"
             mesures["fermetures"] += 1
-            del graphe
         gc.collect()
         mesures["pass"] = True
     finally:

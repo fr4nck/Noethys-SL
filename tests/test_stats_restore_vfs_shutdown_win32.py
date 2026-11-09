@@ -41,7 +41,7 @@ def scenario(mode):
         wx.MemoryFSHandler.RemoveFile("test-q3-natif")
         bitmap = None
         signaler("image-liberee")
-    if mode in ("graphe", "graphe_fermeture"):
+    if mode in ("graphe", "graphe_fermeture", "graphe_gc"):
         from tests.test_stats_restore_vfs_win32 import charger_graphe
         methodes = charger_graphe()
 
@@ -61,12 +61,16 @@ def scenario(mode):
         for index in range(5):
             graphe.MemoriseImage(None)
         signaler("5-actualisations")
+        if mode == "graphe_gc":
+            graphe = None
+            gc.collect()
+            signaler("graphe-gc-naturel")
         if mode == "graphe_fermeture":
             graphe.__del__()
             graphe = None
             gc.collect()
             signaler("graphe-libere")
-    if mode in ("handler", "bitmap", "graphe_fermeture"):
+    if mode in ("handler", "bitmap", "graphe_fermeture", "graphe_gc"):
         fs = None
         gc.collect()
         signaler("filesystem-libere")
@@ -103,6 +107,9 @@ class FermetureNativeTests(unittest.TestCase):
 
     def test_graphe_vfs_avec_liberation(self):
         self.verifier_mode("graphe_fermeture")
+
+    def test_graphe_libere_naturellement(self):
+        self.verifier_mode("graphe_gc")
 
     def test_graphe_sans_liberation_expresse(self):
         self.verifier_mode("graphe")
