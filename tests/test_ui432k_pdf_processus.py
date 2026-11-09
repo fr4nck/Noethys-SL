@@ -22,13 +22,13 @@ class ProcessusNoedocTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import wx
-        cls.app = wx.GetApp() or wx.App(False)
         from tests.test_vanilla_facture_prestation_sans_activite import (
             _creer_base_facture_avec_prestation_sans_activite,
             _dict_options_minimal,
         )
-        cls.creer = _creer_base_facture_avec_prestation_sans_activite
-        cls.options_min = _dict_options_minimal
+        cls.app = wx.GetApp() or wx.App(False)
+        cls.creer = staticmethod(_creer_base_facture_avec_prestation_sans_activite)
+        cls.options_min = staticmethod(_dict_options_minimal)
 
     def setUp(self):
         self.base, self.modele = self.creer()
