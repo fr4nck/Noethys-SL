@@ -21,8 +21,8 @@ class InterfaceHistoriqueTests(unittest.TestCase):
             # inutilisable. Aucun libelle historique ne doit disparaitre.
             ajouts = {
                 "UTILS_Sauvegarde_auto.py": {
-                    "Le dossier de sauvegarde configure pour cette procedure est indisponible sur cet ordinateur :\\n\\n%s\\n\\n%s\\n\\nChoisissez un autre dossier. Ce choix sera conserve uniquement sur cet ordinateur apres une sauvegarde reussie.",
-                    "Impossible d'utiliser le dossier choisi :\\n\\n%s",
+                    "Le dossier de sauvegarde configure pour cette procedure est indisponible sur cet ordinateur :\n\n%s\n\n%s\n\nChoisissez un autre dossier. Ce choix sera conserve uniquement sur cet ordinateur apres une sauvegarde reussie.",
+                    "Impossible d'utiliser le dossier choisi :\n\n%s",
                     "La sauvegarde est creee, mais le nouveau dossier n'a pas pu etre memorise sur cet ordinateur."
                 }
             }
