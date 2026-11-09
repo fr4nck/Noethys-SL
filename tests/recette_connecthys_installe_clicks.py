@@ -255,6 +255,7 @@ try:
     env=os.environ.copy()
     env["NOETHYS_DIAGNOSTIC_DEMARRAGE"]=str(diagnostic)
     env["NOETHYS_DIAGNOSTIC_DELAI_PILES"]="15"
+    env["NOETHYS_SL_RECETTE_CONNECTHYS_DIAGNOSTIC"]="1"
     proc=subprocess.Popen([str(exe)],cwd=str(exe.parent),env=env)
     valider_saisie()
 finally:

@@ -326,7 +326,24 @@ class ListView(GroupListView):
             return
 
         # Ouverture de la fenêtre de traitement des demandes
-        dlg = DLG_Saisie_portail_demande.Dialog(self, track=tracks[0], tracks=self.GetObjects())
+        # Trace autorisee uniquement par le banc de recette fictif : evite
+        # que les exceptions de callbacks wx soient masquees en executable
+        # windowed (sans console). Aucun changement du flux normal.
+        import os
+        diagnostic_recette = (
+            os.environ.get("NOETHYS_SL_RECETTE_CONNECTHYS_DIAGNOSTIC") == "1"
+        )
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_COMMENCER nb=%d" % len(tracks), flush=True)
+        try:
+            dlg = DLG_Saisie_portail_demande.Dialog(
+                self, track=tracks[0], tracks=self.GetObjects())
+        except Exception:
+            if diagnostic_recette:
+                import traceback
+                print("RECETTE_CONNECTHYS_CONSTRUCTION_EXCEPTION\n%s" %
+                      traceback.format_exc(), flush=True)
+            raise
         dlg.ShowModal()
         dlg.Destroy()
 
