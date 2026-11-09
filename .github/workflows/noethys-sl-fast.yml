@@ -71,7 +71,7 @@ jobs:
         run: python -m unittest -v tests.test_ui432_statistiques tests.test_ui432_audit_transversal
 
       - name: Contrats STATS-RESTORE (ages, QF, VFS et impression, sans donnees reelles)
-        run: python -m unittest -v tests.test_stats_restore_ages tests.test_stats_restore_quotients tests.test_stats_restore_vfs tests.test_stats_restore_impression tests.test_stats_restore_qf_historique tests.test_stats_restore_qf_sqlite tests.test_stats_restore_vfs_registration tests.test_stats_restore_preview tests.test_stats_restore_cache tests.test_stats_restore_inventory tests.test_stats_restore_isolation tests.test_stats_restore_distances_cache tests.test_stats_restore_geographie tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite
+        run: python -m unittest -v tests.test_stats_restore_ages tests.test_stats_restore_quotients tests.test_stats_restore_vfs tests.test_stats_restore_impression tests.test_stats_restore_qf_historique tests.test_stats_restore_qf_sqlite tests.test_stats_restore_vfs_registration tests.test_stats_restore_preview tests.test_stats_restore_cache tests.test_stats_restore_inventory tests.test_stats_restore_isolation tests.test_stats_restore_distances_cache tests.test_stats_restore_geographie tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite
 
       - name: Qualifier le consommateur session-attendance/1 isolé
         run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery tests.test_noethys_sl_interdomain_secrets tests.test_noethys_sl_interdomain_mailbox_client
