@@ -1,5 +1,18 @@
 # STATS-RESTORE — lot initial de restauration (09/11/2026)
 
+## R2 — intégrations vérifiées le 09/11/2026
+
+- **Branches** : main `e8102100`, qt `7d13e38a`, wx `ecc226b0` (références de la session ; contrôler les HEAD avant poursuite).
+- **Âges** : décennies entières, zéro distinct de l'inconnu, tri des valeurs manquantes ; tests ciblés PASS sur CI Linux wx.
+- **Quotients** : tranches tarifaires exclusives ; modes Présents/Inscrits ; photographie des QF valides à la fin de la période des Présents, ou au jour courant pour les Inscrits. Plusieurs valeurs actives contradictoires -> catégorie « QF à vérifier » ; zéro reste numérique. Les cinq titres QF affichent la date. Cette politique exige une **recette métier** car plusieurs types de QF peuvent coexister.
+- **QF tests** : test historique en Python et test SQL réel sur SQLite synthétique, sans base PMSL. La CI ciblée #42648922381 a révélé cinq erreurs (comparaison de l'étiquette avec un nombre + fixture AST sans datetime), corrigées sur les trois branches ; CI #42649372360 : job syntaxe et tests STATS-RESTORE **PASS** ; job Windows annulé par un autre push.
+- **Images** : UUID par objet ; un seul enregistrement global du gestionnaire MemoryFS ; conversion avant remplacement de l'image ; tentative de libération à la destruction ; l'aperçu conserve une référence au moteur de graphiques. Tests isolés PASS sur la CI Linux, mais **fuites et comportement wx natif non qualifiés**.
+- **Impression** : calcul uniquement des pages cochées et sélection effective des objets enfants ; tests isolés PASS.
+- **Caches** : état validé seulement après réussite, copie des paramètres, fermeture SQL/figures sur les chemins corrigés ; test ajouté `tests/test_stats_restore_cache.py` sur trois branches ; CI Windows courante #42650313562 au moment de cette consignation : job syntaxe PASS, Windows encore en cours.
+- **Concurrence GitHub** : changements Connecthys/Facturation sur wx observés et préservés ; aucun merge global ni force-push. CI précédente #42643880363 : un FAIL de contrat Connecthys sur 2 261 tests, indépendant de STATS-RESTORE ; à qualifier sur HEAD final.
+- **Hors qualification** : 11 pages en application installée, impression/zoom wx réel, cycles de 100 ouvertures, mémoire, longueurs SQL, requête HTTP distances et stabilité de la fenêtre principale #432. STOP-GATE de publication maintenu. Aucune base réelle, migration, installateur ou release.
+
+
 ## État vérifié
 - Audit statique sur les sources, aucune exécution de l'application Windows ou base de production.
 - HEAD au prévol : main 07d672a2, wx bcc8a450, qt b6bc25ba.

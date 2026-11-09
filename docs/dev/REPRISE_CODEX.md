@@ -1,5 +1,13 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## STATS-RESTORE R2 — correctifs transversaux et qualification (09/11/2026)
+
+- Correctifs depuis le premier lot : QF historiques à date, valeur concurrente « QF à vérifier », suppression des collisions de tranches, titres datés, ressources MemoryFS, prévisualisation, caches, sélection et calculs d'impression. Présents sur main, qt et wx via modifications adaptées, sans fusion globale.
+- Journal complet : [STATS_RESTORE_20261109.md](../recette/STATS_RESTORE_20261109.md). Référence wx `ecc226b0`; main `e8102100`; qt `7d13e38a` ; recontrôler les SHA courants.
+- CI ciblée wx #42649372360 syntaxe PASS ; sa partie Windows annulée par push concurrent. CI #42650313562 syntaxe PASS, Windows en cours lors du contrôle. Ne pas déclarer la RC qualifiée.
+- STOP-GATE : politique des QF multi-types à confirmer sur recette ; gestion effective du VFS natif et de l'impression à vérifier ; gels SQL/réseau et issue #432 ouverts ; 11 pages à qualifier sur poste Windows et base fictive. Aucune publication autorisée.
+
+
 ## UI-432K — reprise traitement unitaire (09/11/2026)
 
 - Lot sur wx : [`3ff57b3d`](https://github.com/fr4nck/Noethys-SL/commit/3ff57b3d1ac4440300fa27ad7e9b14965a430125). Lecture SQL/aggregation d'impression facture possible sur worker sans acces wx, connexion independante non poolee, annulation sans envoi. Tests fictifs et HWND Windows integres a la CI rapide.
