@@ -1,4 +1,6 @@
 name: Noethys SL wx - candidat 0.1.0 RC10.56 Windows (Setup + portable)
+# Autorisation explicite de la direction pour la preversion RC10.56 ;
+# publication uniquement sur PASS du build et de la suite de tests renforcee.
 
 # Par défaut, un lancement manuel ou un commit marqué [candidate rc105] ne
 # produit QUE des artefacts de recette (candidat + diagnostics de démarrage).
