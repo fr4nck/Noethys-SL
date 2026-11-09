@@ -40,6 +40,13 @@
 | 32 | familles / Quotient familial | `Tableau_qf_defaut` | PASS AST | PARTIEL : moteur QF SQLite | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
 | 33 | familles / Quotient familial | `Graphe_qf_defaut` | PASS AST | PARTIEL : moteur QF SQLite | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
 
+## Qualification transversale MemoryFS du composant graphique
+
+- Windows natif wxPython 4.2.5, Python 3.10, [#42662525508](https://github.com/fr4nck/Noethys-SL/actions/runs/42662525508), candidat `fb1e320a` : **7/7 PASS**, code de sortie normal, 100 actualisations, 100 créations/libérations, 202 ouvertures de ressources.
+- Correctif sur main `68bc99fe`, wx `fb1e320a`, qt `66795742` : emploi des opérations statiques MemoryFS sans instance par graphique.
+- Cela qualifie un **composant technique commun** mais ne transforme aucune colonne « Rendu graphique/HTML » ou « Runtime Windows installé » individuelle du tableau en PASS. Cycle de vie d'un aperçu d'impression réel, mémoire de longue durée et expérience sur l'installation utilisateur restent NON TESTÉS.
+- La CI rapide sur wx `fb1e320a` a validé 33/33 tests ciblés Ubuntu, mais son job Windows général a été annulé lors d'un push Connecthys concurrent. La CI du descendant `8e1aaf6e` était en cours au dernier contrôle.
+
 ## Contrôles transversaux et limites
 
 - **Nombre d'objets :** 33, **pages :** 11, **rubriques :** 2. PREUVE : contrat AST, pas de recette UI intégrale.

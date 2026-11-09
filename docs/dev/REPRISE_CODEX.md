@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## STATS-RESTORE Q3 — MemoryFS Windows qualifié, STOP-GATE RC maintenu (09/11/2026)
+
+- **Rouge→vert natif** : le cycle de vie VFS a été reproduit en échec (`0xC000041D`, #42655909784), isolé par comparaison gestionnaire par objet vs classe statique (#42661604488) et corrigé sur main `68bc99fe`, qt `66795742`, wx `fb1e320a`. La CI Windows ciblée #42662525508 : **7/7 PASS**, 100 actualisations + 100 créations/libérations + 202 ouvertures, code de sortie normal.
+- **CI ciblée Ubuntu** #42662525686 : 33/33 STATS-RESTORE PASS sur wx `fb1e320a`, job global Windows annulé par push concurrent Connecthys. Nouveau run général #42662954493 sur wx `8e1aaf6e` encore en cours lors du contrôle ; pas de verdict global inventé.
+- **Matrice** : [STATS_Q3_MATRICE_20261109.md](../recette/STATS_Q3_MATRICE_20261109.md), 11 pages / 33 objets, PASS inventaire uniquement ; SQL/métier, rendu, impression et installation majoritairement NON TESTÉS individuellement. [Journal détaillé](../recette/STATS_RESTORE_20261109.md).
+- **Restes** : QF multi-types métier, moteur MySQL fictif, blocages SQL/Matplotlib et distances HTTP synchrones, stabilité HWND #432, impression/zoom et recette installée. STOP-GATE publication et packaging maintenu. Aucune donnée utilisateur ni branche historique touchée.
+
 ## STATS-RESTORE Q3 — preuves d'isolation cache, qualification Windows en cours (09/11/2026)
 
 - Voir [rapport STATS-RESTORE](../recette/STATS_RESTORE_20261109.md) pour les tests rouges/verts et la portée des correctifs sur main/wx/qt.
