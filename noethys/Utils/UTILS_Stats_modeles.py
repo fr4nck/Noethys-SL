@@ -510,12 +510,15 @@ class Graphe(Objet):
             self.decalage_x = 0.5
 
     def MemoriseImage(self, figure=None):
-        self.nomImage = "image-%s" % self.code
-        if self.bitmap != None :
-            try :
-                self.stockImages.RemoveFile(self.nomImage)
-            except : pass
-        
+        # Le VFS wx est global au processus, meme si chaque Graphe instancie
+        # son propre handler Python. Un nom base seulement sur le code produit
+        # une collision a la reouverture de Statistiques.
+        if not hasattr(self, "nomImage"):
+            from uuid import uuid4
+            self.nomImage = "image-%s-%s" % (self.code, uuid4().hex)
+        if self.bitmap is not None:
+            self.stockImages.RemoveFile(self.nomImage)
+
         # Mémorise l'image dans le stockImages
         self.bitmap = self.ConvertMPLtoBMP(figure)
         self.stockImages.AddFile(self.nomImage, self.bitmap , wx.BITMAP_TYPE_PNG)
