@@ -33,6 +33,7 @@ from Utils import UTILS_Config
 from Utils import UTILS_Parametres
 from Utils import UTILS_Portail_reservations as regles_reservations
 from Utils import UTILS_Portail_reconciliation
+from Utils import UTILS_Portail_situation
 SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 
 
@@ -365,6 +366,15 @@ class Dialog(wx.Dialog):
         self.ctrl_informations = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
         self.ctrl_informations.SetMinSize((-1, 40))
 
+        # Consultation uniquement : ne change ni les factures ni les adhesions.
+        self.label_situation = wx.StaticText(self, -1, _(u"Situation du jour :"))
+        self.ctrl_situation = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
+        self.ctrl_situation.SetMinSize((-1, 100))
+        self.ctrl_situation.SetToolTip(wx.ToolTip(
+            _(u"Le solde du jour exclut les opérations futures. Les factures "
+              u"sont calculées d'après les ventilations actuelles. "
+              u"Une cotisation active n'est pas nécessairement une adhésion.")))
+
         # Traitement
         self.box_traitement_staticbox = wx.StaticBox(self, wx.ID_ANY, _(u"Traitement"))
 
@@ -484,7 +494,7 @@ class Dialog(wx.Dialog):
 
         # Demande
         box_demande = wx.StaticBoxSizer(self.box_demande_staticbox, wx.VERTICAL)
-        grid_sizer_demande = wx.FlexGridSizer(rows=4, cols=2, vgap=10, hgap=10)
+        grid_sizer_demande = wx.FlexGridSizer(rows=5, cols=2, vgap=10, hgap=10)
 
         # Famille
         grid_sizer_demande.Add(self.label_famille, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
@@ -509,6 +519,10 @@ class Dialog(wx.Dialog):
         # Informations
         grid_sizer_demande.Add(self.label_informations, 0, wx.ALIGN_RIGHT, 0)
         grid_sizer_demande.Add(self.ctrl_informations, 0, wx.EXPAND, 0)
+
+        # Bilan du compte familial et adhesion de l'enfant, sans popup.
+        grid_sizer_demande.Add(self.label_situation, 0, wx.ALIGN_RIGHT, 0)
+        grid_sizer_demande.Add(self.ctrl_situation, 0, wx.EXPAND, 0)
 
         grid_sizer_demande.AddGrowableRow(1)
         grid_sizer_demande.AddGrowableCol(1)
@@ -1123,6 +1137,20 @@ class Dialog(wx.Dialog):
 
 
         self.ctrl_informations.SetTexte(texte)
+        self.MAJ_situation()
+
+    def MAJ_situation(self):
+        """Actualiser la synthese sans ralentir ou bloquer le traitement."""
+        try:
+            situation = UTILS_Portail_situation.LireSituation(
+                self.track.IDfamille, getattr(self.track, "IDindividu", None))
+            texte = UTILS_Portail_situation.FormaterSituationHtml(
+                situation, symbole=SYMBOLE)
+        except Exception:
+            # Une lecture auxiliaire indisponible n'est jamais un refus
+            # d'accepter ou de traiter une demande Connecthys.
+            texte = _(u"Situation du jour indisponible : consulter la fiche famille.")
+        self.ctrl_situation.SetTexte(texte)
 
     def OnNavigation(self, event):
         if getattr(self, "_traitement_en_cours", False):

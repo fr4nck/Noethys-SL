@@ -1,6 +1,18 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## Connecthys — synthèse familiale à l'ouverture d'une demande (09/11/2026)
+
+- Demande direction : sur « Traitement des demandes » afficher simultanément **solde au jour**, **factures impayées** (numéros, montant restant, échéances) et **adhésion en cours** pour l'enfant, sans fenêtre modale ni interruption des boutons Automatique/Manuel.
+- La zone rouge **Solde** existante reste inchangée : total familial sans borne temporelle, construit avec les prestations et règlements de la famille. Nouvelle zone de consultation **Situation du jour** indépendante ; solde arrêté à la date courante (prestations et règlements avec date <= jour). Les opérations futures en sont exclues.
+- Factures non soldées : **soldes actuels recalculés**, montants des prestations rattachées moins leurs ventilations, conformément à `OL_Factures.py` ; ne pas utiliser le solde initial mémorisé sur la facture. Les paiements non ventilés peuvent rendre le compte global créditeur tandis qu'une facture reste non soldée. Détail des trois premières factures + nombre restant, date d'échéance et total.
+- Adhésions : lecture seule des cotisations individuelles du demandeur, des cotisations familiales et des cotisations de personnes morales titulaires (codes de civilité 6-9). Dates de validité inclusives, libellé du type affiché ; une cotisation dont le type ne correspond pas à une adhésion connue est marquée **à vérifier**, et toute ambiguïté ou erreur de lecture n'est pas convertie en « absence ».
+- Implémentation `noethys/Utils/UTILS_Portail_situation.py` sans wx, lecture SQL paramétrée et calculs décimaux ; raccordement de `DLG_Saisie_portail_demande.py` après sélection, après ouverture de fiche famille et après traitement réussi. Aucune écriture, aucun email, aucun changement au moteur de réservations, aucune migration.
+- Test ajouté `tests/test_connecthys_situation.py` (jeu SQL fictif isolé, dates futures, soldes, ventilation, famille/structure, expiration, erreurs SQL, échappement HTML, contrat de raccordement). Intégré à la CI rapide Windows (sans packaging).
+- Matrice : `wx` = développement ; `main` et `qt` = absent / non qualifié ; prochain candidat Windows uniquement après tests Windows et recette d'interface. Aucune RC publiée pour ce lot.
+
+
+
 ## Connecthys — reprise sans verrou persistant, prochaine RC (09/11/2026)
 
 - Décision de direction : pouvoir utiliser **Automatique** ou **Manuel** même après une tentative de réservations interrompue ; suppression de la modale bloquante « Réconciliation requise » et du mode manuel spécial qui désactivait « Appliquer la demande ». La trace persistante devient un indicateur de reprise, jamais une quarantaine.
