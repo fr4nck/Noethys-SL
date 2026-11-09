@@ -1,6 +1,15 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## CONNECTHYS-SL — recette graphique réelle wx et correctif petits écrans (09/11/2026)
+
+- **PASS** : [CI Windows ciblée #42667482310](https://github.com/fr4nck/Noethys-SL/actions/runs/42667482310), SHA source `0274601078203960c278e3a5956aa8e74d52c84c` : **128 tests métier + 4 recettes graphiques wx PASS** (aucun test ignoré parmi les quatre graphiques). Contrôles d'écran 1044 × 800, défilement métier, commandes fixes, famille changée, adhésion, factures, solde, taux d'annulation, indisponibilité sans blocage. Screenshots fictifs dans l'[artefact du run](https://github.com/fr4nck/Noethys-SL/actions/runs/42667482310/artifacts/13697192624).
+- **Rouge→vert documenté** : run [#42666116572](https://github.com/fr4nck/Noethys-SL/actions/runs/42666116572) a détecté trois débordements verticaux ; correction dans `Dialog` par `wx.ScrolledWindow` sur la zone centrale, bandeau et boutons toujours visibles. Aucun changement des règles métier ou du schéma SQL.
+- Dossier de preuve et protocole d'installation/recette restante : [CONNECTHYS_SITUATION_FAMILIALE_WX_20261109.md](../recette/CONNECTHYS_SITUATION_FAMILIALE_WX_20261109.md).
+- **Verdict borné : PASS du dialogue source wx sur runner Windows fictif ; NON TESTÉ en exécutable installé, MySQL réel, session multi-postes ou serveur d'emails réel. STOP-GATE de publication de la prochaine RC maintenu pour ces étapes et les autres lots.** Pas de publication ni de données PMSL utilisées.
+
+
+
 ## CONNECTHYS-SL — qualification Windows dédiée de la synthèse familiale (09/11/2026)
 
 - **PASS ciblé** : [GitHub Actions #42662954503](https://github.com/fr4nck/Noethys-SL/actions/runs/42662954503), SHA `8e1aaf6ec925686c711e9e3da290305f517bb68b` : **128 tests Windows / 128 réussis** en 68,983 s. Python 3.10, wxPython 4.2.5, données SQLite fictives et garde contre les connexions réelles. Campagne indépendante des tests du module Statistiques, workflow `noethys-sl-connecthys-qualification.yml`.
