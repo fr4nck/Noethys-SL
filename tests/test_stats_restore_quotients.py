@@ -66,7 +66,8 @@ class QuotientsTests(unittest.TestCase):
                 dates[0] if k["typeDate"] == "date_debut" else dates[1])
         cache = {"dictParametres": {}, "dictResultats": {}}
         env = {"MODELES": modeles, "DICT_QUOTIENTS": cache,
-               "_TranchesTarifsExclusives": charger("_TranchesTarifsExclusives")}
+               "_TranchesTarifsExclusives": charger("_TranchesTarifsExclusives"),
+               "_QuotientsAlaDate": charger("_QuotientsAlaDate", {"datetime": datetime})}
         fn = charger("GetDictQuotients", env)
         db = FakeDB()
         resultat = fn(db, params)
