@@ -14,6 +14,7 @@ on:
       - 'tests/test_stats_q4_individus_scolarite_sqlite.py'
       - 'tests/test_stats_q4_individus_profession_anciennete_sqlite.py'
       - 'tests/test_stats_q4_comparatifs_sqlite.py'
+      - 'tests/test_stats_q4_individus_villes_sqlite.py'
       - '.github/workflows/noethys-sl-stats-q4-isole.yml'
   workflow_dispatch:
 
@@ -36,9 +37,9 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler les bancs Q4
-        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py tests/test_stats_q4_individus_genre_ages_sqlite.py tests/test_stats_q4_individus_scolarite_sqlite.py tests/test_stats_q4_individus_profession_anciennete_sqlite.py tests/test_stats_q4_comparatifs_sqlite.py
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py tests/test_stats_q4_individus_genre_ages_sqlite.py tests/test_stats_q4_individus_scolarite_sqlite.py tests/test_stats_q4_individus_profession_anciennete_sqlite.py tests/test_stats_q4_comparatifs_sqlite.py tests/test_stats_q4_individus_villes_sqlite.py
       - name: Executer les vraies methodes SQL sur SQLite fictif
-        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite tests.test_stats_q4_individus_genre_ages_sqlite tests.test_stats_q4_individus_scolarite_sqlite tests.test_stats_q4_individus_profession_anciennete_sqlite tests.test_stats_q4_comparatifs_sqlite
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite tests.test_stats_q4_individus_genre_ages_sqlite tests.test_stats_q4_individus_scolarite_sqlite tests.test_stats_q4_individus_profession_anciennete_sqlite tests.test_stats_q4_comparatifs_sqlite tests.test_stats_q4_individus_villes_sqlite
 
   sqlite-windows:
     name: Q4 - SQLite synthetique Windows
@@ -50,6 +51,6 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler les bancs Q4
-        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py tests/test_stats_q4_individus_genre_ages_sqlite.py tests/test_stats_q4_individus_scolarite_sqlite.py tests/test_stats_q4_individus_profession_anciennete_sqlite.py tests/test_stats_q4_comparatifs_sqlite.py
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py tests/test_stats_q4_individus_genre_ages_sqlite.py tests/test_stats_q4_individus_scolarite_sqlite.py tests/test_stats_q4_individus_profession_anciennete_sqlite.py tests/test_stats_q4_comparatifs_sqlite.py tests/test_stats_q4_individus_villes_sqlite.py
       - name: Executer les vraies methodes SQL sur SQLite fictif
-        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite tests.test_stats_q4_individus_genre_ages_sqlite tests.test_stats_q4_individus_scolarite_sqlite tests.test_stats_q4_individus_profession_anciennete_sqlite tests.test_stats_q4_comparatifs_sqlite
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite tests.test_stats_q4_individus_genre_ages_sqlite tests.test_stats_q4_individus_scolarite_sqlite tests.test_stats_q4_individus_profession_anciennete_sqlite tests.test_stats_q4_comparatifs_sqlite tests.test_stats_q4_individus_villes_sqlite
