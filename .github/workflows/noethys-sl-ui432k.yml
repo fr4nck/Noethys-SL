@@ -12,6 +12,8 @@ on:
       - 'noethys/Utils/UTILS_Stats_graphes_worker.py'
       - 'noethys/Utils/UTILS_Stats_unitaire.py'
       - 'noethys/Utils/UTILS_PDF_securise.py'
+      - 'noethys/Utils/UTILS_PDF_processus.py'
+      - 'noethys/Noethys.py'
       - 'noethys/Dlg/DLG_Stats.py'
       - 'tests/test_ui432k_*.py'
       - '.github/workflows/noethys-sl-ui432k.yml'
@@ -54,3 +56,4 @@ jobs:
           tests.test_ui432k_stats_win32
           tests.test_ui432k_graphes_worker
           tests.test_ui432k_graphes_win32
+          tests.test_ui432k_pdf_processus

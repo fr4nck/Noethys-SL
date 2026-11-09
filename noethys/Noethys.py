@@ -9,6 +9,12 @@
 #------------------------------------------------------------------------
 
 import os, sys
+# Les sous-processus Windows/PyInstaller doivent etre interceptes avant
+# les imports wx et les initialisations du profil utilisateur.
+if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
+
 # Diagnostic de démarrage : inactif sauf si NOETHYS_DIAGNOSTIC_DEMARRAGE est
 # défini (recette/CI). Chargé avant tout autre module pour journaliser les
 # imports, exceptions invisibles et blocages du démarrage.

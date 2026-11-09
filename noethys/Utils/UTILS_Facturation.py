@@ -18,6 +18,7 @@ from Dlg import DLG_Apercu_facture
 from Utils import UTILS_Dates
 from Utils import UTILS_Impression_facture
 from Utils import UTILS_PDF_securise
+from Utils import UTILS_PDF_processus
 from Utils import UTILS_Questionnaires
 from Utils import UTILS_Titulaires
 import FonctionsPerso
@@ -1193,6 +1194,16 @@ class Facturation():
                 parent is not None and isinstance(parent, wx.Window)
                 and wx.IsMainThread() and parent.IsShownOnScreen()
             )
+            # Phase d'essai uniquement : SQLite explicite, un seul PDF
+            # temporaire, activation volontaire. La voie historique reste
+            # la reference tant que le paquet PyInstaller n'est pas qualifie.
+            source_pdf = getattr(self, "_source_db", None)
+            processus_isole = (
+                cooperatif and supprimer_partiels
+                and os.environ.get("NOETHYS_SL_PDF_PROCESSUS") == "1"
+                and isinstance(source_pdf, str)
+                and os.path.isfile(source_pdf)
+            )
             dlgProgress = None
             if not cooperatif:
                 dlgProgress = wx.ProgressDialog(
@@ -1240,9 +1251,25 @@ class Facturation():
                                 dictComptesTemp, dictOptions,
                                 IDmodele=dictOptions["IDmodele"],
                                 ouverture=False, nomFichier=chemin)
-                        if supprimer_partiels:
+                        if processus_isole:
+                            # Les wx.Colour sont copies sur le thread GUI.
+                            comptes_pdf, options_pdf = UTILS_PDF_processus.Preparer(
+                                dictComptesTemp, dictOptions)
+                            modele_pdf = dictOptions["IDmodele"]
+                            def calcul():
+                                return UTILS_PDF_securise.Generer(
+                                    cheminFichier, lambda provisoire:
+                                        UTILS_PDF_processus.Generer(
+                                            comptes_pdf, options_pdf, modele_pdf,
+                                            provisoire, source_pdf,
+                                            donnees_pretes=True))
+                            chemin_valide = yield UTILS_Etapes_ui.TravailFond(
+                                calcul, etape="factures.generation_pdf")
+                            if chemin_valide != cheminFichier:
+                                raise RuntimeError("PDF isole non confirme")
+                        elif supprimer_partiels:
                             # Courriel : ne jamais remettre un PDF incomplet.
-                            # Le rendu reste sequentiel dans le thread wx.
+                            # Le rendu classique reste sequentiel sur wx.
                             UTILS_PDF_securise.Generer(cheminFichier, rendre)
                         else:
                             rendre(cheminFichier)
