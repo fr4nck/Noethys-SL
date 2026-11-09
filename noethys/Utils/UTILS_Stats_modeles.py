@@ -301,17 +301,24 @@ class HTML():
                                or objet.dictParametres != self.dictParametres)
                         if not maj:
                             continue
-                        if objet.categorie == "graphe":
-                            figure = matplotlib.pyplot.figure()
-                            try:
-                                resultat = objet.MAJ(
-                                    figure=figure, DB=DB,
-                                    dictParametres=self.dictParametres)
-                                objet.MemoriseImage(resultat)
-                            finally:
-                                matplotlib.pyplot.close(figure)
+                        try:
+                            if objet.categorie == "graphe":
+                                figure = matplotlib.pyplot.figure()
+                                try:
+                                    resultat = objet.MAJ(
+                                        figure=figure, DB=DB,
+                                        dictParametres=self.dictParametres)
+                                    objet.MemoriseImage(resultat)
+                                finally:
+                                    matplotlib.pyplot.close(figure)
+                            else:
+                                objet.MAJ(DB=DB, dictParametres=self.dictParametres)
+                        except Exception:
+                            objet.dictParametres = {}
+                            raise
                         else:
-                            objet.MAJ(DB=DB, dictParametres=self.dictParametres)
+                            import copy
+                            objet.dictParametres = copy.deepcopy(self.dictParametres)
                         yield "statistiques.objet"
         finally:
             DB.Close()
