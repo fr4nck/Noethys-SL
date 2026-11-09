@@ -105,6 +105,17 @@ class InterfaceHistoriqueTests(unittest.TestCase):
             self.assertEqual(saved["sauvegarde_repertoires_poste"][cle], rep)
             wx.DirDialog = lambda *args, **kwargs: self.fail("dialogue inattendu")
             self.assertEqual(env["ChoisirRepertoirePoste"](None, procedure), (rep, None))
+            # Une annulation de selection ne modifie aucune procedure partagee.
+            procedure_annulee = dict(procedure, IDsauvegarde=43)
+            class FauxAnnulation(FauxDialog):
+                def ShowModal(self):
+                    return 0
+            wx.DirDialog = FauxAnnulation
+            self.assertEqual(
+                env["ChoisirRepertoirePoste"](None, procedure_annulee),
+                (False, None))
+            self.assertEqual(procedure_annulee["sauvegarde_repertoire"],
+                             ancien["sauvegarde_repertoire"])
 
     def test_annulation_destination_ne_lance_pas_export(self):
         import datetime
