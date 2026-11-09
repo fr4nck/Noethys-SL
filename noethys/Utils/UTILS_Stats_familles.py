@@ -197,6 +197,32 @@ def GetDictMembres(DB, dictParametres):
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+def _TranchesTarifsExclusives(tranches):
+    """Partition entiere de l'union des plages tarifaires, sans doublons.
+
+    Les bornes tarifaires sont inclusives. Les trous restent hors des tranches
+    et sont comptes dans 'Autre'. Aucune ligne de tarif n'est modifiee.
+    """
+    bornes = set()
+    plages = []
+    for qf_min, qf_max in tranches:
+        if qf_min is None or qf_max is None:
+            continue
+        minimum, maximum = int(qf_min), int(qf_max)
+        if minimum > maximum:
+            continue
+        plages.append((minimum, maximum))
+        bornes.update((minimum, maximum + 1))
+    bornes = sorted(bornes)
+    resultat = []
+    for debut, fin_exclu in zip(bornes, bornes[1:]):
+        fin = fin_exclu - 1
+        if any(minimum <= debut and fin <= maximum
+               for minimum, maximum in plages):
+            resultat.append((debut, fin))
+    return resultat
+
+
 DICT_QUOTIENTS = {"dictParametres" : {}, "dictResultats" : {} }
 
 def GetDictQuotients(DB, dictParametres):
@@ -208,7 +234,7 @@ def GetDictQuotients(DB, dictParametres):
     # Recherche des paramètres
     conditionsActivites = MODELES.GetConditionActivites(dictParametres)
     
-    if True : #dictParametres["mode"] == "presents" :
+    if dictParametres["mode"] == "presents" :
         date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
         req = """SELECT familles.IDfamille, IDquotient, date_debut, date_fin, quotient
         FROM familles
@@ -250,10 +276,10 @@ def GetDictQuotients(DB, dictParametres):
     DB.ExecuterReq(req)
     listeDonnees = DB.ResultatReq()
     dictTranchesTarifs = {"pasqf" : 0, "autre" : 0}
-    for IDligne, qf_min, qf_max in listeDonnees : 
-        tranche = (qf_min, qf_max)
-        if (tranche in dictTranchesTarifs) == False :
-            dictTranchesTarifs[tranche] = 0
+    plages_tarifs = [(qf_min, qf_max) for IDligne, qf_min, qf_max
+                     in listeDonnees]
+    for tranche in _TranchesTarifsExclusives(plages_tarifs):
+        dictTranchesTarifs[tranche] = 0
     
     # Création des tranches de 100
     dictTranchesDefaut = {"pasqf" : 0, "autre" : 0}
@@ -274,6 +300,7 @@ def GetDictQuotients(DB, dictParametres):
                     if tranche not in ("pasqf", "autre") and quotient >= tranche[0] and quotient <= tranche[1] :
                         dictTranches[tranche] += 1
                         found = True
+                        break
                 if found == False :
                     dictTranches["autre"] += 1
 
