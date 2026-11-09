@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""UI-432I : proprietaires des fenetres de facturation et nettoyage, sans reseau.
+
+Les lectures SQL, la generation PDF et le transport d'emails sont simules.
+Les tests ne chargent jamais le profil de production.
+"""
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+for p in (ROOT / "tests", ROOT / "noethys"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+import _garde_reseau  # noqa: F401,E402
+
+from Dlg import DLG_Factures_email, DLG_Mailer  # noqa: E402
+from Utils import UTILS_Facturation, UTILS_Envoi_email  # noqa: E402
+
+
+def _selection():
+    return SimpleNamespace(
+        IDfacture=42, etat="emission", numero="42", IDfamille=1,
+        email=True, email_factures="famille@example.org",
+        nomsTitulaires="Famille fictive",
+    )
+
+
+def _dialogue():
+    return SimpleNamespace(
+        ctrl_liste_factures=SimpleNamespace(GetTracksCoches=lambda: [_selection()]),
+        ctrl_options=SimpleNamespace(GetOptions=lambda: {"repertoire_copie": ""}),
+    )
+
+
+class FacturesProprietaireTests(unittest.TestCase):
+    def test_transfert_passe_le_dialogue_visible_a_la_facturation(self):
+        dlg = _dialogue()
+        with mock.patch.object(UTILS_Facturation, "Facturation") as fac:
+            fac.return_value.Impression.return_value = False
+            DLG_Factures_email.Dialog.OnBoutonOk(dlg, None)
+        self.assertIs(fac.return_value.Impression.call_args.kwargs["parent"], dlg)
+        self.assertTrue(fac.return_value.Impression.call_args.kwargs["repertoireTemp"])
+
+    def test_lecture_sql_attente_parentee_et_connexion_fermee(self):
+        owner = object()
+        db = mock.Mock()
+        db.ResultatReq.return_value = []
+        fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
+        with mock.patch.object(UTILS_Facturation.GestionDB, "DB", return_value=db), \
+             mock.patch.object(UTILS_Facturation.UTILS_Attente, "BusyInfo") as attente:
+            resultat = fac.GetDonneesImpression([42], {"afficher_classes": False}, parent=owner)
+        self.assertIs(resultat, False)
+        self.assertIs(attente.call_args.args[1], owner)
+        db.Close.assert_called_once_with()
+
+    def _impression_pdf_fictive(self, erreur=False):
+        owner = object()
+        fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
+        fac.GetDonneesImpression = mock.Mock(return_value=(
+            {42: {"select": True, "num_facture": "000042", "nomSansCivilite": "Fictive"}},
+            {42: {"{NUMERO_FACTURE}": "000042"}},
+        ))
+        fac.EcritStatusbar = mock.Mock()
+        with mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progress, \
+             mock.patch.object(UTILS_Facturation.wx, "MessageDialog") as erreur_dlg, \
+             mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
+                               side_effect=RuntimeError("PDF fictif en echec") if erreur else None) as pdf, \
+             mock.patch.object(UTILS_Facturation.traceback, "print_exc"):
+            resultat = fac.Impression(
+                listeFactures=[42], dictOptions={"IDmodele": 3},
+                afficherDoc=False, repertoireTemp=True, parent=owner)
+            self.assertIs(fac.GetDonneesImpression.call_args.kwargs["parent"], owner)
+            self.assertIs(progress.call_args.kwargs["parent"], owner)
+            progress.return_value.Destroy.assert_called_once()
+            if erreur:
+                self.assertIs(resultat, False)
+                self.assertIs(erreur_dlg.call_args.args[0], owner)
+                pdf.assert_called_once()
+            else:
+                self.assertIn(42, resultat[1])
+                erreur_dlg.assert_not_called()
+
+    def test_pdf_fictif_proprietaire_conserve(self):
+        self._impression_pdf_fictive()
+
+    def test_echec_pdf_fictif_dialogue_erreur_parent(self):
+        self._impression_pdf_fictive(erreur=True)
+
+    def test_exception_mailer_nettoie_pdf_et_detruit_dialogue(self):
+        fd, chemin = tempfile.mkstemp(prefix="ui432-facture-", suffix=".pdf",
+                                     dir=_garde_reseau.PROFIL_TEST)
+        os.close(fd)
+        dlg = _dialogue()
+        try:
+            db = mock.Mock()
+            db.ResultatReq.return_value = [(1, "famille@example.org", None)]
+            with mock.patch.object(UTILS_Facturation, "Facturation") as fac, \
+                 mock.patch.object(DLG_Factures_email.GestionDB, "DB", return_value=db), \
+                 mock.patch.object(UTILS_Envoi_email, "GetRattachementsFamilles", return_value={}), \
+                 mock.patch.object(UTILS_Envoi_email, "ResoudreAdresseConfiguree",
+                                   return_value=("famille@example.org", None)), \
+                 mock.patch.object(DLG_Mailer, "Dialog") as mailer:
+                fac.return_value.Impression.return_value = (
+                    {42: {"{NUMERO_FACTURE}": "000042"}}, {42: chemin}
+                )
+                mailer.return_value.ShowModal.side_effect = RuntimeError("arret fictif")
+                with self.assertRaisesRegex(RuntimeError, "arret fictif"):
+                    DLG_Factures_email.Dialog.OnBoutonOk(dlg, None)
+                mailer.return_value.Destroy.assert_called_once()
+                db.Close.assert_called_once()
+                self.assertFalse(os.path.exists(chemin))
+        finally:
+            if os.path.exists(chemin):
+                os.remove(chemin)
+
+
+if __name__ == "__main__":
+    unittest.main()

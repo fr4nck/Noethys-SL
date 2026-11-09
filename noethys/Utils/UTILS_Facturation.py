@@ -791,10 +791,10 @@ class Facturation():
 
         return dictComptes
 
-    def GetDonneesImpression(self, listeFactures=[], dictOptions=None):
+    def GetDonneesImpression(self, listeFactures=[], dictOptions=None, parent=None):
         """ Impression des factures """
         dlgAttente = UTILS_Attente.BusyInfo(
-            _(u"Recherche des données de facturation..."), None)
+            _(u"Recherche des données de facturation..."), parent)
         try:
             if 'phoenix' not in wx.PlatformInfo:
                 wx.Yield()
@@ -1109,19 +1109,19 @@ class Facturation():
 
         return dictFactures, dictChampsFusion
 
-    def Impression(self, listeFactures=[], nomDoc=None, nomFichierUnique=None, afficherDoc=True, dictOptions=None, repertoire=None, repertoireTemp=False, afficherOptions=True):
+    def Impression(self, listeFactures=[], nomDoc=None, nomFichierUnique=None, afficherDoc=True, dictOptions=None, repertoire=None, repertoireTemp=False, afficherOptions=True, parent=None):
         """ Impression des factures """
         # Récupération des paramètres d'affichage
         if dictOptions == None:
             if afficherOptions == True:
 
                 if afficherDoc == False:
-                    dlg = DLG_Apercu_facture.Dialog(None, titre=_(u"Sélection des paramètres de la facture"), intro=_(
+                    dlg = DLG_Apercu_facture.Dialog(parent, titre=_(u"Sélection des paramètres de la facture"), intro=_(
                         u"Sélectionnez ici les paramètres d'affichage de la facture puis cliquez sur le bouton OK."))
                     dlg.bouton_ok.SetImageEtTexte(
                         "Images/32x32/Valider.png", _("Ok"))
                 else:
-                    dlg = DLG_Apercu_facture.Dialog(None)
+                    dlg = DLG_Apercu_facture.Dialog(parent)
                 if dlg.ShowModal() == wx.ID_OK:
                     dictOptions = dlg.GetParametres()
                     dlg.Destroy()
@@ -1130,13 +1130,13 @@ class Facturation():
                     return False
 
             else:
-                dlg = DLG_Apercu_facture.Dialog(None, titre=_(u"Sélection des paramètres de la facture"), intro=_(
+                dlg = DLG_Apercu_facture.Dialog(parent, titre=_(u"Sélection des paramètres de la facture"), intro=_(
                     u"Sélectionnez ici les paramètres d'affichage de la facture puis cliquez sur le bouton OK."))
                 dictOptions = dlg.GetParametres()
                 dlg.Destroy()
 
         # Récupération des données à partir des IDfacture
-        resultat = self.GetDonneesImpression(listeFactures, dictOptions)
+        resultat = self.GetDonneesImpression(listeFactures, dictOptions, parent=parent)
         if resultat == False:
             return False
         dictFactures, dictChampsFusion = resultat
@@ -1145,7 +1145,7 @@ class Facturation():
         def CreationPDFunique(repertoireCible=""):
             dictPieces = {}
             dlgProgress = wx.ProgressDialog(_(u"Génération des factures au format PDF"), _(u"Initialisation..."), maximum=len(
-                dictFactures), parent=None, style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+                dictFactures), parent=parent, style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
             try:
                 if 'phoenix' not in wx.PlatformInfo:
                     wx.Yield()
@@ -1186,7 +1186,7 @@ class Facturation():
             except Exception as err:
                 dlgProgress.Destroy()
                 traceback.print_exc(file=sys.stdout)
-                dlg = wx.MessageDialog(None, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
+                dlg = wx.MessageDialog(parent, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
                     u"Erreur"), wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -1208,7 +1208,7 @@ class Facturation():
         # Fabrication du PDF global
         if repertoireTemp == False:
             dlgAttente = UTILS_Attente.BusyInfo(
-                _(u"Création du PDF des factures..."), None)
+                _(u"Création du PDF des factures..."), parent)
             try:
                 if 'phoenix' not in wx.PlatformInfo:
                     wx.Yield()
@@ -1227,7 +1227,7 @@ class Facturation():
                 err = str(err)
                 if six.PY2:
                     err = err.decode("utf8")
-                dlg = wx.MessageDialog(None, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
+                dlg = wx.MessageDialog(parent, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
                     u"Erreur"), wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
                 dlg.Destroy()

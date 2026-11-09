@@ -23,6 +23,7 @@ from Ctrl import CTRL_Liste_factures
 from Ctrl import CTRL_Factures_options
 from Utils import UTILS_Facturation
 from Utils import UTILS_Envoi_email
+from Utils import UTILS_Diagnostic_ui
 
 
 class Dialog(wx.Dialog):
@@ -146,12 +147,19 @@ class Dialog(wx.Dialog):
             # Ajout
             listeIDfacture.append(track.IDfacture) 
             
-        facturation = UTILS_Facturation.Facturation()
         dictOptions = self.ctrl_options.GetOptions()
         if dictOptions == False :
             return
 
-        resultat = facturation.Impression(listeFactures=listeIDfacture, nomDoc=None, afficherDoc=False, dictOptions=dictOptions, repertoire=dictOptions["repertoire_copie"], repertoireTemp=True)
+        # Diagnostic facultatif et anonyme de la MainFrame.
+        application = wx.GetApp()
+        principale = application.GetTopWindow() if application is not None else None
+        with UTILS_Diagnostic_ui.mesurer(principale, "factures.preparation"):
+            facturation = UTILS_Facturation.Facturation()
+            resultat = facturation.Impression(
+                listeFactures=listeIDfacture, nomDoc=None, afficherDoc=False,
+                dictOptions=dictOptions, repertoire=dictOptions["repertoire_copie"],
+                repertoireTemp=True, parent=self)
         if resultat == False : 
             return
         dictChampsFusion, dictPieces = resultat
@@ -163,98 +171,103 @@ class Dialog(wx.Dialog):
                 except :
                     pass
 
-        # Récupération de toutes les adresses Emails
-        DB = GestionDB.DB()
-        req = """SELECT IDindividu, mail, travail_mail
-        FROM individus;"""
-        DB.ExecuterReq(req)
-        listeAdressesIndividus = DB.ResultatReq()
-        rattachements = UTILS_Envoi_email.GetRattachementsFamilles(DB)
-        DB.Close()
-        dictAdressesIndividus = {}
-        for IDindividu, mail, travail_mail in listeAdressesIndividus :
-            dictAdressesIndividus[IDindividu] = {"perso" : mail, "travail" : travail_mail}
+        try:
+            # Récupération de toutes les adresses Emails
+            DB = GestionDB.DB()
+            try:
+                req = """SELECT IDindividu, mail, travail_mail
+                FROM individus;"""
+                DB.ExecuterReq(req)
+                listeAdressesIndividus = DB.ResultatReq()
+                rattachements = UTILS_Envoi_email.GetRattachementsFamilles(DB)
+            finally:
+                DB.Close()
+            dictAdressesIndividus = {}
+            for IDindividu, mail, travail_mail in listeAdressesIndividus :
+                dictAdressesIndividus[IDindividu] = {"perso" : mail, "travail" : travail_mail}
 
-        # Récupération des données adresse + champs + pièces
-        listeDonnees = []
-        listeAnomalies = []
-        listeEnvoiNonDemande = []
-        for track in tracks :
-            liste_adresses = []
+            # Récupération des données adresse + champs + pièces
+            listeDonnees = []
+            listeAnomalies = []
+            listeEnvoiNonDemande = []
+            for track in tracks :
+                liste_adresses = []
 
-            if track.email == True :
-                # Si Famille inscrite à l'envoi par Email : une adresse
-                # configurée non résolue n'est jamais écartée en silence.
-                for valeur in (track.email_factures or u"").split("##"):
-                    adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(valeur, dictAdressesIndividus, track.IDfamille, rattachements)
-                    if adresse == None :
-                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, motif))
-                    else :
-                        liste_adresses.append(adresse)
+                if track.email == True :
+                    # Si Famille inscrite à l'envoi par Email : une adresse
+                    # configurée non résolue n'est jamais écartée en silence.
+                    for valeur in (track.email_factures or u"").split("##"):
+                        adresse, motif = UTILS_Envoi_email.ResoudreAdresseConfiguree(valeur, dictAdressesIndividus, track.IDfamille, rattachements)
+                        if adresse == None :
+                            listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, motif))
+                        else :
+                            liste_adresses.append(adresse)
 
-            else :
-                # Si famille non inscrite à l'envoi par Email
-                adresse = UTILS_Envoi_email.GetAdresseFamille(track.IDfamille, choixMultiple=False, muet=True, nomTitulaires=track.nomsTitulaires)
-                if adresse == False:
-                    return False
-                liste_adresses.append(adresse)
-
-            # Mémorisation des données
-            for adresse in liste_adresses :
-                if adresse not in (None, "", []) :
-                    if track.IDfacture in dictPieces :
-                        fichier = dictPieces[track.IDfacture]
-                        champs = dictChampsFusion[track.IDfacture]
-                        listeDonnees.append({"adresse" : adresse, "pieces" : [fichier,], "champs" : champs})
-                        if track.email == False :
-                            if track.nomsTitulaires not in listeEnvoiNonDemande :
-                                listeEnvoiNonDemande.append(track.nomsTitulaires)
-                    else :
-                        listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, _(u"document PDF non généré")))
                 else :
-                    listeAnomalies.append(track.nomsTitulaires)
+                    # Si famille non inscrite à l'envoi par Email
+                    adresse = UTILS_Envoi_email.GetAdresseFamille(track.IDfamille, choixMultiple=False, muet=True, nomTitulaires=track.nomsTitulaires)
+                    if adresse == False:
+                        return False
+                    liste_adresses.append(adresse)
+
+                # Mémorisation des données
+                for adresse in liste_adresses :
+                    if adresse not in (None, "", []) :
+                        if track.IDfacture in dictPieces :
+                            fichier = dictPieces[track.IDfacture]
+                            champs = dictChampsFusion[track.IDfacture]
+                            listeDonnees.append({"adresse" : adresse, "pieces" : [fichier,], "champs" : champs})
+                            if track.email == False :
+                                if track.nomsTitulaires not in listeEnvoiNonDemande :
+                                    listeEnvoiNonDemande.append(track.nomsTitulaires)
+                        else :
+                            listeAnomalies.append(u"%s (%s)" % (track.nomsTitulaires, _(u"document PDF non généré")))
+                    else :
+                        listeAnomalies.append(track.nomsTitulaires)
 
         
-        # Annonce les anomalies trouvées
-        if len(listeAnomalies) > 0 :
-            dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d destinataire(s) des familles sélectionnées n'ont pas d'adresse Email utilisable (aucun envoi ne leur sera fait) :" % len(listeAnomalies),
-                                        detail=u"".join([u"- %s\n" % nom for nom in listeAnomalies]), conclusion=u"Souhaitez-vous quand même continuer avec les %d autres familles ?" % len(listeDonnees),
-                                        icone=wx.ICON_WARNING, boutons=[_(u"Oui"), _(u"Non"), _(u"Annuler")])
-            reponse = dlg.ShowModal()
-            dlg.Destroy()
-            if reponse != 0:
-                SupprimerFichiersTemp()
-                return False
+            # Annonce les anomalies trouvées
+            if len(listeAnomalies) > 0 :
+                dlg = DLG_Messagebox.Dialog(self, titre=_(u"Avertissement"), introduction=u"%d destinataire(s) des familles sélectionnées n'ont pas d'adresse Email utilisable (aucun envoi ne leur sera fait) :" % len(listeAnomalies),
+                                            detail=u"".join([u"- %s\n" % nom for nom in listeAnomalies]), conclusion=u"Souhaitez-vous quand même continuer avec les %d autres familles ?" % len(listeDonnees),
+                                            icone=wx.ICON_WARNING, boutons=[_(u"Oui"), _(u"Non"), _(u"Annuler")])
+                reponse = dlg.ShowModal()
+                dlg.Destroy()
+                if reponse != 0:
 
-        # Annonce les envois non demandés
-        if len(listeEnvoiNonDemande) > 0 :
-            texte = _(u"%d des familles sélectionnées n'ont pas demandé d'envoi par Email de leur facture :\n\n") % len(listeEnvoiNonDemande)
-            texte += _(u"Souhaitez-vous quand même leur envoyer une facture ?")
-            dlg = wx.MessageDialog(self, texte, _(u"Avertissement"), wx.YES_NO|wx.NO_DEFAULT|wx.CANCEL|wx.ICON_EXCLAMATION)
-            reponse = dlg.ShowModal() 
-            dlg.Destroy()
-            if reponse != wx.ID_YES :
-                SupprimerFichiersTemp()
-                return        
+                    return False
+
+            # Annonce les envois non demandés
+            if len(listeEnvoiNonDemande) > 0 :
+                texte = _(u"%d des familles sélectionnées n'ont pas demandé d'envoi par Email de leur facture :\n\n") % len(listeEnvoiNonDemande)
+                texte += _(u"Souhaitez-vous quand même leur envoyer une facture ?")
+                dlg = wx.MessageDialog(self, texte, _(u"Avertissement"), wx.YES_NO|wx.NO_DEFAULT|wx.CANCEL|wx.ICON_EXCLAMATION)
+                reponse = dlg.ShowModal() 
+                dlg.Destroy()
+                if reponse != wx.ID_YES :
+
+                    return        
         
-        # Dernière vérification avant transfert
-        if len(listeDonnees) == 0 : 
-            dlg = wx.MessageDialog(self, _(u"Il ne reste finalement aucune facture à envoyer par Email !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
+            # Dernière vérification avant transfert
+            if len(listeDonnees) == 0 : 
+                dlg = wx.MessageDialog(self, _(u"Il ne reste finalement aucune facture à envoyer par Email !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+                dlg.ShowModal()
+                dlg.Destroy()
+
+                return
+
+            # Transfert des données vers DLG Mailer
+            from Dlg import DLG_Mailer
+            dlg = DLG_Mailer.Dialog(self, categorie="facture")
+            try:
+                dlg.SetDonnees(listeDonnees, modificationAutorisee=False)
+                dlg.ChargerModeleDefaut()
+                dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+        finally:
+            # Toujours nettoyer les PDF temporaires, meme en cas d'exception.
             SupprimerFichiersTemp()
-            return
-
-        # Transfert des données vers DLG Mailer
-        from Dlg import DLG_Mailer
-        dlg = DLG_Mailer.Dialog(self, categorie="facture")
-        dlg.SetDonnees(listeDonnees, modificationAutorisee=False)
-        dlg.ChargerModeleDefaut()
-        dlg.ShowModal() 
-        dlg.Destroy()
-
-        # Suppression des PDF temporaires
-        SupprimerFichiersTemp()
 
 
 

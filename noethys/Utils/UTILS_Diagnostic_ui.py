@@ -28,6 +28,7 @@ OPERATIONS = frozenset((
     "reservations.initialisation_grille",
     "reservations.calcul",
     "reservations.sauvegarde",
+    "factures.preparation",
 ))
 
 ETAPES_GRILLE = frozenset((
