@@ -1231,7 +1231,7 @@ class Facturation():
                 traceback.print_exc(file=sys.stdout)
                 dlg = wx.MessageDialog(
                     parent,
-                    _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \\n\\n%s") % err,
+                    _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err,
                     _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                 try:
                     dlg.ShowModal()
