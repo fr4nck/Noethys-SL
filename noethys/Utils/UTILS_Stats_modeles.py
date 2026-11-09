@@ -375,8 +375,8 @@ class HTML():
                     html += u"""<U><B>%d. %s</B></U>""" % (numRubrique, dictRubrique["nom"].upper())
                     numPage = 0
                     for dictPage in dictRubrique["pages"] :
-                        self.MAJ(page=dictPage["code"])
                         if dictPage["code"] in selectionsCodes and (page == None or page == dictPage["code"]) :
+                            self.MAJ(page=dictPage["code"])
                             html += u"""<BLOCKQUOTE><U><B>%s. %s</B></U>""" % (alphabet[numPage], dictPage["nom"])
                             for objet in dictPage["objets"] :
                                 if objet.code in selectionsCodes :

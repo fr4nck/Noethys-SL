@@ -137,7 +137,7 @@ class CTRL_Objets(CT.CustomTreeCtrl):
                 
                 brancheObjet = self.GetFirstChild(branchePage)[0]
                 for index3 in range(self.GetChildrenCount(branchePage, recursively=False)) :
-                    self.CheckItem(branchePage, etat)
+                    self.CheckItem(brancheObjet, etat)
             
                     brancheObjet = self.GetNextChild(branchePage, index3+1)[0]
                 branchePage = self.GetNextChild(brancheRubrique, index2+1)[0]
