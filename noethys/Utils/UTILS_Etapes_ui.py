@@ -69,6 +69,9 @@ class Attente(wx.Dialog):
                     if etape == "factures.generation_pdf":
                         diagnostic.tracer_etape_facture(
                             etape, (time.monotonic() - debut) * 1000)
+                    elif etape == "statistiques.objet":
+                        diagnostic.tracer_etape_statistiques(
+                            etape, (time.monotonic() - debut) * 1000)
                     else:
                         diagnostic.tracer_etape_grille(
                             etape, (time.monotonic() - debut) * 1000)

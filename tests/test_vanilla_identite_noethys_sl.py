@@ -49,9 +49,9 @@ class IdentitePubliqueTests(unittest.TestCase):
         wx.Frame.__init__(frame, None, id=-1)
         try:
             frame.SetTitleFrame()
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10.5")
+            self.assertEqual(frame.GetTitle(), Identite.PRODUCT_NAME + u" " + Identite.PRODUCT_VERSION_DISPLAY)
             frame.SetTitleFrame(nomFichier="exemple.ndb")
-            self.assertEqual(frame.GetTitle(), u"Noethys SL 0.1.0 RC10.5 - [exemple.ndb]")
+            self.assertEqual(frame.GetTitle(), Identite.PRODUCT_NAME + u" " + Identite.PRODUCT_VERSION_DISPLAY + u" - [exemple.ndb]")
         finally:
             frame.Destroy()
 

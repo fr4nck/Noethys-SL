@@ -14,6 +14,8 @@ from Utils import UTILS_Adaptations
 from Utils.UTILS_Traduction import _
 import wx
 from Utils import UTILS_Attente
+from Utils import UTILS_Etapes_ui
+from Utils import UTILS_Diagnostic_ui
 from Ctrl import CTRL_Bouton_image
 import sys
 import datetime
@@ -383,30 +385,34 @@ class Dialog(wx.Dialog):
         listeCodes = self.ctrl_impression.GetCoches() 
         
         # Imprimer tout
-        dlgAttente = UTILS_Attente.BusyInfo(_(u"Création du rapport..."), None)
-        if 'phoenix' not in wx.PlatformInfo:
-            wx.Yield()
-        
-        if ID == 10 : 
-            html = self.baseHTML.GetHTML(mode="impression", selectionsCodes=listeCodes)
-        # Imprimer la rubrique affichée
-        if ID == 20 : 
-            indexRubrique = self.ctrl_labelbook.GetSelection()
-            codeRubrique = self.RechercherElement(indexRubrique=indexRubrique)[0]
-            html = self.baseHTML.GetHTML(mode="impression", rubrique=codeRubrique, selectionsCodes=listeCodes)
-        # Imprimer la page affichée
-        if ID == 30 : 
-            codeRubrique, codePage = self.RecherchePageAffichee() 
-            html = self.baseHTML.GetHTML(mode="impression", rubrique=codeRubrique, page=codePage, selectionsCodes=listeCodes)
-        
-        if len(listeCodes) == 0 or len(html) <= 50 :
-            dlg = wx.MessageDialog(self, _(u"Vous n'avez sélectionné aucune information à imprimer !"), _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
-            dlg.ShowModal()
-            dlg.Destroy()
+        with UTILS_Attente.BusyInfo(_(u"Création du rapport..."), self):
+            html = u""
+            if ID == 10:
+                html = self.baseHTML.GetHTML(
+                    mode="impression", selectionsCodes=listeCodes)
+            elif ID == 20:
+                indexRubrique = self.ctrl_labelbook.GetSelection()
+                codeRubrique = self.RechercherElement(
+                    indexRubrique=indexRubrique)[0]
+                html = self.baseHTML.GetHTML(
+                    mode="impression", rubrique=codeRubrique,
+                    selectionsCodes=listeCodes)
+            elif ID == 30:
+                codeRubrique, codePage = self.RecherchePageAffichee()
+                html = self.baseHTML.GetHTML(
+                    mode="impression", rubrique=codeRubrique, page=codePage,
+                    selectionsCodes=listeCodes)
+
+        if len(listeCodes) == 0 or len(html) <= 50:
+            dlg = wx.MessageDialog(
+                self, _(u"Vous n'avez sélectionné aucune information à imprimer !"),
+                _(u"Erreur"), wx.OK | wx.ICON_EXCLAMATION)
+            try:
+                dlg.ShowModal()
+            finally:
+                dlg.Destroy()
             return
-        
-        del dlgAttente
-        
+
         # Impression
         printout = HtmlPrintout(html)
         printout2 = HtmlPrintout(html)
@@ -529,40 +535,45 @@ class Dialog(wx.Dialog):
                 indexR += 1
 
     def MAJpage(self, indexRubrique=None, indexPage=None):
-        """ Met à jour le contenu d'une page """
-        dlgAttente = UTILS_Attente.BusyInfo(_(u"Actualisation des données..."), None)
-        if 'phoenix' not in wx.PlatformInfo:
-            wx.Yield()
-        
-        codeRubrique = None
+        """Actualise une page en cedant la boucle wx entre objets statistiques."""
         codePage = None
+        ctrl_html = None
         indexR = 0
-        # Recherche de la rubrique
-        for dictRubrique in self.listeObjets :
-            if dictRubrique["visible"] == True :
-                if indexR == indexRubrique :
-                    codeRubrique = dictRubrique["code"]
-                    ctrl_notebook = dictRubrique["ctrl_notebook"]
-                    # Recherche de la page
+        for dictRubrique in self.listeObjets:
+            if dictRubrique["visible"]:
+                if indexR == indexRubrique:
                     indexP = 0
-                    for dictPage in dictRubrique["pages"] :
-                        if dictPage["visible"] == True :
-                            if indexP == indexPage :
+                    for dictPage in dictRubrique["pages"]:
+                        if dictPage["visible"]:
+                            if indexP == indexPage:
                                 codePage = dictPage["code"]
                                 ctrl_html = dictPage["ctrl_html"]
+                                break
                             indexP += 1
+                    break
                 indexR += 1
-        
-        if codeRubrique == None or codePage == None :
+        if codePage is None or ctrl_html is None:
             return None
-        
-        # MAJ du contrôles HTML
-        self.baseHTML.MAJ(page=codePage)
-        pageHTML = self.baseHTML.GetHTML(page=codePage) 
-        ctrl_html.SetPage(pageHTML)
-        
-        del dlgAttente
-    
+
+        app = wx.GetApp()
+        principale = app.GetTopWindow() if app is not None else None
+        with UTILS_Diagnostic_ui.mesurer(principale, "statistiques.actualisation"):
+            if wx.IsMainThread() and self.IsShownOnScreen():
+                # Graphiques, SQL et objets wx restent sur le thread graphique.
+                # Le dialogue modal, rattache a Stats, permet les evenements
+                # entre chaque calcul d'objet.
+                UTILS_Etapes_ui.Executer(
+                    self, self.baseHTML.MAJ_etapes(page=codePage),
+                    titre=_(u"Statistiques"),
+                    texte=_(u"Actualisation des données..."))
+            else:
+                with UTILS_Attente.BusyInfo(
+                        _(u"Actualisation des données..."), self):
+                    self.baseHTML.MAJ(page=codePage)
+            with UTILS_Diagnostic_ui.mesurer(principale, "statistiques.rendu_html"):
+                pageHTML = self.baseHTML.GetHTML(page=codePage)
+                ctrl_html.SetPage(pageHTML)
+
     def RechercherElement(self, indexRubrique=None, indexPage=None):
         """ retourne le codeRubrique et codePage par rapport aux index """
         codeRubrique = None
@@ -660,8 +671,12 @@ class Dialog(wx.Dialog):
         # Envoi des paramètres à la baseHTML
         self.baseHTML.SetParametres(self.dictParametres)
         
-        # Actualisation de la page affichée actuellement
-        self.MAJpageAffichee()
+        # Premiere ouverture : attendre ShowModal avant de charger la page.
+        # wx.CallAfter est execute au debut de la boucle de dialogue.
+        if premiere:
+            wx.CallAfter(self.MAJpageAffichee)
+        else:
+            self.MAJpageAffichee()
         return True
 
 

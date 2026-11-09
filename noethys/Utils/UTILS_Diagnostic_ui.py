@@ -29,6 +29,8 @@ OPERATIONS = frozenset((
     "reservations.calcul",
     "reservations.sauvegarde",
     "factures.preparation",
+    "statistiques.actualisation",
+    "statistiques.rendu_html",
 ))
 
 ETAPES_GRILLE = frozenset((
@@ -87,6 +89,24 @@ def tracer_etape_facture(etape, duree_ms, sortie=None):
              else "factures.inconnue")
     try:
         evenement = {"evenement": "etape", "etape": etape,
+                     "duree_ms": max(0, int(duree_ms))}
+        if sortie is None:
+            print("NOETHYS_UI_DIAG " + " ".join(
+                "%s=%s" % (cle, evenement[cle]) for cle in sorted(evenement)
+            ), flush=True)
+        else:
+            sortie(evenement)
+    except Exception:
+        pass
+
+
+def tracer_etape_statistiques(etape, duree_ms, sortie=None):
+    """Temps d'un objet, sans identifiant, resultat statistique ni SQL."""
+    if os.environ.get(ENVIRONNEMENT) != "1":
+        return
+    nom = "statistiques.objet" if etape == "statistiques.objet" else "statistiques.inconnue"
+    try:
+        evenement = {"evenement": "etape", "etape": nom,
                      "duree_ms": max(0, int(duree_ms))}
         if sortie is None:
             print("NOETHYS_UI_DIAG " + " ".join(

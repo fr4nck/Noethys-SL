@@ -1217,7 +1217,7 @@ class Facturation():
                         texte=_(u"Création des documents PDF en cours…"),
                         total=sum(1 for val in dictFactures.values() if val["select"]))
                 else:
-                    for _ in generer():
+                    for etape_calculee in generer():
                         pass
                 return dictPieces
             except Exception as err:

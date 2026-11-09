@@ -276,41 +276,43 @@ class HTML():
         self.dictParametres = dictParametres
         
     def MAJ(self, rubrique=None, page=None):
-        """ MAJ d'une rubrique ou d'une page par le code ou tout """
-        if rubrique == None and page == None : 
-            tout = True
-        else : 
-            tout = False
-        
-        if len(self.dictParametres["listeActivites"]) == 0 : 
+        """API historique synchrone, memes resultats statistiques."""
+        for etape_calculee in self.MAJ_etapes(rubrique=rubrique, page=page):
+            pass
+
+    def MAJ_etapes(self, rubrique=None, page=None):
+        """Rend la main entre objets, sans deplacer SQL/graphes hors du thread wx."""
+        tout = rubrique is None and page is None
+        if len(self.dictParametres["listeActivites"]) == 0:
             return
-        
-        DB = GestionDB.DB() 
-        for dictRubrique in self.liste_objets :
-            for dictPage in dictRubrique["pages"] :
-                for objet in dictPage["objets"] :
-                    if objet.visible == True and (tout == True or rubrique == dictRubrique["code"] or page == dictPage["code"]) :
-                        
-                        # Vérifie qu'une mise à jour est nécessaire :
-                        maj = False
-                        if len(objet.dictParametres) > 0 :
-                            if objet.dictParametres != self.dictParametres :
-                                maj = True
-                        else :
-                            maj = True
-                        
-                        # MAJ de l'objet
-                        if maj == True :
-                            if objet.categorie == "graphe" :
-                                figure = matplotlib.pyplot.figure()
-                                figure = objet.MAJ(figure=figure, DB=DB, dictParametres=self.dictParametres)
-                                #figure.clear()
-                                objet.MemoriseImage(figure) 
-                            else:
-                                objet.MAJ(DB=DB, dictParametres=self.dictParametres)
-                            
-        DB.Close() 
-        
+        DB = GestionDB.DB()
+        try:
+            for dictRubrique in self.liste_objets:
+                for dictPage in dictRubrique["pages"]:
+                    for objet in dictPage["objets"]:
+                        if not (objet.visible and (
+                                tout or rubrique == dictRubrique["code"]
+                                or page == dictPage["code"])):
+                            continue
+                        maj = (not objet.dictParametres
+                               or objet.dictParametres != self.dictParametres)
+                        if not maj:
+                            continue
+                        if objet.categorie == "graphe":
+                            figure = matplotlib.pyplot.figure()
+                            try:
+                                resultat = objet.MAJ(
+                                    figure=figure, DB=DB,
+                                    dictParametres=self.dictParametres)
+                                objet.MemoriseImage(resultat)
+                            finally:
+                                matplotlib.pyplot.close(figure)
+                        else:
+                            objet.MAJ(DB=DB, dictParametres=self.dictParametres)
+                        yield "statistiques.objet"
+        finally:
+            DB.Close()
+
     def GetHTML(self, rubrique=None, page=None, mode="affichage", selectionsCodes=[]):
         if mode not in ("affichage", "impression") :
             raise ValueError("Mode GetHTML non supporté : %r" % (mode,))
@@ -391,16 +393,23 @@ class HTML():
                     
     def GetFigure(self, code=""):
         """ Retourne la figure d'un graphe à partir de son code """
-        DB = GestionDB.DB() 
-        for dictRubrique in self.liste_objets :
-            for dictPage in dictRubrique["pages"] :
-                for objet in dictPage["objets"] :
-                    if objet.code == code :
-                        figure = matplotlib.pyplot.figure()
-                        figure = objet.MAJ(figure=figure, DB=DB, dictParametres=self.dictParametres)
-                        return figure
-        DB.Close() 
-        return None
+        DB = GestionDB.DB()
+        try:
+            for dictRubrique in self.liste_objets:
+                for dictPage in dictRubrique["pages"]:
+                    for objet in dictPage["objets"]:
+                        if objet.code == code:
+                            figure = matplotlib.pyplot.figure()
+                            try:
+                                return objet.MAJ(
+                                    figure=figure, DB=DB,
+                                    dictParametres=self.dictParametres)
+                            except BaseException:
+                                matplotlib.pyplot.close(figure)
+                                raise
+            return None
+        finally:
+            DB.Close()
         
                     
         
