@@ -85,15 +85,17 @@ def _adhesion(db, IDfamille, IDindividu, au_jour):
                        ", ".join("?" for _ in personnes))
         valeurs.extend(personnes)
     lignes = _lire(db, """SELECT c.IDcotisation, t.nom, t.carte, t.defaut,
-             t.type, c.IDindividu, c.date_debut, c.date_fin
+             t.type, c.IDindividu, c.date_debut, c.date_fin, u.montant
              FROM cotisations c
              JOIN types_cotisations t ON t.IDtype_cotisation=c.IDtype_cotisation
+             LEFT JOIN unites_cotisations u
+               ON u.IDunite_cotisation=c.IDunite_cotisation
              WHERE %s
              ORDER BY c.date_fin DESC, c.IDcotisation DESC""" %
              " OR ".join(filtres), valeurs)
     valides, passees, futures = [], [], []
     illisibles = False
-    for id_cotisation, nom, carte, defaut, genre, personne, debut, fin in lignes:
+    for id_cotisation, nom, carte, defaut, genre, personne, debut, fin, montant in lignes:
         debut, fin = _date(debut), _date(fin)
         if debut is None or fin is None or fin < debut:
             illisibles = True
@@ -107,6 +109,7 @@ def _adhesion(db, IDfamille, IDindividu, au_jour):
                   else "famille" if genre == "famille" else "enfant")
         entree = dict(nom=nom or "Cotisation sans libelle", debut=debut,
                       fin=fin, reconnue=reconnu, portee=portee,
+                      montant=_montant(montant) if montant is not None else None,
                       IDcotisation=id_cotisation)
         if debut <= au_jour <= fin:
             valides.append(entree)
@@ -118,7 +121,7 @@ def _adhesion(db, IDfamille, IDindividu, au_jour):
         valides.sort(key=lambda item: (item["reconnue"], item["fin"]), reverse=True)
         premiere = valides[0]
         return dict(premiere, statut="en_cours" if premiere["reconnue"] else "a_verifier",
-                    motif=None if premiere["reconnue"] else "Autre cotisation active")
+                    motif=None if premiere["reconnue"] else ("Autre cotisation active : %s" % premiere["nom"]))
     if illisibles:
         return {"statut": "a_verifier", "motif": "Dates de cotisation incompletes"}
     if passees:
@@ -151,7 +154,7 @@ def LireSituation(IDfamille, IDindividu=None, date_reference=None):
         solde = _montant(versements) - _montant(charges)
 
         factures = _lire(db, """SELECT f.IDfacture, f.numero, f.date_echeance,
-            fp.prefixe FROM factures f
+            fp.prefixe, f.date_debut, f.date_fin FROM factures f
             JOIN comptes_payeurs cp ON cp.IDcompte_payeur=f.IDcompte_payeur
             LEFT JOIN factures_prefixes fp ON fp.IDprefixe=f.IDprefixe
             WHERE cp.IDfamille=? AND (f.date_edition IS NULL OR f.date_edition<=?)
@@ -170,12 +173,15 @@ def LireSituation(IDfamille, IDindividu=None, date_reference=None):
                 JOIN factures f ON f.IDfacture=p.IDfacture
                 JOIN comptes_payeurs cp ON cp.IDcompte_payeur=f.IDcompte_payeur
                 WHERE cp.IDfamille=? GROUP BY p.IDfacture""", (IDfamille,)))
-            for id_facture, numero, echeance, prefixe in factures:
+            for id_facture, numero, echeance, prefixe, debut, fin in factures:
                 reste = _montant(prestations.get(id_facture)) - _montant(
                     reglees.get(id_facture))
                 if reste > 0:
                     impayees.append(dict(IDfacture=id_facture, numero=numero,
                                          prefixe=prefixe, echeance=_date(echeance),
+                                         date_debut=_date(debut),
+                                         date_fin=_date(fin),
+                                         montant=_montant(prestations.get(id_facture)),
                                          reste=reste))
         adhesion = _adhesion(db, IDfamille, IDindividu, jour)
         return dict(date=jour, solde_du_jour=solde,

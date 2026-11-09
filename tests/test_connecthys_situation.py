@@ -25,7 +25,7 @@ class SituationConnecthysTests(unittest.TestCase):
         self.addCleanup(self.base.fermer)
         for table in ("comptes_payeurs", "reglements", "factures",
                       "factures_prefixes", "ventilation", "types_cotisations",
-                      "cotisations"):
+                      "cotisations", "unites_cotisations"):
             if not self.base.db.IsTableExists(table):
                 self.base.db.CreationTable(table, dicoDB=Tables.DB_DATA)
         self.base.db.Commit()
@@ -46,6 +46,9 @@ class SituationConnecthysTests(unittest.TestCase):
             [(1, "Adhésion annuelle", "individu", 0, 1),
              (2, "Adhésion familiale", "famille", 1, 0),
              (3, "Prêt de matériel", "individu", 0, 0)])
+        self.base.inserer("unites_cotisations",
+                           ["IDunite_cotisation", "IDtype_cotisation", "nom", "montant"],
+                           [(11, 1, "Adhésion individuelle", 7.50)])
         self.redirection = RedirectionGestionDB(self.base.chemin)
         self.redirection.__enter__()
         self.addCleanup(self.redirection.__exit__, None, None, None)
@@ -123,9 +126,10 @@ class SituationConnecthysTests(unittest.TestCase):
     def test_adhesion_individuelle_limites_inclusives_et_expiration(self):
         self.base.inserer("cotisations",
             ["IDcotisation", "IDindividu", "IDtype_cotisation",
-             "date_debut", "date_fin"],
-            [(11, 77, 1, "2025-11-09", "2026-11-09")])
+             "IDunite_cotisation", "date_debut", "date_fin"],
+            [(11, 77, 1, 11, "2025-11-09", "2026-11-09")])
         self.assertEqual(self.lire()["adhesion"]["statut"], "en_cours")
+        self.assertEqual(self.lire()["adhesion"]["montant"], Decimal("7.50"))
         self.assertEqual(self.lire(jour=JOUR + datetime.timedelta(days=1))
                          ["adhesion"]["statut"], "expiree")
         self.assertEqual(self.lire(enfant=78)["adhesion"]["statut"], "absente")
@@ -193,7 +197,20 @@ class SituationConnecthysTests(unittest.TestCase):
         }
         self.assertIn("self.MAJ_situation()", methodes["MAJ_informations"])
         self.assertIn("UTILS_Portail_situation.LireSituation(", methodes["MAJ_situation"])
-        self.assertIn("self.ctrl_situation.SetTexte(texte)", methodes["MAJ_situation"])
+        self.assertIn("self.situation_factures_table.InsertItem(", methodes["MAJ_situation"])
+        self.assertIn("self.situation_adhesion_statut.SetLabel(", methodes["MAJ_situation"])
+        self.assertIn("self.panel_situation.Show(True)", methodes["MAJ_situation"])
+        self.assertIn("self.situation_solde_jour.SetLabel(", methodes["MAJ_situation"])
+        self.assertIn("self.situation_factures_carte", methodes["_ConstruireSituationFamille"])
+        self.assertIn("self.situation_solde_carte", methodes["_ConstruireSituationFamille"])
+        self.assertIn("self.situation_adhesion_carte", methodes["_ConstruireSituationFamille"])
+        self.assertIn("grid_sizer_contenu.Add(self.panel_situation",
+                      methodes["__do_layout"])
+        self.assertIn("wx.BoxSizer(wx.HORIZONTAL)",
+                      methodes["_ConstruireSituationFamille"])
+        self.assertIn('_(u"N° facture")', methodes["_ConstruireSituationFamille"])
+        self.assertIn('_(u"Restant dû")', methodes["_ConstruireSituationFamille"])
+        self.assertIn("self.panel_situation.Show(False)", methodes["MAJ_situation"])
         self.assertIn("Situation du jour indisponible", methodes["MAJ_situation"])
         self.assertNotIn("INSERT", methodes["MAJ_situation"])
         self.assertNotIn("UPDATE", methodes["MAJ_situation"])

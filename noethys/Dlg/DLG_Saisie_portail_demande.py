@@ -366,14 +366,7 @@ class Dialog(wx.Dialog):
         self.ctrl_informations = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
         self.ctrl_informations.SetMinSize((-1, 40))
 
-        # Consultation uniquement : ne change ni les factures ni les adhesions.
-        self.label_situation = wx.StaticText(self, -1, _(u"Situation du jour :"))
-        self.ctrl_situation = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
-        self.ctrl_situation.SetMinSize((-1, 100))
-        self.ctrl_situation.SetToolTip(wx.ToolTip(
-            _(u"Le solde du jour exclut les opérations futures. Les factures "
-              u"sont calculées d'après les ventilations actuelles. "
-              u"Une cotisation active n'est pas nécessairement une adhésion.")))
+        self._ConstruireSituationFamille()
 
         # Traitement
         self.box_traitement_staticbox = wx.StaticBox(self, wx.ID_ANY, _(u"Traitement"))
@@ -436,6 +429,107 @@ class Dialog(wx.Dialog):
         self.MAJ()
 
 
+    def _ConstruireSituationFamille(self):
+        """Encart de consultation conforme a la maquette validee."""
+        bleu_titre = wx.Colour(17, 70, 151)
+        self.panel_situation = wx.Panel(self, -1, style=wx.BORDER_SIMPLE)
+        self.panel_situation.SetBackgroundColour(wx.Colour(223, 236, 251))
+        self.panel_situation.SetToolTip(wx.ToolTip(
+            _(u"Le solde au jour exclut les opérations futures. Les factures "
+              u"sont recalculées selon les ventilations. Cette synthèse "
+              u"n'effectue aucune écriture comptable.")))
+
+        def titre(parent, texte):
+            label = wx.StaticText(parent, -1, texte)
+            police = label.GetFont()
+            police.SetWeight(wx.BOLD)
+            label.SetFont(police)
+            label.SetForegroundColour(bleu_titre)
+            return label
+
+        self.situation_titre = titre(
+            self.panel_situation, _(u"Situation familiale"))
+        self.situation_solde_carte = wx.Panel(
+            self.panel_situation, -1, style=wx.BORDER_SIMPLE)
+        self.situation_factures_carte = wx.Panel(
+            self.panel_situation, -1, style=wx.BORDER_SIMPLE)
+        self.situation_adhesion_carte = wx.Panel(
+            self.panel_situation, -1, style=wx.BORDER_SIMPLE)
+        for carte in (self.situation_solde_carte, self.situation_factures_carte,
+                      self.situation_adhesion_carte):
+            carte.SetBackgroundColour(wx.WHITE)
+
+        self.situation_solde_titre = titre(
+            self.situation_solde_carte, _(u"Soldes"))
+        self.situation_solde_jour = wx.StaticText(
+            self.situation_solde_carte, -1, _(u"Solde du jour : —"),
+            style=wx.ST_NO_AUTORESIZE)
+        self.situation_solde_global = wx.StaticText(
+            self.situation_solde_carte, -1, _(u"Solde global : —"),
+            style=wx.ST_NO_AUTORESIZE)
+        sizer_soldes = wx.BoxSizer(wx.VERTICAL)
+        sizer_soldes.Add(self.situation_solde_titre, 0, wx.ALL, 8)
+        sizer_soldes.Add(self.situation_solde_jour, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer_soldes.Add(self.situation_solde_global, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self.situation_solde_carte.SetSizer(sizer_soldes)
+
+        self.situation_factures_titre = titre(
+            self.situation_factures_carte, _(u"Factures impayées"))
+        self.situation_factures_table = wx.ListCtrl(
+            self.situation_factures_carte, -1,
+            style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.BORDER_SIMPLE)
+        for indice, label, largeur in (
+                (0, _(u"N° facture"), 75),
+                (1, _(u"Période"), 67),
+                (2, _(u"Montant"), 70),
+                (3, _(u"Restant dû"), 78)):
+            self.situation_factures_table.InsertColumn(
+                indice, label, width=largeur)
+        self.situation_factures_table.SetMinSize((-1, 85))
+        self.situation_factures_total = wx.StaticText(
+            self.situation_factures_carte, -1, _(u"Aucune facture impayée"),
+            style=wx.ST_NO_AUTORESIZE)
+        sizer_factures = wx.BoxSizer(wx.VERTICAL)
+        sizer_factures.Add(self.situation_factures_titre, 0, wx.ALL, 7)
+        sizer_factures.Add(self.situation_factures_table, 1,
+                           wx.EXPAND | wx.LEFT | wx.RIGHT, 6)
+        sizer_factures.Add(self.situation_factures_total, 0, wx.EXPAND | wx.ALL, 7)
+        self.situation_factures_carte.SetSizer(sizer_factures)
+
+        self.situation_adhesion_titre = titre(
+            self.situation_adhesion_carte, _(u"Adhésion"))
+        self.situation_adhesion_statut = wx.StaticText(
+            self.situation_adhesion_carte, -1, _(u"À vérifier"),
+            style=wx.ST_NO_AUTORESIZE)
+        police_statut = self.situation_adhesion_statut.GetFont()
+        police_statut.SetWeight(wx.BOLD)
+        self.situation_adhesion_statut.SetFont(police_statut)
+        self.situation_adhesion_dates = wx.StaticText(
+            self.situation_adhesion_carte, -1, "",
+            style=wx.ST_NO_AUTORESIZE)
+        self.situation_adhesion_type = wx.StaticText(
+            self.situation_adhesion_carte, -1, "",
+            style=wx.ST_NO_AUTORESIZE)
+        sizer_adhesion = wx.BoxSizer(wx.VERTICAL)
+        sizer_adhesion.Add(self.situation_adhesion_titre, 0, wx.ALL, 8)
+        sizer_adhesion.Add(self.situation_adhesion_statut, 0,
+                          wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer_adhesion.Add(self.situation_adhesion_dates, 0,
+                          wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer_adhesion.Add(self.situation_adhesion_type, 0,
+                          wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self.situation_adhesion_carte.SetSizer(sizer_adhesion)
+
+        cartes = wx.BoxSizer(wx.HORIZONTAL)
+        for carte in (self.situation_solde_carte, self.situation_factures_carte,
+                      self.situation_adhesion_carte):
+            cartes.Add(carte, 1, wx.EXPAND | wx.ALL, 3)
+        encart = wx.BoxSizer(wx.VERTICAL)
+        encart.Add(self.situation_titre, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 9)
+        encart.Add(cartes, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+        self.panel_situation.SetSizer(encart)
+        self.panel_situation.SetMinSize((-1, 172))
+
     def __set_properties(self):
         self.SetTitle(_(u"Traitement des demandes"))
         self.bouton_premier.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour accéder à la première demande de la liste")))
@@ -455,7 +549,7 @@ class Dialog(wx.Dialog):
         self.bouton_automatique.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour lancer le traitement automatique de cette demande")))
         self.bouton_manuel.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour lancer le traitement manuel de cette demande")))
         self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer la fenêtre")))
-        self.SetMinSize((800, 670))
+        self.SetMinSize((1010, 800))
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
@@ -490,11 +584,11 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(self.panel_bandeau, 1, wx.EXPAND, 0)
 
         # Contenu
-        grid_sizer_contenu = wx.FlexGridSizer(rows=2, cols=1, vgap=10, hgap=10)
+        grid_sizer_contenu = wx.FlexGridSizer(rows=3, cols=1, vgap=10, hgap=10)
 
         # Demande
         box_demande = wx.StaticBoxSizer(self.box_demande_staticbox, wx.VERTICAL)
-        grid_sizer_demande = wx.FlexGridSizer(rows=5, cols=2, vgap=10, hgap=10)
+        grid_sizer_demande = wx.FlexGridSizer(rows=4, cols=2, vgap=10, hgap=10)
 
         # Famille
         grid_sizer_demande.Add(self.label_famille, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
@@ -520,15 +614,14 @@ class Dialog(wx.Dialog):
         grid_sizer_demande.Add(self.label_informations, 0, wx.ALIGN_RIGHT, 0)
         grid_sizer_demande.Add(self.ctrl_informations, 0, wx.EXPAND, 0)
 
-        # Bilan du compte familial et adhesion de l'enfant, sans popup.
-        grid_sizer_demande.Add(self.label_situation, 0, wx.ALIGN_RIGHT, 0)
-        grid_sizer_demande.Add(self.ctrl_situation, 0, wx.EXPAND, 0)
-
         grid_sizer_demande.AddGrowableRow(1)
         grid_sizer_demande.AddGrowableCol(1)
 
         box_demande.Add(grid_sizer_demande, 1, wx.ALL | wx.EXPAND, 10)
         grid_sizer_contenu.Add(box_demande, 0, wx.EXPAND, 0)
+
+        # Situation familiale, trois colonnes approuvees par la direction.
+        grid_sizer_contenu.Add(self.panel_situation, 0, wx.EXPAND, 0)
 
         # Traitement
         box_traitement = wx.StaticBoxSizer(self.box_traitement_staticbox, wx.VERTICAL)
@@ -1089,6 +1182,7 @@ class Dialog(wx.Dialog):
                 dict_paiements = ParseVentilationPaiement(self.track.ventilation)
             except ValueError:
                 self.ctrl_informations.SetTexte(_(u"Ventilation du paiement en ligne invalide."))
+                self.MAJ_situation()
                 return
 
             DB = GestionDB.DB()
@@ -1139,25 +1233,123 @@ class Dialog(wx.Dialog):
         self.ctrl_informations.SetTexte(texte)
         self.MAJ_situation()
 
+    @staticmethod
+    def _MontantSituation(valeur):
+        return (u"%.2f" % valeur).replace(".", ",") + u" " + SYMBOLE
+
+    @staticmethod
+    def _PeriodeSituation(facture):
+        debut = facture.get("date_debut")
+        fin = facture.get("date_fin")
+        if debut and fin:
+            if (debut.month, debut.year) == (fin.month, fin.year):
+                return debut.strftime("%m/%Y")
+            return debut.strftime("%m/%y") + "-" + fin.strftime("%m/%y")
+        return u"—"
+
     def MAJ_situation(self):
-        """Actualiser la synthese sans ralentir ou bloquer le traitement."""
+        """Lecture seule et mise en forme ; jamais de verrou de traitement."""
+        if not hasattr(self, "panel_situation"):
+            return  # doublures wx de recette historiques
+        if getattr(self.track, "categorie", None) != "reservations":
+            self.panel_situation.Show(False)
+            self.Layout()
+            return
+        self.panel_situation.Show(True)
+        self.situation_factures_table.DeleteAllItems()
+        self.situation_solde_global.SetLabel(
+            _(u"Solde global : %s") % self.ctrl_solde.GetSolde())
         try:
             situation = UTILS_Portail_situation.LireSituation(
                 self.track.IDfamille, getattr(self.track, "IDindividu", None))
-            texte = UTILS_Portail_situation.FormaterSituationHtml(
-                situation, symbole=SYMBOLE)
         except Exception:
-            # Une lecture auxiliaire indisponible n'est jamais un refus
-            # d'accepter ou de traiter une demande Connecthys.
-            texte = _(u"Situation du jour indisponible : consulter la fiche famille.")
-        self.ctrl_situation.SetTexte(texte)
+            # Les comptes indisponibles ne sont pas des comptes a zero.
+            # Aucun refus ni nouvelle boite de dialogue.
+            self.situation_solde_jour.SetLabel(_(u"Solde du jour : indisponible"))
+            self.situation_factures_titre.SetLabel(_(u"Factures impayées"))
+            self.situation_factures_total.SetLabel(_(u"Données indisponibles"))
+            self.situation_adhesion_statut.SetLabel(_(u"À vérifier"))
+            self.situation_adhesion_dates.SetLabel(_(u"Situation indisponible"))
+            self.situation_adhesion_type.SetLabel("")
+            self.Layout()
+            return
+
+        montant = situation["solde_du_jour"]
+        jour = situation["date"]
+        self.situation_solde_jour.SetLabel(
+            _(u"Solde au %s : %s") %
+            (jour.strftime("%d/%m/%Y"), self._MontantSituation(montant)))
+        self.situation_solde_jour.SetForegroundColour(
+            wx.Colour(189, 22, 31) if montant < 0 else wx.Colour(25, 122, 53))
+
+        factures = situation["factures_impayees"]
+        self.situation_factures_titre.SetLabel(
+            _(u"Factures impayées (%d)") % len(factures))
+        for facture in factures:
+            numero = u"%s%s" % (
+                facture.get("prefixe") or "",
+                facture["numero"] if facture.get("numero") is not None
+                else facture["IDfacture"])
+            index = self.situation_factures_table.InsertItem(
+                self.situation_factures_table.GetItemCount(), numero)
+            self.situation_factures_table.SetItem(
+                index, 1, self._PeriodeSituation(facture))
+            self.situation_factures_table.SetItem(
+                index, 2, self._MontantSituation(facture.get("montant", 0)))
+            self.situation_factures_table.SetItem(
+                index, 3, self._MontantSituation(facture["reste"]))
+            self.situation_factures_table.SetItemTextColour(
+                index, wx.Colour(174, 24, 24))
+        self.situation_factures_total.SetLabel(
+            _(u"Total restant dû : %s") %
+            self._MontantSituation(situation["total_factures"])
+            if factures else _(u"Aucune facture impayée"))
+
+        adhesion = situation["adhesion"]
+        statut = adhesion["statut"]
+        libelles = {
+            "en_cours": _(u"Adhésion en cours"),
+            "expiree": _(u"Adhésion expirée"),
+            "a_venir": _(u"Adhésion à venir"),
+            "absente": _(u"Aucune adhésion identifiée"),
+            "a_verifier": _(u"Adhésion à vérifier"),
+        }
+        self.situation_adhesion_statut.SetLabel(
+            libelles.get(statut, _(u"Adhésion à vérifier")))
+        couleur = (wx.Colour(20, 125, 49) if statut == "en_cours"
+                   else wx.Colour(180, 34, 34) if statut in ("absente", "expiree")
+                   else wx.Colour(164, 101, 0))
+        self.situation_adhesion_statut.SetForegroundColour(couleur)
+        debut, fin = adhesion.get("debut"), adhesion.get("fin")
+        self.situation_adhesion_dates.SetLabel(
+            _(u"Période : %s au %s") %
+            (debut.strftime("%d/%m/%Y"), fin.strftime("%d/%m/%Y"))
+            if debut and fin else "")
+        nom = adhesion.get("nom") or adhesion.get("motif", "")
+        montant_adhesion = adhesion.get("montant")
+        if montant_adhesion is not None:
+            nom = u"%s (%s)" % (
+                nom, self._MontantSituation(montant_adhesion))
+        self.situation_adhesion_type.SetLabel(
+            _(u"Type : %s") % nom if nom else "")
+        self.situation_adhesion_type.SetToolTip(nom)
+        self.Layout()
 
     def OnNavigation(self, event):
         if getattr(self, "_traitement_en_cours", False):
             return False
         # Les autres demandes restent accessibles apres une panne de finalisation.
         if not self.Sauvegarde():
-            if getattr(self, "_finalisation_en_attente", None) is None:
+            # Apres fermeture d'une fenetre precedente, la finalisation peut
+            # ne plus etre en memoire ; une trace durable suffit pour naviguer
+            # sans rejouer ni valider les reservations.
+            autoriser = getattr(self, "_finalisation_en_attente", None) is not None
+            if not autoriser and getattr(self.track, "categorie", None) == "reservations":
+                try:
+                    autoriser = UTILS_Portail_reconciliation.EnAttente(self.track.IDaction)
+                except Exception:
+                    autoriser = False
+            if not autoriser:
                 return False
             self._finalisation_en_attente = None
             self._RestaurerEtatDurable()

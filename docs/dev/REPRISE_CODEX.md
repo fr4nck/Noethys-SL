@@ -9,6 +9,10 @@
 
 ## Connecthys — synthèse familiale à l'ouverture d'une demande (09/11/2026)
 
+- **Présentation validée par la direction le 09/11/2026** : adopter la maquette en **encart pleine largeur** et **trois cartes côte à côte** « Soldes », « Factures impayées », « Adhésion ». Le visuel validé était illustratif ; ne jamais injecter ses noms ou montants fictifs dans la base ou les tests.
+- Affichage wx demandé : soldes actuel/au jour différenciés ; factures sous forme de tableau N° facture, Période, Montant, Restant dû avec défilement et total ; adhésion avec statut coloré, période, type et montant de l'unité de cotisation s'il existe. Lecture SQL uniquement, pas de modale, pas de nouvel état métier. Les demandes d'une autre catégorie masquent l'encart.
+- Qualification : la première CI du lot compact (run 42607300613) a compilé mais échoué sur **2 tests / 2261 exécutés** (affichage d'une cotisation inconnue et navigation après panne SQL). La présente intégration trois colonnes contient les corrections correspondantes et les tests mis à jour ; **verdict Windows/recette graphique à établir avant publication**.
+
 - Demande direction : sur « Traitement des demandes » afficher simultanément **solde au jour**, **factures impayées** (numéros, montant restant, échéances) et **adhésion en cours** pour l'enfant, sans fenêtre modale ni interruption des boutons Automatique/Manuel.
 - La zone rouge **Solde** existante reste inchangée : total familial sans borne temporelle, construit avec les prestations et règlements de la famille. Nouvelle zone de consultation **Situation du jour** indépendante ; solde arrêté à la date courante (prestations et règlements avec date <= jour). Les opérations futures en sont exclues.
 - Factures non soldées : **soldes actuels recalculés**, montants des prestations rattachées moins leurs ventilations, conformément à `OL_Factures.py` ; ne pas utiliser le solde initial mémorisé sur la facture. Les paiements non ventilés peuvent rendre le compte global créditeur tandis qu'une facture reste non soldée. Détail des trois premières factures + nombre restant, date d'échéance et total.
