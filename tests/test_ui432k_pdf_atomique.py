@@ -53,7 +53,7 @@ class EcritureAtomiquePDFTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PDF incomplet"):
                 UTILS_PDF_securise.Generer(
                     cible, lambda f: Path(f).write_bytes(
-                        b"%PDF-1.4\n" + b"données fictives " * 12))
+                        b"%PDF-1.4\n" + b"donnees fictives " * 12))
             self.assertEqual(os.listdir(rep), [])
 
     def test_pdf_existant_ne_change_qu_apres_succes(self):

@@ -71,7 +71,7 @@ class FacturesProprietaireTests(unittest.TestCase):
             if erreur:
                 raise RuntimeError("PDF fictif en echec")
             Path(kwargs["nomFichier"]).write_bytes(
-                b"%PDF-1.4\\n" + b"fictif" * 20 + b"\\n%%EOF\\n")
+                b"%PDF-1.4\n" + b"fictif" * 20 + b"\n%%EOF\n")
 
         with tempfile.TemporaryDirectory(
                 prefix="ui432-facture-", dir=_garde_reseau.PROFIL_TEST) as rep:
@@ -156,7 +156,7 @@ class FacturesProprietaireTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="ui432-pdf-", dir=_garde_reseau.PROFIL_TEST) as rep:
             def ecriture_partielle(*args, **kwargs):
                 chemin = kwargs["nomFichier"]
-                Path(chemin).write_bytes(b"%PDF-1.4\\npartiel")
+                Path(chemin).write_bytes(b"%PDF-1.4\npartiel")
                 traces.append(chemin)
                 raise RuntimeError("PDF fictif incomplet")
             with mock.patch.object(UTILS_Facturation.UTILS_Fichiers, "GetRepTemp",
@@ -203,7 +203,7 @@ class FacturesProprietaireTests(unittest.TestCase):
         def generer_pdf(*args, **kwargs):
             commandes.append(kwargs["nomFichier"])
             Path(kwargs["nomFichier"]).write_bytes(
-                b"%PDF-1.4\\n" + b"fictif" * 20 + b"\\n%%EOF\\n")
+                b"%PDF-1.4\n" + b"fictif" * 20 + b"\n%%EOF\n")
 
         with tempfile.TemporaryDirectory(
                 prefix="ui432-lot-", dir=_garde_reseau.PROFIL_TEST) as rep:
