@@ -1,0 +1,49 @@
+name: Noethys SL wx - STATS Q4 SQL isole
+
+# Qualification Q4 specifique, independante de la CI generale souvent
+# annulee par les pushes concurrents. Donnees SQLite en memoire uniquement.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - 'tests/test_stats_q4_familles_sqlite.py'
+      - 'tests/test_stats_q4_caisses_membres_sqlite.py'
+      - '.github/workflows/noethys-sl-stats-q4-isole.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Ne jamais annuler une qualification Q4 sur simple push concurrent.
+concurrency:
+  group: stats-q4-isole-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  sqlite-linux:
+    name: Q4-A et Q4-B1 - SQLite synthetique Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Compiler les deux bancs Q4
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py
+      - name: Executer les vraies methodes SQL sur SQLite fictif
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite
+
+  sqlite-windows:
+    name: Q4-A et Q4-B1 - SQLite synthetique Windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Compiler les deux bancs Q4
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py
+      - name: Executer les vraies methodes SQL sur SQLite fictif
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite
