@@ -70,19 +70,15 @@ def graphes_reels():
     if len(classes) != len(noms):
         raise AssertionError("Graphes Familles Q4-B2 introuvables")
     # Aucune substitution du code metier ni des methodes MAJ.
-    modele = SimpleNamespace(
-        Graphe=GrapheBase,
-        GetDatesPeriode=lambda p: (
-            p["periode"]["date_debut"], p["periode"]["date_fin"]),
-        GetConditionActivites=lambda p: "(" + ",".join(
-            str(a) for a in p["listeActivites"]) + ")",
-    )
+    # Conserver le MODELES d'origine des fonctions SQL extraites : il fournit
+    # LireCacheStats et EcrireCacheStats. Ne remplacer que le parent du graphe.
+    environnement["MODELES"].Graphe = GrapheBase
     matplotlib = SimpleNamespace(
         cm=SimpleNamespace(hsv=lambda value: ("hsv", value)),
         pyplot=SimpleNamespace(setp=lambda *args, **kwargs: None),
     )
     environnement.update({
-        "MODELES": modele, "matplotlib": matplotlib, "_": lambda s: s,
+        "matplotlib": matplotlib, "_": lambda s: s,
     })
     module = ast.Module(body=classes, type_ignores=[])
     ast.fix_missing_locations(module)
