@@ -37,8 +37,8 @@ class MemoryFSRegistrationTests(unittest.TestCase):
         self.assertEqual(len(compteurs), 1)
         self.assertEqual(un.liste_objets, [1])
         self.assertEqual(deux.liste_objets, [2])
-        self.assertIsInstance(un.stockImages, MemoryFSHandler)
-        self.assertIsInstance(deux.stockImages, MemoryFSHandler)
+        self.assertIs(un.stockImages, MemoryFSHandler)
+        self.assertIs(deux.stockImages, MemoryFSHandler)
 
 
 if __name__ == "__main__":

@@ -300,7 +300,10 @@ class HTML():
         if not getattr(HTML, "_memory_fs_registered", False):
             wx.FileSystem.AddHandler(wx.MemoryFSHandler())
             HTML._memory_fs_registered = True
-        self.stockImages = wx.MemoryFSHandler()
+        # AddFile et RemoveFile sont des methodes statiques de wx.
+        # Ne pas construire un handler natif dans chacun des 33 objets :
+        # sa destruction pourrait compromettre les images des autres graphes.
+        self.stockImages = wx.MemoryFSHandler
     
     def SetParametres(self, dictParametres={}) :
         self.dictParametres = dictParametres
