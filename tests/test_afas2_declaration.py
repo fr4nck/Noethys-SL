@@ -487,6 +487,7 @@ class ExtrascolaireDeclarationTests(unittest.TestCase):
         r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, self.source([extra(D(2026, 10, 10))]), ref=ref)
         self.assertFalse(r["validable"])
         self.assertTrue(r["bloquant"])
+        self.assertTrue(any("Samedi hors vacances" in a["nature"] for a in r["anomalies"]))
 
     def test_nature_des_indicateurs_dans_la_synthese(self):
         r = executer(preset(mode="extrascolaire"), 2026, AFAS.PHASE_REEL, self.source([extra(self.JOUR)]))
@@ -608,6 +609,20 @@ class AFAS01JoursExtrascolairesTests(unittest.TestCase):
                   "date_fin": "2026-10-25"}
         self.assertEqual(self.jours(ouverture, (sejour,)), {dimanche})
         self.assertEqual(self.jours(ouverture), set())
+
+    def test_calendrier_extra_incomplet_bilan_controle_et_prevision_strict(self):
+        samedi = D(2026, 10, 10)
+        ouvertures = {(1, 201, 11, samedi)}
+        arguments = (
+            ouvertures, K.EXTRASCOLAIRE, K.Calendrier(VACANCES), {},
+            {201: "journee"}, {(1, 11): "Bais +6 ans"}, ())
+        with self.assertRaisesRegex(DECL.DeclarationImpossible, "Calendrier AFAS non qualifi"):
+            DECL.JoursOuvertsEligibles(*arguments)
+        # Le bilan reste calculable mais non validable : l'anomalie
+        # bloquante appartient au moteur, pas au comptage des jours.
+        self.assertEqual(
+            DECL.JoursOuvertsEligibles(*arguments, strict_calendar=False),
+            set())
 
     def test_ratio_prevision_extra(self):
         precedent = self.jours({(1, 201, 11, D(2025, 10, 14)),

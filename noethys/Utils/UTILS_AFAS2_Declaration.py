@@ -149,7 +149,7 @@ DELAI_REGULARISATIONS = datetime.timedelta(days=92)
 
 
 def JoursOuvertsEligibles(ouvertures, mode, calendrier, samedis_avec_ecole,
-                          unites=None, couples=None, sejours=None):
+                          unites=None, couples=None, sejours=None, strict_calendar=True):
     """Jours ouverts du mode déclaré, sans dates scolaires en extrascolaire."""
     valides, inconnus = set(), set()
     for activite, IDunite, groupe, jour in ouvertures:
@@ -176,7 +176,7 @@ def JoursOuvertsEligibles(ouvertures, mode, calendrier, samedis_avec_ecole,
                    and str(sejour["date_debut"])[:10] <= str(jour)[:10] <= str(sejour["date_fin"])[:10]
                    for sejour in (sejours or ())):
                 valides.add(jour)
-    if inconnus:
+    if inconnus and strict_calendar:
         raise DeclarationImpossible(
             "Calendrier AFAS non qualifié pour %d jour(s) d'ouverture, dont %s"
             % (len(inconnus), min(inconnus)))
@@ -194,7 +194,10 @@ def CalculerPeriode(preset, referentiel, couples, source, debut, fin, date_refer
     resultat = Calcul.Calculateur(contexte).Calculer(consommations, debut, fin)
     resultat["jours_ouverts"] = len(JoursOuvertsEligibles(
         contexte["ouvertures"], preset["mode"], contexte["calendrier"],
-        contexte["samedis_avec_ecole"], contexte["unites"], couples, contexte["sejours"]))
+        contexte["samedis_avec_ecole"], contexte["unites"], couples, contexte["sejours"],
+        strict_calendar=preset["mode"] != Conventions.EXTRASCOLAIRE))
+    # Dans le réalisé extrascolaire, les jours non qualifiés restent
+    # bloquants via les anomalies du moteur, mais le rapport reste consultable.
     resultat["periode"] = (debut, fin)
     return resultat
 
