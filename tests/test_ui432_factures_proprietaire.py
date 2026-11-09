@@ -161,5 +161,50 @@ class FacturesProprietaireTests(unittest.TestCase):
             self.assertFalse(Path(traces[0]).exists())
 
 
+    def test_generation_de_lot_yield_entre_factures_sans_worker_pdf(self):
+        # Le parent se comporte comme une wx.Window visible ; les widgets
+        # et les PDF demeurent simules, aucune connexion n'est permise.
+        import wx
+        owner = mock.Mock(spec=wx.Window)
+        self.assertIsInstance(owner, wx.Window)
+        owner.IsShownOnScreen.return_value = True
+        fac = UTILS_Facturation.Facturation.__new__(UTILS_Facturation.Facturation)
+        fac.GetDonneesImpression = mock.Mock(return_value=(
+            {
+                42: {"select": True, "num_facture": "000042",
+                     "nomSansCivilite": "Fictive"},
+                43: {"select": True, "num_facture": "000043",
+                     "nomSansCivilite": "Fictive"},
+            },
+            {42: {}, 43: {}},
+        ))
+        fac.EcritStatusbar = mock.Mock()
+        etapes = []
+        commandes = []
+
+        def executer(parent, generateur, **options):
+            self.assertIs(parent, owner)
+            self.assertEqual(options["total"], 2)
+            etapes.extend(list(generateur))
+
+        def generer_pdf(*args, **kwargs):
+            commandes.append(kwargs["nomFichier"])
+
+        with mock.patch.object(UTILS_Facturation.wx, "IsMainThread", return_value=True), \
+             mock.patch.object(UTILS_Facturation.wx, "ProgressDialog") as progression, \
+             mock.patch.object(UTILS_Facturation.UTILS_Etapes_ui, "Executer",
+                               side_effect=executer) as attente, \
+             mock.patch.object(UTILS_Facturation.UTILS_Impression_facture, "Impression",
+                               side_effect=generer_pdf):
+            resultat = fac.Impression(
+                listeFactures=[42, 43], dictOptions={"IDmodele": 3},
+                afficherDoc=False, repertoireTemp=True, parent=owner)
+        self.assertEqual(etapes, ["factures.generation_pdf"] * 2)
+        self.assertEqual(len(commandes), 2)
+        self.assertEqual(len(resultat[1]), 2)
+        progression.assert_not_called()
+        attente.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

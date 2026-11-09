@@ -8,17 +8,22 @@ from Utils.UTILS_Traduction import _
 
 
 class Attente(wx.Dialog):
-    def __init__(self, parent, etapes):
-        super().__init__(parent, title=_(u"Traitement des demandes"),
-                         style=wx.DEFAULT_DIALOG_STYLE & ~wx.CLOSE_BOX)
+    def __init__(self, parent, etapes, *, titre=None, texte=None, total=None):
+        super().__init__(
+            parent, title=titre if titre is not None else _(u"Traitement des demandes"),
+            style=wx.DEFAULT_DIALOG_STYLE & ~wx.CLOSE_BOX)
         self.etapes = iter(etapes)
+        self.total = max(1, int(total)) if total is not None else None
+        self.progression = 0
         self.erreur = None
         self.termine = False
         self.en_cours = False
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(wx.StaticText(self, label=_(u"Chargement de la grille en cours…")),
-                  0, wx.ALL, 18)
-        self.gauge = wx.Gauge(self, range=100, size=(320, -1))
+        sizer.Add(wx.StaticText(
+            self, label=texte if texte is not None
+            else _(u"Chargement de la grille en cours…")),
+            0, wx.ALL, 18)
+        self.gauge = wx.Gauge(self, range=self.total or 100, size=(320, -1))
         sizer.Add(self.gauge, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 18)
         self.SetSizerAndFit(sizer)
         self.CentreOnParent()
@@ -44,7 +49,11 @@ class Attente(wx.Dialog):
         etape = "grille.finalisation"
         try:
             etape = next(self.etapes)
-            self.gauge.Pulse()
+            if self.total is None:
+                self.gauge.Pulse()
+            else:
+                self.progression += 1
+                self.gauge.SetValue(min(self.total, self.progression))
         except StopIteration:
             self.termine = True
             termine = True
@@ -56,8 +65,13 @@ class Attente(wx.Dialog):
             self.en_cours = False
             if debut is not None:
                 try:
-                    from Utils.UTILS_Diagnostic_ui import tracer_etape_grille
-                    tracer_etape_grille(etape, (time.monotonic() - debut) * 1000)
+                    from Utils import UTILS_Diagnostic_ui as diagnostic
+                    if etape == "factures.generation_pdf":
+                        diagnostic.tracer_etape_facture(
+                            etape, (time.monotonic() - debut) * 1000)
+                    else:
+                        diagnostic.tracer_etape_grille(
+                            etape, (time.monotonic() - debut) * 1000)
                 except Exception:
                     pass
         if termine:
@@ -65,8 +79,8 @@ class Attente(wx.Dialog):
             self.EndModal(wx.ID_OK)
 
 
-def Executer(parent, etapes):
-    """Retourne entre deux lectures; toutes les etapes restent sur le thread wx.
+def Executer(parent, etapes, *, titre=None, texte=None, total=None):
+    """Retourne entre deux traitements; toutes les etapes restent sur le thread wx.
 
     Le generateur ferme ses connexions en finally. La fenetre modale desactive
     ses proprietaires : pas de navigation/envoi pendant la grille incomplete.
@@ -74,7 +88,11 @@ def Executer(parent, etapes):
     """
     if not wx.IsMainThread():
         raise RuntimeError("Etapes UI hors du thread wx")
-    dialogue = Attente(parent, etapes)
+    if titre is None and texte is None and total is None:
+        # Garder l'appel a deux arguments pour les fixtures wx historiques.
+        dialogue = Attente(parent, etapes)
+    else:
+        dialogue = Attente(parent, etapes, titre=titre, texte=texte, total=total)
     try:
         dialogue.timer.Start(15)
         dialogue.ShowModal()

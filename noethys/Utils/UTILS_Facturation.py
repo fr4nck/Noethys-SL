@@ -27,6 +27,7 @@ import Chemins
 from Utils.UTILS_Traduction import _
 import wx
 from Utils import UTILS_Attente
+from Utils import UTILS_Etapes_ui
 import datetime
 import os
 import six
@@ -1149,14 +1150,27 @@ class Facturation():
         def CreationPDFunique(repertoireCible="", supprimer_partiels=False):
             dictPieces = {}
             nouveaux_fichiers = []
-            dlgProgress = wx.ProgressDialog(_(u"Génération des factures au format PDF"), _(u"Initialisation..."), maximum=len(
-                dictFactures), parent=parent, style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
-            try:
-                if 'phoenix' not in wx.PlatformInfo:
-                    wx.Yield()
-            except:
-                pass
-            try:
+
+            # Chaque PDF conserve son moteur historique sur le thread wx.
+            # Le dialogue modal traite les evenements entre deux documents,
+            # sans executer ReportLab ni les objets Noedoc en parallele.
+            cooperatif = (
+                parent is not None and isinstance(parent, wx.Window)
+                and wx.IsMainThread() and parent.IsShownOnScreen()
+            )
+            dlgProgress = None
+            if not cooperatif:
+                dlgProgress = wx.ProgressDialog(
+                    _(u"Génération des factures au format PDF"), _(u"Initialisation..."),
+                    maximum=len(dictFactures), parent=parent,
+                    style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+                try:
+                    if 'phoenix' not in wx.PlatformInfo:
+                        wx.Yield()
+                except:
+                    pass
+
+            def generer():
                 index = 0
                 for IDfacture, dictFacture in dictFactures.items():
                     if dictFacture["select"] == True:
@@ -1177,23 +1191,36 @@ class Facturation():
                         cheminFichier = u"%s/%s.pdf" % (
                             repertoireCible, nomFichier)
                         dictComptesTemp = {IDfacture: dictFacture}
-                        texte = _(u"Facture %d/%d : %s") % (index,
-                                                            len(dictFactures), nomFichier)
+                        texte = _(u"Facture %d/%d : %s") % (
+                            index, len(dictFactures), nomFichier)
                         self.EcritStatusbar(texte)
-                        dlgProgress.Update(index + 1, texte)
-                        # Ne supprimer apres erreur que les PDF temp deja inexistants
-                        # avant l'operation, jamais des copies de l'utilisateur.
+                        if dlgProgress is not None:
+                            dlgProgress.Update(index + 1, texte)
+                        # Seuls les PDF temporaires crees pendant CE lot
+                        # peuvent etre effaces apres une generation echouee.
                         if supprimer_partiels and not os.path.exists(cheminFichier):
                             nouveaux_fichiers.append(cheminFichier)
                         UTILS_Impression_facture.Impression(
-                            dictComptesTemp, dictOptions, IDmodele=dictOptions["IDmodele"], ouverture=False, nomFichier=cheminFichier)
+                            dictComptesTemp, dictOptions,
+                            IDmodele=dictOptions["IDmodele"],
+                            ouverture=False, nomFichier=cheminFichier)
                         dictPieces[IDfacture] = cheminFichier
                         index += 1
+                        yield "factures.generation_pdf"
                 self.EcritStatusbar("")
-                dlgProgress.Destroy()
+
+            try:
+                if cooperatif:
+                    UTILS_Etapes_ui.Executer(
+                        parent, generer(),
+                        titre=_(u"Génération des factures"),
+                        texte=_(u"Création des documents PDF en cours…"),
+                        total=sum(1 for val in dictFactures.values() if val["select"]))
+                else:
+                    for _ in generer():
+                        pass
                 return dictPieces
             except Exception as err:
-                dlgProgress.Destroy()
                 if supprimer_partiels:
                     for chemin in nouveaux_fichiers:
                         try:
@@ -1202,11 +1229,18 @@ class Facturation():
                         except OSError:
                             pass
                 traceback.print_exc(file=sys.stdout)
-                dlg = wx.MessageDialog(parent, _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \n\n%s") % err, _(
-                    u"Erreur"), wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
-                dlg.Destroy()
+                dlg = wx.MessageDialog(
+                    parent,
+                    _(u"Désolé, le problème suivant a été rencontré dans l'édition des factures : \\n\\n%s") % err,
+                    _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                try:
+                    dlg.ShowModal()
+                finally:
+                    dlg.Destroy()
                 return False
+            finally:
+                if dlgProgress is not None:
+                    dlgProgress.Destroy()
 
         # Répertoire souhaité par l'utilisateur
         if repertoire not in (None, ""):

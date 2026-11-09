@@ -79,6 +79,25 @@ def tracer_etape_grille(etape, duree_ms, sortie=None):
         pass
 
 
+def tracer_etape_facture(etape, duree_ms, sortie=None):
+    """Duree d'une facture generee, label ferme sans identifiant ni PDF."""
+    if os.environ.get(ENVIRONNEMENT) != "1":
+        return
+    etape = ("factures.generation_pdf" if etape == "factures.generation_pdf"
+             else "factures.inconnue")
+    try:
+        evenement = {"evenement": "etape", "etape": etape,
+                     "duree_ms": max(0, int(duree_ms))}
+        if sortie is None:
+            print("NOETHYS_UI_DIAG " + " ".join(
+                "%s=%s" % (cle, evenement[cle]) for cle in sorted(evenement)
+            ), flush=True)
+        else:
+            sortie(evenement)
+    except Exception:
+        pass
+
+
 class Diagnostic:
     """Observer l'ecart entre les battements wx, jamais les donnees metier."""
 
