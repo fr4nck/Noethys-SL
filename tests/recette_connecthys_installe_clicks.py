@@ -219,8 +219,20 @@ def valider_saisie(auto=True):
     liste=attendre(proc.pid,"Traitement des demandes",limite=20,exclure="[")
     capture(liste,"01_liste_portail_fictive.png")
     etiquettes(liste)
+    for element in liste.descendants():
+        try:
+            if element.class_name() in ("SysListView32","wxWindowNR"):
+                if hasattr(element,"item_count"):
+                    print("LISTE_COMPTE",element.class_name(),element.window_text(),
+                          element.item_count(),flush=True)
+        except Exception:
+            pass
     cliquer(liste,"Commencer")
-    demande=attendre(proc.pid,"Traitement des demandes [",limite=25)
+    time.sleep(2)
+    print("FENETRES_APRES_COMMENCER",
+          [(a,b,h) for a,b,h,_ in liste_fenetres(proc.pid)],flush=True)
+    etiquettes(liste)
+    demande=attendre(proc.pid,"Traitement des demandes [",limite=12)
     capture(demande,"02_demande_fictive_avant.png")
     etiquettes(demande)
     cliquer(demande,"Automatique" if auto else "Manuel")
@@ -253,3 +265,11 @@ finally:
         except Exception:
             proc.kill()
     print("SQL_FINAL",lire(),flush=True)
+    # Journal redirige par le vrai Noethys.exe dans le Portable FICTIF.
+    # Ne jamais extraire de journal depuis un profil utilisateur reel.
+    journal=exe.parent/"Portable"/"journal.log"
+    if journal.is_file() and (exe.parent/"Portable"/"Data"/"Recette_DATA.dat").is_file():
+        texte=journal.read_text(encoding="utf-8",errors="replace")
+        print("JOURNAL_FICTIF_FIN",texte[-12000:],flush=True)
+        (sortie/"journal-fictif.log").write_text(texte[-12000:],encoding="utf-8")
+
