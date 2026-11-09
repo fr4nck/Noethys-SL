@@ -1,5 +1,9 @@
 # STATS-RESTORE — lot initial de restauration (09/11/2026)
 
+## Matrice détaillée Q3 — 33 objets
+
+[Voir la matrice des 33 éléments](STATS_Q3_MATRICE_20261109.md). L'inventaire AST est PASS ; les colonnes SQL, métier, rendu, impression et Windows restent majoritairement NON TESTÉES à l'échelle de chaque objet. Ce document exclut tout faux GO par héritage d'un test transversal.
+
 ## Q3 — qualification autonome des caches et VFS natif (09/11/2026)
 
 - **But :** qualifier le moteur Statistiques depuis ChatGPT classique par tests réels et isolés, sans Work/Codex et sans données PMSL. Ne pas assimiler ces essais à une recette de l'application installée.
