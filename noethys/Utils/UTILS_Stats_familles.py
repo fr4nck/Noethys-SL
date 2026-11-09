@@ -88,8 +88,9 @@ DICT_CAISSES = {"dictParametres" : {}, "dictResultats" : {} }
 def GetDictCaisses(DB, dictParametres):
     # Vérifie si les données n'existent pas déjà
     global DICT_CAISSES
-    if DICT_CAISSES["dictParametres"] == dictParametres :
-        return DICT_CAISSES["dictResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "familles.caisses", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -137,9 +138,8 @@ def GetDictCaisses(DB, dictParametres):
         dictResultats[IDcaisse]["nbreFamilles"] += 1
 
     # Mémorisation des résultats
-    DICT_CAISSES["dictParametres"] = dictParametres
-    DICT_CAISSES["dictResultats"] = dictResultats
-    return dictResultats
+    return MODELES.EcrireCacheStats(DB, "familles.caisses", dictParametres,
+                                   dictResultats)
 
 
 DICT_MEMBRES = {"dictParametres" : {}, "dictResultats" : {} }
@@ -147,8 +147,9 @@ DICT_MEMBRES = {"dictParametres" : {}, "dictResultats" : {} }
 def GetDictMembres(DB, dictParametres):
     # Vérifie si les données n'existent pas déjà
     global DICT_MEMBRES
-    if DICT_MEMBRES["dictParametres"] == dictParametres :
-        return DICT_MEMBRES["dictResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "familles.membres", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -190,9 +191,8 @@ def GetDictMembres(DB, dictParametres):
         dictResultats[nbreMembres] += 1
 
     # Mémorisation des résultats
-    DICT_MEMBRES["dictParametres"] = dictParametres
-    DICT_MEMBRES["dictResultats"] = dictResultats
-    return dictResultats
+    return MODELES.EcrireCacheStats(DB, "familles.membres", dictParametres,
+                                   dictResultats)
 
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------
