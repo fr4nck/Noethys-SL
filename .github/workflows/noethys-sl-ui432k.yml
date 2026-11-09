@@ -1,0 +1,45 @@
+name: Noethys SL wx - UI-432K ciblee
+
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - 'noethys/Utils/UTILS_Travail_long.py'
+      - 'noethys/Utils/UTILS_Facturation.py'
+      - 'tests/test_ui432k_*.py'
+      - '.github/workflows/noethys-sl-ui432k.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui432k:
+    name: UI-432K - lectures et HWND fictifs sous Windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances des tests sans production
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ui432k.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ui432k.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Verifier isolation reseau et UI-432K
+        shell: pwsh
+        run: >-
+          python -m unittest -v
+          tests.test_000_garde_reseau
+          tests.test_ui432_factures_proprietaire
+          tests.test_ui432k_factures_lecture
+          tests.test_ui432k_worker_win32
