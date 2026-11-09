@@ -9,6 +9,7 @@ on:
       - 'tests/test_stats_q4_familles_sqlite.py'
       - 'tests/test_stats_q4_caisses_membres_sqlite.py'
       - 'tests/test_stats_q4_graphes_familles_donnees.py'
+      - 'tests/test_stats_q4_individus_nombre_sqlite.py'
       - '.github/workflows/noethys-sl-stats-q4-isole.yml'
   workflow_dispatch:
 
@@ -22,7 +23,7 @@ concurrency:
 
 jobs:
   sqlite-linux:
-    name: Q4-A et Q4-B1 - SQLite synthetique Ubuntu
+    name: Q4 - SQLite synthetique Ubuntu
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -31,12 +32,12 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler les deux bancs Q4
-        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py
       - name: Executer les vraies methodes SQL sur SQLite fictif
-        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite
 
   sqlite-windows:
-    name: Q4-A et Q4-B1 - SQLite synthetique Windows
+    name: Q4 - SQLite synthetique Windows
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +46,6 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compiler les deux bancs Q4
-        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py
+        run: python -m py_compile tests/test_stats_q4_familles_sqlite.py tests/test_stats_q4_caisses_membres_sqlite.py tests/test_stats_q4_graphes_familles_donnees.py tests/test_stats_q4_individus_nombre_sqlite.py
       - name: Executer les vraies methodes SQL sur SQLite fictif
-        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees
+        run: python -m unittest -v tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite
