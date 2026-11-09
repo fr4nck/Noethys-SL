@@ -1,10 +1,40 @@
 # -*- coding: utf-8 -*-
 """Etapes cooperatives wx, sans worker ni yield au milieu d'une ecriture SQL."""
 import os
+import queue
 import sys
+import threading
 import time
 import wx
 from Utils.UTILS_Traduction import _
+
+
+class TravailFond:
+    """Un calcul pur termine dans une file, sans callback wx dans le worker."""
+
+    def __init__(self, calcul, etape="statistiques.objet"):
+        self.calcul = calcul
+        self.etape = etape
+        self.resultats = queue.Queue(maxsize=1)
+        self.lance = False
+        self.debut = None
+
+    def demarrer(self):
+        if self.lance:
+            raise RuntimeError("Etape de fond deja lancee")
+        self.lance = True
+        self.debut = time.monotonic()
+
+        def executer():
+            try:
+                issue = ("ok", self.calcul())
+            except BaseException:
+                issue = ("erreur", sys.exc_info())
+            self.resultats.put_nowait(issue)
+
+        self.thread = threading.Thread(
+            target=executer, name="Noethys-Stats-UI432K", daemon=True)
+        self.thread.start()
 
 
 class Attente(wx.Dialog):
@@ -18,6 +48,7 @@ class Attente(wx.Dialog):
         self.erreur = None
         self.termine = False
         self.en_cours = False
+        self.travail_fond = None
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(wx.StaticText(
             self, label=texte if texte is not None
@@ -46,9 +77,33 @@ class Attente(wx.Dialog):
         self.en_cours = True
         termine = False
         debut = time.monotonic() if os.environ.get("NOETHYS_SL_UI_DIAG") == "1" else None
-        etape = "grille.finalisation"
+        etape = None
+        duree_worker_ms = None
         try:
-            etape = next(self.etapes)
+            if self.travail_fond is not None:
+                # Le timer wx reste actif pendant ce calcul unitaire long.
+                try:
+                    etat, resultat = self.travail_fond.resultats.get_nowait()
+                except queue.Empty:
+                    self.gauge.Pulse()
+                    return
+                travail = self.travail_fond
+                self.travail_fond = None
+                duree_worker_ms = (time.monotonic() - travail.debut) * 1000
+                if etat == "erreur":
+                    _, erreur, trace = resultat
+                    raise erreur.with_traceback(trace)
+                etape = self.etapes.send(resultat)
+            else:
+                etape = next(self.etapes)
+
+            if isinstance(etape, TravailFond):
+                self.travail_fond = etape
+                etape.demarrer()
+                etape = None
+                self.gauge.Pulse()
+                return
+
             if self.total is None:
                 self.gauge.Pulse()
             else:
@@ -63,18 +118,17 @@ class Attente(wx.Dialog):
             termine = True
         finally:
             self.en_cours = False
-            if debut is not None:
+            if debut is not None and etape is not None:
                 try:
                     from Utils import UTILS_Diagnostic_ui as diagnostic
+                    duree_ms = (duree_worker_ms if duree_worker_ms is not None
+                                else (time.monotonic() - debut) * 1000)
                     if etape == "factures.generation_pdf":
-                        diagnostic.tracer_etape_facture(
-                            etape, (time.monotonic() - debut) * 1000)
+                        diagnostic.tracer_etape_facture(etape, duree_ms)
                     elif etape == "statistiques.objet":
-                        diagnostic.tracer_etape_statistiques(
-                            etape, (time.monotonic() - debut) * 1000)
+                        diagnostic.tracer_etape_statistiques(etape, duree_ms)
                     else:
-                        diagnostic.tracer_etape_grille(
-                            etape, (time.monotonic() - debut) * 1000)
+                        diagnostic.tracer_etape_grille(etape, duree_ms)
                 except Exception:
                     pass
         if termine:

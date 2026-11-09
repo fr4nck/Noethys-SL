@@ -313,12 +313,21 @@ class HTML():
         for etape_calculee in self.MAJ_etapes(rubrique=rubrique, page=page):
             pass
 
-    def MAJ_etapes(self, rubrique=None, page=None):
-        """Rend la main entre objets, sans deplacer SQL/graphes hors du thread wx."""
+    def MAJ_etapes(self, rubrique=None, page=None, parent=None):
+        """Cede entre objets, et isole les textes/tableaux explicitement qualifies."""
         tout = rubrique is None and page is None
         if len(self.dictParametres["listeActivites"]) == 0:
             return
+
         DB = GestionDB.DB()
+        # Le choix est ferme : sept objets simples, sans rendu wx/matplotlib.
+        # Tous les autres objets conservent le parcours historique.
+        travail_autorise = False
+        source_db = getattr(DB, "nomFichier", None)
+        if (parent is not None and isinstance(source_db, str) and source_db
+                and parent.IsShownOnScreen() and wx.IsMainThread()):
+            from Utils import UTILS_Stats_unitaire, UTILS_Etapes_ui
+            travail_autorise = True
         try:
             for dictRubrique in self.liste_objets:
                 for dictPage in dictRubrique["pages"]:
@@ -332,7 +341,14 @@ class HTML():
                         if not maj:
                             continue
                         try:
-                            if objet.categorie == "graphe":
+                            if (travail_autorise
+                                    and UTILS_Stats_unitaire.est_compatible(objet)):
+                                # Ne transmettre au worker ni widget ni DB GUI.
+                                calcul = UTILS_Stats_unitaire.preparer(
+                                    objet, self.dictParametres, source_db)
+                                donnees = yield UTILS_Etapes_ui.TravailFond(calcul)
+                                UTILS_Stats_unitaire.appliquer(objet, donnees)
+                            elif objet.categorie == "graphe":
                                 figure = matplotlib.pyplot.figure()
                                 try:
                                     resultat = objet.MAJ(

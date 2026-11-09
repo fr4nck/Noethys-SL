@@ -565,7 +565,7 @@ class Dialog(wx.Dialog):
                 # Le dialogue modal, rattache a Stats, permet les evenements
                 # entre chaque calcul d'objet.
                 UTILS_Etapes_ui.Executer(
-                    self, self.baseHTML.MAJ_etapes(page=codePage),
+                    self, self.baseHTML.MAJ_etapes(page=codePage, parent=self),
                     titre=_(u"Statistiques"),
                     texte=_(u"Actualisation des données..."))
             else:

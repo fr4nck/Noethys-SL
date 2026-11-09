@@ -7,6 +7,10 @@ on:
     paths:
       - 'noethys/Utils/UTILS_Travail_long.py'
       - 'noethys/Utils/UTILS_Facturation.py'
+      - 'noethys/Utils/UTILS_Etapes_ui.py'
+      - 'noethys/Utils/UTILS_Stats_modeles.py'
+      - 'noethys/Utils/UTILS_Stats_unitaire.py'
+      - 'noethys/Dlg/DLG_Stats.py'
       - 'tests/test_ui432k_*.py'
       - '.github/workflows/noethys-sl-ui432k.yml'
   workflow_dispatch:
@@ -43,3 +47,5 @@ jobs:
           tests.test_ui432_factures_proprietaire
           tests.test_ui432k_factures_lecture
           tests.test_ui432k_worker_win32
+          tests.test_ui432k_stats_unitaire
+          tests.test_ui432k_stats_win32
