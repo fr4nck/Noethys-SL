@@ -19,10 +19,9 @@ on:
 permissions:
   contents: read
 
-# Diagnostic AFAS2 CI : suppression provisoire de la concurrence globale.
-# Plusieurs executions ont echoue avant creation de jobs (0 job, ~51 s).
-# Les donnees de recette sont fictives ; aucune publication n'est declenchee.
-# A reevaluer des qualification normale des runners.
+concurrency:
+  group: noethys-sl-wx-afas2-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   moteur-pur:
