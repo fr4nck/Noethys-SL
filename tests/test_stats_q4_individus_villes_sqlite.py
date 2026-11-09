@@ -196,7 +196,8 @@ def reference(db, p):
         distribution[(cp, ville)] += 1
     result = {}
     for key, n in distribution.items():
-        dist = stub_distance(ORIGINE, [key]).get(key)
+        dist = (stub_distance(ORIGINE, [key]).get(key)
+                if key[0] is not None and key[1] is not None else None)
         result[key] = {
             "nbreIndividus": n,
             "distance": dist["distance_texte"] if dist is not None else "",
