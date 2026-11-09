@@ -2151,8 +2151,18 @@ class Traitement():
                 hasPlaces = True
                 for IDunite in liste_unites_conso :
                     if ctrl_grille.IsOuvert(IDunite=IDunite, date=date) :
-                        if ctrl_grille.GetCase(IDunite, date) != None and ctrl_grille.HasPlacesDisponibles(IDunite=IDunite, date=date) == False :
-                            hasPlaces = False
+                        case_existante = ctrl_grille.GetCase(IDunite, date)
+                        if case_existante is not None and not ctrl_grille.HasPlacesDisponibles(IDunite=IDunite, date=date):
+                            # Une reservation de cet enfant est deja comprise
+                            # dans le remplissage. Une reprise partielle ne
+                            # doit pas transformer l'autre unite en attente.
+                            appartenant = any(
+                                getattr(c, "IDinscription", None) == reservation["IDinscription"]
+                                and getattr(c, "etat", None) in ("reservation", "present")
+                                for c in case_existante.GetListeConso()
+                            )
+                            if not appartenant:
+                                hasPlaces = False
 
                 repas_lie = regles_reservations.linked_meal(reservation, listeReservations) or (
                     reservation['role_portail'] == 'repas' and regles_reservations.context(reservation) in repas_deja_lies)

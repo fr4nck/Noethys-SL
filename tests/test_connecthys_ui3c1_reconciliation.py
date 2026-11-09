@@ -139,6 +139,32 @@ class ReconciliationTests(unittest.TestCase):
         self.relancer_sans_exception()
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
         self.assertEqual(self.etat_sql()[0], "validation")
+    def test_reprise_auto_quantite_partielle_durable_avec_provenance(self):
+        self.preparer()
+        self.base.inserer("consommations", ["IDunite", "quantite"], [(101, 1)])
+        self.ui.ctrl_grille.InitGrille()
+        original = self.ui.ctrl_grille.GetCase
+        def case(IDunite, date):
+            cellule = original(IDunite, date)
+            if IDunite == 101:
+                ligne = NS(etat="reservation", IDinscription=77,
+                           IDfacture=None, verrouillage=0)
+                cellule.etat = "reservation"
+                cellule.IDfacture = None
+                cellule.verrouillage = 0
+                cellule.GetListeConso = lambda: [ligne]
+            return cellule
+        self.ui.ctrl_grille.GetCase = case
+        self.ui.ctrl_grille.HasPlacesDisponibles = (
+            lambda IDunite, date: IDunite != 101)
+        jeton = Marqueurs.Commencer(7)
+        self.assertTrue(Marqueurs.EnAttente(7))
+        self.relancer_sans_exception()
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertFalse(Marqueurs.EnAttente(7))
+        self.assertEqual(self.ui.ctrl_grille.saisies, 1)
+
     def test_ce5_exception_post_save_ne_rejoue_pas_quantite(self):
         self.preparer()
         self.ventilation.side_effect = RuntimeError("Exception ventilation fictive")
