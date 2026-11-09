@@ -345,7 +345,7 @@ def GetDictQuotients(DB, dictParametres):
             else :
                 found = False
                 for tranche in list(dictTranches.keys()) :
-                    if tranche not in ("pasqf", "autre") and quotient >= tranche[0] and quotient <= tranche[1] :
+                    if isinstance(tranche, tuple) and quotient >= tranche[0] and quotient <= tranche[1] :
                         dictTranches[tranche] += 1
                         found = True
                         break
