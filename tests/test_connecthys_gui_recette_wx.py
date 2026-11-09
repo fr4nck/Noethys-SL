@@ -254,6 +254,16 @@ class RecetteConnecthysGraphique(unittest.TestCase):
         self._verifier_geometrie()
         self._capturer("03_lecture_indisponible.png")
 
+    def test_05_calendrier_en_zone_defilante_sauvegarde_par_dialogue(self):
+        """La correction petit ecran ne perd pas les evenements calendrier."""
+        d = self.dialogue
+        self.assertIs(d.ctrl_date_validation.GetParent(), d.scroll_contenu)
+        with mock.patch.object(d, "Sauvegarde", return_value=True) as enregistrer:
+            d.ctrl_date_validation.OnDateChanged(None)
+        enregistrer.assert_called_once_with()
+        self.assertIs(d.bouton_automatique.GetParent(), d)
+        self.assertIs(d.bouton_manuel.GetParent(), d)
+
     def test_04_autre_categorie_cache_la_synthese(self):
         d = self.dialogue
         self.track.categorie = "reglements"
