@@ -326,8 +326,11 @@ class SituationConnecthysTests(unittest.TestCase):
                          methodes["__do_layout"])
         self.assertIn("rows=1, cols=2", methodes["__do_layout"])
         self.assertIn("self.ctrl_solde.GetSolde()", methodes["MAJ_situation"])
+        # La variable d'email est generee dans CreationPDF, jamais dans
+        # Envoyer : ce dernier delegue l'expedition au service d'emails.
         self.assertIn('dict_champs["{SOLDE_FAMILLE}"] = self.ctrl_solde.GetSolde()',
-                      methodes["Envoyer"] if "Envoyer" in methodes else source)
+                      methodes["CreationPDF"])
+        self.assertNotIn('dict_champs["{SOLDE_FAMILLE}"]', methodes["Envoyer"])
         self.assertIn("self.situation_factures_carte", methodes["_ConstruireSituationFamille"])
         self.assertIn("self.situation_solde_carte", methodes["_ConstruireSituationFamille"])
         self.assertIn("self.situation_adhesion_carte", methodes["_ConstruireSituationFamille"])

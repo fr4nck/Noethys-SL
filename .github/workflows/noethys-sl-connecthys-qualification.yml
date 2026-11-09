@@ -1,0 +1,55 @@
+name: Noethys SL wx - qualification Connecthys isolee
+
+# Qualification specifique du lot Connecthys independamment des tests
+# statistiques ou d'autres fonctions, sans paquet RC ni base reelle.
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - 'noethys/Dlg/DLG_Saisie_portail_demande.py'
+      - 'noethys/Dlg/DLG_Portail_reservations.py'
+      - 'noethys/Utils/UTILS_Portail_reconciliation.py'
+      - 'noethys/Utils/UTILS_Portail_reservations.py'
+      - 'noethys/Utils/UTILS_Portail_situation.py'
+      - 'tests/test_connecthys_*.py'
+      - '.github/workflows/noethys-sl-connecthys-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connecthys-windows:
+    name: Connecthys - contrats Windows et SQLite fictif
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer les dependances de test wx
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+      - name: Qualifier traitement, reprises, solde et annulations (sans donnees reelles)
+        run: >-
+          python -m unittest -v
+          tests.test_000_garde_reseau
+          tests.test_connecthys_situation
+          tests.test_connecthys_ui3c_sauvegarde
+          tests.test_connecthys_ui3c1_reconciliation
+          tests.test_connecthys_priorites_435
+          tests.test_connecthys_reservations_progress
+          tests.test_connecthys_reprises
+          tests.test_connecthys_confirmation_partielle
+          tests.test_connecthys_ui3_reentrance
+          tests.test_connecthys_ui432_etapes
