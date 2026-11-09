@@ -14,8 +14,62 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+
+def scenario_deux(mode):
+    """Comparer instances de gestionnaire et classe statique avec deux graphes."""
+    import gc
+    import wx
+    from tests.test_stats_restore_vfs_win32 import charger_graphe
+    methods = charger_graphe()
+    app = wx.App(False)
+    wx.FileSystem.AddHandler(wx.MemoryFSHandler())
+
+    class G:
+        MemoriseImage = methods["MemoriseImage"]
+        __del__ = methods["__del__"]
+
+        def __init__(self, code):
+            self.bitmap = None
+            self.code = code
+            self.stockImages = (
+                wx.MemoryFSHandler if mode == "deux_classe"
+                else wx.MemoryFSHandler())
+
+        def ConvertMPLtoBMP(self, _figure):
+            return wx.Bitmap(16, 16)
+
+    def existe(nom):
+        lecteur = wx.FileSystem()
+        present = lecteur.OpenFile("memory:" + nom) is not None
+        lecteur = None
+        return present
+
+    premier = G("meme_code")
+    second = G("meme_code")
+    premier.MemoriseImage(None)
+    second.MemoriseImage(None)
+    cle1, cle2 = premier.nomImage, second.nomImage
+    assert cle1 != cle2
+    assert existe(cle1) and existe(cle2)
+    print("STATS_VFS_DUO deux_images", mode, flush=True)
+    premier = None
+    gc.collect()
+    print("STATS_VFS_DUO premier_libere", mode, flush=True)
+    assert not existe(cle1), "Premier graphique non libere"
+    assert existe(cle2), "Second graphique supprime par la liberation du premier"
+    second = None
+    gc.collect()
+    assert not existe(cle2), "Second graphique non libere"
+    print("STATS_VFS_DUO deux_libres", mode, flush=True)
+    app.Destroy()
+    app = None
+    gc.collect()
+    print("STATS_VFS_DUO sortie_normale", mode, flush=True)
+
 def scenario(mode):
     import wx
+    if mode in ("deux_instances", "deux_classe"):
+        return scenario_deux(mode)
     mesures = {"mode": mode, "etapes": []}
 
     def signaler(etape):
@@ -94,10 +148,17 @@ class FermetureNativeTests(unittest.TestCase):
         self.assertEqual(child.returncode, 0,
                          "MODE %s RC %s\nSTDOUT:\n%s\nSTDERR:\n%s" % (
                              mode, child.returncode, child.stdout, child.stderr))
-        self.assertIn('"sortie-normale"', child.stdout)
+        self.assertTrue('"sortie-normale"' in child.stdout or "STATS_VFS_DUO sortie_normale" in child.stdout,
+                        child.stdout)
 
     def test_fenetre_basique(self):
         self.verifier_mode("app")
+
+    def test_deux_graphes_avec_instances(self):
+        self.verifier_mode("deux_instances")
+
+    def test_deux_graphes_avec_classe_statique(self):
+        self.verifier_mode("deux_classe")
 
     def test_handler_vfs_sans_images(self):
         self.verifier_mode("handler")
