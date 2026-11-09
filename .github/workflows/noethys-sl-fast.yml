@@ -67,6 +67,9 @@ jobs:
       - name: Inventaire UI-432J (lecture seule, donnees exclues)
         run: python tools/ui432_audit_transversal.py --limit 25
 
+      - name: Contrats statistiques UI-432J sans dependances GUI
+        run: python -m unittest -v tests.test_ui432_statistiques tests.test_ui432_audit_transversal
+
       - name: Qualifier le consommateur session-attendance/1 isolé
         run: python -m unittest -v tests.test_noethys_sl_interdomain_attendance tests.test_noethys_sl_interdomain_delivery tests.test_noethys_sl_interdomain_secrets tests.test_noethys_sl_interdomain_mailbox_client
 
@@ -162,6 +165,7 @@ jobs:
           tests.test_noedoc_deplacer_objet_contract
           tests.test_stats_modeles_mode_contract
           tests.test_ui432_statistiques
+          tests.test_ui432_stats_win32
           tests.test_ui432_audit_transversal
           tests.test_noethys_sl_facture_export_options
           tests.test_ui432_factures_proprietaire

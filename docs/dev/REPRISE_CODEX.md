@@ -1,6 +1,21 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
 
+## UI-432J — statistiques et audit transversal (09/11/2026)
+
+- Signal utilisateur : fenetre principale perd son etat maximise pendant « Statistiques » ; capture « Actualisation des donnees… » / Individus, Age, periode 2026. Reproduction directe Win32 sur poste utilisateur **non realisee**.
+- Base : `wx=14f372dfbd0e3f71999d3215079cc2f6d097dbb2`, commit candidat [`2b89f8d8`](https://github.com/fr4nck/Noethys-SL/commit/2b89f8d8093716e6b3b678a43b7fe20941a2f730). `main=07d672a2e4b414cfeef8911b8b9285d05f32cb21`, `qt=b6bc25ba7ac5cd42aeeff0a8874a727f132a5482` non modifies.
+- Chemin exact : `MainFrame.On_outils_stats` -> `DLG_Stats.ModificationParametres(premiere=True)` effectuait un chargement **avant ShowModal** sous `BusyInfo(parent=None)`, SQL, graphes et HTML synchrones. Nouvelle ouverture differee par `wx.CallAfter`, calculs statistiques un par un via `UTILS_Etapes_ui` apres affichage, base SQL et graphiques conserves sur thread wx ; connexions/figures/attentes fermees sur les chemins corriges.
+- Correctifs supplementaires UI-432I : `for _ in generer()` masquait `_(...)` et causait quatre erreurs de CI Windows ; variable renommee. Test titre RC10.5 fixe devenu affichage dynamique de `Identite.PRODUCT_VERSION_DISPLAY`.
+- Scanner `tools/ui432_audit_transversal.py` qualifie sur syntaxe Linux : **1 070 modules, 219 signaux, 0 erreur** (134 SQL possibles, 58 attentes sans parent, 11 wx.Yield, 7 progressions, 5 reseau, 3 sleep, 1 etat fenetre). **Signaux de revue, pas 219 bugs.** Priorites potentielles `DLG_Saisie_email_exp.OnBoutonTester`, `DLG_Envoi_sms.EnvoyerEmail`, `UTILS_Rapport_bugs.Envoyer_mail` ; moteur Mailer principal a deja des workers, verifier les appels reels.
+- CI [#42597225620](https://github.com/fr4nck/Noethys-SL/actions/runs/42597225620) : compilation, audit AST et controles sans GUI **PASS** ; tests Windows **a qualifier**, statut final a relever sur GitHub. Tests de contrat statistiques et scanner inclus. Aucune base PMSL, aucun reseau reel, aucune migration, aucun tag ni binaire public.
+- Limite ouverte : un objet statistique individuel contenant un SQL ou un graphe long bloque encore le thread UI pendant cet objet ; aucun PASS de stabilite globale ou d'absence de Ghost Win32. L'impression reste synchrone.
+- Matrice : `wx=candidat integre, recette Windows utilisateur a qualifier` ; `main=non modifie, composants partages a comparer` ; `qt=non modifie, GUI wx non applicable, moteur commun a qualifier`.
+- Detail : [UI_432_STATISTIQUES_20261109.md](../recette/UI_432_STATISTIQUES_20261109.md), [issue #432](https://github.com/fr4nck/Noethys-SL/issues/432#issuecomment-6737219099).
+- **STOP-GATE prochaine RC** : passage CI Windows, etude des retards SQL et graphs individuels, test Win32 avec vrais HWND/owners, recette utilisateur, absence double envoi pour parcours Connecthys/factures. Aucun GO avant ces preuves.
+
+
+
 ## UI-432I — stabilisation facture : correctifs bornes, recettes manquantes (09/11/2026)
 
 - Issue [#432](https://github.com/fr4nck/Noethys-SL/issues/432), signal complementaire factures [UI-432H](https://github.com/fr4nck/Noethys-SL/issues/432#issuecomment-6735704790) ; rapport [UI_432_FACTURES_20261109.md](../recette/UI_432_FACTURES_20261109.md).
