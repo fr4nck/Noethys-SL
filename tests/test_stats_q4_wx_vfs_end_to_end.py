@@ -61,7 +61,13 @@ def scenario():
     try:
         assert wx.IsMainThread(), "wx natif n'est pas sur le thread principal"
         for groupe, nom_classe in CASES:
-            namespace, db, parametres = preparer(groupe, None)
+            protections = []
+            # Le banc Ages installe temporairement la table de civilites
+            # fictive dans sys.modules : restaurer ce patch entre graphes.
+            class Garde:
+                def addCleanup(self, callback):
+                    protections.append(callback)
+            namespace, db, parametres = preparer(groupe, Garde())
             try:
                 namespace["matplotlib"] = matplotlib
                 namespace["arange"] = np.arange
@@ -103,6 +109,8 @@ def scenario():
                 obj = None
             finally:
                 db.Close()
+                for protection in reversed(protections):
+                    protection()
 
         assert len(graphes) == 15 and len(noms_images) == 15
         print("Q4_C2_JALON 15_graphes_enregistres", flush=True)
