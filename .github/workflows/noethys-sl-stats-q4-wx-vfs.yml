@@ -7,7 +7,12 @@ on:
   push:
     branches: [wx]
     paths:
-      - 'tests/test_stats_q4_wx_vfs_end_to_end.py'
+      # Une modification du moteur doit requalifier le VFS natif,
+      # meme si les tests eux-memes restent identiques.
+      - 'noethys/Utils/UTILS_Stats_modeles.py'
+      - 'noethys/Utils/UTILS_Stats_familles.py'
+      - 'noethys/Utils/UTILS_Stats_individus.py'
+      - 'tests/test_stats_q4_*.py'
       - '.github/workflows/noethys-sl-stats-q4-wx-vfs.yml'
   workflow_dispatch:
 
