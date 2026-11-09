@@ -147,8 +147,12 @@ def scenario():
 class Q4WxMemoryFSNativeTest(unittest.TestCase):
     def test_15_graphes_et_sortie_normale_sous_processus(self):
         try:
+            # -m conserve la racine du depot dans sys.path dans le processus
+            # enfant ; un lancement direct par chemin isole /tests et casse
+            # ses imports absolus (CI #42702412645: ModuleNotFoundError).
             r = subprocess.run(
-                [sys.executable, str(Path(__file__).resolve()), "--scenario"],
+                [sys.executable, "-m",
+                 "tests.test_stats_q4_wx_vfs_end_to_end", "--scenario"],
                 cwd=ROOT, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", timeout=100)
         except subprocess.TimeoutExpired as e:
