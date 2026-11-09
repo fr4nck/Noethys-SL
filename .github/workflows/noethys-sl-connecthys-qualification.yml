@@ -53,3 +53,15 @@ jobs:
           tests.test_connecthys_confirmation_partielle
           tests.test_connecthys_ui3_reentrance
           tests.test_connecthys_ui432_etapes
+      - name: Recette visuelle de la fenetre wx et des trois cartes
+        env:
+          NOETHYS_SL_RECETTE_SORTIE: ${{ runner.temp }}\connecthys-gui
+        run: python -m unittest -v tests.test_connecthys_gui_recette_wx
+      - name: Conserver les captures fictives Connecthys
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: connecthys-wx-gui-fictif
+          path: ${{ runner.temp }}/connecthys-gui/*.png
+          if-no-files-found: warn
+          retention-days: 7
