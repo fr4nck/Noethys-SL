@@ -131,6 +131,11 @@ def GetDictGenres(DB, dictParametres) :
     return dictGenres
 
 
+def _CleTriStatistiques(valeur):
+    """Trie les nombres croissants et place les valeurs inconnues a la fin."""
+    return (valeur is None, valeur if valeur is not None else 0)
+
+
 DICT_AGES = {"dictParametres" : {}, "dictAges" : {}, "dictAnnees" : {} }
 
 def GetDictAges(DB, dictParametres, mode_tranches=False) :
@@ -197,7 +202,7 @@ def GetDictAges(DB, dictParametres, mode_tranches=False) :
             dictAnnees[annee] = 0
         dictAnnees[annee] += 1
 
-        tranche = age / 10 if age else None
+        tranche = age // 10 if age is not None else None
         dictAgesGenres.setdefault(tranche, {})
         dictAgesGenres[tranche].setdefault(genre, 0)
         dictAgesGenres[tranche][genre] += 1
@@ -827,7 +832,7 @@ class Tableau_repartition_ages(MODELES.Tableau):
         self.lignes = []
         
         listeAges = list(dictAges.keys()) 
-        listeAges.sort() 
+        listeAges.sort(key=_CleTriStatistiques)
         
         for age in listeAges :
             nbreIndividus = dictAges[age]
@@ -854,7 +859,7 @@ class Graphe_repartition_ages(MODELES.Graphe):
         dictAges, dictAnnees = GetDictAges(DB, dictParametres)
         
         listeAges = list(dictAges.keys()) 
-        listeAges.sort() 
+        listeAges.sort(key=_CleTriStatistiques)
         
         listeLabels = [] 
         listeValeurs = []
@@ -919,7 +924,7 @@ class Tableau_repartition_annees_naiss(MODELES.Tableau):
         self.lignes = []
         
         listeAnnees = list(dictAnnees.keys()) 
-        listeAnnees.sort() 
+        listeAnnees.sort(key=_CleTriStatistiques)
         
         for annee in listeAnnees :
             nbreIndividus = dictAnnees[annee]
@@ -946,7 +951,7 @@ class Graphe_repartition_annees_naiss(MODELES.Graphe):
         dictAges, dictAnnees = GetDictAges(DB, dictParametres)
         
         listeAnnees = list(dictAnnees.keys()) 
-        listeAnnees.sort() 
+        listeAnnees.sort(key=_CleTriStatistiques)
         
         listeLabels = [] 
         listeValeurs = []
@@ -1014,10 +1019,10 @@ class Tableau_repartition_tranches_ages(MODELES.Tableau):
         self.lignes = []
 
         listeTranches = list(dictAges.keys())
-        listeTranches.sort()
+        listeTranches.sort(key=_CleTriStatistiques)
 
         for tranche in listeTranches:
-            label_tranche = ("%d - %d" % (tranche*10, tranche*10 + 9)) if tranche else "Age inconnu"
+            label_tranche = ("%d - %d" % (tranche*10, tranche*10 + 9)) if tranche is not None else "Age inconnu"
             nbreM = dictAges[tranche].get("M", 0)
             nbreF = dictAges[tranche].get("F", 0)
             nbreI = dictAges[tranche].get("None", 0)
