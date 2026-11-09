@@ -160,6 +160,21 @@ class RecetteConnecthysGraphique(unittest.TestCase):
         d = self.dialogue
         self.assertFalse(d.ctrl_solde.IsShown(), "Ancien solde rouge visible")
         self.assertFalse(hasattr(d, "label_solde"), "Etiquette solde en doublon")
+        self.assertIs(d.panel_situation.GetParent(), d.scroll_contenu)
+        self.assertIs(d.box_traitement_staticbox.GetParent(), d.scroll_contenu)
+
+        # Sur un ecran bas, faire defiler la zone metier en gardant toujours
+        # les boutons de traitement dans la partie fixe du dialogue.
+        zone = d.scroll_contenu
+        zone.Layout()
+        zone.FitInside()
+        self._tour_events()
+        y = d.panel_situation.GetPosition().y
+        hauteur = zone.GetClientSize().height
+        cible = max(0, y - max(0, (hauteur - d.panel_situation.GetSize().height) // 2))
+        zone.Scroll(0, cible // 14)
+        self._tour_events()
+
         cartes = [d.situation_solde_carte, d.situation_factures_carte,
                   d.situation_adhesion_carte]
         positions = [c.GetScreenRect() for c in cartes]
@@ -168,14 +183,24 @@ class RecetteConnecthysGraphique(unittest.TestCase):
         self.assertLess(positions[1].GetRight(), positions[2].GetLeft())
         self.assertEqual(len(set(x.GetTop() for x in positions)), 1)
         self.assertGreater(min(x.GetWidth() for x in positions), 180)
+
+        viewport = zone.GetScreenRect()
+        for c in cartes:
+            rect = c.GetScreenRect()
+            self.assertGreaterEqual(rect.GetLeft(), viewport.GetLeft() - 2)
+            self.assertLessEqual(rect.GetRight(), viewport.GetRight() + 2)
+            self.assertGreaterEqual(rect.GetTop(), viewport.GetTop() - 2)
+            self.assertLessEqual(rect.GetBottom(), viewport.GetBottom() + 2)
+
         client_left, client_top = d.ClientToScreen((0, 0))
         client_width, client_height = d.GetClientSize()
-        for c in cartes + [d.bouton_automatique, d.bouton_manuel]:
-            x = c.GetScreenRect()
-            self.assertGreaterEqual(x.GetLeft(), client_left - 2)
-            self.assertLessEqual(x.GetRight(), client_left + client_width + 2)
-            self.assertGreaterEqual(x.GetTop(), client_top - 2)
-            self.assertLessEqual(x.GetBottom(), client_top + client_height + 2)
+        for c in (d.bouton_automatique, d.bouton_manuel, d.bouton_fermer):
+            rect = c.GetScreenRect()
+            self.assertIs(c.GetParent(), d, "Bouton embarque dans la zone defilante")
+            self.assertGreaterEqual(rect.GetLeft(), client_left - 2)
+            self.assertLessEqual(rect.GetRight(), client_left + client_width + 2)
+            self.assertGreaterEqual(rect.GetTop(), client_top - 2)
+            self.assertLessEqual(rect.GetBottom(), client_top + client_height + 2)
         self.assertTrue(d.bouton_automatique.IsEnabled())
         self.assertTrue(d.bouton_manuel.IsEnabled())
 

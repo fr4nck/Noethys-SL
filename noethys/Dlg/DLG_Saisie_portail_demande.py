@@ -140,7 +140,11 @@ class MyDatePickerCtrl(DatePickerCtrl):
         return dateDD
 
     def OnDateChanged(self, event):
-        self.GetParent().Sauvegarde()
+        # Le contenu peut etre loge dans une fenetre defilante pour garder
+        # les boutons de traitement accessibles sur les petits ecrans.
+        dialogue = wx.GetTopLevelParent(self)
+        if dialogue is not None and callable(getattr(dialogue, "Sauvegarde", None)):
+            dialogue.Sauvegarde()
 
 
 # -------------------------------------------------------------------------------------------------------------------------------------------
@@ -405,6 +409,20 @@ class Dialog(wx.Dialog):
         self.bouton_manuel = CTRL_Bouton_image.CTRL(self, texte=_(u"Manuel"), cheminImage="Images/32x32/Edition.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
+        # La demande, la situation familiale et les options de traitement
+        # defilent ensemble. Bandeau et commandes restent fixes et accessibles
+        # meme sur un ecran peu haut (fenetre 1024x768 / runner Windows).
+        self.scroll_contenu = wx.ScrolledWindow(
+            self, -1, style=wx.VSCROLL | wx.HSCROLL | wx.BORDER_NONE)
+        controles_fixes = {
+            self.panel_bandeau, self.ctrl_grille, self.bouton_aide,
+            self.bouton_automatique, self.bouton_manuel,
+            self.bouton_fermer, self.scroll_contenu,
+        }
+        for controle in tuple(self.GetChildren()):
+            if controle not in controles_fixes:
+                controle.Reparent(self.scroll_contenu)
+
         self.__set_properties()
         self.__do_layout()
 
@@ -567,7 +585,7 @@ class Dialog(wx.Dialog):
         self.bouton_automatique.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour lancer le traitement automatique de cette demande")))
         self.bouton_manuel.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour lancer le traitement manuel de cette demande")))
         self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer la fenêtre")))
-        self.SetMinSize((1010, 800))
+        self.SetMinSize((1010, 700))
 
     def __do_layout(self):
         grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
@@ -681,7 +699,12 @@ class Dialog(wx.Dialog):
 
         grid_sizer_contenu.AddGrowableRow(0)
         grid_sizer_contenu.AddGrowableCol(0)
-        grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 10)
+        self.scroll_contenu.SetMinSize((-1, 460))
+        self.scroll_contenu.SetScrollRate(8, 14)
+        self.scroll_contenu.SetSizer(grid_sizer_contenu)
+        self.scroll_contenu.FitInside()
+        grid_sizer_base.Add(self.scroll_contenu, 1,
+                            wx.LEFT | wx.RIGHT | wx.EXPAND, 10)
 
         grid_sizer_base.Add(self.ctrl_grille, 1, wx.ALL | wx.EXPAND, 10)
 
@@ -1262,13 +1285,20 @@ class Dialog(wx.Dialog):
             return debut.strftime("%m/%y") + "-" + fin.strftime("%m/%y")
         return u"—"
 
+    def _RelayoutSituation(self):
+        """Maintenir le contenu et les commandes a leur place apres MAJ."""
+        if hasattr(self, "scroll_contenu"):
+            self.scroll_contenu.Layout()
+            self.scroll_contenu.FitInside()
+        self.Layout()
+
     def MAJ_situation(self):
         """Lecture seule et mise en forme ; jamais de verrou de traitement."""
         if not hasattr(self, "panel_situation"):
             return  # doublures wx de recette historiques
         if getattr(self.track, "categorie", None) != "reservations":
             self.panel_situation.Show(False)
-            self.Layout()
+            self._RelayoutSituation()
             return
         self.panel_situation.Show(True)
         self.situation_factures_table.DeleteAllItems()
@@ -1289,7 +1319,7 @@ class Dialog(wx.Dialog):
             self.situation_adhesion_statut.SetLabel(_(u"À vérifier"))
             self.situation_adhesion_dates.SetLabel(_(u"Situation indisponible"))
             self.situation_adhesion_type.SetLabel("")
-            self.Layout()
+            self._RelayoutSituation()
             return
 
         montant = situation["solde_du_jour"]
@@ -1385,7 +1415,7 @@ class Dialog(wx.Dialog):
         self.situation_adhesion_type.SetLabel(
             _(u"Type : %s") % nom if nom else "")
         self.situation_adhesion_type.SetToolTip(nom)
-        self.Layout()
+        self._RelayoutSituation()
 
     def OnNavigation(self, event):
         if getattr(self, "_traitement_en_cours", False):
