@@ -90,7 +90,16 @@ def _processus(conn, source, comptes, options, modele, chemin):
                     and os.environ.get("NOETHYS_SL_PDF_TEST_ISOLE") == "1"):
                 # Message uniquement en banc fictif, sans chemin absolu.
                 module = str(erreur).split(" (", 1)[0].split("\\n", 1)[0][:160]
-            conn.send(("error", type(erreur).__name__, module))
+            etapes = None
+            if os.environ.get("NOETHYS_SL_PDF_TEST_ISOLE") == "1":
+                # Pour la seule CI fictive : noms de fichiers source et lignes,
+                # sans chemins utilisateurs ni contenu des factures.
+                import traceback
+                frames = traceback.extract_tb(erreur.__traceback__)
+                etapes = ",".join(
+                    "%s:%d" % (os.path.basename(frame.filename), frame.lineno)
+                    for frame in frames[-10:])[:400]
+            conn.send(("error", type(erreur).__name__, module, etapes))
         except Exception:
             pass
     finally:
@@ -146,6 +155,11 @@ def Generer(comptes, options, modele, chemin, source_db, delai=180, donnees_pret
         if processus.exitcode != 0 or verdict != ("ok",):
             typ = verdict[1] if len(verdict) > 1 else "ProcessusInconnu"
             module = verdict[2] if len(verdict) > 2 else None
+            if os.environ.get("NOETHYS_SL_PDF_TEST_ISOLE") == "1":
+                etapes = verdict[3] if len(verdict) > 3 else None
+                raise RuntimeError(
+                    "Rendu PDF isole refuse : %s (module %s; trace %s)" %
+                    (typ, str(module)[:160], str(etapes)[:400]))
             if module and isinstance(module, str):
                 raise RuntimeError(
                     "Rendu PDF isole refuse : %s (module %s)" %
