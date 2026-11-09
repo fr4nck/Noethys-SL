@@ -111,5 +111,19 @@ class ProcessusNoedocTests(unittest.TestCase):
         self.assertEqual(set(comptes), set(self.comptes))
 
 
+    def test_sources_sql_secondaires_fail_closed(self):
+        from Utils import UTILS_PDF_processus
+        chemin = self.base.chemin
+        self.assertEqual(UTILS_PDF_processus._nom_base(chemin, "DATA"), chemin)
+        self.assertEqual(UTILS_PDF_processus._nom_base(chemin, None), chemin)
+        with self.assertRaises(ValueError):
+            UTILS_PDF_processus._nom_base(chemin, "PHOTOS")
+        with self.assertRaises(ValueError):
+            UTILS_PDF_processus._nom_base(chemin, "ARCHIVE")
+        self.assertEqual(UTILS_PDF_processus._nom_base(
+            chemin.replace("test.dat", "test_DATA.dat"), "PHOTOS"),
+            chemin.replace("test.dat", "test_PHOTOS.dat"))
+
+
 if __name__ == "__main__":
     unittest.main()
