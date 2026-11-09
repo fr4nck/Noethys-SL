@@ -84,8 +84,9 @@ DICT_GENRES = {"dictParametres" : {}, "dictResultats" : {} }
 def GetDictGenres(DB, dictParametres) :
     # Vérifie si les données n'existent pas déjà
     global DICT_GENRES
-    if DICT_GENRES["dictParametres"] == dictParametres :
-        return DICT_GENRES["dictResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.genres", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -126,9 +127,8 @@ def GetDictGenres(DB, dictParametres) :
         dictGenres[genre]["quantite"] += 1
 
     # Mémorisation des résultats
-    DICT_GENRES["dictParametres"] = dictParametres
-    DICT_GENRES["dictResultats"] = dictGenres
-    return dictGenres
+    return MODELES.EcrireCacheStats(DB, "individus.genres", dictParametres,
+                                   dictGenres)
 
 
 def _CleTriStatistiques(valeur):
@@ -238,8 +238,9 @@ DICT_VILLES = {"dictParametres" : {}, "dictResultats" : {} }
 def GetDictVilles(DB, dictParametres):
     # Vérifie si les données n'existent pas déjà
     global DICT_VILLES
-    if DICT_VILLES["dictParametres"] == dictParametres :
-        return DICT_VILLES["dictResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.villes", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -320,9 +321,8 @@ def GetDictVilles(DB, dictParametres):
             dictVilles[key]["distance_metres"] = dictDistances[key]["distance_metres"]
 
     # Mémorisation des résultats
-    DICT_VILLES["dictParametres"] = dictParametres
-    DICT_VILLES["dictResultats"] = dictVilles
-    return dictVilles
+    return MODELES.EcrireCacheStats(DB, "individus.villes", dictParametres,
+                                   dictVilles)
 
 
 
@@ -331,8 +331,9 @@ DICT_ACTI_PRO = {"dictParametres" : {}, "dictResultats" : [] }
 def GetListeActivitesPro(DB, dictParametres) :
     # Vérifie si les données n'existent pas déjà
     global DICT_ACTI_PRO
-    if DICT_ACTI_PRO["dictParametres"] == dictParametres :
-        return DICT_ACTI_PRO["dictResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.activites_professionnelles", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -377,9 +378,8 @@ def GetListeActivitesPro(DB, dictParametres) :
     listeResultats.sort(reverse=True)
 
     # Mémorisation des résultats
-    DICT_ACTI_PRO["dictParametres"] = dictParametres
-    DICT_ACTI_PRO["dictResultats"] = listeResultats
-    return listeResultats
+    return MODELES.EcrireCacheStats(DB, "individus.activites_professionnelles", dictParametres,
+                                   listeResultats)
 
 
 DICT_ANCIENNETE = {"dictParametres" : {}, "dictResultats" : {}, "listeMoisPeriode" : [] }
@@ -387,8 +387,9 @@ DICT_ANCIENNETE = {"dictParametres" : {}, "dictResultats" : {}, "listeMoisPeriod
 def GetAnciennete(DB, dictParametres):
     # Vérifie si les données n'existent pas déjà
     global DICT_ANCIENNETE
-    if DICT_ANCIENNETE["dictParametres"] == dictParametres :
-        return DICT_ANCIENNETE["dictResultats"], DICT_ANCIENNETE["listeMoisPeriode"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.anciennete", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -430,10 +431,8 @@ def GetAnciennete(DB, dictParametres):
                 listeMoisPeriode.append((annee, mois))
 
     # Mémorisation des résultats
-    DICT_ANCIENNETE["dictParametres"] = dictParametres
-    DICT_ANCIENNETE["dictResultats"] = dictResultats
-    DICT_ANCIENNETE["listeMoisPeriode"] = listeMoisPeriode
-    return dictResultats, listeMoisPeriode
+    return MODELES.EcrireCacheStats(DB, "individus.anciennete", dictParametres,
+                                   (dictResultats, listeMoisPeriode))
 
 
 DICT_DESINSCRITS = {"dictParametres": {}, "dictResultats": {}, "listeMoisPeriode": []}
@@ -442,8 +441,9 @@ DICT_DESINSCRITS = {"dictParametres": {}, "dictResultats": {}, "listeMoisPeriode
 def GetDesinscrits(DB, dictParametres):
     # Vérifie si les données n'existent pas déjà
     global DICT_DESINSCRITS
-    if DICT_DESINSCRITS["dictParametres"] == dictParametres:
-        return DICT_DESINSCRITS["dictResultats"], DICT_DESINSCRITS["listeMoisPeriode"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.desinscrits", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -480,10 +480,8 @@ def GetDesinscrits(DB, dictParametres):
                 listeMoisPeriode.append((annee, mois))
 
     # Mémorisation des résultats
-    DICT_DESINSCRITS["dictParametres"] = dictParametres
-    DICT_DESINSCRITS["dictResultats"] = dictResultats
-    DICT_DESINSCRITS["listeMoisPeriode"] = listeMoisPeriode
-    return dictResultats, listeMoisPeriode
+    return MODELES.EcrireCacheStats(DB, "individus.desinscrits", dictParametres,
+                                   (dictResultats, listeMoisPeriode))
 
 
 
@@ -492,8 +490,9 @@ DICT_ECOLES = {"dictParametres" : {}, "listeResultats" : [] }
 def GetListeEcoles(DB, dictParametres) :
     # Vérifie si les données n'existent pas déjà
     global DICT_ECOLES
-    if DICT_ECOLES["dictParametres"] == dictParametres :
-        return DICT_ECOLES["listeResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.ecoles", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -533,9 +532,8 @@ def GetListeEcoles(DB, dictParametres) :
     listeResultats.sort(reverse=True)
 
     # Mémorisation des résultats
-    DICT_ECOLES["dictParametres"] = dictParametres
-    DICT_ECOLES["listeResultats"] = listeResultats
-    return listeResultats
+    return MODELES.EcrireCacheStats(DB, "individus.ecoles", dictParametres,
+                                   listeResultats)
 
 
 DICT_NIVEAUX_SCOLAIRES = {"dictParametres" : {}, "listeResultats" : [] }
@@ -543,8 +541,9 @@ DICT_NIVEAUX_SCOLAIRES = {"dictParametres" : {}, "listeResultats" : [] }
 def GetListeNiveauxScolaires(DB, dictParametres) :
     # Vérifie si les données n'existent pas déjà
     global DICT_NIVEAUX_SCOLAIRES
-    if DICT_NIVEAUX_SCOLAIRES["dictParametres"] == dictParametres :
-        return DICT_NIVEAUX_SCOLAIRES["listeResultats"]
+    cache_ok, cache_valeur = MODELES.LireCacheStats(DB, "individus.niveaux_scolaires", dictParametres)
+    if cache_ok:
+        return cache_valeur
 
     # Recherche des paramètres
     date_debut, date_fin = MODELES.GetDatesPeriode(dictParametres)
@@ -584,9 +583,8 @@ def GetListeNiveauxScolaires(DB, dictParametres) :
     listeResultats.sort()
 
     # Mémorisation des résultats
-    DICT_NIVEAUX_SCOLAIRES["dictParametres"] = dictParametres
-    DICT_NIVEAUX_SCOLAIRES["listeResultats"] = listeResultats
-    return listeResultats
+    return MODELES.EcrireCacheStats(DB, "individus.niveaux_scolaires", dictParametres,
+                                   listeResultats)
 
 
 class Texte_nombre_individus(MODELES.Texte):
