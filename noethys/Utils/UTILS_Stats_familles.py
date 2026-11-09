@@ -715,7 +715,10 @@ class Tableau_qf_tarifs(MODELES.Tableau):
         self.lignes = []
         self.totaux = []
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesTarifs"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesTarifs"]
+        self.nom = _(u"Quotients familiaux par tranches de tarifs") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         # Création du tableau
         self.largeur = "400"
@@ -755,7 +758,10 @@ class Graphe_qf_tarifs(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesTarifs"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesTarifs"]
+        self.nom = _(u"Quotients familiaux par tranches de tarifs") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         listeValeurs = []
         listeLabels = []
@@ -818,7 +824,10 @@ class Tableau_qf_defaut(MODELES.Tableau):
         self.lignes = []
         self.totaux = []
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         # Création du tableau
         self.largeur = "400"
@@ -857,7 +866,10 @@ class Graphe_qf_defaut2(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
         
         listeValeurs = []
         listeLabels = []
@@ -918,7 +930,10 @@ class Graphe_qf_defaut(MODELES.Graphe):
         # Création du graph
         ax = figure.add_subplot(111)
         
-        dictTranches = GetDictQuotients(DB, dictParametres)["dictTranchesDefaut"]
+        donneesQF = GetDictQuotients(DB, dictParametres)
+        dictTranches = donneesQF["dictTranchesDefaut"]
+        self.nom = _(u"Quotients familiaux par tranches de 100") + (u" (QF au %s)" %
+                    donneesQF["date_reference"].strftime("%d/%m/%Y"))
 
         listeValeurs = []
         listeLabels = []
