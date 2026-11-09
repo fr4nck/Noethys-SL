@@ -6,16 +6,17 @@
 
 - **Q4-A / Q4-B1 :** [CI isolée #42695747529](https://github.com/fr4nck/Noethys-SL/actions/runs/42695747529), SHA `113b72f2`, **9/9 tests PASS sous Ubuntu ET Windows** : vrai SQL SQLite exécuté par `MAJ()` des deux objets « Nombre de familles » et des deux tableaux « Caisses »/« Nombre de membres », comparé à des oracles indépendants.
 - **Q4-B2 :** première campagne [#42696058544](https://github.com/fr4nck/Noethys-SL/actions/runs/42696058544) rouge à cause de la doublure qui écrasait `MODELES.LireCacheStats`, puis correction du **banc seul**. [CI corrigée #42696252158](https://github.com/fr4nck/Noethys-SL/actions/runs/42696252158), SHA `2a548a41`, **12/12 tests PASS Ubuntu ET Windows**. Elle exécute les vrais `MAJ()` des deux graphes « Caisses »/« Nombre de membres », avec SQLite synthétique, mais utilise un **axe Matplotlib fictif** : seules les données transmises au rendu sont contrôlées.
+- **Q4-B3 :** [CI SQL isolée #42696950452](https://github.com/fr4nck/Noethys-SL/actions/runs/42696950452), SHA `4b756f2f`, **17/17 PASS Ubuntu + 17/17 PASS Windows**. Deux vrais `MAJ()` du groupe Individus/Nombre exécutés sur SQLite fictif avec contrôles `COUNT(DISTINCT IDindividu)` independants, doubles consommations, activites, statuts, annulations et periodes.
 - **MemoryFS :** CI transversale native [#42662525508](https://github.com/fr4nck/Noethys-SL/actions/runs/42662525508), 7/7 PASS ; ne transforme pas un rendu individuel en PASS.
-- **Matrice :** 33/33 classes présentes (AST). **Six objets ont un niveau SQL/métier partiel documenté**, quatre avec texte/tableau produit, deux avec données de graphes capturées ; **zéro objet totalement validé** de bout en bout (MySQL, rendu, impression, Windows installé).
+- **Matrice :** 33/33 classes présentes (AST). **Huit objets ont un niveau SQL/métier partiel documenté**, quatre avec texte/tableau produit, deux avec données de graphes capturées ; **zéro objet totalement validé** de bout en bout (MySQL, rendu, impression, Windows installé).
 - Les noms des objets du tableau suivent **exactement** l'inventaire de `DLG_Stats.py` ; les niveaux ne sont pas transférés aux autres objets partageant un calcul.
 
 ## Etat par objet
 
 | # | Page | Objet | Inventaire | SQL et métier | Cache | Rendu texte/tableau/graphique | Impression de l'objet | Windows installé |
 |---:|---|---|---|---|---|---|---|---|
-| 1 | individus / Nombre | `Texte_nombre_individus` | PASS AST | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
-| 2 | individus / Nombre | `Tableau_nombre_individus` | PASS AST | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
+| 1 | individus / Nombre | `Texte_nombre_individus` | PASS AST | PARTIEL : SQL et MAJ SQLite PASS | NON TESTÉ | PARTIEL : texte/lignes, HTML non teste | NON TESTÉ | NON TESTÉ |
+| 2 | individus / Nombre | `Tableau_nombre_individus` | PASS AST | PARTIEL : SQL et MAJ SQLite PASS | NON TESTÉ | PARTIEL : texte/lignes, HTML non teste | NON TESTÉ | NON TESTÉ |
 | 3 | individus / Nombre | `Graphe_nombre_individus` | PASS AST | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
 | 4 | individus / Ancienneté | `Tableau_nouveaux_individus` | PASS AST | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
 | 5 | individus / Ancienneté | `Graphe_nouveaux_individus` | PASS AST | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ | NON TESTÉ |
@@ -50,7 +51,7 @@
 
 ## Garde-fous d'interpretation
 
-- **PASS ciblé** : exécution de méthodes source `MAJ()`, requêtes réelles SQLite en mémoire, données/étiquettes contrôlées indépendamment pour les six objets listés. L'exécution de tests sur runner Windows n'est **pas** une recette de Noethys installé.
+- **PASS ciblé** : exécution de méthodes source `MAJ()`, requêtes réelles SQLite en mémoire, données/étiquettes contrôlées indépendamment pour les huit objets listés. L'exécution de tests sur runner Windows n'est **pas** une recette de Noethys installé.
 - **PARTIEL** dans la colonne « SQL et métier » : la portabilité MySQL 5.7 et certains cas limites restent à qualifier. Les doublons de consommations, comptes payeurs multiples, annulations, filtres, caisses inconnues, mutations de paramètres et isolations de connexions sont échantillonnés par le banc.
 - **PARTIEL** pour les graphes : axe `pie()` capturé, pas de rendu Matplotlib, image MemoryFS, HTML ni aperçu réel. Le nombre de graphiques effectivement rendus et certifiés dans l'exe reste **0/15**.
 - **QF :** aucun choix automatique de `IDtype_quotient` n'a été validé ; les quatre objets QF (#30–33) restent NON TESTÉS individuellement (fixtures de calcul partagé seulement). Ne pas assimiler `a_verifier` à zéro.
