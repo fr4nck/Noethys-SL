@@ -55,6 +55,7 @@ def scenario():
                "ouvertures_vfs": 0, "collisions": 0}
     graphes = []
     try:
+        print("STATS_VFS_JALON ouverture", flush=True)
         for k in range(2):
             graphe = GrapheFictif("graphe_nombre_individus")
             graphe.MemoriseImage(None)
@@ -74,6 +75,7 @@ def scenario():
             fichier = None
             mesures["ouvertures_vfs"] += 1
         assert fs.OpenFile("memory:" + nom_second) is not None, "Image d'un autre dialogue perdue"
+        print("STATS_VFS_JALON apres_100_actualisations", flush=True)
         # Ne jamais appeler __del__() directement : Python le rappellerait
         # au relachement effectif de l'objet, avec risque de double finalisation
         # des objets natifs wx. Qualifier la destruction par perte de reference.
@@ -88,6 +90,7 @@ def scenario():
         del second
         gc.collect()
         assert fs.OpenFile("memory:" + nom_second) is None
+        print("STATS_VFS_JALON premier_doublet_libere", flush=True)
         for index in range(100):
             graphe = GrapheFictif("graphe_nombre_individus")
             graphe.MemoriseImage(None)
@@ -96,16 +99,25 @@ def scenario():
             assert fichier is not None, "Ressource absente a l'ouverture"
             fichier = None
             mesures["ouvertures_vfs"] += 1
+            # CPython appelle le destructeur aussitot la derniere
+            # reference relachee ; gc.collect() dans chaque iteration est
+            # disproportionne et ne constitue pas une vraie fermeture.
             del graphe
-            gc.collect()
             assert fs.OpenFile("memory:" + nom) is None, "Ressource persistante"
             mesures["fermetures"] += 1
+            if (index + 1) % 20 == 0:
+                print("STATS_VFS_JALON boucles_%d" % (index + 1), flush=True)
         gc.collect()
         mesures["pass"] = True
     finally:
         graphes.clear()
         gc.collect()
+        print("STATS_VFS_JALON avant_fs_release", flush=True)
+        fs = None
+        gc.collect()
+        print("STATS_VFS_JALON avant_app_destroy", flush=True)
         app.Destroy()
+        print("STATS_VFS_JALON apres_app_destroy", flush=True)
     print("STATS_VFS_NATIVE " + json.dumps(mesures, sort_keys=True),
           flush=True)
 
@@ -116,10 +128,16 @@ def scenario():
     "Qualification VFS native uniquement sur Windows isole")
 class MemoryFSWindowsTests(unittest.TestCase):
     def test_graphes_reels_recharges_et_liberes(self):
-        execution = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--scenario"],
-            cwd=ROOT, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=90)
+        try:
+            execution = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()), "--scenario"],
+                cwd=ROOT, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=45)
+        except subprocess.TimeoutExpired as exc:
+            sortie = exc.stdout or b""
+            erreur = exc.stderr or b""
+            self.fail("VFS scenario sans fin : STDOUT=%r STDERR=%r" %
+                      (sortie[-5000:], erreur[-5000:]))
         self.assertEqual(execution.returncode, 0,
                          execution.stdout + execution.stderr)
         ligne = next((l for l in execution.stdout.splitlines()
