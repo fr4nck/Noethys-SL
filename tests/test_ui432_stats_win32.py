@@ -37,6 +37,7 @@ def scenario():
     user32.IsHungAppWindow.argtypes = (wintypes.HWND,)
 
     battements = []
+    etats_pendant = []
     proprietaires = []
     erreurs = []
     mesures = {}
@@ -49,6 +50,7 @@ def scenario():
 
     def battement(evt):
         battements.append(time.monotonic())
+        etats_pendant.append(etat())
         candidats = [fenetre for fenetre in wx.GetTopLevelWindows()
                      if isinstance(fenetre, etapes.Attente) and fenetre.IsShownOnScreen()]
         for fenetre in candidats:
@@ -58,8 +60,11 @@ def scenario():
     minuterie.Bind(wx.EVT_TIMER, battement)
 
     def generer():
-        for numero in range(5):
-            # Calcul synthétique lent : aucune requete ou document reel.
+        for numero in range(15):
+            # Les timers Windows peuvent coalescer des battements lors de
+            # courts sous-processus CI : 15 x 65 ms permettent une vraie
+            # observation pendant plusieurs retours cooperatifs a wx.
+            # Aucune requete, aucun document reel.
             time.sleep(0.065)
             yield "statistiques.objet"
 
@@ -75,6 +80,7 @@ def scenario():
             minuterie.Stop()
             mesures["apres"] = etat()
             mesures["nombre_battements"] = len(battements)
+            mesures["pendant"] = etats_pendant
             mesures["retard_max_ms"] = int(max(
                 (b - a for a, b in zip(battements, battements[1:])), default=0) * 1000)
             mesures["proprietaires"] = proprietaires
@@ -105,6 +111,8 @@ class StatistiquesWin32Tests(unittest.TestCase):
         self.assertEqual(resultat["reseau"], 0)
         self.assertEqual(resultat["avant"], [True, False, False])
         self.assertEqual(resultat["apres"], [True, False, False])
+        self.assertTrue(resultat["pendant"], resultat)
+        self.assertTrue(all(etat == [True, False, False] for etat in resultat["pendant"]), resultat)
         self.assertTrue(resultat["proprietaires"], resultat)
         self.assertTrue(all(resultat["proprietaires"]), resultat)
         self.assertGreater(resultat["nombre_battements"], 7, resultat)
