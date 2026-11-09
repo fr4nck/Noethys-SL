@@ -267,20 +267,21 @@ class ExtrascolaireTests(unittest.TestCase):
         self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
         self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
         self.assertEqual(r["lignes"][0]["statut"], "retenue")
-        self.assertIn("Réservation passée facturée sans pointage", natures(r))
+        self.assertEqual(natures(r), [])
         self.assertFalse(r["bloquant"])
 
-    def test_reservation_passee_non_facturee_reste_en_attente(self):
+    def test_reservation_mois_clos_sans_facture_retenue(self):
         r = calculer(M.EXTRA, [conso(LUNDI_VACANCES, 201, etat="reservation")])
-        self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (0, 0))
-        self.assertTrue(r["bloquant"])
-        self.assertIn("Pointage en attente sur une date passée", natures(r))
+        self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (8 * H, 0))
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(natures(r), [])
 
     def test_reservation_facture_annulee_non_comptee(self):
         r = calculer(M.EXTRA, [self.facturee(LUNDI_VACANCES, 201,
                                               etat="reservation", facture_etat="annulation")])
         self.assertEqual((r["indicateurs"]["heures_facturees"], r["indicateurs"]["heures_realisees"]), (0, 0))
-        self.assertTrue(r["bloquant"])
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(natures(r), [])
 
     def test_reservation_facturee_periscolaire_pas_de_presence(self):
         r = calculer(M.PERI, [conso(LUNDI_SCOLAIRE, 101,
@@ -883,6 +884,160 @@ class ContexteTests(unittest.TestCase):
         with self.assertRaises(M.ContexteInvalide):
             M.Calculateur(contexte("ados"))
 
+
+
+class AFAS04MoisClosTests(unittest.TestCase):
+    def test_mois_clos_jours_de_vacances(self):
+        for jour, reference in ((D(2026, 10, 19), D(2026, 11, 1)),
+                                (D(2026, 10, 31), D(2026, 11, 1)),
+                                (D(2026, 12, 22), D(2027, 1, 1))):
+            with self.subTest(jour=jour):
+                c = conso(jour, 201, etat="reservation")
+                r = calculer(M.EXTRA, [c], date_reference=reference)
+                self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+                self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+                self.assertEqual(natures(r), [])
+
+    def test_mois_encore_ouvert(self):
+        c = conso(LUNDI_VACANCES, 201, etat="reservation")
+        r = calculer(M.EXTRA, [c], date_reference=D(2026, 10, 20))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertEqual(natures(r), [])
+
+    def test_demi_journee_mois_clos(self):
+        c = conso(LUNDI_VACANCES, 202, etat="reservation")
+        r = calculer(M.EXTRA, [c],
+                     ouvertures=ouvert([c], [(BAIS_PLUS, 201, LUNDI_VACANCES)]),
+                     date_reference=D(2026, 11, 1))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 4 * H)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 0)
+        self.assertEqual(natures(r), [])
+
+    def test_facturee_une_seule_fois(self):
+        c = conso(LUNDI_VACANCES, 201, etat="reservation",
+                  IDprestation=81234, IDfacture=14)
+        r = calculer(M.EXTRA, [c], date_reference=D(2026, 11, 1))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+        self.assertEqual(natures(r), [])
+
+    def test_annulation_de_facture_explicite(self):
+        c = conso(LUNDI_VACANCES, 201, etat="reservation",
+                  IDprestation=81234, IDfacture=14,
+                  facture_etat="annulation")
+        r = calculer(M.EXTRA, [c], date_reference=D(2026, 11, 1))
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertEqual(natures(r), [])
+
+    def test_doublon_reservation_presence_non_cumule(self):
+        consos = [
+            conso(LUNDI_VACANCES, 201, etat="reservation"),
+            conso(LUNDI_VACANCES, 201, etat="present",
+                  IDprestation=81235, IDfacture=14),
+        ]
+        r = calculer(M.EXTRA, consos, date_reference=D(2026, 11, 1))
+        self.assertTrue(r["bloquant"])
+        self.assertTrue(any("Même unité saisie deux fois" in n for n in natures(r)))
+
+
+class AFAS03VentilationSitesTests(unittest.TestCase):
+    def test_peri_deux_sites_sans_chevauchement(self):
+        from recette_afas2 import Ventilation
+        consos = [conso(LUNDI_SCOLAIRE, 101, couple=BAIS_PLUS),
+                  conso(LUNDI_SCOLAIRE, 103, couple=BAIS_MOINS)]
+        r = calculer(M.PERI, consos)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 3 * H + 15 * 60)
+        self.assertEqual(Ventilation(r), [
+            ("2026-10", "Bais +6 ans", 1.25, 0.0, 1),
+            ("2026-10", "Bais -6 ans", 2.0, 0.0, 1)])
+
+    def test_extra_deux_sites_sans_chevauchement(self):
+        from recette_afas2 import Ventilation
+        consos = [conso(LUNDI_VACANCES, 202, couple=BAIS_PLUS),
+                  conso(LUNDI_VACANCES, 203, couple=BAIS_MOINS)]
+        r = calculer(M.EXTRA, consos)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 7 * H + 30 * 60)
+        self.assertEqual(Ventilation(r), [
+            ("2026-10", "Bais +6 ans", 3.5, 0.0, 1),
+            ("2026-10", "Bais -6 ans", 4.0, 0.0, 1)])
+
+    def test_peri_plafond_global_neuf_heures(self):
+        unites = {cle: dict(valeur) for cle, valeur in UNITES.items()}
+        unites[107].update(heure_debut="07:00", heure_fin="15:00",
+                           plage_declaree="07:00-15:00")
+        unites[103].update(heure_debut="16:00", heure_fin="19:00",
+                           plage_declaree="16:00-19:00")
+        consos = [conso(LUNDI_SCOLAIRE, 107, couple=BAIS_PLUS,
+                        hd="07:00", hf="15:00"),
+                  conso(LUNDI_SCOLAIRE, 103, couple=BAIS_MOINS,
+                        hd="16:00", hf="19:00")]
+        r = calculer(M.PERI, consos, unites=unites)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 9 * H)
+        self.assertEqual(r["jours"][0]["ventilation_sites"], {
+            "Bais +6 ans": {"heures_realisees": 8 * H, "heures_facturees": 0},
+            "Bais -6 ans": {"heures_realisees": H, "heures_facturees": 0}})
+
+    def test_rapport_multisite_sans_provenance_refuse(self):
+        from recette_afas2 import Ventilation
+        rapport = {"lignes": [
+            {"date": LUNDI_SCOLAIRE, "IDindividu": 1, "site": "A", "statut": "retenue"},
+            {"date": LUNDI_SCOLAIRE, "IDindividu": 1, "site": "B", "statut": "retenue"}],
+            "jours": [{"date": LUNDI_SCOLAIRE, "IDindividu": 1,
+                      "heures_realisees": H, "heures_facturees": 0}]}
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            Ventilation(rapport)
+
+
+class AFAS08AvoirsLiensTests(unittest.TestCase):
+    def avoir(self, **modifs):
+        resultat = {"IDprestation": 9001, "IDindividu": 1, "IDfamille": 1001,
+                    "IDactivite": 1, "date": D(2026, 11, 5),
+                    "montant": -15.0, "label": "Avoir qualifié",
+                    "IDfacture": 40, "facture_etat": None}
+        resultat.update(modifs)
+        return resultat
+
+    def test_avoir_qualifie_pour_autre_enfant_refuse(self):
+        c = conso(LUNDI_VACANCES, 201, individu=2, IDprestation=8401, IDfacture=31)
+        qualification = {"9001": {"consommations_annulees": [c["IDconso"]],
+                                  "justification": "Avoir enfant 1"}}
+        r = calculer(M.EXTRA, [c], regularisations=[self.avoir()],
+                     regularisations_qualifiees=qualification)
+        self.assertTrue(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+        self.assertIn("Avoir incohérent avec la consommation désignée", natures(r))
+
+    def test_avoir_familial_autre_famille_refuse(self):
+        c = conso(LUNDI_VACANCES, 201, individu=2, IDprestation=8401, IDfacture=31)
+        qualification = {"9001": {"consommations_annulees": [c["IDconso"]],
+                                  "justification": "Avoir mauvaise famille"}}
+        r = calculer(M.EXTRA, [c],
+                     regularisations=[self.avoir(IDindividu=None, IDfamille=1001)],
+                     regularisations_qualifiees=qualification)
+        self.assertTrue(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
+
+    def test_avoir_qualifie_correct_annule_uniquement_facture(self):
+        c = conso(LUNDI_VACANCES, 201, individu=1, IDprestation=8401, IDfacture=31)
+        qualification = {"9001": {"consommations_annulees": [c["IDconso"]],
+                                  "justification": "Avoir correct"}}
+        r = calculer(M.EXTRA, [c], regularisations=[self.avoir()],
+                     regularisations_qualifiees=qualification)
+        self.assertFalse(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 0)
+        self.assertEqual(r["indicateurs"]["heures_realisees"], 9 * H)
+
+    def test_avoir_qualifie_inexistant_ne_retire_pas_acte(self):
+        c = conso(LUNDI_VACANCES, 201, individu=1, IDprestation=8401, IDfacture=31)
+        qualification = {"9001": {"consommations_annulees": [c["IDconso"]],
+                                  "justification": "Avoir absent"}}
+        r = calculer(M.EXTRA, [c], regularisations=[],
+                     regularisations_qualifiees=qualification)
+        self.assertTrue(r["bloquant"])
+        self.assertEqual(r["indicateurs"]["heures_facturees"], 8 * H)
 
 if __name__ == "__main__":
     unittest.main()

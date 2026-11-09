@@ -148,27 +148,37 @@ def _contexte(preset, referentiel, couples, source, debut, fin, date_reference):
 DELAI_REGULARISATIONS = datetime.timedelta(days=92)
 
 
-def JoursOuvertsEligibles(ouvertures, mode, calendrier, samedis_avec_ecole):
-    """Nombre de jours ouverts relevant effectivement du mode déclaré.
-
-    Une journée ouverte pendant les vacances ne sert PAS à extrapoler
-    les heures périscolaires. Les jours de groupes différents ne sont
-    comptés qu'une fois pour l'indicateur global d'un équipement.
-    """
-    jours = {_date for a, u, g, _date in ouvertures}
-    if mode != Conventions.PERISCOLAIRE:
-        return jours
-    valides, inconnus = set(), []
-    for jour in jours:
+def JoursOuvertsEligibles(ouvertures, mode, calendrier, samedis_avec_ecole,
+                          unites=None, couples=None, sejours=None):
+    """Jours ouverts du mode déclaré, sans dates scolaires en extrascolaire."""
+    valides, inconnus = set(), set()
+    for activite, IDunite, groupe, jour in ouvertures:
         classe = Calendrier.ModeDate(jour, calendrier, samedis_avec_ecole)
-        if classe == Calendrier.PERISCOLAIRE:
+        if classe in (Calendrier.INCONNU, Calendrier.SAMEDI_A_QUALIFIER):
+            inconnus.add(jour)
+            continue
+        if mode == Conventions.PERISCOLAIRE:
+            if classe == Calendrier.PERISCOLAIRE:
+                valides.add(jour)
+            continue
+        if mode != Conventions.EXTRASCOLAIRE:
+            raise DeclarationImpossible("Mode AFAS inconnu")
+        unite = (unites or {}).get(IDunite)
+        categorie = unite.get("categorie") if isinstance(unite, dict) else unite
+        if unites is None:
+            # Compatibilité de l'ancien appel : filtrage par mode de date.
+            categorie = "accueil"
+        if classe == Calendrier.EXTRASCOLAIRE and categorie in Calcul.CATEGORIES_OUVERTURE:
             valides.add(jour)
-        elif classe in (Calendrier.INCONNU, Calendrier.SAMEDI_A_QUALIFIER):
-            inconnus.append(jour)
+        elif categorie == "sejour" and classe in (Calendrier.EXTRASCOLAIRE, Calendrier.DIMANCHE):
+            site = (couples or {}).get((activite, groupe))
+            if any(sejour["site"] == site
+                   and str(sejour["date_debut"])[:10] <= str(jour)[:10] <= str(sejour["date_fin"])[:10]
+                   for sejour in (sejours or ())):
+                valides.add(jour)
     if inconnus:
         raise DeclarationImpossible(
-            "Calendrier périscolaire non qualifié pour %d jour(s) d'ouverture, "
-            "dont %s : compléter le calendrier des vacances/samedis"
+            "Calendrier AFAS non qualifié pour %d jour(s) d'ouverture, dont %s"
             % (len(inconnus), min(inconnus)))
     return valides
 
@@ -184,7 +194,7 @@ def CalculerPeriode(preset, referentiel, couples, source, debut, fin, date_refer
     resultat = Calcul.Calculateur(contexte).Calculer(consommations, debut, fin)
     resultat["jours_ouverts"] = len(JoursOuvertsEligibles(
         contexte["ouvertures"], preset["mode"], contexte["calendrier"],
-        contexte["samedis_avec_ecole"]))
+        contexte["samedis_avec_ecole"], contexte["unites"], couples, contexte["sejours"]))
     resultat["periode"] = (debut, fin)
     return resultat
 
@@ -239,10 +249,12 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
     jours_prevision = 0
     if debut_p:
         ouvertures_prevision = source.Ouvertures(list(couples), debut_p, fin_p)
+        unites_prevision = {int(cle): categorie for cle, categorie in preset["unites"].items()}
         jours_prevision = len(JoursOuvertsEligibles(
             ouvertures_prevision, preset["mode"],
             source.Calendrier(debut_p, fin_p),
-            Calendrier.SamedisAvecEcole(referentiel["samedis_avec_ecole"])))
+            Calendrier.SamedisAvecEcole(referentiel["samedis_avec_ecole"]),
+            unites_prevision, couples, referentiel["sejours"]))
         if methode == METHODE_MANUELLE:
             prevision = _prevision_manuelle(valeurs_manuelles, preset["mode"])
         elif methode == METHODE_N1:

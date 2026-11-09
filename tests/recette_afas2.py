@@ -184,18 +184,38 @@ def Rapprocher(rapport, attendus):
 
 
 def Ventilation(rapport):
-    """Heures réalisées et facturées par mois et par site (contrôle des écarts)."""
-    sites = {}
+    """Ventilation par site sans inventer la provenance des heures."""
+    sites_lignes = {}
     for ligne in rapport["lignes"]:
-        sites.setdefault((str(ligne["date"]), ligne["IDindividu"]), ligne["site"])
+        if ligne["statut"] != "retenue" or not ligne.get("site"):
+            continue
+        cle = (str(ligne["date"]), ligne["IDindividu"])
+        sites_lignes.setdefault(cle, set()).add(ligne["site"])
     totaux = {}
     for jour in rapport["jours"]:
-        cle = (str(jour["date"])[:7], sites.get((str(jour["date"]), jour["IDindividu"]), ""))
-        valeur = totaux.setdefault(cle, [0, 0, 0])
-        valeur[0] += jour["heures_realisees"] or 0
-        valeur[1] += jour["heures_facturees"] or 0
-        valeur[2] += 1
-    return [(mois, site, round(r / 3600.0, 2), round(f / 3600.0, 2), n) for (mois, site), (r, f, n) in sorted(totaux.items())]
+        cle_jour = (str(jour["date"]), jour["IDindividu"])
+        ventilation = jour.get("ventilation_sites")
+        if ventilation is None:
+            candidats = sites_lignes.get(cle_jour, set())
+            if len(candidats) != 1:
+                raise ValueError("Ventilation par site indéterminable : provenance absente")
+            ventilation = {next(iter(candidats)): {
+                "heures_realisees": jour["heures_realisees"],
+                "heures_facturees": jour["heures_facturees"]}}
+        if (sum(v["heures_realisees"] for v in ventilation.values()) != jour["heures_realisees"]
+                or sum(v["heures_facturees"] for v in ventilation.values()) != jour["heures_facturees"]):
+            raise ValueError("Ventilation non réconciliée avec le total journalier")
+        for site, valeurs in ventilation.items():
+            r, f = valeurs["heures_realisees"], valeurs["heures_facturees"]
+            if not (r or f):
+                continue
+            cle = (str(jour["date"])[:7], site)
+            total = totaux.setdefault(cle, [0, 0, 0])
+            total[0] += r
+            total[1] += f
+            total[2] += 1
+    return [(mois, site, round(r / 3600.0, 2), round(f / 3600.0, 2), n)
+            for (mois, site), (r, f, n) in sorted(totaux.items())]
 
 
 def _ecrire(chemin, entete, lignes):

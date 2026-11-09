@@ -174,10 +174,7 @@ class Calculateur(object):
         self._ouvertures_calculees = {}
         self._dates_comparees = set()
         self.regularisations_qualifiees = contexte.get("regularisations_qualifiees", {})
-        self._consos_annulees = {}
-        for IDprestation, qualification in self.regularisations_qualifiees.items():
-            for IDconso in qualification["consommations_annulees"]:
-                self._consos_annulees[IDconso] = IDprestation
+        self._consos_annulees = {}  # calculé par _VerifierAnnulations
 
     @staticmethod
     def _preparer_unite(unite):
@@ -281,6 +278,119 @@ class Calculateur(object):
                 return sejour
         return None
 
+
+    def _VerifierAnnulations(self, consommations, anomalies):
+        """Vérifie le rattachement des avoirs avant suppression d'actes CAF."""
+        self._consos_annulees = {}
+        if self.mode != EXTRA:
+            return
+        consos = {c["IDconso"]: c for c in consommations if c.get("IDconso") is not None}
+        avoirs = {str(r["IDprestation"]): r for r in self.ctx.get("regularisations", ())}
+        for IDavoir, qualification in self.regularisations_qualifiees.items():
+            avoir = avoirs.get(str(IDavoir))
+            for IDconso in qualification["consommations_annulees"]:
+                conso = consos.get(IDconso)
+                if conso is None:
+                    continue
+                if avoir is None:
+                    self._anomalie(anomalies, conso, "Avoir qualifié introuvable dans la période de contrôle",
+                                   "Calcul bloqué : vérifier la régularisation qualifiée")
+                    continue
+                enfant = avoir.get("IDindividu")
+                famille = avoir.get("IDfamille")
+                famille_conso = conso.get("IDfamille")
+                activite = avoir.get("IDactivite")
+                incoherent = (
+                    (enfant is not None and enfant != conso["IDindividu"])
+                    or (famille is not None and famille_conso is not None and famille != famille_conso)
+                    or (enfant is None and (famille is None or famille_conso != famille))
+                    or (activite is not None and activite != conso["IDactivite"])
+                    or avoir.get("facture_etat") == "annulation"
+                )
+                if incoherent:
+                    self._anomalie(anomalies, conso, "Avoir incohérent avec la consommation désignée",
+                                   "Calcul bloqué : vérifier enfant, famille, activité ou annulation")
+                    continue
+                if IDconso in self._consos_annulees:
+                    self._anomalie(anomalies, conso, "Consommation annulée par plusieurs avoirs",
+                                   "Calcul bloqué : contrôler les qualifications d'avoirs")
+                    continue
+                self._consos_annulees[IDconso] = str(IDavoir)
+
+    def _VentilerPeri(self, consos, categories, total):
+        """Répartit les plages par site avec plafond global de 9 h."""
+        par_site = {}
+        for conso in consos:
+            if conso.get("etat") not in self.etats_realise:
+                continue
+            if self.unites[conso["IDunite"]]["categorie"] not in categories:
+                continue
+            plage = self._plage_unite(conso)
+            if plage is None:
+                return None
+            site = self.couples[(conso["IDactivite"], conso["IDgroupe"])]
+            par_site.setdefault(site, []).append(plage)
+        intervalles = sorted((debut, fin, site)
+                            for site, plages in par_site.items()
+                            for debut, fin in _fusion(plages))
+        ventilation, fin_precedente = {}, None
+        restant = Conventions.PLAFOND_PERISCOLAIRE_JOUR
+        for debut, fin, site in intervalles:
+            if fin_precedente is not None and debut < fin_precedente:
+                return None
+            fin_precedente = fin
+            duree = min(fin - debut, restant)
+            if duree:
+                ventilation[site] = ventilation.get(site, 0) + duree
+            restant -= duree
+        if sum(ventilation.values()) != total:
+            return None
+        return {site: {"heures_realisees": duree, "heures_facturees": 0}
+                for site, duree in ventilation.items()}
+
+    def _VentilerExtra(self, presents, categories, physique, facture,
+                      site_facture, sejours, heures_sejour):
+        """Provenance du réalisé, de la facturation option 2 et des séjours."""
+        par_site = {}
+        for conso in presents:
+            if self.unites[conso["IDunite"]]["categorie"] not in categories:
+                continue
+            site = self.couples[(conso["IDactivite"], conso["IDgroupe"])]
+            par_site.setdefault(site, []).append(conso)
+
+        ventilation = {}
+        for site, consos_site in par_site.items():
+            duree = self._physique(consos_site, [], False)
+            if duree:
+                ventilation[site] = {"heures_realisees": duree, "heures_facturees": 0}
+
+        if facture:
+            if not site_facture:
+                return None
+            valeurs = ventilation.setdefault(
+                site_facture, {"heures_realisees": 0, "heures_facturees": 0})
+            valeurs["heures_facturees"] += facture
+
+        if heures_sejour:
+            sites_sejour = {
+                self.couples[(conso["IDactivite"], conso["IDgroupe"])]
+                for conso in sejours if conso.get("etat") in self.etats_realise
+            }
+            if len(sites_sejour) != 1:
+                return None
+            site = next(iter(sites_sejour))
+            valeurs = ventilation.setdefault(
+                site, {"heures_realisees": 0, "heures_facturees": 0})
+            valeurs["heures_realisees"] += heures_sejour
+            valeurs["heures_facturees"] += heures_sejour
+
+        if (sum(v["heures_realisees"] for v in ventilation.values())
+                != physique + heures_sejour
+                or sum(v["heures_facturees"] for v in ventilation.values())
+                != facture + heures_sejour):
+            return None
+        return ventilation
+
     # -- calcul ----------------------------------------------------------
     def Calculer(self, consommations, date_debut, date_fin):
         date_debut, date_fin = _date(date_debut), _date(date_fin)
@@ -299,6 +409,9 @@ class Calculateur(object):
             par_jour.setdefault((conso["IDindividu"], date), []).append(dict(conso, date=date))
             if conso.get("IDprestation") is not None:
                 self._usages_prestations.setdefault(conso["IDprestation"], set()).add((conso["IDindividu"], date))
+        if self.mode == EXTRA:
+            self._VerifierAnnulations(
+                [c for consos in par_jour.values() for c in consos], anomalies)
         for (IDindividu, date) in sorted(par_jour, key=lambda cle: (cle[1], str(cle[0]))):
             resultat = self._Jour(IDindividu, date, par_jour[(IDindividu, date)], anomalies, lignes)
             if resultat:
@@ -442,22 +555,33 @@ class Calculateur(object):
             self._anomalie(anomalies, conso, "Consommation un jour sans ouverture de l'unité pour ce groupe",
                            "Calcul bloqué : vérifier le calendrier d'ouverture ou la consommation")
             return "bloquee", "sans ouverture"
-        if conso.get("etat") == "reservation" and conso["date"] < self.ctx["date_reference"]:
-            # En extrascolaire, une reservation facturee constitue des heures
-            # facturees meme sans pointage. Elle ne prouve aucune presence :
-            # seules les heures facturees sont comptees ici.
-            facture_valide = (conso.get("IDprestation") is not None
-                             and conso.get("IDfacture") is not None
-                             and conso.get("facture_etat") != "annulation")
-            if self.mode == EXTRA and facture_valide:
-                self._anomalie(anomalies, conso, "Réservation passée facturée sans pointage",
-                               "Heures facturées retenues ; heures réalisées non attribuées",
-                               bloquante=False)
-                return "retenue", "réservation facturée ; réalisé non attesté"
-            self._anomalie(anomalies, conso, "Pointage en attente sur une date passée",
-                           "Calcul bloqué : pointer la présence ou l'absence")
-            return "bloquee", "pointage en attente"
+        if conso.get("etat") == "reservation":
+            if self.mode == EXTRA:
+                if self._ReservationActeExtra(conso):
+                    return "retenue", ""
+                return "exclue", "réservation du mois non clos ou annulée"
+            if conso["date"] < self.ctx["date_reference"]:
+                self._anomalie(anomalies, conso, "Pointage en attente sur une date passée",
+                               "Calcul bloqué : pointer la présence ou l'absence")
+                return "bloquee", "pointage en attente"
         return "retenue", ""
+
+
+    def _ReservationActeExtra(self, conso):
+        """Acte CAF d'une réservation extrascolaire sans présence attestée.
+
+        Une réservation d'un mois clos est assimilée à une absence injustifiée
+        facturée, y compris si la facture familiale n'a pas encore été créée.
+        Une réservation déjà facturée sur une date passée reste comptée.
+        """
+        if self.mode != EXTRA or conso.get("etat") != "reservation":
+            return False
+        if conso.get("facture_etat") == "annulation":
+            return False
+        jour = _date(conso["date"])
+        reference = _date(self.ctx["date_reference"])
+        return ((jour.year, jour.month) < (reference.year, reference.month)
+                or (jour < reference and conso.get("IDfacture") is not None))
 
     def _Doublons(self, consos, anomalies):
         vues = {}
@@ -538,10 +662,15 @@ class Calculateur(object):
             categories_caf.extend(CATEGORIES_GARDERIE)
         plages = self._plages([c for c in realise if self.unites[c["IDunite"]]["categorie"] in categories_caf], anomalies)
         heures = Conventions.PresencePeriscolaireJour(plages)
+        ventilation = self._VentilerPeri(realise, categories_caf, heures)
+        if ventilation is None:
+            self._anomalie_jour(anomalies, date, "Ventilation périscolaire non réconciliable entre sites",
+                                "Calcul bloqué : provenance des heures indéterminable", True, IDindividu)
         physique = self._physique(realise, anomalies, False)
         matin = Conventions.DureeUnion(self._plages([c for c in realise if self.unites[c["IDunite"]]["categorie"] == "garderie_matin"], anomalies))
         soir = Conventions.DureeUnion(self._plages([c for c in realise if self.unites[c["IDunite"]]["categorie"] == "garderie_soir"], anomalies))
-        return self._Resultat(IDindividu, date, PERI, heures, 0, physique, matin, soir, 0, None, [], [])
+        return self._Resultat(IDindividu, date, PERI, heures, 0, physique, matin, soir, 0, None, [], [],
+                              ventilation_sites=ventilation)
 
     def _JourExtra(self, IDindividu, date, consos, anomalies, mode_jour):
         sejours = [c for c in consos if self.unites[c["IDunite"]]["categorie"] == "sejour"]
@@ -557,12 +686,18 @@ class Calculateur(object):
         physique = self._physique([c for c in presents if self.unites[c["IDunite"]]["categorie"] in categories_presence], anomalies, True)
         matin = Conventions.DureeUnion(self._plages([c for c in presents if self.unites[c["IDunite"]]["categorie"] == "garderie_matin"], anomalies))
         soir = Conventions.DureeUnion(self._plages([c for c in presents if self.unites[c["IDunite"]]["categorie"] == "garderie_soir"], anomalies))
-        facture, amplitude, plages, justification = self._FactureOption2(autres, anomalies, date)
+        facture, amplitude, plages, justification, site_facture = self._FactureOption2(autres, anomalies, date)
+        ventilation = self._VentilerExtra(presents, categories_presence, physique,
+                                         facture, site_facture, sejours, heures_sejour)
+        if ventilation is None:
+            self._anomalie_jour(anomalies, date, "Ventilation extrascolaire non réconciliable entre sites",
+                                "Calcul bloqué : provenance des heures indéterminable", True, IDindividu)
         # Séjours : actes fixés à 10 h par journée réalisée, intégrés aux actes
         # réalisés et facturés (jamais cumulés avec une journée d'accueil :
         # séjour et accueil le même jour sont bloquants).
         return self._Resultat(IDindividu, date, EXTRA, physique + heures_sejour, facture + heures_sejour, physique,
-                              matin, soir, heures_sejour, amplitude, plages, justification)
+                              matin, soir, heures_sejour, amplitude, plages, justification,
+                              ventilation_sites=ventilation)
 
     def _PrestationIndeterminee(self, conso):
         """Motif rendant indéterminable l'unité facturée par la prestation de la consommation, ou ''."""
@@ -579,7 +714,7 @@ class Calculateur(object):
         return ""
 
     def _FactureOption2(self, consos, anomalies, date):
-        """(heures facturées, amplitude, plages d'ouverture, justification).
+        """(heures facturées, amplitude, plages, justification, site).
 
         Chaque journée ou demi-journée retenue est justifiée par une prestation
         figurant sur une facture non annulée, dont la quantité est déterminée
@@ -594,58 +729,71 @@ class Calculateur(object):
                     self._anomalie(anomalies, conso, "Unité horaire facturée en extrascolaire",
                                    "Calcul bloqué : l'option n°2 ne retient que la journée ou la demi-journée")
                 continue
-            # La facture prime sur le statut technique "reservation" pour
-            # les actes extrascolaires factures ; le realise reste distinct.
-            reservation_facturee = (conso.get("etat") == "reservation"
-                                   and conso["date"] < self.ctx["date_reference"])
-            if not facturee or not (conso.get("etat") in self.etats_facture or reservation_facturee):
+            # Le mois clos suffit pour la réservation extrascolaire.
+            # La facture réelle n'est exigée que pour les autres statuts.
+            reservation_retenue = self._ReservationActeExtra(conso)
+            if not ((facturee and conso.get("etat") in self.etats_facture)
+                    or reservation_retenue):
                 continue
             if conso.get("IDconso") in self._consos_annulees:
                 continue  # annulée par une régularisation qualifiée
-            if conso.get("IDprestation") is None:
+            IDprestation = conso.get("IDprestation")
+            if IDprestation is None and not reservation_retenue:
                 self._anomalie(anomalies, conso, "Facture sans prestation identifiable",
                                "Calcul bloqué : unité facturée non justifiable")
-                return 0, None, [], []
-            motif = self._PrestationIndeterminee(conso)
+                return 0, None, [], [], None
+            motif = self._PrestationIndeterminee(conso) if IDprestation is not None else ""
             if motif:
                 self._anomalie(anomalies, conso, "Facturation indéterminable : %s" % motif,
                                "Calcul bloqué : la journée ou demi-journée facturée ne peut être justifiée")
-                return 0, None, [], []
-            cle = conso["IDprestation"]
+                return 0, None, [], [], None
+            cle = ("P", IDprestation) if IDprestation is not None else ("C", conso.get("IDconso"))
+            if cle[1] is None:
+                self._anomalie(anomalies, conso, "Identifiant de consommation absent",
+                               "Calcul bloqué : doublons invérifiables")
+                return 0, None, [], [], None
             if cle in prestations:
                 self._anomalie(anomalies, conso, "Une prestation couvre plusieurs unités journée/demi-journée "
                                "(consommations %s et %s) : nature facturée indéterminable"
                                % (prestations[cle][1].get("IDconso"), conso.get("IDconso")),
                                "Calcul bloqué : vérifier la tarification de la journée")
-                return 0, None, [], []
+                return 0, None, [], [], None
             prestations[cle] = (categorie, conso)
         if not prestations:
-            return 0, None, [], []
+            return 0, None, [], [], None
         natures = [categorie for categorie, conso in prestations.values()]
         premiere = list(prestations.values())[0][1]
         if natures.count("journee") > 1 or ("journee" in natures and "demi_journee" in natures) or natures.count("demi_journee") > 2:
             self._anomalie(anomalies, premiere, "Facturation supérieure à une journée pour un enfant (%s)" % ", ".join(sorted(natures)),
                            "Calcul bloqué : doublon de facturation")
-            return 0, None, [], []
+            return 0, None, [], [], None
         couples = {(c["IDactivite"], c["IDgroupe"]) for categorie, c in prestations.values()}
         if len(couples) > 1:
             self._anomalie(anomalies, premiere, "Journée facturée sur plusieurs sites le même jour",
                            "Calcul bloqué : amplitude de référence indéterminable")
-            return 0, None, [], []
+            return 0, None, [], [], None
         self._comparer_implantations(date, anomalies)
-        amplitude, plages, motif = self._ouverture(date, couples.pop())
+        couple_facture = couples.pop()
+        amplitude, plages, motif = self._ouverture(date, couple_facture)
         textes = [TextePlage(p) for p in plages]
         if amplitude is None:
             self._anomalie(anomalies, premiere, "Amplitude d'ouverture indéterminable : %s" % motif,
                            "Calcul bloqué : vérifier les ouvertures et les plages des unités")
-            return 0, None, textes, []
+            return 0, None, textes, [], None
         if amplitude < Conventions.DUREE_MINIMALE_JOURNEE_EXTRA:
             self._anomalie(anomalies, premiere, "Amplitude d'ouverture inférieure à 2 h",
                            "Calcul bloqué : journée non conforme à l'art. 2-1")
-            return 0, amplitude, textes, []
-        justification = ["%s P%s F%s" % ("journée" if categorie == "journee" else "demi-journée", c["IDprestation"], c["IDfacture"])
-                         for categorie, c in prestations.values()]
-        return sum(Conventions.DureeJourneeOption2(nature, amplitude) for nature in natures), amplitude, textes, justification
+            return 0, amplitude, textes, [], None
+        justification = []
+        for categorie, c in prestations.values():
+            libelle = "journée" if categorie == "journee" else "demi-journée"
+            if c.get("IDprestation") is not None:
+                libelle += " P%s" % c["IDprestation"]
+            if c.get("IDfacture") is not None:
+                libelle += " F%s" % c["IDfacture"]
+            justification.append(libelle)
+        return (sum(Conventions.DureeJourneeOption2(nature, amplitude) for nature in natures),
+                amplitude, textes, justification, self.couples[couple_facture])
 
     def _Regularisations(self, par_jour, anomalies):
         """Prestations négatives non rattachées à une consommation (avoirs,
@@ -667,10 +815,12 @@ class Calculateur(object):
                                     "Calcul bloqué : qualifier la régularisation (consommations annulées ou aucune) "
                                     "dans le référentiel", True, regul.get("IDindividu"), regul.get("individu", ""))
 
-    def _Resultat(self, IDindividu, date, mode, realise, facture, physique, matin, soir, sejour, amplitude, plages, justification):
+    def _Resultat(self, IDindividu, date, mode, realise, facture, physique, matin, soir, sejour,
+                  amplitude, plages, justification, ventilation_sites=None):
         aeeh = self._aeeh(IDindividu, date)
         return {
             "date": date, "IDindividu": IDindividu, "mode": mode, "aeeh": aeeh, "amplitude": amplitude,
+            "ventilation_sites": ventilation_sites,
             "plages_ouverture": " + ".join(plages), "justification_facture": " ; ".join(justification),
             "heures_realisees": realise, "heures_facturees": facture,
             "heures_realisees_aeeh": realise if aeeh else 0, "heures_facturees_aeeh": facture if aeeh else 0,

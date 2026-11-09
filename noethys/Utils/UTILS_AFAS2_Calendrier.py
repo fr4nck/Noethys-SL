@@ -54,8 +54,9 @@ STATUTS_TECHNIQUES_EXCLUS = ("attente", "refus")
 
 ETATS_REALISE_DEFAUT = ("present",)
 ETATS_FACTURE_DEFAUT = ("present", "absentj", "absenti")
-# Seule une présence attestée produit des heures réalisées ; une réservation
-# (pointage en attente) ne produit jamais d'heure, ni réalisée ni facturée.
+# Seule une présence attestée produit des heures réalisées.
+# Une réservation extrascolaire d'un mois clos vaut acte facturé CAF,
+# sans modifier le statut de présence ou la facturation comptable.
 ETATS_REALISE_ADMIS = ("present",)
 ETATS_FACTURE_ADMIS = ("present", "absentj", "absenti")
 

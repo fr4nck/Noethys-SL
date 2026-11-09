@@ -580,5 +580,42 @@ class HistoriqueBaseTests(unittest.TestCase):
         self.assertEqual(len(DECL.ListerHistorique()), 1)
 
 
+
+class AFAS01JoursExtrascolairesTests(unittest.TestCase):
+    def jours(self, ouvertures, sejours=()):
+        return DECL.JoursOuvertsEligibles(
+            ouvertures, K.EXTRASCOLAIRE, K.Calendrier(VACANCES),
+            K.SamedisAvecEcole(referentiel()["samedis_avec_ecole"]),
+            {201: "journee", 204: "annexe", 205: "sejour"},
+            {(1, 11): "Bais +6 ans", (1, 15): "Minicamps 6/8"},
+            sejours)
+
+    def test_pas_de_ouverture_scolaire_en_extra(self):
+        scolaire = D(2026, 10, 14)
+        vacances = D(2026, 10, 21)
+        self.assertEqual(self.jours({(1, 201, 11, scolaire),
+                                     (1, 201, 11, vacances),
+                                     (1, 204, 11, vacances)}), {vacances})
+
+    def test_samedi_sans_ecole(self):
+        samedi = D(2026, 10, 10)
+        self.assertEqual(self.jours({(1, 201, 11, samedi)}), {samedi})
+
+    def test_dimanche_sejour_qualifie(self):
+        dimanche = D(2026, 10, 25)
+        ouverture = {(1, 205, 15, dimanche)}
+        sejour = {"site": "Minicamps 6/8", "date_debut": "2026-10-22",
+                  "date_fin": "2026-10-25"}
+        self.assertEqual(self.jours(ouverture, (sejour,)), {dimanche})
+        self.assertEqual(self.jours(ouverture), set())
+
+    def test_ratio_prevision_extra(self):
+        precedent = self.jours({(1, 201, 11, D(2025, 10, 14)),
+                               (1, 201, 11, D(2025, 10, 21))})
+        courant = self.jours({(1, 201, 11, D(2026, 10, 21)),
+                             (1, 201, 11, D(2026, 10, 22))})
+        self.assertEqual((len(precedent), len(courant)), (1, 2))
+        self.assertEqual(8 * H * len(courant) // len(precedent), 16 * H)
+
 if __name__ == "__main__":
     unittest.main()
