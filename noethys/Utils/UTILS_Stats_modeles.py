@@ -279,41 +279,43 @@ class HTML():
         self.dictParametres = dictParametres
         
     def MAJ(self, rubrique=None, page=None):
-        """ MAJ d'une rubrique ou d'une page par le code ou tout """
-        if rubrique == None and page == None : 
-            tout = True
-        else : 
-            tout = False
-        
-        if len(self.dictParametres["listeActivites"]) == 0 : 
+        """Mise a jour synchrone, enregistrement du cache apres succes seulement."""
+        import copy
+        tout = rubrique is None and page is None
+        if len(self.dictParametres["listeActivites"]) == 0:
             return
-        
-        DB = GestionDB.DB() 
-        for dictRubrique in self.liste_objets :
-            for dictPage in dictRubrique["pages"] :
-                for objet in dictPage["objets"] :
-                    if objet.visible == True and (tout == True or rubrique == dictRubrique["code"] or page == dictPage["code"]) :
-                        
-                        # Vérifie qu'une mise à jour est nécessaire :
-                        maj = False
-                        if len(objet.dictParametres) > 0 :
-                            if objet.dictParametres != self.dictParametres :
-                                maj = True
-                        else :
-                            maj = True
-                        
-                        # MAJ de l'objet
-                        if maj == True :
-                            if objet.categorie == "graphe" :
+        DB = GestionDB.DB()
+        try:
+            for dictRubrique in self.liste_objets:
+                for dictPage in dictRubrique["pages"]:
+                    for objet in dictPage["objets"]:
+                        if not (objet.visible and (
+                                tout or rubrique == dictRubrique["code"]
+                                or page == dictPage["code"])):
+                            continue
+                        if (objet.dictParametres
+                                and objet.dictParametres == self.dictParametres):
+                            continue
+                        try:
+                            if objet.categorie == "graphe":
                                 figure = matplotlib.pyplot.figure()
-                                figure = objet.MAJ(figure=figure, DB=DB, dictParametres=self.dictParametres)
-                                #figure.clear()
-                                objet.MemoriseImage(figure) 
+                                try:
+                                    resultat = objet.MAJ(
+                                        figure=figure, DB=DB,
+                                        dictParametres=self.dictParametres)
+                                    objet.MemoriseImage(resultat)
+                                finally:
+                                    matplotlib.pyplot.close(figure)
                             else:
                                 objet.MAJ(DB=DB, dictParametres=self.dictParametres)
-                            
-        DB.Close() 
-        
+                        except Exception:
+                            objet.dictParametres = {}
+                            raise
+                        else:
+                            objet.dictParametres = copy.deepcopy(self.dictParametres)
+        finally:
+            DB.Close()
+
     def GetHTML(self, rubrique=None, page=None, mode="affichage", selectionsCodes=[]):
         if mode not in ("affichage", "impression") :
             raise ValueError("Mode GetHTML non supporté : %r" % (mode,))
