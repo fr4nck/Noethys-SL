@@ -117,6 +117,35 @@ class BackupMissingFileTests(unittest.TestCase):
                 self.assertEqual(archive.read("demo_DATA.dat"), b"fictif")
             self.assertFalse((temp_dir / "backup.nod").exists())
 
+    def test_echec_de_publication_signale_l_erreur_et_preserve_ancienne_archive(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            data, temporaire, destination = (root / x for x in ("data", "temp", "out"))
+            for rep in (data, temporaire, destination):
+                rep.mkdir()
+            (data / "faux_DATA.dat").write_bytes(b"donnees fictives")
+            ancienne = destination / "archive.nod"
+            ancienne.write_bytes(b"archive anterieure intouchable")
+            module = _load_module(data, temporaire)
+            gui = module.Sauvegarde.__globals__["wx"]
+            gui.YES_NO = gui.NO_DEFAULT = gui.ICON_EXCLAMATION = 0
+            messages = []
+
+            class DialogCapturant(_Dialog):
+                def __init__(self, parent, message, *args, **kwargs):
+                    messages.append(str(message))
+
+            with mock.patch.object(gui, "MessageDialog", DialogCapturant):
+                with mock.patch("tempfile.mkstemp",
+                                side_effect=PermissionError("refus de copie simule")):
+                    ok = module.Sauvegarde(
+                        listeFichiersLocaux=["faux_DATA.dat"],
+                        nom="archive", repertoire=str(destination))
+            self.assertFalse(ok)
+            self.assertEqual(ancienne.read_bytes(), b"archive anterieure intouchable")
+            self.assertTrue(any(str(destination) in x and "refus de copie simule" in x
+                                for x in messages), messages)
+
 
 if __name__ == "__main__":
     unittest.main()

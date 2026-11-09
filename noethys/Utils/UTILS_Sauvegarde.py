@@ -273,8 +273,17 @@ def Sauvegarde(listeFichiersLocaux=[], listeFichiersReseau=[], nom="", repertoir
             shutil.copy2(UTILS_Fichiers.GetRepTemp(fichier=nomFichierTemp), copieTemp)
             os.replace(copieTemp, fichierDest)
         except Exception as err:
-            print("Le repertoire de destination de sauvegarde n'existe pas : %s" % err)
+            # Ne pas attribuer automatiquement tout echec de copie a un
+            # dossier manquant : le refus d'ecriture et une coupure sont possibles.
+            print("Publication de sauvegarde impossible dans %s : %s" % (repertoire, err))
             dlgprogress.Destroy()
+            dlgErreur = wx.MessageDialog(
+                None,
+                _(u"Impossible d'enregistrer la sauvegarde dans le dossier :\n\n%s\n\nErreur système : %s")
+                % (repertoire, err),
+                _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+            dlgErreur.ShowModal()
+            dlgErreur.Destroy()
             return False
         finally:
             if copieTemp is not None and os.path.isfile(copieTemp):

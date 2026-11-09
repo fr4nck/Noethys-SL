@@ -24,6 +24,9 @@ class InterfaceHistoriqueTests(unittest.TestCase):
                     "Le dossier de sauvegarde configure pour cette procedure est indisponible sur cet ordinateur :\n\n%s\n\n%s\n\nChoisissez un autre dossier. Ce choix sera conserve uniquement sur cet ordinateur apres une sauvegarde reussie.",
                     "Impossible d'utiliser le dossier choisi :\n\n%s",
                     "La sauvegarde est creee, mais le nouveau dossier n'a pas pu etre memorise sur cet ordinateur."
+                },
+                "UTILS_Sauvegarde.py": {
+                    "Impossible d'enregistrer la sauvegarde dans le dossier :\n\n%s\n\nErreur système : %s"
                 }
             }
             self.assertEqual(actuel, set(attendu) | ajouts.get(fichier, set()), fichier)

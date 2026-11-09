@@ -1,3 +1,12 @@
+Version Noethys SL 0.1.0 RC10.56 (09/11/2026) :
+
+- Sauvegarde automatique : verification du dossier de destination et du droit d'ecriture avant tout export MySQL ; aucun export lance si le choix du dossier est annule.
+- Sauvegarde multiposte : si la destination commune est indisponible sur ce poste, proposition d'un autre dossier local, memorise apres reussite seulement ; la procedure et la base communes restent inchangees.
+- Erreur de copie finale : affichage du dossier exact et de l'erreur systeme, archives precedentes conservees.
+- Corrections cumulatives RC10.55 et evolutions de la branche wx incluses dans le candidat, sous reserve de la recette Windows et de la restauration isolee.
+- Version interne Noethys 1.3.4.4 inchangee, aucune migration de donnees.
+
+
 Version Noethys SL 0.1.0 RC10.55 (04/11/2026) :
 
 - État global des consommations : sélecteur natif historique restauré ; quatre états libres ; suppression de l'alerte CAF et de la modification des profils ; tests de non-régression et interdiction de modification de la fenêtre sans accord de la direction.
