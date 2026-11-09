@@ -86,6 +86,10 @@ def _processus(conn, source, comptes, options, modele, chemin):
         try:
             module = (getattr(erreur, "name", None)
                       if isinstance(erreur, ImportError) else None)
+            if (module is None and isinstance(erreur, ImportError)
+                    and os.environ.get("NOETHYS_SL_PDF_TEST_ISOLE") == "1"):
+                # Message uniquement en banc fictif, sans chemin absolu.
+                module = str(erreur).split(" (", 1)[0].split("\\n", 1)[0][:160]
             conn.send(("error", type(erreur).__name__, module))
         except Exception:
             pass
