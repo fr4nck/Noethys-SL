@@ -307,6 +307,13 @@ class SituationConnecthysTests(unittest.TestCase):
         self.assertIn("self.situation_solde_jour.SetLabel(", methodes["MAJ_situation"])
         self.assertIn("self.situation_solde_annulations.SetLabel(",
                       methodes["MAJ_situation"])
+        # Un traitement manuel d'une demande provenant du portail n'est
+        # pas une demande creee hors portail : texte non ambigu.
+        self.assertIn("Taux d'annulation :", methodes["MAJ_situation"])
+        self.assertIn("traitées en mode automatique ou manuel",
+                      methodes["MAJ_situation"])
+        self.assertNotIn("annulations manuelles non comptabilisées",
+                         methodes["MAJ_situation"])
         self.assertIn("self.situation_solde_historique.SetLabel(",
                       methodes["MAJ_situation"])
         self.assertIn("self.situation_solde_annulations", methodes["_ConstruireSituationFamille"])

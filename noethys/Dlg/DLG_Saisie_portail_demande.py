@@ -471,15 +471,16 @@ class Dialog(wx.Dialog):
             self.situation_solde_carte, -1, _(u"Solde global : —"),
             style=wx.ST_NO_AUTORESIZE)
         self.situation_solde_annulations = wx.StaticText(
-            self.situation_solde_carte, -1, _(u"Annulations Connecthys : —"),
+            self.situation_solde_carte, -1, _(u"Taux d'annulation : —"),
             style=wx.ST_NO_AUTORESIZE)
         self.situation_solde_historique = wx.StaticText(
             self.situation_solde_carte, -1, _(u"Historique non disponible"),
             style=wx.ST_NO_AUTORESIZE)
         self.situation_solde_annulations.SetToolTip(wx.ToolTip(
-            _(u"Taux calculé sur les demandes Connecthys traitées et conservées "
-              u"pour toute la famille. Les annulations manuelles dans Noethys "
-              u"ne peuvent pas être reconstituées avec certitude.")))
+            _(u"Historique des demandes de réservation de toute la famille "
+              u"passées par le portail, traitées automatiquement ou "
+              u"manuellement. Seules les demandes encore conservées "
+              u"peuvent être prises en compte.")))
         sizer_soldes = wx.BoxSizer(wx.VERTICAL)
         sizer_soldes.Add(self.situation_solde_titre, 0, wx.ALL, 8)
         sizer_soldes.Add(self.situation_solde_jour, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
@@ -1281,7 +1282,7 @@ class Dialog(wx.Dialog):
             # Aucun refus ni nouvelle boite de dialogue.
             self.situation_solde_jour.SetLabel(_(u"Solde du jour : indisponible"))
             self.situation_solde_annulations.SetLabel(
-                _(u"Annulations Connecthys : indisponibles"))
+                _(u"Taux d'annulation : indisponibles"))
             self.situation_solde_historique.SetLabel("")
             self.situation_factures_titre.SetLabel(_(u"Factures impayées"))
             self.situation_factures_total.SetLabel(_(u"Données indisponibles"))
@@ -1303,7 +1304,7 @@ class Dialog(wx.Dialog):
         taux = historique.get("taux")
         if taux is None:
             self.situation_solde_annulations.SetLabel(
-                _(u"Annulations Connecthys : non calculable"))
+                _(u"Taux d'annulation : non calculable"))
             if historique.get("perimetre") == "indisponible":
                 self.situation_solde_historique.SetLabel(
                     _(u"Historique indisponible"))
@@ -1312,7 +1313,7 @@ class Dialog(wx.Dialog):
                     _(u"Aucune réservation de référence conservée"))
         else:
             self.situation_solde_annulations.SetLabel(
-                _(u"Annulations Connecthys : %s %%") %
+                _(u"Taux d'annulation : %s %%") %
                 (u"%.1f" % taux).replace(".", ","))
             ligne = _(u"%d annulation(s) / %d réservation(s)") % (
                 historique["annulations"], historique["reservations"])
@@ -1322,8 +1323,9 @@ class Dialog(wx.Dialog):
             self.situation_solde_historique.SetLabel(ligne)
         origine = historique.get("premiere_demande")
         details = _(
-            u"Demandes de réservation traitées via Connecthys et encore conservées, "
-            u"pour toute la famille ; annulations manuelles non comptabilisées.")
+            u"Historique des demandes de réservation passées par le portail, "
+            u"traitées en mode automatique ou manuel, pour tous les enfants "
+            u"de la famille. Le taux porte sur les demandes conservées.")
         if origine is not None:
             details += _(u" Historique depuis le %s.") % origine.strftime("%d/%m/%Y")
         if historique.get("annulations_non_appariees", 0):
