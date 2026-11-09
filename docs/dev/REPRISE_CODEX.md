@@ -1,5 +1,12 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## STATS-RESTORE Q3 — preuves d'isolation cache, qualification Windows en cours (09/11/2026)
+
+- Voir [rapport STATS-RESTORE](../recette/STATS_RESTORE_20261109.md) pour les tests rouges/verts et la portée des correctifs sur main/wx/qt.
+- Deux FAIL reproductibles des anciens caches globaux sur CI #42654799081, corrigés sur wx `3f3fccba` ; 30/30 tests ciblés PASS sur Ubuntu dans la CI #42655909784. Test VFS wx natif inclus dans son job Windows, résultat non disponible au dernier contrôle.
+- Cache des distances corrigé sur main `cc36bf43` et qt `3932ffa5`, pas encore sur wx. Blocages réseau et vrai parcours 11 pages ouverts. CI globale précédente : un FAIL Connecthys distinct. STOP-GATE de publication.
+
+
 ## STATS-RESTORE R2 — correctifs transversaux et qualification (09/11/2026)
 
 - Correctifs depuis le premier lot : QF historiques à date, valeur concurrente « QF à vérifier », suppression des collisions de tranches, titres datés, ressources MemoryFS, prévisualisation, caches, sélection et calculs d'impression. Présents sur main, qt et wx via modifications adaptées, sans fusion globale.

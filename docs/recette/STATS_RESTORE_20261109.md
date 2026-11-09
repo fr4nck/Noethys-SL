@@ -1,5 +1,16 @@
 # STATS-RESTORE — lot initial de restauration (09/11/2026)
 
+## Q3 — qualification autonome des caches et VFS natif (09/11/2026)
+
+- **But :** qualifier le moteur Statistiques depuis ChatGPT classique par tests réels et isolés, sans Work/Codex et sans données PMSL. Ne pas assimiler ces essais à une recette de l'application installée.
+- **CI initiale** [#42650313562](https://github.com/fr4nck/Noethys-SL/actions/runs/42650313562) sur wx `ecc226b0` : 2 273 tests exécutés, 1 FAIL (`tests.test_connecthys_situation.SituationConnecthysTests.test_raccordement_lecture_seule_de_la_fenetre_connecthys`) et 49 SKIP ; les tests STATS-RESTORE sont PASS. Ne pas ignorer ce FAIL dans le verdict global.
+- **Épreuves ajoutées :** inventaire AST des 11 pages/33 objets, deux connexions SQL fictives avec même filtres, paramètres modifiés en place, stress de `wx.MemoryFSHandler` natif sous Windows (100 actualisations et 100 ouvertures/fermetures).
+- **Test rouge probant** [#42654799081](https://github.com/fr4nck/Noethys-SL/actions/runs/42654799081) sur wx `3755fefe` : 30 tests ciblés, 28 PASS et 2 FAIL, démontrant contamination du cache `GetDictMembres` entre connexions et absence d'invalidation après mutation des paramètres.
+- **Correction :** neuf caches répartis entre Individus et Familles sont attachés à la connexion de lecture, avec instantané des paramètres, et ne réutilisent plus un cache global commun. Références main `dd2fbf3f`, qt `7dfe1b1c`, wx `3f3fccba`. La CI [#42655909784](https://github.com/fr4nck/Noethys-SL/actions/runs/42655909784) a validé **30/30 tests ciblés** sur Ubuntu ; la partie Windows était encore en cours lors de cette consignation.
+- **Cache géographique :** l'identité du cache inclut désormais l'origine, les destinations et les paramètres sur main `cc36bf43` et qt `3932ffa5` ; non encore reporté sur wx pour préserver la CI Windows en cours. L'appel réseau routier synchrone demeure ouvert.
+- **Ce qui n'est pas qualifié :** vrai `wx.MemoryFSHandler` tant que la partie Windows de la CI n'est pas terminée ; 11 pages exécutées dans l'application installée ; comportement du dialogue principal, du zoom et de l'aperçu lors de cycles réels ; gels SQL/réseau ; validité métier du choix d'un QF à la date de référence ; MySQL réel ; issue #432.
+- **Décision : STOP-GATE maintenu**, aucun installateur ni release publié, aucun test sur base utilisateur, aucune migration, aucun nettoyage destructif.
+
 ## R2 — intégrations vérifiées le 09/11/2026
 
 - **Branches** : main `e8102100`, qt `7d13e38a`, wx `ecc226b0` (références de la session ; contrôler les HEAD avant poursuite).
