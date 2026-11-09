@@ -6,6 +6,7 @@ on:
     branches: [wx]
     paths:
       - '.github/workflows/noethys-sl-connecthys-install-smoke-windows.yml'
+      - 'tests/recette_connecthys_installe_clicks.py'
   workflow_dispatch:
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
             Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
           python -m pip install -r requirements-noethys-sl-ci.txt
           if ($LASTEXITCODE -ne 0) { throw 'Dependances Noethys manquantes' }
-          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7'
+          python -m pip install pyttsx3 wxPython==4.2.5 'pyinstaller>=6,<7' pywinauto==0.6.9
           if ($LASTEXITCODE -ne 0) { throw 'Dependances wx et PyInstaller manquantes' }
           python -m compileall -q noethys
           if ($LASTEXITCODE -ne 0) { throw 'Code Python invalide' }
@@ -117,6 +118,27 @@ jobs:
           }
           if (-not $termine) { throw 'Exe installe : etape oninit_fin absente' }
           Write-Host 'PASS exe installe et initialise avec base fictive'
+      - name: Recette clics automatiques dans le VRAI exe installe (base fictive)
+        shell: pwsh
+        run: |
+          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
+          $exe = Join-Path $cible 'Noethys.exe'
+          $base = Join-Path $cible 'Portable\Data\Recette_DATA.dat'
+          $sortie = Join-Path $env:RUNNER_TEMP 'connecthys-install-diagnostics'
+          if (-not (Test-Path $exe) -or -not (Test-Path $base)) {
+            throw 'Fichier de recette installe absent'
+          }
+          # STOP-FERMÉ : aucun accès sortant depuis l'exe, même accidentel.
+          $nomRegle = 'CI-Recette-Connecthys-Sortant-Interdit'
+          try {
+            netsh advfirewall firewall add rule name="$nomRegle" dir=out action=block program="$exe" enable=yes
+            if ($LASTEXITCODE -ne 0) { throw 'Blocage reseau du binaire non applicable' }
+            python tests/recette_connecthys_installe_clicks.py $exe $base $sortie
+            if ($LASTEXITCODE -ne 0) { throw 'Recette clics exe installe : FAIL' }
+          }
+          finally {
+            netsh advfirewall firewall delete rule name="$nomRegle" | Out-Null
+          }
       - name: Conserver les diagnostics non personnels seulement
         if: always()
         uses: actions/upload-artifact@v7
