@@ -130,26 +130,34 @@ class Dialog(wx.Dialog):
         self.bouton_annuler.Enable(True)
 
     def PreparerCotisationsPourApercu(self):
-        """P1 #426 : consentement AVANT la sélection et l'aperçu des factures.
+        """Controle et choix humain des cotisations, avant le calcul des factures.
 
-        Toute création est visible par le calcul page2.MAJ() qui relit ensuite
-        les prestations. Aucune création au moment du bouton 'Générer'.
+        Une proposition est un signal, pas une obligation de paiement :
+        chaque titulaire peut etre decoche par l'operateur. Aucun motif
+        personnel n'est impose ni enregistre par ce parcours.
         """
+        self._controle_cotisations = None
         params = self.dictParametres
         if "cotisation" not in params.get("prestations", []):
             return True
         from Utils import UTILS_Adhesions_echeances as echeances
         from Utils import UTILS_Identification
+        date_debut = params.get("date_anterieure") or params["date_debut"]
+        perimetre = (
+            str(date_debut), str(params["date_fin"]),
+            tuple(sorted(int(x) for x in params["listeActivites"])),
+            params["IDcompte_payeur"],
+        )
+
         try:
-            date_debut = params.get("date_anterieure") or params["date_debut"]
             propo = echeances.Proposer(
                 date_debut=date_debut, date_fin=params["date_fin"],
                 date_reference=datetime.date.today(),
                 liste_activites=params["listeActivites"],
                 IDcompte_payeur=params["IDcompte_payeur"])
         except Exception as err:
-            # Proposer() est en lecture seule. Ne pas confondre échec de
-            # vérification et absence de cotisations dues : choix explicite.
+            # Un echec n'equivaut jamais a zero cotisation due.
+            # Aucun acces financier ne doit etre tente ici.
             import traceback
             pile = traceback.extract_tb(err.__traceback__)
             origine = pile[-1] if pile else None
@@ -164,58 +172,198 @@ class Dialog(wx.Dialog):
                 u"manquer et devront être vérifiées avant émission.\n"
                 u"Non : rester sur cette page pour corriger le problème.\n\n"
                 u"Cause technique : %s%s") % (err, lieu)
-            return wx.MessageBox(
+            choix = wx.MessageBox(
                 message, _(u"Cotisations automatiques non vérifiées"),
-                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self) == wx.YES
-        if propo["a_verifier"]:
-            message = _(u"%d situation(s) d'adhésion nécessitent une vérification "
-                        u"(participations antérieures, chevauchements ou payeur).\n"
-                        u"AUCUNE cotisation automatique ne sera créée dans cette opération.\n\n"
-                        u"Continuer uniquement avec les prestations déjà enregistrées ?") % len(propo["a_verifier"])
-            confirmation = wx.MessageBox(
-                message, _(u"Cotisations à vérifier"),
                 wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self)
-            return confirmation == wx.YES
-        if not propo["propositions"]:
+            if choix != wx.YES:
+                return False
+            self._controle_cotisations = {
+                "statut": "indisponible", "perimetre": perimetre,
+                "date_reference": datetime.date.today(),
+            }
             return True
-        somme = sum(float(p["montant"]) for p in propo["propositions"])
-        message = _(u"%d cotisation(s) éligible(s) correspondant à des participations "
-                    u"déjà réalisées : %.2f EUR.\n"
-                    u"Aucune réservation future n'est prise en compte.\n\n"
-                    u"Créer maintenant les cotisations et prestations dans la base, "
-                    u"AVANT de calculer l'aperçu des factures ?\n\n"
-                    u"Oui : création contrôlée (elle reste enregistrée si vous "
-                    u"annulez ensuite la facture).\n"
-                    u"Non : continuer sans création.\n"
-                    u"Annuler : revenir aux paramètres.") % (len(propo["propositions"]), somme)
-        choix = wx.MessageBox(
-            message, _(u"Préparation des cotisations de la période"),
-            wx.YES_NO | wx.CANCEL | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
-        if choix == wx.CANCEL:
-            return False
-        if choix != wx.YES:
-            return True
+
+        if propo["a_verifier"]:
+            message = _(
+                u"%d situation(s) de cotisation nécessitent un examen manuel "
+                u"(dates, chevauchements ou payeur).\n"
+                u"Elles ne seront PAS créées automatiquement.\n\n"
+                u"Vous pouvez poursuivre pour les autres cotisations, "
+                u"ou revenir aux paramètres.\n"
+                u"Continuer la préparation ?") % len(propo["a_verifier"])
+            if wx.MessageBox(
+                    message, _(u"Cotisations à vérifier"),
+                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self) != wx.YES:
+                return False
+
+        selection_titulaires = set()
+        if propo["propositions"]:
+            # Les noms sont lus uniquement pour l'affichage local de la
+            # decision. Aucune liste nominative n'est journalisee/exportee.
+            noms = {}
+            try:
+                from Utils import UTILS_Adhesions as adhesions
+                ids = sorted({int(p["IDtitulaire"]) for p in propo["propositions"]})
+                lignes = adhesions._lire(
+                    "SELECT IDindividu, nom, prenom FROM individus "
+                    "WHERE IDindividu IN %s;" % adhesions._liste_sql(ids))
+                noms = {int(ID): u"%s %s" % (nom or u"", prenom or u"")
+                        for ID, nom, prenom in lignes}
+            except Exception:
+                # Une indisponibilite de l'annuaire n'autorise pas a
+                # creer automatiquement les cotisations sans confirmation.
+                noms = {}
+
+            labels = []
+            for p in propo["propositions"]:
+                titulaire = int(p["IDtitulaire"])
+                nom = noms.get(titulaire, u"Titulaire n°%d" % titulaire)
+                labels.append(
+                    u"%s — %.2f € — depuis le %s" % (
+                        nom, float(p["montant"]),
+                        p["date_debut"].strftime("%d/%m/%Y")))
+            texte = _(
+                u"Cochez uniquement les cotisations que vous souhaitez créer "
+                u"et facturer. Décochez les personnes dispensées ou dont la "
+                u"situation doit être traitée manuellement.\n\n"
+                u"Les choix non retenus ne créent aucune cotisation. "
+                u"Cette décision vaut pour ce lot, sans dispense permanente.\n"
+                u"Vous pourrez toujours saisir une cotisation manuelle non facturée.")
+            dlg = wx.MultiChoiceDialog(
+                self, texte, _(u"Choix des cotisations à créer"), labels)
+            try:
+                # Choix initial habituel, librement modifiable.
+                dlg.SetSelections(list(range(len(labels))))
+                if dlg.ShowModal() != wx.ID_OK:
+                    return False
+                indices = [int(x) for x in dlg.GetSelections()]
+            finally:
+                dlg.Destroy()
+            selection_titulaires = {
+                int(propo["propositions"][index]["IDtitulaire"])
+                for index in indices
+            }
+
+            if selection_titulaires:
+                try:
+                    reponses = echeances.Executer(
+                        propo, confirmation=True,
+                        selection_titulaires=selection_titulaires,
+                        liste_activites=params["listeActivites"],
+                        IDcompte_payeur=params["IDcompte_payeur"],
+                        IDutilisateur=UTILS_Identification.GetIDutilisateur())
+                except Exception as err:
+                    wx.MessageBox(
+                        _(u"La proposition a changé ou sa création a échoué. "
+                          u"Reprenez le contrôle avant de facturer.\n\n%s") % err,
+                        _(u"Facturation interrompue"), wx.OK | wx.ICON_ERROR, self)
+                    return False
+                erreurs = [r for r in reponses
+                           if r.get("statut") not in ("cree", "rien_a_faire")]
+                if erreurs or len(reponses) != len(selection_titulaires):
+                    wx.MessageBox(
+                        _(u"Certaines cotisations n'ont pas pu être créées. "
+                          u"Des écritures précédentes peuvent exister. "
+                          u"Revenez aux paramètres avant de facturer."),
+                        _(u"Facturation interrompue"),
+                        wx.OK | wx.ICON_ERROR, self)
+                    return False
+
+        # Relecture APRES les eventuelles creations : ce sont les
+        # propositions residuelles qui seront reverifiees a l'emission.
         try:
-            reponses = echeances.Executer(
-                propo, confirmation=True,
+            apres = echeances.Proposer(
+                date_debut=date_debut, date_fin=params["date_fin"],
+                date_reference=datetime.date.today(),
                 liste_activites=params["listeActivites"],
-                IDcompte_payeur=params["IDcompte_payeur"],
-                IDutilisateur=UTILS_Identification.GetIDutilisateur())
+                IDcompte_payeur=params["IDcompte_payeur"])
         except Exception as err:
             wx.MessageBox(
-                _(u"La proposition a changé ou sa création a échoué. "
-                  u"Ne générez aucune facture sans recalculer.\n\n%s") % err,
-                _(u"Facturation interrompue"), wx.OK | wx.ICON_ERROR, self)
+                _(u"Relecture des cotisations impossible après préparation. "
+                  u"Revenez aux paramètres ; aucune facture n'a été émise.\n\n%s") % err,
+                _(u"Contrôle incomplet"), wx.OK | wx.ICON_ERROR, self)
             return False
-        erreurs = [r for r in reponses
-                   if r.get("statut") not in ("cree", "rien_a_faire")]
-        if erreurs or len(reponses) != len(propo["propositions"]):
+        self._controle_cotisations = {
+            "statut": "verifie", "perimetre": perimetre,
+            "date_reference": datetime.date.today(),
+            "propositions": apres["propositions"],
+            "a_verifier": apres["a_verifier"],
+        }
+        return True
+
+    def VerifierCotisationsAvantEmission(self, comptes_payeurs):
+        """Stoppe une emission si le controle a change depuis l'apercu.
+
+        Une panne de relecture peut etre derrogee explicitement par
+        l'operateur, sans creer d'adhesion ni inventer une cotisation due.
+        """
+        params = self.dictParametres
+        if "cotisation" not in params.get("prestations", []):
+            return True
+        from Utils import UTILS_Adhesions_echeances as echeances
+        controle = getattr(self, "_controle_cotisations", None)
+        date_debut = params.get("date_anterieure") or params["date_debut"]
+        perimetre = (
+            str(date_debut), str(params["date_fin"]),
+            tuple(sorted(int(x) for x in params["listeActivites"])),
+            params["IDcompte_payeur"],
+        )
+        if not controle or controle["perimetre"] != perimetre:
             wx.MessageBox(
-                _(u"Certaines cotisations n'ont pas pu être créées "
-                  u"(%d erreur(s)). Des écritures précédentes peuvent exister. "
-                  u"Revenez aux paramètres puis actualisez avant de facturer.") %
-                len(erreurs), _(u"Facturation interrompue"),
-                wx.OK | wx.ICON_ERROR, self)
+                _(u"Les paramètres ont changé. Revenez à la première étape "
+                  u"pour contrôler les cotisations avant l'émission."),
+                _(u"Contrôle à refaire"), wx.OK | wx.ICON_WARNING, self)
+            return False
+        try:
+            actuel = echeances.Proposer(
+                date_debut=date_debut, date_fin=params["date_fin"],
+                date_reference=datetime.date.today(),
+                liste_activites=params["listeActivites"],
+                IDcompte_payeur=params["IDcompte_payeur"])
+        except Exception as err:
+            # Un choix humain exceptionnel demeure possible, mais jamais
+            # implicitement au clic "Generer".
+            message = _(
+                u"Le contrôle des cotisations est indisponible au moment "
+                u"de l'émission des %d facture(s).\n\n"
+                u"Certaines cotisations peuvent manquer. "
+                u"Voulez-vous émettre les factures sélectionnées avec les "
+                u"seules prestations déjà enregistrées, en assumant "
+                u"explicitement cette exception ?\n\n"
+                u"Non : revenir à la sélection. Cause : %s") % (
+                    len(comptes_payeurs), err)
+            return wx.MessageBox(
+                message, _(u"Émission sans contrôle complet"),
+                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self) == wx.YES
+
+        # Une erreur initiale ne vaut pas absence de cotisations : si
+        # l'acces est retabli, il faut faire les choix sur cet inventaire.
+        if controle["statut"] == "indisponible":
+            if actuel["propositions"] or actuel["a_verifier"]:
+                wx.MessageBox(
+                    _(u"Le contrôle des cotisations fonctionne de nouveau "
+                      u"et révèle des situations à examiner. Revenez à "
+                      u"la première étape pour choisir les cotisations "
+                      u"à créer ou à dispenser avant d'émettre."),
+                    _(u"Contrôle rétabli"), wx.OK | wx.ICON_WARNING, self)
+                return False
+            return True
+        payeurs = {int(p) for p in comptes_payeurs}
+        anciennes = echeances.Empreinte(
+            [p for p in controle["propositions"]
+             if int(p["IDcompte_payeur"]) in payeurs])
+        nouvelles = echeances.Empreinte(
+            [p for p in actuel["propositions"]
+             if int(p["IDcompte_payeur"]) in payeurs])
+        if (anciennes != nouvelles or
+                controle["a_verifier"] != actuel["a_verifier"] or
+                controle["date_reference"] != datetime.date.today()):
+            wx.MessageBox(
+                _(u"Les cotisations à contrôler ont changé depuis "
+                  u"l'aperçu. Reprenez la première étape pour actualiser "
+                  u"les prestations avant l'émission. "
+                  u"Aucune facture n'a été créée."),
+                _(u"Contrôle à actualiser"), wx.OK | wx.ICON_WARNING, self)
             return False
         return True
 
