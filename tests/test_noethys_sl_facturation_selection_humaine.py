@@ -176,21 +176,68 @@ class SelectionInterfaceTests(unittest.TestCase):
             wx.MessageBox = lambda *args: wx.YES
             self.assertTrue(fonctions["VerifierCotisationsAvantEmission"](ctx, [11]))
 
-    def test_page_de_selection_n_ecrit_rien_si_garde_refuse(self):
+    def executer_validation_factures(self, accord=True, controle=True):
+        """Verifie l'ordre confirmation -> controle -> ecriture."""
+        appels = []
         class Liste:
             def GetObjects(self):
                 return [object()]
             def GetTracksCoches(self):
                 return [types.SimpleNamespace(IDcompte_payeur=11)]
+
+        class Dialogue:
+            def __init__(self, *args, **kwargs):
+                pass
+            def ShowModal(self):
+                appels.append("confirmation")
+                return 1 if accord else 2
+            def Destroy(self):
+                pass
+
+        def verifier(payeurs):
+            self.assertEqual(payeurs, [11])
+            appels.append("controle")
+            return controle
+
+        def sauvegarder():
+            appels.append("sauvegarde")
+            return [321]
+
+        def preferences(**kw):
+            appels.append("preferences")
+            self.assertEqual(kw["mode"], "set")
+
+        parent = types.SimpleNamespace(
+            VerifierCotisationsAvantEmission=verifier,
+            dictParametres={"prestations": ["cotisation"]})
         selecteur = types.SimpleNamespace(
-            ctrl_factures=Liste(),
-            parent=types.SimpleNamespace(
-                VerifierCotisationsAvantEmission=lambda payeurs: False),
-            SauvegardeFactures=lambda: self.fail("Ecriture interdite"),
-        )
-        glob = {"wx": types.SimpleNamespace(), "_": lambda s: s}
+            ctrl_factures=Liste(), parent=parent,
+            SauvegardeFactures=sauvegarder,
+            ctrl_option_montant=types.SimpleNamespace(GetMontant=lambda: 0.0))
+        wx = types.SimpleNamespace(
+            MessageDialog=Dialogue, YES_NO=4, YES_DEFAULT=8,
+            CANCEL=16, ICON_QUESTION=32, ID_YES=1)
+        glob = {"wx": wx, "_": lambda s: s,
+                "UTILS_Parametres": types.SimpleNamespace(Parametres=preferences)}
         exec(methode(SELECTION, "Validation", "Panel"), glob)
-        self.assertFalse(glob["Validation"](selecteur))
+        return glob["Validation"](selecteur), appels, parent
+
+    def test_page_de_selection_n_ecrit_rien_si_garde_refuse(self):
+        resultat, appels, _ = self.executer_validation_factures(controle=False)
+        self.assertFalse(resultat)
+        self.assertEqual(appels, ["confirmation", "controle"])
+
+    def test_annuler_la_confirmation_evite_la_connexion_reseau(self):
+        resultat, appels, _ = self.executer_validation_factures(accord=False)
+        self.assertFalse(resultat)
+        self.assertEqual(appels, ["confirmation"])
+
+    def test_validation_finale_juste_avant_sauvegarde(self):
+        resultat, appels, parent = self.executer_validation_factures()
+        self.assertTrue(resultat)
+        self.assertEqual(appels, ["confirmation", "controle",
+                                  "sauvegarde", "preferences"])
+        self.assertEqual(parent.listeFacturesGenerees, [321])
 
 
 if __name__ == "__main__":
