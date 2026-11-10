@@ -6,6 +6,7 @@ qui rend le PDF est obligatoirement Noethys.exe installe. Aucun profil reel,
 aucun appel Connecthys, aucun email ni publication. Ce test ne demontre pas
 encore que le parent GUI de l'application installee reste reactif.
 """
+import faulthandler
 import multiprocessing
 from multiprocessing import spawn
 import os
@@ -23,6 +24,10 @@ def verifier():
         raise SystemExit("Usage : recette_ui432k_pdf_installe.py EXE")
     if not os.environ.get("RUNNER_TEMP"):
         raise SystemExit("STOP : RUNNER_TEMP absent")
+    # Un unique diagnostic de pile en cas de gel (fixture anonyme uniquement).
+    faulthandler.enable()
+    faulthandler.dump_traceback_later(75, repeat=False, file=sys.stderr)
+    print("UI432K_INSTALLE_PHASE preparation", flush=True)
 
     temporaire_runner = Path(os.environ["RUNNER_TEMP"]).resolve()
     executable = Path(sys.argv[1]).resolve()
@@ -45,6 +50,8 @@ def verifier():
     os.chdir(str(depot / "noethys"))
     app = wx.GetApp() or wx.App(False)
     base, modele = _creer_base_facture_avec_prestation_sans_activite()
+    print("UI432K_INSTALLE_PHASE base_fictive", flush=True)
+
     try:
         options = _dict_options_minimal(modele)
         with RedirectionGestionDB(base.chemin):
@@ -84,6 +91,7 @@ def verifier():
                     suffixe = "avec-texte" if bloc_texte else "standard"
                     reference = str(Path(dossier) / ("reference-" + suffixe + ".pdf"))
                     fichier = str(Path(dossier) / ("installe-" + suffixe + ".pdf"))
+                    print("UI432K_INSTALLE_PHASE reference_" + suffixe, flush=True)
                     with RedirectionGestionDB(base.chemin):
                         UTILS_Impression_facture.Impression(
                             comptes, options, IDmodele=modele,
@@ -110,6 +118,7 @@ def verifier():
                         dossier_initial = Path.cwd()
                         try:
                             os.chdir(str(executable.parent))
+                            print("UI432K_INSTALLE_PHASE spawn_" + suffixe, flush=True)
                             UTILS_PDF_securise.Generer(
                                 fichier, lambda provisoire:
                                     UTILS_PDF_processus.Generer(
