@@ -248,11 +248,20 @@ class SelectionInterfaceTests(unittest.TestCase):
         dlg = wx.MultiChoiceDialog(
             None, "Choix des cotisations", "Cotisations",
             ["Bénéficiaire fictif A", "Bénéficiaire fictif B"])
-        try:
-            dlg.SetSelections([0, 1])
-            self.assertEqual(list(dlg.GetSelections()), [0, 1])
+        # wx 4.2 ne garantit pas GetSelections() AVANT ShowModal :
+        # le controle natif est initialise pendant l'ouverture du dialogue.
+        # Reproduire donc exactement ce que verra un operateur.
+        selections = []
+        def inspecter_dialogue_ouvert():
+            selections.append(list(dlg.GetSelections()))
             dlg.SetSelections([0])
-            self.assertEqual(list(dlg.GetSelections()), [0])
+            selections.append(list(dlg.GetSelections()))
+            dlg.EndModal(wx.ID_OK)
+        try:
+            dlg.SetSelections([0, 1])  # ordre actuel du code applicatif
+            wx.CallAfter(inspecter_dialogue_ouvert)
+            self.assertEqual(dlg.ShowModal(), wx.ID_OK)
+            self.assertEqual(selections, [[0, 1], [0]])
         finally:
             dlg.Destroy()
         self.assertIsNotNone(application)
