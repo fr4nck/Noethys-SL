@@ -468,7 +468,7 @@ class Dialog(wx.Dialog):
         Aucune base n'est modifiee. Le mapping doit venir d'un appelant
         explicitement qualifie ; les modes Inscrits sont exclus.
         """
-        if self._q442_configuration is None:
+        if getattr(self, '_q442_configuration', None) is None:
             return
         from Utils import UTILS_Stats_qf_objets as Q442
         if not Q442.est_disponible(self.dictParametres):
@@ -761,7 +761,7 @@ class Dialog(wx.Dialog):
         dlg.SetParametres(self.dictParametres)
         if dlg.ShowModal() == wx.ID_OK:
             self.dictParametres = dlg.GetDictParametres()
-            if self._q442_configuration is not None:
+            if getattr(self, '_q442_configuration', None) is not None:
                 # Le dialogue de parametres historique ignore ces options.
                 # Les reinjecter sans les enregistrer dans les preferences.
                 self.dictParametres["q442_configuration"] = self._q442_configuration
