@@ -57,3 +57,4 @@ jobs:
           tests.test_ui432k_graphes_worker
           tests.test_ui432k_graphes_win32
           tests.test_ui432k_pdf_processus
+          tests.test_ui432k_pdf_processus_win32
