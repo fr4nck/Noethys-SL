@@ -242,28 +242,39 @@ class SelectionInterfaceTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "win32", "interface native Windows requise")
     def test_vrai_dialogue_wx_permet_de_decocher_une_seule_personne(self):
-        """La selection reelle wx 4.2 doit accepter le choix partiel."""
+        """Verifier le resultat APRES le vrai evenement du bouton OK."""
         import wx
         application = wx.GetApp() or wx.App(False)
-        dlg = wx.MultiChoiceDialog(
-            None, "Choix des cotisations", "Cotisations",
-            ["Bénéficiaire fictif A", "Bénéficiaire fictif B"])
-        # wx 4.2 ne garantit pas GetSelections() AVANT ShowModal :
-        # le controle natif est initialise pendant l'ouverture du dialogue.
-        # Reproduire donc exactement ce que verra un operateur.
-        selections = []
-        def inspecter_dialogue_ouvert():
-            selections.append(list(dlg.GetSelections()))
-            dlg.SetSelections([0])
-            selections.append(list(dlg.GetSelections()))
-            dlg.EndModal(wx.ID_OK)
-        try:
-            dlg.SetSelections([0, 1])  # ordre actuel du code applicatif
-            wx.CallAfter(inspecter_dialogue_ouvert)
-            self.assertEqual(dlg.ShowModal(), wx.ID_OK)
-            self.assertEqual(selections, [[0, 1], [0]])
-        finally:
-            dlg.Destroy()
+
+        def resultat_apres_ok(selections_initiales, selections_finales=None):
+            dlg = wx.MultiChoiceDialog(
+                None, "Choix des cotisations", "Cotisations",
+                ["Bénéficiaire fictif A", "Bénéficiaire fictif B"])
+            dlg.SetSelections(selections_initiales)
+            def confirmer_par_bouton():
+                if selections_finales is not None:
+                    dlg.SetSelections(selections_finales)
+                bouton = dlg.FindWindowById(wx.ID_OK)
+                if bouton is None:
+                    dlg.EndModal(wx.ID_CANCEL)
+                    return
+                evenement = wx.CommandEvent(wx.wxEVT_BUTTON, wx.ID_OK)
+                evenement.SetEventObject(bouton)
+                wx.PostEvent(bouton, evenement)
+            # Eviter un test pendu si l'evenement natif n'est pas livre.
+            garde = wx.CallLater(3000, lambda: dlg.EndModal(wx.ID_CANCEL)
+                                 if dlg.IsModal() else None)
+            try:
+                wx.CallAfter(confirmer_par_bouton)
+                code = dlg.ShowModal()
+                return code, list(dlg.GetSelections())
+            finally:
+                garde.Stop()
+                dlg.Destroy()
+
+        self.assertEqual(resultat_apres_ok([0, 1]), (wx.ID_OK, [0, 1]))
+        self.assertEqual(resultat_apres_ok([0, 1], [0]),
+                         (wx.ID_OK, [0]))
         self.assertIsNotNone(application)
 
 
