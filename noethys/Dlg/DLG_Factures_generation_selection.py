@@ -110,14 +110,6 @@ class Panel(wx.Panel):
             dlg.Destroy()
             return False
         
-        # Derniere relecture des cotisations : la validation de page 1
-        # ne suffit pas si des prestations ont change avant l'emission.
-        # Une exception explicite reste possible en cas de panne reseau.
-        comptes_payeurs = [track.IDcompte_payeur
-                          for track in self.ctrl_factures.GetTracksCoches()]
-        if not self.parent.VerifierCotisationsAvantEmission(comptes_payeurs):
-            return False
-
         # Demande de confirmation
         if nbreCoches < nbreTotalFactures :
             texteSupp = _(u"(Sur un total de %d factures proposées) ") % nbreTotalFactures
@@ -132,7 +124,15 @@ class Panel(wx.Panel):
         dlg.Destroy()
         if reponse != wx.ID_YES :
             return False
-    
+
+        # La relecture est faite APRES la confirmation, immediatement
+        # avant l'ecriture : aucune verification inutile si l'operateur
+        # annule, et une fenetre de concurrence plus courte.
+        comptes_payeurs = [track.IDcompte_payeur
+                          for track in self.ctrl_factures.GetTracksCoches()]
+        if not self.parent.VerifierCotisationsAvantEmission(comptes_payeurs):
+            return False
+
         # Génération des factures
         listeFacturesGenerees = self.SauvegardeFactures() 
         if listeFacturesGenerees == False :
