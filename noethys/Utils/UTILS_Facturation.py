@@ -1204,9 +1204,7 @@ class Facturation():
                 cooperatif and supprimer_partiels
                 and (demande_pdf_isole
                      or os.environ.get("NOETHYS_SL_PDF_PROCESSUS") == "1")
-                and isinstance(source_pdf, str)
-                and "[RESEAU]" not in source_pdf
-                and os.path.isfile(source_pdf)
+                and UTILS_PDF_processus.SourceCompatible(source_pdf)
             )
             dlgProgress = None
             if not cooperatif:
@@ -1286,7 +1284,7 @@ class Facturation():
                 if demande_pdf_isole and supprimer_partiels and not processus_isole:
                     raise RuntimeError(_(
                         u"Rendu PDF isole indisponible : cette preversion exige "
-                        u"un fichier SQLite local et une fenetre visible. "
+                        u"une source SQLite/MySQL explicite et une fenetre visible. "
                         u"Decochez l'option PDF isole pour utiliser le rendu classique."
                     ))
                 if cooperatif:

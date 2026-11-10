@@ -111,6 +111,19 @@ class ProcessusNoedocTests(unittest.TestCase):
         self.assertEqual(set(comptes), set(self.comptes))
 
 
+    def test_source_mysql_explicite_et_photos_ne_lisent_pas_le_profil(self):
+        from Utils import UTILS_PDF_processus as pdf
+        source = "3399;127.0.0.1;recette;motdepasse-fictif[RESEAU]zz_test_data"
+        self.assertTrue(pdf.SourceCompatible(source))
+        self.assertEqual(pdf._nom_base(source, "DATA"), source)
+        self.assertEqual(
+            pdf._nom_base(source, "PHOTOS"),
+            source[:-5] + "_PHOTOS")
+        self.assertFalse(pdf.SourceCompatible("3399;host;user[RESEAU]source_DATA"))
+        self.assertFalse(pdf.SourceCompatible("3399;host;user;pw[RESEAU]autre"))
+        with self.assertRaises(ValueError):
+            pdf._nom_base("source-invalide[RESEAU]zz_test_data", "PHOTOS")
+
     def test_sources_sql_secondaires_fail_closed(self):
         from Utils import UTILS_PDF_processus
         chemin = self.base.chemin

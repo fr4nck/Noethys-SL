@@ -36,19 +36,46 @@ def Preparer(comptes, options):
     return _primitif(comptes), _primitif(options)
 
 
+def SourceCompatible(source):
+    """Source deja validee par GestionDB : SQLite local ou MySQL explicite."""
+    if not isinstance(source, str) or not source or "\x00" in source:
+        return False
+    if "[RESEAU]" not in source:
+        return os.path.isfile(source)
+    if source.count("[RESEAU]") != 1:
+        return False
+    parametres, base = source.split("[RESEAU]", 1)
+    infos = parametres.split(";")
+    if len(infos) != 4 or not infos[1] or not infos[2]:
+        return False
+    try:
+        port = int(infos[0])
+    except ValueError:
+        return False
+    return 0 < port <= 65535 and bool(base) and base.lower().endswith("_data")
+
+
 def _nom_base(source, suffixe):
-    """Derive DATA ou PHOTOS sans lire le profil ou une autre base."""
+    """Derive DATA ou PHOTOS depuis la source, jamais depuis le profil."""
     if suffixe in (None, "DATA"):
         return source
     if suffixe != "PHOTOS":
         raise ValueError("Base secondaire non qualifiee pour le rendu")
-    racine, extension = os.path.splitext(source)
+    prefixe = ""
+    if "[RESEAU]" in source:
+        if not SourceCompatible(source):
+            raise ValueError("Source MySQL non qualifiee pour le rendu")
+        serveur, base = source.split("[RESEAU]", 1)
+        prefixe = serveur + "[RESEAU]"
+        racine, extension = base, ""
+    else:
+        racine, extension = os.path.splitext(source)
     if racine.lower().endswith("_data"):
-        return racine[:-5] + "_PHOTOS" + extension
+        return prefixe + racine[:-5] + "_PHOTOS" + extension
     raise ValueError("Base PHOTOS introuvable pour la source fournie")
 
 
-def _processus(conn, source, comptes, options, modele, chemin):
+def _processus(conn, source, comptes, options, modele, chemin, backend=None):
     """Point d'entree enfant : tous les objets wx naissent dans CE processus."""
     app = None
     original = None
@@ -58,6 +85,12 @@ def _processus(conn, source, comptes, options, modele, chemin):
         import wx
         import GestionDB
         original = GestionDB.DB
+        if backend is not None:
+            if backend not in ("mysqldb", "mysql.connector"):
+                raise ValueError("Interface MySQL non qualifiee")
+            GestionDB.SetInterfaceMySQL(backend)
+            if GestionDB.INTERFACE_MYSQL != backend:
+                raise RuntimeError("Pilote MySQL requis indisponible")
         app = wx.GetApp() or wx.App(False)
         # Aucun dialogue modal enfant ne peut demander une interaction
         # utilisateur invisible pendant un rendu distant.
@@ -139,8 +172,8 @@ def Generer(comptes, options, modele, chemin, source_db, delai=180, donnees_pret
     Doit etre appele depuis un TravailFond d'UTILS_Etapes_ui. Le fichier
     temporaire est possede/nettoye par UTILS_PDF_securise.Generer.
     """
-    if not isinstance(source_db, str) or not source_db or "\x00" in source_db:
-        raise ValueError("Source SQL explicite requise pour le processus")
+    if not SourceCompatible(source_db):
+        raise ValueError("Source SQL explicite non qualifiee pour le processus")
     if not isinstance(chemin, str) or not chemin:
         raise ValueError("Chemin PDF manquant")
     if delai <= 0:
@@ -152,9 +185,13 @@ def Generer(comptes, options, modele, chemin, source_db, delai=180, donnees_pret
         donnees, reglages = Preparer(comptes, options)
     ctx = multiprocessing.get_context("spawn")
     lecture, ecriture = ctx.Pipe(duplex=False)
+    backend = None
+    if "[RESEAU]" in source_db:
+        import GestionDB
+        backend = GestionDB.INTERFACE_MYSQL
     processus = ctx.Process(
         target=_processus,
-        args=(ecriture, source_db, donnees, reglages, modele, chemin),
+        args=(ecriture, source_db, donnees, reglages, modele, chemin, backend),
         name="Noethys-PDF-UI432K", daemon=True)
     try:
         processus.start()

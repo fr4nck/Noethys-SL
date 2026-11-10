@@ -110,9 +110,9 @@ class ActivationPDFKTests(unittest.TestCase):
                 historique.assert_not_called()
                 erreur_dlg.assert_not_called()
 
-    def test_source_mysql_rejetee_sans_rendu_ni_email(self):
-        # La chaine MySQL est volontairement factice ; ne pas la journaliser.
-        fac = self._facturation("3399;127.0.0.1;test;secret[RESEAU]test_DATA")
+    def test_source_mysql_malformee_rejetee_sans_rendu_ni_email(self):
+        # Chaine fictive invalide : manque le port et l'utilisateur.
+        fac = self._facturation("source-invalide[RESEAU]test_DATA")
         with tempfile.TemporaryDirectory(prefix="ui432k-mysql-refus-") as rep:
             with mock.patch.object(UTILS_Facturation.UTILS_Fichiers, "GetRepTemp", return_value=rep), \
                  mock.patch.object(wx, "IsMainThread", return_value=True), \
