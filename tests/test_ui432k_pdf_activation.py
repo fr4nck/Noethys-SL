@@ -53,6 +53,50 @@ class ActivationPDFKTests(unittest.TestCase):
             options = facture.return_value.Impression.call_args.kwargs["dictOptions"]
         self.assertIs(options["pdf_processus_isole"], False)
 
+    def test_case_checkbox_dans_un_vrai_dialogue_wx(self):
+        # Verification native du controle, sans creer de fichier ni d'email.
+        app = wx.GetApp() or wx.App(False)
+        cadre = wx.Frame(None)
+        def panneau(parent, **kwargs):
+            ctrl = wx.Panel(parent)
+            ctrl.MAJ = lambda: None
+            return ctrl
+        def bouton(parent, **kwargs):
+            return wx.Button(parent, label=kwargs.get("texte", "Valider"))
+        try:
+            with mock.patch.object(DLG_Factures_email.UTILS_Config, "GetParametre",
+                                   return_value=False), \
+                 mock.patch.object(DLG_Factures_email.CTRL_Bandeau, "Bandeau",
+                                   side_effect=panneau), \
+                 mock.patch.object(DLG_Factures_email.CTRL_Liste_factures, "CTRL",
+                                   side_effect=panneau), \
+                 mock.patch.object(DLG_Factures_email.CTRL_Factures_options, "CTRL",
+                                   side_effect=panneau), \
+                 mock.patch.object(DLG_Factures_email.CTRL_Bouton_image, "CTRL",
+                                   side_effect=bouton):
+                dialogue = DLG_Factures_email.Dialog(cadre)
+                try:
+                    self.assertIsInstance(dialogue.case_pdf_isole, wx.CheckBox)
+                    self.assertFalse(dialogue.case_pdf_isole.GetValue())
+                    dialogue.case_pdf_isole.SetValue(True)
+                    self.assertTrue(dialogue.case_pdf_isole.GetValue())
+                finally:
+                    dialogue.Destroy()
+        finally:
+            cadre.Destroy()
+
+    def test_preference_enregistree_apres_pdf_valide_uniquement(self):
+        dlg = self._dialogue(True)
+        with mock.patch.object(UTILS_Facturation, "Facturation") as facture, \
+             mock.patch.object(DLG_Factures_email.UTILS_Config, "SetParametre") as sauver, \
+             mock.patch.object(DLG_Factures_email.GestionDB, "DB",
+                               side_effect=RuntimeError("STOP de la recette")):
+            facture.return_value.Impression.return_value = (
+                {42: {}}, {42: "fichier-non-cree-de-recette.pdf"})
+            with self.assertRaisesRegex(RuntimeError, "STOP de la recette"):
+                DLG_Factures_email.Dialog.OnBoutonOk(dlg, None)
+        sauver.assert_called_once_with("factures_pdf_processus_isole", True)
+
     def _facturation(self, source):
         facture = UTILS_Facturation.Facturation.__new__(
             UTILS_Facturation.Facturation)
