@@ -314,6 +314,9 @@ def _RefuserTraitementReentrant(fonction):
 class Dialog(wx.Dialog):
     def __init__(self, parent, track=None, tracks=[]):
         wx.Dialog.__init__(self, parent, -1, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
+        diagnostic_recette = os.environ.get("NOETHYS_SL_RECETTE_CONNECTHYS_DIAGNOSTIC") == "1"
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_INIT_DEBUT", flush=True)
         self.track = track
         self.tracks = tracks
         # Garde local contre un second clic durant une boucle modale.
@@ -373,7 +376,11 @@ class Dialog(wx.Dialog):
         self.ctrl_informations = CTRL_Html(self, couleurFond=self.GetBackgroundColour())
         self.ctrl_informations.SetMinSize((-1, 40))
 
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_SITUATION_DEBUT", flush=True)
         self._ConstruireSituationFamille()
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_SITUATION_FIN", flush=True)
 
         # Traitement
         self.box_traitement_staticbox = wx.StaticBox(self, wx.ID_ANY, _(u"Traitement"))
@@ -446,8 +453,14 @@ class Dialog(wx.Dialog):
         self._diag_ui = UTILS_Diagnostic_ui.Diagnostic(self, role="demande")
 
         # Init
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_IMPORT_DEBUT", flush=True)
         self.Importation()
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_IMPORT_FIN", flush=True)
         self.MAJ()
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_DIALOG_MAJ_FIN", flush=True)
 
 
     def _ConstruireSituationFamille(self):

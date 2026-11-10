@@ -335,6 +335,7 @@ class ListView(GroupListView):
         )
         if diagnostic_recette:
             print("RECETTE_CONNECTHYS_COMMENCER nb=%d" % len(tracks), flush=True)
+            print("RECETTE_CONNECTHYS_CONSTRUCT_DEBUT", flush=True)
         try:
             dlg = DLG_Saisie_portail_demande.Dialog(
                 self, track=tracks[0], tracks=self.GetObjects())
@@ -344,7 +345,12 @@ class ListView(GroupListView):
                 print("RECETTE_CONNECTHYS_CONSTRUCTION_EXCEPTION\n%s" %
                       traceback.format_exc(), flush=True)
             raise
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_CONSTRUCT_FIN", flush=True)
+            print("RECETTE_CONNECTHYS_SHOWMODAL_DEBUT", flush=True)
         dlg.ShowModal()
+        if diagnostic_recette:
+            print("RECETTE_CONNECTHYS_SHOWMODAL_FIN", flush=True)
         dlg.Destroy()
 
     def Traiter(self, event=None):
