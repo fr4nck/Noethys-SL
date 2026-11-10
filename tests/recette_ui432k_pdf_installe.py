@@ -92,9 +92,9 @@ def verifier():
                             ouverture=False, nomFichier=reference)
 
                     multiprocessing.set_executable(str(executable))
-                    with mock.patch.object(sys, "frozen", True, create=True), \\
-                         mock.patch.object(spawn, "WINEXE", True), \\
-                         mock.patch.object(sys, "path", chemins_enfant), \\
+                    with mock.patch.object(sys, "frozen", True, create=True), \
+                         mock.patch.object(spawn, "WINEXE", True), \
+                         mock.patch.object(sys, "path", chemins_enfant), \
                          mock.patch.dict(os.environ, {"PYTHONPATH": ""}):
                         UTILS_PDF_securise.Generer(
                             fichier, lambda provisoire:
@@ -108,7 +108,7 @@ def verifier():
                         if not pdf.startswith(b"%PDF-") or b"%%EOF" not in pdf[-2048:]:
                             raise AssertionError("PDF reel non valide : " + suffixe)
                     pages = lambda contenu: len(
-                        re.findall(rb"/Type\\s*/Page\\b", contenu))
+                        re.findall(rb"/Type\s*/Page\b", contenu))
                     if pages(ancien) == 0 or pages(ancien) != pages(nouveau):
                         raise AssertionError("Pages PDF divergentes : " + suffixe)
                     if abs(len(ancien) - len(nouveau)) >= max(
