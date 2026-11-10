@@ -32,6 +32,14 @@ def _periode(dictParametres):
     return a,b
 
 
+def est_disponible(dictParametres):
+    """No QF in Inscrits and no implicit activity/site mapping."""
+    conf=dictParametres.get('q442_configuration')
+    return (dictParametres.get('mode') == 'presents'
+            and isinstance(conf, ConfigurationMultisite)
+            and set(dictParametres.get('listeActivites', ())) == set(conf.activities))
+
+
 def obtenir_resultat(db, dictParametres):
     """Single connection-scoped cache, no re-run of facture calculations.
 
@@ -91,6 +99,12 @@ def construire_classes(MODELES):
 
         def MAJ(self, DB=None, dictParametres=None):
             self.dictParametres=dictParametres or {}
+            if not est_disponible(self.dictParametres):
+                self.nom='QF : disponible uniquement en mode Presents, avec le perimetre valide'
+                self.colonnes=[]
+                self.lignes=[]
+                self.totaux=[]
+                return self
             r,obs,counts,pcts=_vue(DB,self.dictParametres,self.population,self.nature)
             self.nom=('QF connus / non communiques' if self.nature=='qf'
                       else 'Categories tarifaires INDICATIVES (historique non certifie)')
@@ -113,6 +127,12 @@ def construire_classes(MODELES):
 
         def MAJ(self,figure=None,DB=None,dictParametres=None):
             self.dictParametres=dictParametres or {}
+            if not est_disponible(self.dictParametres):
+                ax=figure.add_subplot(111)
+                ax.text(.5,.5,'QF uniquement en mode Presents\navec un perimetre valide',
+                        ha='center',va='center',transform=ax.transAxes)
+                ax.set_axis_off()
+                return figure
             r,obs,counts,pcts=_vue(DB,self.dictParametres,self.population,self.nature)
             ax=figure.add_subplot(111)
             labels=list(counts)
@@ -142,6 +162,12 @@ def construire_classes(MODELES):
 
         def MAJ(self,figure=None,DB=None,dictParametres=None):
             self.dictParametres=dictParametres or {}
+            if not est_disponible(self.dictParametres):
+                ax=figure.add_subplot(111)
+                ax.text(.5,.5,'QF uniquement en mode Presents\navec un perimetre valide',
+                        ha='center',va='center',transform=ax.transAxes)
+                ax.set_axis_off()
+                return figure
             r,obs,counts,pcts=_vue(DB,self.dictParametres,self.population,self.nature)
             ax=figure.add_subplot(111)
             present=[(label,val) for label,val in counts.items() if val>0]
@@ -192,6 +218,105 @@ def preparer_pages(MODELES, liste_objets, configuration=None, mode='presents'):
     return liste_objets
 
 
+def export_xlsx_aggreges(data, filename):
+    """Aggregated XLSX (general + selected sites) using existing XlsxWriter.
+
+    No personal identifiers, monetary amounts or individual QF values. The
+    historical tariff categories remain explicitly marked as INDICATIVE.
+    Text is written as strings (never spreadsheet formulas or URLs).
+    """
+    try:
+        import xlsxwriter
+    except ImportError as exc:
+        raise RuntimeError('Export Excel indisponible : XlsxWriter absent du paquet') from exc
+
+    if 'global' not in data or 'sites' not in data:
+        raise ValueError('Resultat Q442 incomplet pour export Excel')
+    used_names = set()
+    total_rows = 0
+
+    def sheet_name(location):
+        clean = ''.join('_' if ch in '[]:*?/\\' else ch for ch in str(location)).strip()
+        clean = (clean or 'Site')[:31]
+        name = clean
+        counter = 2
+        while name.casefold() in used_names:
+            suffix = ' (%s)' % counter
+            name = clean[:31-len(suffix)]+suffix
+            counter += 1
+        used_names.add(name.casefold())
+        return name
+
+    with xlsxwriter.Workbook(str(filename), {
+            'strings_to_formulas': False,
+            'strings_to_urls': False,
+            'default_date_format': 'dd/mm/yyyy',
+            }) as workbook:
+        header = workbook.add_format({'bold':True,'font_color':'white',
+                                      'bg_color':'#34465D'})
+        pct_format=workbook.add_format({'num_format':'0.00%'})
+        for location, view in [('Synthese generale',data['global']), *list(data['sites'].items())]:
+            sheet=sheet_name(location)
+            ws=workbook.add_worksheet(sheet)
+            ws.write_string(0,0,'Statistiques QF / categories tarifaires')
+            ws.write_string(1,0,'Periode')
+            ws.write_string(1,1,' au '.join(map(str,data.get('dates',['?','?']))))
+            ws.write_string(2,0,'Limite')
+            ws.write_string(2,1,'Tarifs : categories indicatives, historiques non attestes')
+            ws.write_row(3,0,('Site','Population','Representation','Categorie','Effectif',
+                               'Pourcentage','Statut'),header)
+            row=4
+            charts=[]
+            for population in ('familles','enfants'):
+                record=view[population]
+                total=record['total']
+                for nature in ('qf','tarifs_indicatifs'):
+                    counts=record[nature]
+                    pct_key=('pourcentages_qf' if nature=='qf'
+                             else 'pourcentages_tarifs_indicatifs')
+                    pcts=record[pct_key]
+                    if sum(counts.values())!=total or set(counts)!=set(pcts):
+                        raise ValueError('Totaux Q442 incoherents : %s/%s' % (location,population))
+                    first=row
+                    for category,num in counts.items():
+                        if not isinstance(num,int) or num<0:
+                            raise ValueError('Effectif Q442 invalide')
+                        status=('QF connu ou non communique' if nature=='qf'
+                                else 'Tarif indicatif : non atteste historiquement')
+                        for col,text in ((0,location),(1,population),(2,nature),
+                                         (3,category),(6,status)):
+                            ws.write_string(row,col,str(text))
+                        ws.write_number(row,4,num)
+                        ws.write_number(row,5,pcts[category]/100.0,pct_format)
+                        row += 1
+                        total_rows += 1
+                    if row>first:
+                        charts.append((population,nature,first,row-1))
+            ws.freeze_panes(4,4)
+            ws.autofilter(3,0,row-1,6)
+            for c,width in ((0,24),(1,14),(2,22),(3,38),(4,12),(5,16),(6,48)):
+                ws.set_column(c,c,width)
+            for index,(pop,nature,first,last) in enumerate(charts):
+                bar=workbook.add_chart({'type':'column'})
+                bar.add_series({'name':'Effectifs',
+                    'categories':[sheet,first,3,last,3],
+                    'values':[sheet,first,4,last,4]})
+                bar.set_title({'name':'%s - %s (categories a zero comprises)' % (pop,nature)})
+                bar.set_y_axis({'name':'Effectif'})
+                bar.set_legend({'none':True})
+                bar.set_size({'width':680,'height':300})
+                ws.insert_chart(4+18*index,8,bar)
+                pie=workbook.add_chart({'type':'pie'})
+                pie.add_series({'name':'Proportions',
+                    'categories':[sheet,first,3,last,3],
+                    'values':[sheet,first,4,last,4]})
+                pie.set_title({'name':'%s - %s (proportions)' % (pop,nature)})
+                pie.set_legend({'position':'right'})
+                pie.set_size({'width':560,'height':300})
+                ws.insert_chart(4+18*index,20,pie)
+    return total_rows
+
+
 def export_csv_aggreges(data, filename):
     """Non-nominative CSV, general and selected sites, all categories including zeros."""
     def csv_safe(value):
@@ -217,6 +342,41 @@ def export_csv_aggreges(data, filename):
         wr.writeheader()
         wr.writerows(rows)
     return len(rows)
+
+def export_csv_lot_aggreges(data, fichier_zip):
+    """ZIP of non-nominative CSV files: one global, one per selected site.
+
+    Reuse the already qualified `export_csv_aggreges` to ensure that the
+    original percentages and categories remain exactly the same in each file.
+    """
+    import tempfile
+    import zipfile
+    import io
+    import re
+    from pathlib import Path
+    with tempfile.TemporaryDirectory(prefix='noethys-q442-csv-') as rep:
+        combined=Path(rep)/'statistiques_qf.csv'
+        export_csv_aggreges(data,combined)
+        with combined.open('r',encoding='utf-8',newline='') as source:
+            reader=csv.DictReader(source,delimiter=';')
+            fields=tuple(reader.fieldnames or ())
+            rows=list(reader)
+        if not fields or not rows:
+            raise ValueError('Absence de categories Q442 pour export')
+        locations=['Synthese generale',*list(data['sites'])]
+        with zipfile.ZipFile(fichier_zip,'w',compression=zipfile.ZIP_DEFLATED) as output:
+            for ix,location in enumerate(locations):
+                selected=[r for r in rows if r['site']==location]
+                if not selected:
+                    raise ValueError('Aucune ligne pour un site selectionne: '+str(location))
+                short=re.sub(r'[^A-Za-z0-9_-]+','_',location).strip('_')[:42] or 'site'
+                out=io.StringIO(newline='')
+                writer=csv.DictWriter(out,fieldnames=fields,delimiter=';')
+                writer.writeheader()
+                writer.writerows(selected)
+                output.writestr('%02d_%s.csv' % (ix+1,short),out.getvalue().encode('utf-8-sig'))
+    return len(rows)
+
 
 # Bind to the original wx statistical object types, once this candidate is deployed.
 from Utils import UTILS_Stats_modeles as MODELES
