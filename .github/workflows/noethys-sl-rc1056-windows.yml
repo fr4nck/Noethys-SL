@@ -1,4 +1,8 @@
 name: Noethys SL wx - candidat 0.1.0 RC10.56 Windows (Setup + portable)
+# Candidat de recette NON PUBLIE au 10/11 : verification du code wx
+# courant avec statut STOP-GATE statistiques QF + fenetres.
+# Cette campagne ne cree NI tag NI release. Publication reservee
+# au jalon #443 apres qualification des chantiers.
 # Autorisation explicite de la direction pour la preversion RC10.56 ;
 # Qualification relancee apres mise a jour des tests Connecthys
 # (Event.wait et parametres SHA256 fictifs), publication conditionnelle.
