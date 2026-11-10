@@ -133,7 +133,7 @@ class SelectionInterfaceTests(unittest.TestCase):
         )
         adhesions = types.SimpleNamespace(
             _liste_sql=lambda ids: "(" + ",".join(str(v) for v in ids) + ")",
-            _lire=lambda req: [(100, "ALPHA", "Louis"), (200, "BETA", "Edgar")],
+            _lire=lambda req: [(100, "ALPHA", "Louis"), (200, "BETA", "Camille")],
         )
         util = types.ModuleType("Utils")
         util.UTILS_Adhesions_echeances = echeances
@@ -144,13 +144,13 @@ class SelectionInterfaceTests(unittest.TestCase):
             exec(methode(ASSISTANT, nom, "Dialog"), globals_)
         return wx, echeances, util, globals_, appels
 
-    def test_edgar_decoché_et_autres_cotisations_conservees(self):
+    def test_personne_ecartee_et_autres_cotisations_conservees(self):
         wx, echeances, util, fonctions, appels = self.preparer_harnais()
         with patch.dict(sys.modules, {"Utils": util}):
             ctx = self.contexte()
             self.assertTrue(fonctions["PreparerCotisationsPourApercu"](ctx))
             self.assertEqual(appels["selection_initiale"], [0, 1])
-            self.assertIn("Edgar", appels["labels"][1])
+            self.assertIn("Camille", appels["labels"][1])
             self.assertEqual(appels["executions"][0]["selection_titulaires"], {100})
             self.assertTrue(fonctions["VerifierCotisationsAvantEmission"](ctx, [11, 12]))
         self.assertEqual(appels["messages"], [])
