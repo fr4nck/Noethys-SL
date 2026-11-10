@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 import re
 import sys
-import sysconfig
 import tempfile
 from unittest import mock
 
@@ -61,8 +60,7 @@ def verifier():
         # sans transmettre les chemins des sources/tests ni site-packages.
         # WINEXE est calcule A L'IMPORT dans multiprocessing.spawn.
         ancien_executable = spawn.get_executable()
-        chemin_stdlib = str(Path(sysconfig.get_path("stdlib")).resolve())
-        chemins_enfant = [chemin_stdlib, str(executable.parent)]
+        chemins_enfant = [str(executable.parent)]
         if any(str(depot).lower() in p.lower() for p in chemins_enfant):
             raise AssertionError("Source du depot transmise au processus gele")
         try:
@@ -107,11 +105,18 @@ def verifier():
                                 "--multiprocessing-fork" not in commande):
                             raise AssertionError(
                                 "Le processus enfant ne lance pas Noethys.exe")
-                        UTILS_PDF_securise.Generer(
-                            fichier, lambda provisoire:
-                                UTILS_PDF_processus.Generer(
-                                    comptes, options, modele, provisoire,
-                                    base.chemin, delai=90, donnees_pretes=True))
+                        # L'enfant ne doit ni importer ni lire les sources
+                        # et ressources du depot depuis le cwd du parent.
+                        dossier_initial = Path.cwd()
+                        try:
+                            os.chdir(str(executable.parent))
+                            UTILS_PDF_securise.Generer(
+                                fichier, lambda provisoire:
+                                    UTILS_PDF_processus.Generer(
+                                        comptes, options, modele, provisoire,
+                                        base.chemin, delai=90, donnees_pretes=True))
+                        finally:
+                            os.chdir(str(dossier_initial))
 
                     ancien = Path(reference).read_bytes()
                     nouveau = Path(fichier).read_bytes()
