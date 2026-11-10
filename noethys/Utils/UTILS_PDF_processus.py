@@ -79,9 +79,16 @@ def _processus(conn, source, comptes, options, modele, chemin, backend=None):
     """Point d'entree enfant : tous les objets wx naissent dans CE processus."""
     app = None
     original = None
+    garde_mysql_fictif = None
     try:
         if os.environ.get("NOETHYS_SL_PDF_TEST_ISOLE") == "1":
-            import _garde_reseau  # noqa: F401  guard inherited by child
+            import _garde_reseau
+            # Le contexte du parent n'est pas herite par spawn Windows.
+            # Autoriser UNIQUEMENT le serveur MySQL local jetable declare
+            # pour les tests, pendant la vie du processus enfant.
+            if "[RESEAU]" in source and _garde_reseau.ParametresMySQLDeTest():
+                garde_mysql_fictif = _garde_reseau.ServeurMySQLDeTest()
+                garde_mysql_fictif.__enter__()
         import wx
         import GestionDB
         original = GestionDB.DB
@@ -161,6 +168,11 @@ def _processus(conn, source, comptes, options, modele, chemin, backend=None):
         if app is not None:
             try:
                 app.Destroy()
+            except Exception:
+                pass
+        if garde_mysql_fictif is not None:
+            try:
+                garde_mysql_fictif.__exit__(None, None, None)
             except Exception:
                 pass
         conn.close()
