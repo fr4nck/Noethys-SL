@@ -128,7 +128,7 @@ def Empreinte(propositions):
 
 
 def Executer(proposition_validee, liste_activites=None, IDcompte_payeur=None,
-             IDutilisateur=None, confirmation=False):
+             IDutilisateur=None, confirmation=False, selection_titulaires=None):
     """Applique uniquement un cliché confirmé. Une variation => STOP sans écriture.
 
     Les contrôles dans CreerAdhesion sont refaits sous verrou transactionnel.
@@ -151,8 +151,20 @@ def Executer(proposition_validee, liste_activites=None, IDcompte_payeur=None,
     if (Empreinte(actuel["propositions"]) != Empreinte(proposition_validee["propositions"])
             or actuel["a_verifier"] != proposition_validee["a_verifier"]):
         raise ValueError(u"Les participations ou les cotisations ont changé : recalcul de l'aperçu obligatoire.")
+    # Le choix de l'operateur est une liste de titulaires, et non une
+    # autorisation globale de facturer toutes les cotisations proposees.
+    # Absence de selection = compatibilite avec les anciens appelants.
+    titulaires_proposes = {int(p["IDtitulaire"]) for p in actuel["propositions"]}
+    if selection_titulaires is None:
+        selection = titulaires_proposes
+    else:
+        selection = {int(identifiant) for identifiant in selection_titulaires}
+        if not selection.issubset(titulaires_proposes):
+            raise ValueError(u"La selection des cotisations ne correspond plus a l'apercu.")
     resultats = []
     for p in actuel["propositions"]:
+        if int(p["IDtitulaire"]) not in selection:
+            continue
         creation = A.CreerAdhesion(
             p["IDindividu"], p["participation"], config,
             date_reference=jour, IDutilisateur=IDutilisateur,
