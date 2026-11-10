@@ -47,3 +47,41 @@ Les commits et tests sources **ne sont pas une recette poste Windows**. Avant d'
 - aucun test avec ecritures sur la base de production.
 
 Incident distinct : informations d'authentification historisees dans le depot (voir `docs/dev/REPRISE_CODEX.md`). Ne pas republier les identifiants ni les encoder comme si Base64 etait du chiffrement.
+
+## Qualification complementaire — 10/11/2026
+
+**CI Windows de reference avant ce lot** :
+- main : run 42815786940, 1315 tests, SUCCESS ;
+- wx : run 42815793747, 2358 tests, SUCCESS ;
+- les 16 tests cibles DNS / garde / choix humain ont reussi dans les deux campagnes.
+
+**Recette MySQL 5.7.44 reelle sur serveur jetable** :
+- main : run 42822887373, SUCCESS (4/4) ;
+- wx : run 42822897870, SUCCESS (4/4) ;
+- qt : run 42822906594, SUCCESS (4/4).
+- Les 4 tests comprennent deux cas de facturation en MySQL reel
+  (choix individuel, aucune cotisation pour le titulaire exclu ;
+  premier appel simule en erreur 2005 puis deuxieme connexion *reelle*),
+  ainsi que deux scenarios MySQL de concurrence / InnoDB fournis
+  par le banc d'adhesions.
+- La panne DNS initiale du test est **simulee** ; aucun serveur MySQL
+  de production et aucun enregistrement de famille reel ne sont utilises.
+- Source : tests/test_noethys_sl_facturation_cotisations_mysql.py ;
+  workflow : .github/workflows/noethys-sl-fact-cot-mysql57.yml.
+
+**Renforcement de la validation de factures** :
+- DLG_Factures_generation_selection.Validation execute le controle apres
+  la confirmation de l'operateur et immediatement avant SauvegardeFactures ;
+- annulation => aucun controle reseau inutile et aucune ecriture ;
+- blocage de la garde => aucune emission ;
+- tests d'ordre de traitement sous Windows et test du vrai composant
+  wx.MultiChoiceDialog ajoutes a la CI rapide (requalification en cours
+  lors de la presente note).
+
+**STOP-GATE restant** : reproduire le parcours complet dans la vraie interface
+wx sur une base MySQL fictive, puis diagnostiquer la resolution du nom
+SERVEURPMSL sur le poste concerne. Un test de reprise apres erreur
+2005 ne prouve pas la disponibilite DNS de ce poste. Les changements
+concurrents sur les prestations entre le dernier controle et l'ecriture
+restent une limite a examiner avant une garantie stricte. Ne pas
+publier de RC declaree stable sur cette seule preuve.
