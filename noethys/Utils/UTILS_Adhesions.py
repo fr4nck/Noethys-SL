@@ -106,9 +106,11 @@ def _liste_sql(liste_ids):
 
 
 # MySQL : codes de rupture de connexion autorisant un seul nouvel essai
-# de SELECT sur une connexion hors pool. Pas de retry sur les erreurs
-# de colonnes, de table, de droits, ni sur une ecriture.
-_CODES_SQL_RECONNEXION = (2006, 2013, 2014, 2055)
+# de SELECT sur une connexion hors pool. 2005 couvre un echec de resolution
+# temporaire du nom de serveur (11001 sous Windows). Ne jamais changer
+# automatiquement de serveur ni reessayer une ecriture.
+# Pas de retry sur les erreurs de colonnes, de table ou de droits.
+_CODES_SQL_RECONNEXION = (2005, 2006, 2013, 2014, 2055)
 
 
 def _code_erreur_sql(erreur):
