@@ -240,5 +240,23 @@ class SelectionInterfaceTests(unittest.TestCase):
         self.assertEqual(parent.listeFacturesGenerees, [321])
 
 
+    @unittest.skipUnless(sys.platform == "win32", "interface native Windows requise")
+    def test_vrai_dialogue_wx_permet_de_decocher_une_seule_personne(self):
+        """La selection reelle wx 4.2 doit accepter le choix partiel."""
+        import wx
+        application = wx.GetApp() or wx.App(False)
+        dlg = wx.MultiChoiceDialog(
+            None, "Choix des cotisations", "Cotisations",
+            ["Bénéficiaire fictif A", "Bénéficiaire fictif B"])
+        try:
+            dlg.SetSelections([0, 1])
+            self.assertEqual(list(dlg.GetSelections()), [0, 1])
+            dlg.SetSelections([0])
+            self.assertEqual(list(dlg.GetSelections()), [0])
+        finally:
+            dlg.Destroy()
+        self.assertIsNotNone(application)
+
+
 if __name__ == "__main__":
     unittest.main()
