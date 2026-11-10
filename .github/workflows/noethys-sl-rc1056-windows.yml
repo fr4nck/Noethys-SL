@@ -394,6 +394,9 @@ jobs:
             $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
             python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql tests.test_noethys_sl_adhesions_inscriptions_mysql tests.test_noethys_sl_facturation_cotisations_mysql -v
             if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
+            # UI-432K : le moteur isole MySQL est obligatoire avant publication.
+            python -m unittest -v tests.test_ui432k_pdf_mysql
+            if ($LASTEXITCODE -ne 0) { throw 'UI-432K : PDF MySQL isole non qualifie' }
           }
           finally {
             Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
