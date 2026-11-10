@@ -146,11 +146,22 @@ class RaccordementNoethysTests(unittest.TestCase):
 
     def test_active_avant_tout_module_noethys(self):
         corps = [n for n in self.arbre.body if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))]
-        textes = [ast.unparse(n) for n in corps[:4]]
-        self.assertEqual(textes, ["import os, sys", "from Utils import UTILS_Diagnostic_demarrage",
-                                  "UTILS_Diagnostic_demarrage.ActiverDepuisEnvironnement()", "import Chemins"])
+        textes = [ast.unparse(n) for n in corps[:5]]
+        # Avant tout import de wx ou initialisation de profil, l'executable
+        # Windows doit intercepter le mode enfant multiprocessing (spawn).
+        # Le garde ne doit pas s'executer lors d'un import comme module.
+        self.assertEqual(textes, [
+            "import os, sys",
+            "if __name__ == '__main__':\\n    import multiprocessing\\n    multiprocessing.freeze_support()".replace("\\n", "\n"),
+            "from Utils import UTILS_Diagnostic_demarrage",
+            "UTILS_Diagnostic_demarrage.ActiverDepuisEnvironnement()",
+            "import Chemins",
+        ])
         self.assertNotIn("UTILS_Diagnostic_demarrage.Activer(", self.source)
-        self.assertEqual(ast.unparse(corps[4]), "UTILS_Diagnostic_demarrage.Etape('chemins', sys_path=sys.path[:20])")
+        self.assertEqual(
+            ast.unparse(corps[5]),
+            "UTILS_Diagnostic_demarrage.Etape('chemins', sys_path=sys.path[:20])",
+        )
 
     def test_etapes_dans_l_ordre_du_demarrage(self):
         def ordre(fonction, etapes):
