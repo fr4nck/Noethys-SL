@@ -4,6 +4,7 @@
 La classe est SKIP hors des runners de recette avec serveur MySQL explicite.
 Ne contacte jamais la base d'une association et ne genere aucun email.
 """
+import faulthandler
 import os
 import re
 import sqlite3
@@ -43,6 +44,9 @@ class FacturePDFMySQLFictif(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        faulthandler.enable()
+        faulthandler.dump_traceback_later(70, repeat=False)
+        print("UI432K_MYSQL_PHASE fixture_preparation", flush=True)
         import wx
         from tests.test_vanilla_facture_prestation_sans_activite import (
             _creer_base_facture_avec_prestation_sans_activite)
@@ -71,6 +75,7 @@ class FacturePDFMySQLFictif(unittest.TestCase):
 
         cls.sqlite, cls.modele = _creer_base_facture_avec_prestation_sans_activite()
         cls.addClassCleanup(cls.sqlite.fermer)
+        print("UI432K_MYSQL_PHASE sqlite_pret", flush=True)
         # La fixture historique SQLite tolérait l'absence de cette table
         # vide ; le curseur MySQL refuse fetchall() après la requête échouée.
         # Compléter UNIQUEMENT le schéma de recette, jamais le moteur global.
@@ -108,32 +113,39 @@ class FacturePDFMySQLFictif(unittest.TestCase):
                 mysql.Commit()
         finally:
             mysql.Close()
+        print("UI432K_MYSQL_PHASE mysql_pret", flush=True)
 
     def test_mysql_noedoc_identique_en_pages_au_rendu_historique(self):
         from tests.test_vanilla_facture_prestation_sans_activite import _dict_options_minimal
         from Utils import (UTILS_Facturation, UTILS_Impression_facture,
                            UTILS_PDF_processus, UTILS_PDF_securise)
         options = _dict_options_minimal(self.modele)
+        print("UI432K_MYSQL_PHASE facturation_debut", flush=True)
         with RedirectionGestionDB(self.source):
             fac = UTILS_Facturation.Facturation()
             resultat = fac.GetDonneesImpression(
                 listeFactures=[1], dictOptions=options, parent=None)
         self.assertIsNot(resultat, False)
+        print("UI432K_MYSQL_PHASE facturation_ok", flush=True)
         comptes = resultat[0]
         self.assertTrue(UTILS_PDF_processus.SourceCompatible(self.source))
         with tempfile.TemporaryDirectory(prefix="ui432k-mysql-pdf-") as rep:
             a = str(Path(rep) / "historique.pdf")
             b = str(Path(rep) / "enfant.pdf")
+            print("UI432K_MYSQL_PHASE reference_debut", flush=True)
             with RedirectionGestionDB(self.source):
                 UTILS_Impression_facture.Impression(
                     comptes, options, IDmodele=self.modele,
                     ouverture=False, nomFichier=a)
+            print("UI432K_MYSQL_PHASE reference_ok", flush=True)
             c, o = UTILS_PDF_processus.Preparer(comptes, options)
+            print("UI432K_MYSQL_PHASE processus_debut", flush=True)
             with mock.patch.dict(os.environ, {"NOETHYS_SL_PDF_TEST_ISOLE": "1"}):
                 UTILS_PDF_securise.Generer(
                     b, lambda chemin: UTILS_PDF_processus.Generer(
                         c, o, self.modele, chemin, self.source,
                         delai=90, donnees_pretes=True))
+            print("UI432K_MYSQL_PHASE processus_ok", flush=True)
             historique, enfant = Path(a).read_bytes(), Path(b).read_bytes()
             for document in (historique, enfant):
                 self.assertTrue(document.startswith(b"%PDF-"))
