@@ -120,6 +120,12 @@ jobs:
           tests.test_noethys_sl_ouverture_individu_directe
           tests.test_demarrage_splash
 
+      - name: UI-432K - qualification bloquante PDF isole en mode wx
+        shell: pwsh
+        run: |
+          python -m unittest -v tests.test_000_garde_reseau tests.test_ui432_factures_proprietaire tests.test_ui432k_pdf_activation tests.test_ui432k_pdf_atomique tests.test_ui432k_pdf_processus tests.test_ui432k_pdf_processus_win32 tests.test_ui432k_pdf_lot
+          if ($LASTEXITCODE -ne 0) { throw 'UI-432K : qualification PDF isole echouee' }
+
       # La branche de recette est prioritaire : ne rejoue pas toute la
       # regression Windows historique avant de fabriquer le candidat.
       # La publication officielle garde, elle, les tests exhaustifs.
@@ -507,6 +513,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup a échoué : $LASTEXITCODE" }
           if (-not (Test-Path 'installer-output/Noethys-Vanilla-Setup.exe')) { throw 'Setup absent' }
           Copy-Item 'installer-output/Noethys-Vanilla-Setup.exe' 'windows-output/Noethys-SL-0.1.0-rc.10.56-Setup.exe'
+
+      - name: UI-432K - installer le Setup et qualifier le PDF spawn reel avant publication
+        timeout-minutes: 7
+        shell: pwsh
+        run: |
+          $exeSetup = (Resolve-Path 'installer-output/Noethys-Vanilla-Setup.exe').Path
+          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-UI432K-RC1056-Test'
+          $journal = Join-Path $env:RUNNER_TEMP 'UI432K-RC1056-Setup.log'
+          $options = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+                       "/DIR=`"$cible`"", "/LOG=`"$journal`"")
+          $installation = Start-Process -FilePath $exeSetup -ArgumentList $options -Wait -PassThru
+          if ($installation.ExitCode -ne 0) { throw 'Setup UI-432K de recette : installation impossible' }
+          $exe = Join-Path $cible 'Noethys.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Noethys.exe installe introuvable' }
+          $regle = 'CI-RC1056-UI432K-PDF-Sortant-Interdit'
+          try {
+            netsh advfirewall firewall add rule name="$regle" dir=out action=block program="$exe" enable=yes
+            if ($LASTEXITCODE -ne 0) { throw 'UI-432K : garde reseau installable impossible' }
+            python -u tests/recette_ui432k_pdf_installe.py $exe
+            if ($LASTEXITCODE -ne 0) { throw 'UI-432K : PDF enfant PyInstaller installe non qualifie' }
+          }
+          finally {
+            netsh advfirewall firewall delete rule name="$regle" | Out-Null
+          }
 
       - name: Créer le véritable ZIP portable RC10.56
         shell: pwsh
