@@ -1,5 +1,11 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## UI-432K / 10-11-2026 — PNG Agg et PDF spawn, qualification bornée
+
+- Références : `b97853b2` test démarrage `freeze_support`, `e708226d` véritable rendu Noedoc spawn pendant fenêtre wx. CI ciblée [#42805793823](https://github.com/fr4nck/Noethys-SL/actions/runs/42805793823) : **42/42 PASS**, incluant un graphe unitaire long et une facture fictive SQLite produite dans le processus tout en maintenant la MainFrame réactive. Rapport : `docs/recette/UI_432K_UNITAIRE_20261109.md`.
+- PDF isolé **désactivé par défaut** ; PyInstaller installé, MySQL, modèles complexes, équivalence métier et poste utilisateur pas encore qualifiés. Il reste des graphes synchrones. Issue #432 ouverte. Pas de GO RC10.56 et pas de release construite/publiée dans UI-432K.
+
+
 
 ## UI-432K — calculs simples et PDF atomique (09/11/2026)
 
