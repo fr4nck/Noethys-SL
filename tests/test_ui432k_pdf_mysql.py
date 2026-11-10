@@ -71,6 +71,17 @@ class FacturePDFMySQLFictif(unittest.TestCase):
 
         cls.sqlite, cls.modele = _creer_base_facture_avec_prestation_sans_activite()
         cls.addClassCleanup(cls.sqlite.fermer)
+        # La fixture historique SQLite tolérait l'absence de cette table
+        # vide ; le curseur MySQL refuse fetchall() après la requête échouée.
+        # Compléter UNIQUEMENT le schéma de recette, jamais le moteur global.
+        with sqlite3.connect(cls.sqlite.chemin) as controle:
+            existe = controle.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='questionnaire_reponses'").fetchone()
+        if not existe:
+            cls.sqlite.db.CreationTable(
+                "questionnaire_reponses", Tables.DB_DATA)
+            cls.sqlite.db.Commit()
 
         mysql = GestionDB.DB(
             nomFichier=cls.source, suffixe=None, modeCreation=True, pooling=False)
