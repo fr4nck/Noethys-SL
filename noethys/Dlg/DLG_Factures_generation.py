@@ -209,10 +209,22 @@ class Dialog(wx.Dialog):
                     "WHERE IDindividu IN %s;" % adhesions._liste_sql(ids))
                 noms = {int(ID): u"%s %s" % (nom or u"", prenom or u"")
                         for ID, nom, prenom in lignes}
-            except Exception:
-                # Une indisponibilite de l'annuaire n'autorise pas a
-                # creer automatiquement les cotisations sans confirmation.
-                noms = {}
+            except Exception as err:
+                wx.MessageBox(
+                    _(u"Impossible d'identifier les bénéficiaires des cotisations "
+                      u"à proposer. Aucune cotisation n'a été créée. "
+                      u"Vérifiez la connexion puis recommencez.\n\n%s") % err,
+                    _(u"Contrôle des bénéficiaires impossible"),
+                    wx.OK | wx.ICON_ERROR, self)
+                return False
+            if len(noms) != len(ids) or any(not nom.strip() for nom in noms.values()):
+                wx.MessageBox(
+                    _(u"Certains bénéficiaires ne peuvent pas être identifiés. "
+                      u"Aucune cotisation n'a été créée. "
+                      u"Vérifiez leurs fiches puis recommencez."),
+                    _(u"Bénéficiaires à vérifier"),
+                    wx.OK | wx.ICON_WARNING, self)
+                return False
 
             labels = []
             for p in propo["propositions"]:
@@ -269,20 +281,22 @@ class Dialog(wx.Dialog):
                         wx.OK | wx.ICON_ERROR, self)
                     return False
 
-        # Relecture APRES les eventuelles creations : ce sont les
-        # propositions residuelles qui seront reverifiees a l'emission.
-        try:
-            apres = echeances.Proposer(
-                date_debut=date_debut, date_fin=params["date_fin"],
-                date_reference=datetime.date.today(),
-                liste_activites=params["listeActivites"],
-                IDcompte_payeur=params["IDcompte_payeur"])
-        except Exception as err:
-            wx.MessageBox(
-                _(u"Relecture des cotisations impossible après préparation. "
-                  u"Revenez aux paramètres ; aucune facture n'a été émise.\n\n%s") % err,
-                _(u"Contrôle incomplet"), wx.OK | wx.ICON_ERROR, self)
-            return False
+        # En l'absence d'ecriture, le premier inventaire reste valable.
+        # On evite une connexion MySQL supplementaire (et un risque DNS).
+        apres = propo
+        if selection_titulaires:
+            try:
+                apres = echeances.Proposer(
+                    date_debut=date_debut, date_fin=params["date_fin"],
+                    date_reference=datetime.date.today(),
+                    liste_activites=params["listeActivites"],
+                    IDcompte_payeur=params["IDcompte_payeur"])
+            except Exception as err:
+                wx.MessageBox(
+                    _(u"Relecture des cotisations impossible après préparation. "
+                      u"Revenez aux paramètres ; aucune facture n'a été émise.\n\n%s") % err,
+                    _(u"Contrôle incomplet"), wx.OK | wx.ICON_ERROR, self)
+                return False
         self._controle_cotisations = {
             "statut": "verifie", "perimetre": perimetre,
             "date_reference": datetime.date.today(),
