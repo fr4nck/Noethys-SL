@@ -91,11 +91,22 @@ def verifier():
                             comptes, options, IDmodele=modele,
                             ouverture=False, nomFichier=reference)
 
+                    # multiprocessing.spawn.get_command_line() utilise
+                    # sys.executable (et non set_executable) en mode frozen.
+                    # Sans cette substitution le test lancerait python.exe
+                    # et produirait un faux PASS du binaire installe.
                     multiprocessing.set_executable(str(executable))
                     with mock.patch.object(sys, "frozen", True, create=True), \
+                         mock.patch.object(sys, "executable", str(executable)), \
                          mock.patch.object(spawn, "WINEXE", True), \
                          mock.patch.object(sys, "path", chemins_enfant), \
                          mock.patch.dict(os.environ, {"PYTHONPATH": ""}):
+                        commande = spawn.get_command_line(
+                            parent_pid=os.getpid(), pipe_handle=100)
+                        if (Path(commande[0]).resolve() != executable or
+                                "--multiprocessing-fork" not in commande):
+                            raise AssertionError(
+                                "Le processus enfant ne lance pas Noethys.exe")
                         UTILS_PDF_securise.Generer(
                             fichier, lambda provisoire:
                                 UTILS_PDF_processus.Generer(
