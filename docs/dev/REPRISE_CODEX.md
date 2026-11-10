@@ -1,5 +1,52 @@
 # Reprise du chantier Noethys-SL — état au 08/10/2026
 
+## FACT-COT — contrôle des cotisations non coercitif (10/11/2026)
+
+**Demande terrain :** erreur MySQL 2005 / 11001 lors de la facturation de
+cotisations sur un poste ; permettre à la direction de ne pas facturer une
+adhésion à un bénéficiaire sans imposer de déduction automatique liée à
+l'emploi ou à la famille. L'utilisateur garde le choix de payer, de
+dispenser pour le traitement ou de saisir une cotisation non facturée.
+
+**Implémentation commune main, wx et qt** :
+- UTILS_Adhesions.py : unique relance de SELECT après MySQL 2005, sur la
+  même configuration, hors pool, sans répétition des écritures.
+- UTILS_Adhesions_echeances.Executer : argument optionnel
+  selection_titulaires, validation que la sélection est dans l'aperçu,
+  aucune écriture pour les titulaires non retenus.
+- DLG_Factures_generation : sélection nominative modifiable par l'opérateur,
+  identification des titulaires avant création, aucune raison personnelle
+  enregistrée ; autorisation explicite en cas de contrôle impossible.
+- DLG_Factures_generation_selection : recontrôle juste avant l'insertion
+  des factures. Si l'état a changé : retour à la préparation ; si MySQL
+  est indisponible : choix explicite d'émettre sans vérification complète.
+- Les propositions non cochées restent des propositions potentielles lors
+  d'une prochaine facturation ; aucune exonération durable implicite.
+
+**Tests** : tests/test_noethys_sl_adhesions_dns_2005.py,
+tests/test_noethys_sl_facturation_selection_humaine.py et
+tests/test_noethys_sl_facturation_cotisations_erreur.py. Ajout des trois
+tests à la CI rapide sur main et wx ; qt n'utilise pas cette CI rapide.
+Recette Windows et MySQL de production non réalisées ici ; aucun
+installateur ou tag créé. Pas d'accès aux données de familles PMSL.
+
+**Références principales** :
+- main : reconnexion 5165a9d3 ; sélection 0d88da69, écran 4341d5c7,
+  garde 65ffd45c ; durcissement 9e04a5ae ; tests 6ec4792e.
+- wx : reconnexion 64ae89c2 ; sélection b21b3292, écran 16cd1763,
+  garde 5f360e11 ; durcissement 9bdad893 ; tests adf2ff38.
+- qt : reconnexion 31208f6f ; sélection aba23824, écran 6ddd14ef,
+  garde b8b793cf ; durcissement 3fed3233 ; tests 367a4be4.
+
+**STOP-GATE** : ne déclarer aucune RC prête sans tests, recette réelle
+de la sélection wx, essai sur base MySQL de test et vérification des
+factures et cotisations. Le nom DNS du serveur configuré doit rester
+une intervention réseau explicite ; le code ne remplace pas un serveur.
+
+Détails : docs/metier/ADHESIONS_AUTOMATIQUES.md et
+docs/diagnostics/ADHESIONS_MYSQL_DNS_2005_20261110.md.
+
+
 ## UI-432K / 10-11-2026 — PNG Agg et PDF spawn, qualification bornée
 
 - Références : `b97853b2` test démarrage `freeze_support`, `e708226d` véritable rendu Noedoc spawn pendant fenêtre wx. CI ciblée [#42805793823](https://github.com/fr4nck/Noethys-SL/actions/runs/42805793823) : **42/42 PASS**, incluant un graphe unitaire long et une facture fictive SQLite produite dans le processus tout en maintenant la MainFrame réactive. Rapport : `docs/recette/UI_432K_UNITAIRE_20261109.md`.
