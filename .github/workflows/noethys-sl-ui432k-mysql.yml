@@ -45,6 +45,7 @@ jobs:
           python -c "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); [z.extract(n,sys.argv[2]) for n in z.namelist() if n.startswith('mysql-5.7.44-winx64/share/') or n in ('mysql-5.7.44-winx64/bin/mysqld.exe','mysql-5.7.44-winx64/bin/mysql.exe') or (n.startswith('mysql-5.7.44-winx64/bin/') and n.lower().endswith('.dll'))]" $zip $racine
           if ($LASTEXITCODE -ne 0) { throw 'Extraction de MySQL impossible' }
       - name: Qualifier Noedoc source sur MySQL local jetable
+        timeout-minutes: 7
         shell: pwsh
         env:
           NOETHYS_TEST_MYSQL_HOST: 127.0.0.1
@@ -64,7 +65,7 @@ jobs:
           try {
             python tests/recette_mysql_jetable_preparer.py
             if ($LASTEXITCODE -ne 0) { throw 'Preparation du MySQL fictif impossible' }
-            python -m unittest -v tests.test_ui432k_pdf_mysql
+            python -u -m unittest -v tests.test_ui432k_pdf_mysql
             if ($LASTEXITCODE -ne 0) { throw 'Rendu PDF MySQL isole non qualifie' }
           }
           finally {
