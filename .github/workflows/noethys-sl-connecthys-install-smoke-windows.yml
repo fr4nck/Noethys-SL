@@ -78,6 +78,7 @@ jobs:
           }
           Write-Host "Setup installe dans le RUNNER_TEMP : $cible"
       - name: Creer la base fictive et lancer le vrai exe installe
+        id: installation_fictive
         shell: pwsh
         run: |
           $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
@@ -119,7 +120,26 @@ jobs:
           }
           if (-not $termine) { throw 'Exe installe : etape oninit_fin absente' }
           Write-Host 'PASS exe installe et initialise avec base fictive'
+      - name: UI-432K - vrai rendu Noedoc par Noethys.exe installe (SQLite fictif)
+        if: ${{ always() && steps.installation_fictive.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
+          $exe = Join-Path $cible 'Noethys.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Binaire PyInstaller installe absent' }
+          # Protection identique au test Connecthys ; aucune connexion sortante.
+          $nomRegle = 'CI-UI432K-PDF-Sortant-Interdit'
+          try {
+            netsh advfirewall firewall add rule name="$nomRegle" dir=out action=block program="$exe" enable=yes
+            if ($LASTEXITCODE -ne 0) { throw 'Blocage reseau du binaire PDF impossible' }
+            python tests/recette_ui432k_pdf_installe.py $exe
+            if ($LASTEXITCODE -ne 0) { throw 'Noedoc spawn dans le vrai exe installe : FAIL' }
+          }
+          finally {
+            netsh advfirewall firewall delete rule name="$nomRegle" | Out-Null
+          }
       - name: Recette clics automatiques dans le VRAI exe installe (base fictive)
+        if: ${{ always() && steps.installation_fictive.outcome == 'success' }}
         shell: pwsh
         run: |
           $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
@@ -136,23 +156,6 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Blocage reseau du binaire non applicable' }
             python tests/recette_connecthys_installe_clicks.py $exe $base $sortie
             if ($LASTEXITCODE -ne 0) { throw 'Recette clics exe installe : FAIL' }
-          }
-          finally {
-            netsh advfirewall firewall delete rule name="$nomRegle" | Out-Null
-          }
-      - name: UI-432K - vrai rendu Noedoc par Noethys.exe installe (SQLite fictif)
-        shell: pwsh
-        run: |
-          $cible = Join-Path $env:RUNNER_TEMP 'Noethys-Connecthys-Install-Test'
-          $exe = Join-Path $cible 'Noethys.exe'
-          if (-not (Test-Path -LiteralPath $exe)) { throw 'Binaire PyInstaller installe absent' }
-          # Protection identique au test Connecthys ; aucune connexion sortante.
-          $nomRegle = 'CI-UI432K-PDF-Sortant-Interdit'
-          try {
-            netsh advfirewall firewall add rule name="$nomRegle" dir=out action=block program="$exe" enable=yes
-            if ($LASTEXITCODE -ne 0) { throw 'Blocage reseau du binaire PDF impossible' }
-            python tests/recette_ui432k_pdf_installe.py $exe
-            if ($LASTEXITCODE -ne 0) { throw 'Noedoc spawn dans le vrai exe installe : FAIL' }
           }
           finally {
             netsh advfirewall firewall delete rule name="$nomRegle" | Out-Null
