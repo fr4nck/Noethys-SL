@@ -131,6 +131,8 @@ jobs:
           tests.test_noethys_sl_adhesions_facturation_wx
           tests.test_noethys_sl_adhesions_inscriptions
           tests.test_noethys_sl_facturation_cotisations_erreur
+          tests.test_noethys_sl_adhesions_dns_2005
+          tests.test_noethys_sl_facturation_selection_humaine
           tests.test_noethys_sl_type_cotisation_saisie
           tests.test_noethys_sl_type_cotisation_erreurs
           tests.test_noethys_sl_frequentation_collectivites
@@ -177,6 +179,8 @@ jobs:
           tests.test_noethys_sl_adhesions
           tests.test_noethys_sl_adhesions_echeances
           tests.test_noethys_sl_facturation_cotisations_erreur
+          tests.test_noethys_sl_adhesions_dns_2005
+          tests.test_noethys_sl_facturation_selection_humaine
           tests.test_noethys_sl_adhesions_facturation_wx
           tests.test_noethys_sl_adhesions_activites
           tests.test_noethys_sl_adhesions_inscriptions
@@ -378,7 +382,7 @@ jobs:
             python tests/recette_mysql_jetable_preparer.py
             if ($LASTEXITCODE -ne 0) { throw 'Préparation du serveur de recette en échec' }
             $env:NOETHYS_TEST_MYSQL_APP_DIR = (Resolve-Path 'dist/Noethys').Path
-            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql tests.test_noethys_sl_adhesions_inscriptions_mysql -v
+            python -m unittest tests.test_noethys_sl_mysql_client_embarque tests.test_noethys_sl_rc73_mysql tests.test_noethys_sl_adhesions_echeances_mysql tests.test_noethys_sl_adhesions_inscriptions_mysql tests.test_noethys_sl_facturation_cotisations_mysql -v
             if ($LASTEXITCODE -ne 0) { throw 'Recette réelle sauvegarde/restauration en échec' }
           }
           finally {
