@@ -15,6 +15,7 @@ from Utils.UTILS_Traduction import _
 import wx
 from Ctrl import CTRL_Bouton_image
 import os
+import sys
 
 import GestionDB
 from Dlg import DLG_Messagebox
@@ -24,6 +25,7 @@ from Ctrl import CTRL_Factures_options
 from Utils import UTILS_Facturation
 from Utils import UTILS_Envoi_email
 from Utils import UTILS_Diagnostic_ui
+from Utils import UTILS_Config
 
 
 class Dialog(wx.Dialog):
@@ -44,7 +46,18 @@ class Dialog(wx.Dialog):
         # Options
         self.box_options_staticbox = wx.StaticBox(self, -1, _(u"Options des factures"))
         self.ctrl_options = CTRL_Factures_options.CTRL(self)
-        
+        # UI-432K : option locale volontaire pour les PDF joints aux emails.
+        # Aucun changement implicite des reglages des familles ou de la DB.
+        self.case_pdf_isole = wx.CheckBox(
+            self, label=_(u"Generer les PDF joints aux emails dans un processus separe"))
+        self.case_pdf_isole.SetValue(
+            UTILS_Config.GetParametre("factures_pdf_processus_isole", False) is True)
+        self.case_pdf_isole.Enable(sys.platform == "win32")
+        self.case_pdf_isole.SetToolTip(_(
+            u"Mode experimental Windows pour les fichiers SQLite locaux. "
+            u"La fenetre reste reactive pendant chaque PDF. "
+            u"En cas d'echec, aucun email n'est prepare : decochez pour reessayer."))
+
         # Boutons
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_recap = CTRL_Bouton_image.CTRL(self, texte=_(u"Récapitulatif"), cheminImage="Images/32x32/Imprimante.png")
@@ -72,7 +85,7 @@ class Dialog(wx.Dialog):
         self.SetMinSize((850, 700))
 
     def __do_layout(self):
-        grid_sizer_base = wx.FlexGridSizer(rows=4, cols=1, vgap=10, hgap=10)
+        grid_sizer_base = wx.FlexGridSizer(rows=5, cols=1, vgap=10, hgap=10)
         grid_sizer_base.Add(self.ctrl_bandeau, 0, wx.EXPAND, 0)
                 
         # Factures
@@ -84,7 +97,9 @@ class Dialog(wx.Dialog):
         box_options = wx.StaticBoxSizer(self.box_options_staticbox, wx.VERTICAL)
         box_options.Add(self.ctrl_options, 0, wx.ALL|wx.EXPAND, 10)
         grid_sizer_base.Add(box_options, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
-        
+        grid_sizer_base.Add(
+            self.case_pdf_isole, 0, wx.LEFT|wx.RIGHT|wx.EXPAND, 16)
+
         # Boutons
         grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
@@ -150,6 +165,10 @@ class Dialog(wx.Dialog):
         dictOptions = self.ctrl_options.GetOptions()
         if dictOptions == False :
             return
+        # Les anciens appels sans controle GUI restent sur le moteur historique.
+        case_pdf = getattr(self, "case_pdf_isole", None)
+        mode_pdf_isole = bool(case_pdf.GetValue()) if case_pdf is not None else False
+        dictOptions["pdf_processus_isole"] = mode_pdf_isole
 
         # Diagnostic facultatif et anonyme de la MainFrame.
         application = wx.GetApp()
@@ -160,8 +179,13 @@ class Dialog(wx.Dialog):
                 listeFactures=listeIDfacture, nomDoc=None, afficherDoc=False,
                 dictOptions=dictOptions, repertoire=dictOptions["repertoire_copie"],
                 repertoireTemp=True, parent=self)
-        if resultat == False : 
+        if resultat == False :
             return
+        # Conserver une preference par poste uniquement apres production
+        # valide des PDF ; aucune ecriture dans la base des familles.
+        if case_pdf is not None:
+            UTILS_Config.SetParametre(
+                "factures_pdf_processus_isole", mode_pdf_isole)
         dictChampsFusion, dictPieces = resultat
         
         def SupprimerFichiersTemp():

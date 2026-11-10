@@ -7,6 +7,7 @@ on:
     paths:
       - 'noethys/Utils/UTILS_Travail_long.py'
       - 'noethys/Utils/UTILS_Facturation.py'
+      - 'noethys/Dlg/DLG_Factures_email.py'
       - 'noethys/Utils/UTILS_Etapes_ui.py'
       - 'noethys/Utils/UTILS_Stats_modeles.py'
       - 'noethys/Utils/UTILS_Stats_graphes_worker.py'
@@ -49,6 +50,7 @@ jobs:
           python -m unittest -v
           tests.test_000_garde_reseau
           tests.test_ui432_factures_proprietaire
+          tests.test_ui432k_pdf_activation
           tests.test_ui432k_factures_lecture
           tests.test_ui432k_worker_win32
           tests.test_ui432k_stats_unitaire

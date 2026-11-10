@@ -1194,14 +1194,18 @@ class Facturation():
                 parent is not None and isinstance(parent, wx.Window)
                 and wx.IsMainThread() and parent.IsShownOnScreen()
             )
-            # Phase d'essai uniquement : SQLite explicite, un seul PDF
-            # temporaire, activation volontaire. La voie historique reste
-            # la reference tant que le paquet PyInstaller n'est pas qualifie.
+            # UI-432K : activation depuis le dialogue de factures email.
+            # Le drapeau environnement historique reste accepte pour la CI.
+            # Refuser une demande non eligible plutot que basculer
+            # silencieusement en synchrone en risquant de figer la GUI.
+            demande_pdf_isole = dictOptions.get("pdf_processus_isole") is True
             source_pdf = getattr(self, "_source_db", None)
             processus_isole = (
                 cooperatif and supprimer_partiels
-                and os.environ.get("NOETHYS_SL_PDF_PROCESSUS") == "1"
+                and (demande_pdf_isole
+                     or os.environ.get("NOETHYS_SL_PDF_PROCESSUS") == "1")
                 and isinstance(source_pdf, str)
+                and "[RESEAU]" not in source_pdf
                 and os.path.isfile(source_pdf)
             )
             dlgProgress = None
@@ -1279,6 +1283,12 @@ class Facturation():
                 self.EcritStatusbar("")
 
             try:
+                if demande_pdf_isole and supprimer_partiels and not processus_isole:
+                    raise RuntimeError(_(
+                        u"Rendu PDF isole indisponible : cette preversion exige "
+                        u"un fichier SQLite local et une fenetre visible. "
+                        u"Decochez l'option PDF isole pour utiliser le rendu classique."
+                    ))
                 if cooperatif:
                     UTILS_Etapes_ui.Executer(
                         parent, generer(),
