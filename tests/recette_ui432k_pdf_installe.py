@@ -39,6 +39,10 @@ def verifier():
     depot = Path(__file__).resolve().parents[1]
     for chemin in (depot, depot / "tests", depot / "noethys"):
         sys.path.insert(0, str(chemin))
+    # Charger popen_spawn_win32 AVANT d'usurper sys.executable : sinon
+    # son indicateur WINENV est calcule pour un environnement virtuel
+    # fictif et le moteur Windows substitue python.exe a Noethys.exe.
+    from multiprocessing import popen_spawn_win32
     import _garde_reseau
     import wx
     print("UI432K_INSTALLE_ETAPE imports", flush=True)
@@ -110,6 +114,7 @@ def verifier():
                     with mock.patch.object(sys, "frozen", True, create=True), \
                          mock.patch.object(sys, "executable", str(executable)), \
                          mock.patch.object(spawn, "WINEXE", True), \
+                         mock.patch.object(popen_spawn_win32, "WINENV", False), \
                          mock.patch.object(sys, "path", chemins_enfant), \
                          mock.patch.dict(os.environ, {"PYTHONPATH": ""}):
                         commande = spawn.get_command_line(
