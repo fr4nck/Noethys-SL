@@ -41,6 +41,7 @@ def verifier():
         sys.path.insert(0, str(chemin))
     import _garde_reseau
     import wx
+    print("UI432K_INSTALLE_ETAPE imports", flush=True)
     from _fixtures_noethys_db import RedirectionGestionDB, _DEFAUTS_OBJET
     from tests.test_vanilla_facture_prestation_sans_activite import (
         _creer_base_facture_avec_prestation_sans_activite, _dict_options_minimal)
@@ -49,7 +50,9 @@ def verifier():
 
     os.chdir(str(depot / "noethys"))
     app = wx.GetApp() or wx.App(False)
+    print("UI432K_INSTALLE_ETAPE fixture_debut", flush=True)
     base, modele = _creer_base_facture_avec_prestation_sans_activite()
+    print("UI432K_INSTALLE_ETAPE fixture_ok", flush=True)
     print("UI432K_INSTALLE_PHASE base_fictive", flush=True)
 
     try:
@@ -62,6 +65,7 @@ def verifier():
             raise AssertionError("Donnees de facture fictives indisponibles")
         comptes = resultat[0]
         comptes, options = UTILS_PDF_processus.Preparer(comptes, options)
+        print("UI432K_INSTALLE_ETAPE comptes_prets", flush=True)
 
         # La preparation du spawn doit reproduire le cas d'un parent gele,
         # sans transmettre les chemins des sources/tests ni site-packages.
@@ -92,6 +96,7 @@ def verifier():
                     reference = str(Path(dossier) / ("reference-" + suffixe + ".pdf"))
                     fichier = str(Path(dossier) / ("installe-" + suffixe + ".pdf"))
                     print("UI432K_INSTALLE_PHASE reference_" + suffixe, flush=True)
+                    print("UI432K_INSTALLE_ETAPE reference_" + suffixe, flush=True)
                     with RedirectionGestionDB(base.chemin):
                         UTILS_Impression_facture.Impression(
                             comptes, options, IDmodele=modele,
@@ -115,6 +120,7 @@ def verifier():
                                 "Le processus enfant ne lance pas Noethys.exe")
                         # L'enfant ne doit ni importer ni lire les sources
                         # et ressources du depot depuis le cwd du parent.
+                        print("UI432K_INSTALLE_ETAPE spawn_" + suffixe, flush=True)
                         dossier_initial = Path.cwd()
                         try:
                             os.chdir(str(executable.parent))
@@ -126,6 +132,7 @@ def verifier():
                                         base.chemin, delai=90, donnees_pretes=True))
                         finally:
                             os.chdir(str(dossier_initial))
+                        print("UI432K_INSTALLE_ETAPE enfant_termine_" + suffixe, flush=True)
 
                     ancien = Path(reference).read_bytes()
                     nouveau = Path(fichier).read_bytes()
