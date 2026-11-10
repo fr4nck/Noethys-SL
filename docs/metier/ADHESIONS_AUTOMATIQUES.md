@@ -82,3 +82,52 @@ Les situations « à vérifier » sont affichées après la sauvegarde lorsqu'un
 - Aucune adhésion existante n'est modifiée ni supprimée : la règle s'applique aux créations futures. Les adhésions déjà créées par section doivent être examinées manuellement (voir `docs/diagnostics/diagnostic_adhesions.sql`).
 
 Tests : `tests/test_noethys_sl_adhesions*.py`, notamment `test_noethys_sl_adhesions_titulaire.py`.
+
+## Contrôle non coercitif avant facturation (10 novembre 2026)
+
+À l'étape 1 de la génération, les cotisations proposées ne sont **jamais une obligation
+automatique de paiement** : l'opérateur visualise les bénéficiaires et choisit
+individuellement les cotisations à créer. Les titulaires décochés ne produisent
+**aucune** écriture (ni cotisation, ni prestation), ni changement de statut.
+L'exclusion n'est valable que pour le traitement courant : elle n'est pas une
+exonération permanente, n'est pas déduite d'un métier, d'une parenté ou d'un
+statut de salarié, et aucune justification personnelle n'est demandée.
+
+Une adhésion gratuite durable reste possible **par décision humaine** avec
+le formulaire natif « Saisie d'une cotisation », en décochant « Facturer ».
+Une telle cotisation manuelle valide couvre le titulaire pour sa période
+sans créer de prestation financière ; ce parcours n'en fabrique pas une
+automatiquement.
+
+En présence d'un choix partiel, seules les cotisations cochées sont revalidées
+sous les contrôles métier habituels (service Executer, argument
+selection_titulaires), puis les propositions résiduelles sont mémorisées pour
+la durée de l'assistant. Avant la validation **effective** des factures
+sélectionnées, un nouveau contrôle compare les cotisations des comptes payeurs
+concernés à l'aperçu. En cas de nouvelle proposition ou d'anomalie, il faut
+reprendre la préparation pour actualiser l'aperçu ; aucun paiement n'est forcé.
+
+Si le serveur est indisponible, un contournement est toujours possible,
+mais **sur deux décisions explicites** : continuer jusqu'à l'aperçu, puis
+accepter l'émission avec les seules prestations déjà enregistrées.
+L'opérateur peut refuser sans écriture. Une erreur SQL n'est jamais
+assimilée à une absence de cotisation due. La relance de connexion MySQL 2005
+est unique, en lecture seule, vers le **même** serveur ; une résolution DNS
+durablement défaillante reste à corriger sur le poste ou le réseau.
+
+Protection de la vie privée : les noms de titulaires servent uniquement
+à l'interface locale. Aucun motif d'exonération, lien familial, statut de
+salarié ou liste nominative d'exceptions n'est enregistré par cette
+fonctionnalité ni publié dans le dépôt. Les exceptions peuvent reparaître
+au traitement suivant, sauf cotisation manuelle de couverture valide.
+
+**Limites :** le contrôle porte sur les activités et le type de cotisation
+configurés, pas sur une obligation juridique générale. Les nouvelles écritures
+tierces entre le dernier contrôle et l'insertion de facture restent un cas
+concurrent à qualifier sur MySQL en recette. Le correctif source n'est pas
+une publication de RC ; exiger tests automatiques et recette Windows sur base
+fictive avant tout installateur.
+
+Tests de référence : tests/test_noethys_sl_adhesions_dns_2005.py,
+tests/test_noethys_sl_facturation_selection_humaine.py,
+tests/test_noethys_sl_facturation_cotisations_erreur.py.
