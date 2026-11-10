@@ -17,6 +17,12 @@ Les fonctions de RC10.55 et les evolutions integrees dans la branche `wx` sont r
 
 La recette Windows de publication comprend les tests critiques, le demarrage d'un paquet isole et la sauvegarde/restauration de donnees **fictives** sur MySQL 5.7.44 local, avec un gros document binaire. La validation terrain de sauvegarde **DATA + DOCUMENTS** PMSL et d'une restauration sur serveur independant reste a realiser avant fermeture du ticket #437. PHOTOS est facultatif.
 
+## UI-432K — option de rendu PDF isole (candidate, sous qualification)
+
+Le dialogue « Envoi de factures par Email » de l'edition wx propose une option **facultative**, desactivee par defaut, pour generer les PDF joints dans un processus Windows separe. L'utilisateur peut revenir au mode classique en decochant l'option ; en cas d'echec du processus, la preparation des emails s'interrompt plutot que d'expedier un document incomplet ou de relancer silencieusement le rendu classique.
+
+Les tests Win32 cibles ont valide l'activation du controle et le moteur de rendu fictif. Les tests du moteur MySQL, de l'executable installe et des scenarios metier restent des **barrieres bloquantes** du workflow de publication. Cette option ne concerne pas encore tous les apercus, impressions globales ou autres documents Noedoc ; elle ne constitue pas une garantie de disparition de la minimisation sur le poste utilisateur. Aucune activation automatique pour les autres editions.
+
 ## Livrables si les barrieres passent
 
 - `Noethys-SL-0.1.0-rc.10.56-Setup.exe`

@@ -1,5 +1,6 @@
 Version Noethys SL 0.1.0 RC10.56 (09/11/2026) :
 
+- Factures par Email : option facultative de rendu PDF en processus Windows séparé, désactivée par défaut ; échec du rendu = transfert bloqué, retour manuel possible au rendu classique (sous réserve de qualification de la RC).
 - Facturation : une seule reconnexion en lecture seule apres erreur MySQL 2005/11001 ; aucune cotisation creee sur erreur persistante.
 - Cotisations : choix individuel des propositions avant leur creation ; l'operateur peut laisser une personne hors du lot sans justification ni paiement impose.
 - Emission des factures : nouvelle verification des cotisations apres confirmation et avant les ecritures ; si une anomalie apparait, reprise de l'apercu ou derogation reseau explicite.
