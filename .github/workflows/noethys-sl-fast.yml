@@ -68,7 +68,7 @@ jobs:
         run: python tools/ui432_audit_transversal.py --limit 25
 
       - name: Contrats statistiques UI-432J sans dependances GUI
-        run: python -m unittest -v tests.test_ui432_statistiques tests.test_ui432_audit_transversal
+        run: python -m unittest -v tests.test_ui432_statistiques tests.test_ui432_audit_transversal tests.test_q442_j5_ui_contract
 
       - name: Contrats STATS-RESTORE (ages, QF, VFS et impression, sans donnees reelles)
         run: python -m unittest -v tests.test_stats_restore_ages tests.test_stats_restore_quotients tests.test_stats_restore_vfs tests.test_stats_restore_impression tests.test_stats_restore_qf_historique tests.test_stats_restore_qf_sqlite tests.test_stats_restore_vfs_registration tests.test_stats_restore_preview tests.test_stats_restore_cache tests.test_stats_restore_inventory tests.test_stats_restore_isolation tests.test_stats_restore_distances_cache tests.test_stats_restore_geographie tests.test_stats_q4_familles_sqlite tests.test_stats_q4_caisses_membres_sqlite tests.test_stats_q4_graphes_familles_donnees tests.test_stats_q4_individus_nombre_sqlite tests.test_stats_q4_individus_genre_ages_sqlite tests.test_stats_q4_individus_scolarite_sqlite tests.test_stats_q4_individus_profession_anciennete_sqlite tests.test_stats_q4_comparatifs_sqlite tests.test_stats_q4_individus_villes_sqlite tests.test_stats_q4_familles_qf_objets_sqlite

@@ -1,0 +1,43 @@
+name: Noethys SL Q442 - vrais objets wx/HTML Windows (J8)
+
+# Candidate-only real wx/HTML/MemoryFS coverage; no production database.
+on:
+  pull_request:
+    branches: [wx]
+    paths:
+      - 'tests/test_q442_j8_wx_models.py'
+      - 'noethys/Utils/UTILS_Stats_qf_*.py'
+      - 'noethys/Utils/UTILS_Stats_modeles.py'
+      - '.github/workflows/noethys-sl-q442-wx.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  q442-wx-native-source:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Installer wx et dependances de recette
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+          if ($LASTEXITCODE -ne 0) { throw 'Dependances wx manquantes' }
+      - name: Q442 - MODELES reelles, tableaux, HTML, graphique wx et impression fictive
+        shell: pwsh
+        run: |
+          python -m unittest -v tests.test_q442_j8_wx_models
+          if ($LASTEXITCODE -ne 0) { throw 'Q442 J8 wx natif FAIL' }
