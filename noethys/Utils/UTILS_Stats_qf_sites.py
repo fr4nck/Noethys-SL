@@ -171,13 +171,19 @@ class LecteurMultisite(Lecteur):
             if len(matching) != 1:
                 raise SiteNonResoluble('PRESENCE_SITE_NON_RESOLU: accueil row=%s activity=%s unit=%s group=%s candidates=%s' %
                                        (idconso,act,unit,group,len(matching)))
+            # L'inscription rattache l'enfant a sa famille. Le compte
+            # payeur peut appartenir a un tiers (ou ne pas etre renseigne
+            # avant facturation) : il ne doit pas changer la population QF.
+            famille_payeur = family
+            anomalies = []
+            if inscrit_family is not None:
+                family = inscrit_family
+                if famille_payeur is not None and famille_payeur != family:
+                    anomalies.append('FAMILLE_INSCRIPTION_PAYEUR_DIFFERENTE')
             if child is None or family is None:
                 raise SiteNonResoluble('Family/child linkage missing in selected accueil presence')
             if unit_act != act or (group is not None and group_act != act):
                 raise SiteNonResoluble('Group or unit belongs to another activity')
-            anomalies = []
-            if inscrit_family is not None and inscrit_family != family:
-                anomalies.append('FAMILLE_INSCRIPTION_PAYEUR_DIFFERENTE')
             if prestation is not None and idprestation is None:
                 anomalies.append('PRESTATION_ORPHELINE')
             if idprestation is not None:

@@ -288,6 +288,30 @@ class Q442J6MySQL57(unittest.TestCase):
                 self.assertEqual(group[kind]['categories_historiques_non_attestees'], group[kind]['total'])
 
 
+    def test_11_no_payer_still_counts_enrolled_child_and_family(self):
+        # Before billing, payer assignment is optional: enrollment is source.
+        with self._mysql.cursor() as cur:
+            cur.execute("UPDATE consommations SET IDcompte_payeur=NULL WHERE IDconso=10")
+        reference, _ = read_stats(self._fixture, sqlite=True)
+        observed, _ = read_stats(self._mysql)
+        self.assertEqual(observed['global'], reference['global'])
+        self.assertEqual(observed['global']['familles']['total'], 9)
+        self.assertEqual(observed['global']['enfants']['total'], 11)
+
+    def test_12_third_party_payer_cannot_change_qf_family(self):
+        # A different paying family must not absorb the enrolled family.
+        with self._mysql.cursor() as cur:
+            cur.execute("UPDATE consommations SET IDcompte_payeur=1001 WHERE IDconso=10")
+        reference, _ = read_stats(self._fixture, sqlite=True)
+        observed, _ = read_stats(self._mysql)
+        self.assertEqual(observed['global']['familles']['total'], 9)
+        self.assertEqual(observed['global']['familles']['qf'],
+                         reference['global']['familles']['qf'])
+        self.assertGreaterEqual(
+            observed['global']['familles']['anomalies'].get(
+                'FAMILLE_INSCRIPTION_PAYEUR_DIFFERENTE', 0), 1)
+
+
 class Q442J6SQLiteContract(unittest.TestCase):
     """Runs without server, proving fixture and date-adapter behavior locally."""
     def test_sqlite_reference_still_has_9_families(self):
@@ -357,6 +381,35 @@ class Q442J6SQLiteContract(unittest.TestCase):
             self.assertTrue(all(sql.startswith('INSERT INTO `') for sql, n in fake.cursor_obj.inserts))
             self.assertTrue(any('`date` DATE' in ddl for ddl in fake.cursor_obj.ddls))
             self.assertTrue(any('`date_debut` DATE' in ddl for ddl in fake.cursor_obj.ddls))
+
+
+    def test_enrollment_family_without_payer(self):
+        with closing(fixture_sqlite()) as synthetic:
+            expected, _ = read_stats(synthetic, sqlite=True)
+            synthetic.execute('UPDATE consommations SET IDcompte_payeur=NULL WHERE IDconso=10')
+            obtained, _ = read_stats(synthetic, sqlite=True)
+            self.assertEqual(obtained['global'], expected['global'])
+            self.assertEqual(obtained['sites'], expected['sites'])
+
+    def test_third_party_payer_cannot_reassign_family(self):
+        with closing(fixture_sqlite()) as synthetic:
+            baseline, _ = read_stats(synthetic, sqlite=True)
+            synthetic.execute('UPDATE consommations SET IDcompte_payeur=1001 WHERE IDconso=10')
+            actual, _ = read_stats(synthetic, sqlite=True)
+            self.assertEqual(actual['global']['familles']['total'], 9)
+            self.assertEqual(actual['global']['familles']['qf'],
+                             baseline['global']['familles']['qf'])
+            self.assertGreaterEqual(
+                actual['global']['familles']['anomalies'].get(
+                    'FAMILLE_INSCRIPTION_PAYEUR_DIFFERENTE', 0), 1)
+
+    def test_both_enrollment_and_payer_missing_fail_closed(self):
+        with closing(fixture_sqlite()) as synthetic:
+            synthetic.execute(
+                'UPDATE consommations SET IDinscription=NULL, IDcompte_payeur=NULL '
+                'WHERE IDconso=10')
+            with self.assertRaises(SiteNonResoluble):
+                read_stats(synthetic, sqlite=True)
 
 
 if __name__ == '__main__':
