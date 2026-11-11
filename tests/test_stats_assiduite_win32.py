@@ -81,5 +81,53 @@ class AssiduiteWxWindows(unittest.TestCase):
         self.assertIn('individus_nombre',{x['code'] for x in original['individus']['pages']})
 
 
+    def _exporter_sans_dialogue_reel(self, type_index, extension):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(prefix='assiduite-wx-export-') as temp:
+            self.dlg.dictParametres = self.parameters
+            target=Path(temp)/('assiduite'+extension)
+            file_dialog=mock.Mock()
+            file_dialog.ShowModal.return_value=self.wx.ID_OK
+            file_dialog.GetPath.return_value=str(target)
+            file_dialog.GetFilterIndex.return_value=type_index
+            with mock.patch.object(self.wx, 'FileDialog', return_value=file_dialog), \
+                 mock.patch('GestionDB.DB', return_value=self.db):
+                self.dlg.OnBoutonExporterAssiduite(None)
+            file_dialog.Destroy.assert_called_once()
+            self.assertTrue(target.exists(), 'No export file produced')
+            self.assertGreater(target.stat().st_size, 150)
+            return target.read_bytes()
+
+    def test_native_export_csv_is_anonymous(self):
+        data=self._exporter_sans_dialogue_reel(0,'.csv').decode('utf-8-sig')
+        self.assertIn('Synthese generale',data)
+        self.assertIn('Non reconstructibles',data)
+        self.assertNotIn('IDindividu',data)
+
+    def test_native_export_xlsx_real_workbook(self):
+        import io
+        import zipfile
+        data=self._exporter_sans_dialogue_reel(1,'.xlsx')
+        with zipfile.ZipFile(io.BytesIO(data)) as book:
+            self.assertIn('xl/workbook.xml',book.namelist())
+            self.assertIn('xl/worksheets/sheet2.xml',book.namelist())
+
+    def test_native_export_zip_summary_without_unverified_sites(self):
+        import io
+        import zipfile
+        data=self._exporter_sans_dialogue_reel(2,'.zip')
+        with zipfile.ZipFile(io.BytesIO(data)) as book:
+            self.assertEqual(book.namelist(),['01_synthese.csv'])
+
+    def test_invalid_mode_does_not_open_a_database(self):
+        self.dlg.dictParametres=dict(self.parameters,mode='inscrits')
+        message=mock.Mock()
+        with mock.patch.object(self.wx,'MessageDialog',return_value=message), \
+             mock.patch('GestionDB.DB',side_effect=AssertionError('SQL forbidden')):
+            self.dlg.OnBoutonExporterAssiduite(None)
+        message.Destroy.assert_called_once()
+
+
 if __name__=='__main__':
     unittest.main()
