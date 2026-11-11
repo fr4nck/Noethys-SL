@@ -273,6 +273,23 @@ class Lecteur:
                 if invalid_link and len(ids) == 1:
                     tid = ids[0]
                     provenance.append('REFERENTIEL_QF_UNIQUE_ACTIVITE')
+                elif invalid_link and len(ids) > 1:
+                    # A broken prestation must not erase a valid family QF:
+                    # use a common *current* QF reference only if every
+                    # approved tariff has exactly the same type and bands.
+                    # The applied tariff remains unknown (see provenance).
+                    candidats = [tarifs[x] for x in ids if x in tarifs]
+                    signatures = {
+                        (t['type'], tuple(sorted(
+                            (code, str(mi), str(ma))
+                            for code, mi, ma, lid, n in t['lignes'])))
+                        for t in candidats
+                    }
+                    if (len(candidats) == len(ids) and len(signatures) == 1
+                            and candidats[0]['type'] is not None
+                            and candidats[0]['lignes']):
+                        tid = min(ids)
+                        provenance.append('REFERENTIEL_QF_GRILLE_COMMUNE')
                 if tid is None and len(ids) == 1:
                     tid = ids[0]
                     provenance.append('HYPOTHESE_TARIF_ACTIVITE')
