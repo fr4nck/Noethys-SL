@@ -225,13 +225,29 @@ def grille_sqlite():
     from Data.DATA_Tables import DB_DATA
     from Dlg import DLG_Badgeage_grille
     from Utils import UTILS_Etapes_ui
+    import time
+    depart = time.monotonic()
+
+    def trace(etape):
+        print('UI432_SQLITE_ETAPE %s duree_ms=%s' % (
+            etape, round((time.monotonic() - depart) * 1000)), flush=True)
+
+    trace('debut')
     app = wx.App(False)
     frame = wx.Frame(None)
+    # A real modal owner must be visible: the historical fixture used an
+    # unshown frame, unlike the application and the other UI-432 scenarios.
+    frame.Show()
+    if not frame.IsShownOnScreen():
+        raise AssertionError('UI432 SQLite: modal owner is not visible')
+    trace('proprietaire_visible')
     with BaseTest() as base:
+        trace('base_fictive_pret')
         existantes = {r[0] for r in base.db.connexion.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         for table in DB_DATA:
             if table not in existantes:
                 base.db.CreationTable(table, DB_DATA)
+        trace('schema_complet_pret')
         base.inserer("familles", ["IDfamille"], [(3,)])
         base.inserer("individus", ["IDindividu", "nom", "prenom", "IDcivilite"], [(42, "Fictif", "Test", 1)])
         base.inserer("rattachements", ["IDfamille", "IDindividu", "IDcategorie", "titulaire"], [(3, 42, 2, 0)])
@@ -243,15 +259,20 @@ def grille_sqlite():
         base.inserer("unites", ["IDunite", "IDactivite", "nom", "abrege", "type", "ordre", "heure_debut", "heure_fin"],
                      [(1, 1, "Unite fictive", "UF", "Unitaire", 1, "08:00", "18:00")])
         base.inserer("ouvertures", ["IDactivite", "IDunite", "IDgroupe", "date"], [(1, 1, 1, "2026-11-04")])
+        trace('donnees_fictives_inserees')
         with RedirectionGestionDB(base.chemin):
             a = DLG_Badgeage_grille.CTRL(frame, usage="portail")
             b = DLG_Badgeage_grille.CTRL(frame, usage="portail")
             # Les constructeurs historiques installent leurs parametres par defaut.
+            trace('grilles_construites')
             avant = list(base.db.connexion.iterdump())
             arguments = dict(IDindividu=42, IDfamille=3, IDactivite=1,
                              periode=(datetime.date(2026, 11, 4), datetime.date(2026, 11, 4)))
+            trace('avant_lecture_synchrone')
             a.InitGrille(**arguments)
+            trace('lecture_synchrone_ok')
             UTILS_Etapes_ui.Executer(frame, b.InitGrilleEtapes(**arguments))
+            trace('lecture_cooperative_ok')
             for champ in ("dictActivites", "dictIndividus", "dictGroupes", "dictComptesPayeurs",
                           "dictInfosInscriptions", "dictInfosIndividus", "dictUnites", "dictOuvertures",
                           "dictPrestations", "dictDeductions", "dictForfaits", "dict_transports"):
@@ -263,6 +284,7 @@ def grille_sqlite():
             assert b.GetCase(1, jour) is not None
             assert a.GetCase(1, jour).ouvert == b.GetCase(1, jour).ouvert
         assert avant == list(base.db.connexion.iterdump()), "Ecriture inattendue pendant la lecture"
+        trace('verification_integrite_ok')
     frame.Destroy()
     assert not _garde_reseau.TENTATIVES
     print("UI432_SQLITE_PASS", flush=True)
@@ -291,9 +313,18 @@ class ReactiviteWindowsTests(unittest.TestCase):
         self.assertTrue(m["owner_modal_ok"])
     @unittest.skipUnless(sys.platform == "win32", "wx reel requis")
     def test_grille_reelle_sqlite_identique_et_sans_ecriture(self):
-        p = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--sqlite"],
-                           cwd=ROOT / "noethys", capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=30)
+        try:
+            p = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--sqlite"],
+                               cwd=ROOT / "noethys", capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=30)
+        except subprocess.TimeoutExpired as exc:
+            # Never increase the timeout to create a false PASS. Keep the
+            # child's last stages and faulthandler stack in the test verdict.
+            def decode(data):
+                return (data.decode('utf-8', 'replace') if isinstance(data, bytes)
+                        else (data or ''))
+            self.fail("UI432 SQLite exceeded 30s; stages:\n%s\nchild stack:\n%s" % (
+                decode(exc.stdout)[-6000:], decode(exc.stderr)[-6000:]))
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertIn("UI432_SQLITE_PASS", p.stdout)
         self.assertNotIn("Requete SQL incorrecte", p.stdout)

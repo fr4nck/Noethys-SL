@@ -1,0 +1,45 @@
+name: Noethys SL - UI432 SQLite visible Windows (Q442 regression)
+
+# Targeted counter-test for the UI432 SQLite subprocess timeout observed in
+# Q442 J6. No production DB, no changes to release artifacts.
+on:
+  pull_request:
+    branches: [wx]
+    paths:
+      - 'tests/test_connecthys_ui432_etapes.py'
+      - '.github/workflows/noethys-sl-q442-ui432.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui432-sqlite-real-wx:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Dependencies for genuine Windows wx/SQLite test
+        shell: pwsh
+        run: |
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          python -m pip install pyttsx3 wxPython==4.2.5
+          if ($LASTEXITCODE -ne 0) { throw 'wxPython CI dependencies failed' }
+      - name: UI432 SQLite real wx - 3 independent child process counter-tests
+        shell: pwsh
+        run: |
+          foreach ($iteration in 1..3) {
+            Write-Host "UI432_SQLITE_CONTRE_EPREUVE=$iteration"
+            python -m unittest -v tests.test_connecthys_ui432_etapes.ReactiviteWindowsTests.test_grille_reelle_sqlite_identique_et_sans_ecriture
+            if ($LASTEXITCODE -ne 0) { throw "UI432 SQLite FAIL in iteration $iteration" }
+          }
