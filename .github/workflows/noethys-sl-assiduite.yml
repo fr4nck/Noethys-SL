@@ -1,0 +1,37 @@
+name: Noethys SL - Statistiques assiduite (candidat)
+
+# Read-only and synthetic. Does not access any association database.
+on:
+  push:
+    branches:
+      - stats/assiduite-candidat
+    paths:
+      - 'noethys/Utils/UTILS_Stats_assiduite*.py'
+      - 'tests/test_stats_assiduite*.py'
+      - '.github/workflows/noethys-sl-assiduite.yml'
+  pull_request:
+    branches: [wx]
+    paths:
+      - 'noethys/Utils/UTILS_Stats_assiduite*.py'
+      - 'tests/test_stats_assiduite*.py'
+      - '.github/workflows/noethys-sl-assiduite.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite-and-exports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Install only isolated test dependencies
+        run: python -m pip install matplotlib xlsxwriter
+      - name: Syntax and strict synthetic tests
+        run: |
+          python -m compileall -q noethys/Utils/UTILS_Stats_assiduite.py noethys/Utils/UTILS_Stats_assiduite_exports.py noethys/Utils/UTILS_Stats_assiduite_objets.py tests/test_stats_assiduite_synthetic.py tests/test_stats_assiduite_exports.py tests/test_stats_assiduite_objets.py
+          python -m unittest -v tests.test_stats_assiduite_synthetic tests.test_stats_assiduite_exports tests.test_stats_assiduite_objets
