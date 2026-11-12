@@ -86,17 +86,11 @@ class FacturePDFMySQLFictif(unittest.TestCase):
         with sqlite3.connect(cls.sqlite.chemin) as controle:
             presentes = set(row[0] for row in controle.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"))
-        # Tables vides reellement consultees par Informations() et
-        # Facturation(). Elles ne contiennent aucune donnee PMSL.
-        dependances = (
-            "questionnaire_reponses", "inscriptions", "messages_categories",
-            "cotisations", "types_cotisations", "unites_cotisations",
-            "classes", "niveaux_scolaires", "scolarite", "ecoles",
-            "problemes_sante", "deductions",
-        )
-        for table in dependances:
-            if table not in Tables.DB_DATA:
-                raise AssertionError("Table absente du schema canonique : %s" % table)
+        # La comparaison SQLite/MySQL doit utiliser le meme schema Noethys
+        # complet, sans tables manquantes masquees par SQLite. Les 172
+        # definitions sont les definitions canoniques, et non des mocks.
+        # Toutes les lignes hors du scenario facture restent vides.
+        for table in Tables.DB_DATA:
             if table not in presentes:
                 cls.sqlite.db.CreationTable(table, Tables.DB_DATA)
         cls.sqlite.db.Commit()
