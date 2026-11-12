@@ -1,0 +1,145 @@
+name: Noethys SL RC11 - publication pre-release GitHub
+# Publication explicite d'un build deja qualifie. Aucun rebuild ni donnees PMSL.
+# Source et artefact figes sur le run CI vert 43247607284.
+on:
+  push:
+    branches:
+      - wx
+    paths:
+      - '.github/workflows/noethys-sl-rc11-publish-prerelease.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-rc11-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publier RC11 comme pre-release avec Setup, portable et SHA256
+    if: >-
+      github.ref == 'refs/heads/wx' &&
+      contains(github.event.head_commit.message, '[publish rc11]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: noethys-sl-0.1.0-rc.11
+      SOURCE_SHA: 91e7e4adc389b00935526fc195622a3c0f6cc1d8
+      SOURCE_RUN: '43247607284'
+      SOURCE_ARTIFACT: Noethys-SL-0.1.0-rc.11-Windows-candidat
+      SETUP: Noethys-SL-0.1.0-rc.11-Setup.exe
+      PORTABLE: Noethys-SL-0.1.0-rc.11-Windows-portable.zip
+      EXPECTED_SETUP_SHA256: 6d234a9551f6ebe031b99a4620f035fe80f385f0343832d5cb9d8de1641ac49d
+      EXPECTED_PORTABLE_SHA256: 9f568e483cdb89bba187bce67273939fb94e87197ffe9a5d04ff2dcdc231a3d1
+    steps:
+      - name: Verifier que la pre-release n'existe pas
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "STOP : une release existe deja pour $TAG" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "STOP : le tag existe deja" >&2
+            exit 1
+          fi
+
+      - name: Verifier le run source vert et son commit exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > "$RUNNER_TEMP/source-run.json"
+          jq -e --arg sha "$SOURCE_SHA" --arg branch "wx" \
+            '.status == "completed" and .conclusion == "success" and .head_sha == $sha and .head_branch == $branch' \
+            "$RUNNER_TEMP/source-run.json"
+          echo "Source qualifiee : $SOURCE_SHA (run $SOURCE_RUN)"
+
+      - name: Recuperer exclusivement les trois livrables de ce run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" --dir release-files
+          cd release-files
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 3
+          test -s "$SETUP"
+          test -s "$PORTABLE"
+          test -s SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          printf '%s  %s\n' "$EXPECTED_SETUP_SHA256" "$SETUP" | sha256sum --check
+          printf '%s  %s\n' "$EXPECTED_PORTABLE_SHA256" "$PORTABLE" | sha256sum --check
+          file "$SETUP"
+          file "$PORTABLE"
+          unzip -tq "$PORTABLE" >/dev/null
+          echo "ARCHIVES_ET_EMPREINTES=PASS"
+
+      - name: Preparer les notes publiques de pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes-rc11.md" <<'NOTES'
+          ## Noethys SL 0.1.0 RC11 — préversion Windows
+
+          **Préversion de recette**, non qualifiée comme version stable. Deux livrables : Setup Windows et ZIP portable. `SHA256SUMS.txt` permet d'en vérifier l'intégrité.
+
+          ### Modifications et contrôles
+          - Facturation, adhésions, AFAS, communes, interfaces wxPython et Connecthys : régressions testées.
+          - Repas : quatre choix individuels, dont **Repas apporté par la famille**, avec présence méridienne distincte du nombre de repas fournisseur. Contrôle des ventilations M/P des commandes Océane.
+          - PDF : comparaison du rendu de facture historique et du moteur isolé sur MySQL 5.7.44 fictif ; PDF lancé depuis le Setup réellement installé.
+          - Sauvegarde et restauration MySQL 5.7.44 sur base jetable, y compris DATA + DOCUMENTS avec document fictif supérieur à 24 Mio et contrôle d'intégrité.
+          - Démarrage de l'exécutable installé et deux démarrages du ZIP portable avec persistance de `Config.json`.
+          - Version interne Noethys `1.3.4.4` inchangée ; aucune migration SQL.
+
+          ### Limites importantes
+          - La recette sur l'environnement réseau et les données PMSL de production **n'a pas été effectuée**. Effectuer une sauvegarde vérifiée avant toute installation sur un poste de production.
+          - Les décisions humaines de facturation/cotisations et de reprise Connecthys restent nécessaires en cas d'ambiguïté.
+          - Le repas apporté par la famille **n'active pas d'exonération financière automatique** ; le volet tarifaire 2C-3 reste non activé.
+          - PR #444/#445, statistiques annulations #446 et évolutions AFAS V1 hors périmètre.
+
+          ### Provenance
+          - Commit source : `91e7e4adc389b00935526fc195622a3c0f6cc1d8`
+          - [Construction Windows RC11 et contrôles complets](https://github.com/fr4nck/Noethys-SL/actions/runs/43247607284)
+          - [Recette PDF MySQL indépendante](https://github.com/fr4nck/Noethys-SL/actions/runs/43247607709)
+          - [Suivi de publication et réserves #447](https://github.com/fr4nck/Noethys-SL/issues/447)
+
+          **RC10.55 reste disponible.** Cette préversion est proposée pour validation, pas comme mise à jour automatique des postes.
+          NOTES
+
+      - name: Creer le brouillon avec les trois fichiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "release-files/$SETUP" \
+            "release-files/$PORTABLE" \
+            "release-files/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --title "Noethys SL 0.1.0 RC11" \
+            --notes-file "$RUNNER_TEMP/notes-rc11.md" \
+            --draft --prerelease --latest=false
+
+      - name: Verifier le brouillon et rendre la pre-release publique
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,tagName \
+            > "$RUNNER_TEMP/draft-rc11.json"
+          jq -e --arg tag "$TAG" --arg setup "$SETUP" --arg portable "$PORTABLE" \
+            '.isDraft == true and .tagName == $tag and
+             ([.assets[].name] | sort) == ([$setup,$portable,"SHA256SUMS.txt"] | sort) and
+             ([.assets[].size] | all(. > 0))' "$RUNNER_TEMP/draft-rc11.json"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$tag_sha" = "$SOURCE_SHA"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease --latest=false
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets \
+            | jq -e '.isDraft == false and .isPrerelease == true and (.assets | length) == 3'
+          echo "PRE_RELEASE_PUBLIEE=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
