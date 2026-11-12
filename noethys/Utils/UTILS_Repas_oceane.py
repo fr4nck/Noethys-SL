@@ -128,6 +128,24 @@ def PreparerMercredi(ligne, bloc, composantes=None, variantes=None,
     else:
         repartitions = {}
 
+    # Les variantes sans porc et vegetarien sont des sous-totaux exclusifs
+    # lorsque la commande comporte une repartition alimentaire validee.
+    # Refuser toute ressaisie M/P qui differerait du controle humain.
+    regimes = ligne.get("regimes")
+    if regimes:
+        for categorie in ("sans_porc", "vegetarien"):
+            if categorie not in regimes:
+                raise ValueError("Repartition validee incomplete : %s" % categorie)
+            attendu = EntierNaturel(regimes[categorie], categorie)
+            detail = repartitions.get(categorie)
+            if detail is None:
+                raise ValueError("Ventilation M/P manquante pour %s" % categorie)
+            obtenu = detail["M"] + detail["P"]
+            if obtenu != attendu:
+                raise ValueError(
+                    "Ventilation %s incoherente : %d en M/P pour %d repas valides"
+                    % (categorie, obtenu, attendu))
+
     decalage = 25 * (bloc - 1)
     cellules = {}
     for index, nom in enumerate(COMPOSANTES):
