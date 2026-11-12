@@ -83,7 +83,8 @@ def construire_classes(MODELES):
                 self.lignes.append((year,j['present'],j['absentj'],j['absenti'],j['mixte'],
                                     value['lignes']['reservation'],
                                     'n.d.' if pct is None else '%.2f %%' % pct,
-                                    'Complete' if value['annee_complete_dans_periode'] else 'Partielle'))
+                                    ('Partielle' if not value['annee_complete_dans_periode'] else
+                                     ('Complete' if value.get('annee_terminee') else 'En cours')))
             return self
 
     class TableauMois(MODELES.Tableau):
@@ -219,15 +220,67 @@ def construire_classes(MODELES):
             figure.subplots_adjust(right=.62)
             return figure
 
+    class TableauAnneesScolaires(MODELES.Tableau):
+        def __init__(self):
+            super().__init__()
+            self.code = 'assiduite_annees_scolaires'
+            self.nom = 'Presence et absences - annees scolaires (septembre-aout)'
+            self.largeur = '900'
+        def MAJ(self, DB=None, dictParametres=None):
+            self.dictParametres = dictParametres or {}
+            self.lignes = []; self.totaux = []
+            self.colonnes = [('Annee scolaire','105'),('Presents','90'),
+                            ('Justifiees','90'),('Injustifiees','90'),
+                            ('Mixtes','75'),('Reservations','95'),
+                            ('Taux absence hors mixtes','150'),('Couverture','90')]
+            if not est_disponible(self.dictParametres):
+                return self
+            data = obtenir_resultat(DB, self.dictParametres)
+            for label, value in data['annees_scolaires'].items():
+                j = value['journees_enfants']
+                pct = value['taux_absence_pct']
+                coverage = ('Partielle' if not value['annee_scolaire_complete_dans_periode']
+                            else ('Complete' if value['annee_scolaire_terminee'] else 'En cours'))
+                self.lignes.append((label,j['present'],j['absentj'],j['absenti'],
+                                   j['mixte'],value['lignes']['reservation'],
+                                   'n.d.' if pct is None else '%.2f %%' % pct,coverage))
+            return self
+
+    class GrapheAnneesScolaires(MODELES.Graphe):
+        def __init__(self):
+            super().__init__()
+            self.code = 'assiduite_graphe_annees_scolaires'
+            self.nom = 'Comparaison des annees scolaires'
+            self.taille = (820,430)
+        def MAJ(self, figure=None, DB=None, dictParametres=None):
+            self.dictParametres = dictParametres or {}
+            ax = figure.add_subplot(111)
+            if not est_disponible(self.dictParametres):
+                ax.set_axis_off(); return figure
+            data = obtenir_resultat(DB, self.dictParametres)
+            years = list(data['annees_scolaires'])
+            bottom = [0] * len(years)
+            for state, label in LABELS:
+                values = [data['annees_scolaires'][year]['journees_enfants'][state]
+                          for year in years]
+                ax.bar(years, values, bottom=bottom, label=label)
+                bottom = [a+b for a,b in zip(bottom,values)]
+            ax.legend(loc='upper left', fontsize=8)
+            ax.set_ylabel('Journees-enfants')
+            ax.set_title('Annees scolaires : consulter la couverture dans le tableau')
+            figure.tight_layout()
+            return figure
+
     return (TextePrecautions,TableauAnnees,TableauMois,TableauRepartition,
-            TableauSites,GrapheAnnees,GrapheMois,GrapheSecteurs)
+            TableauSites,GrapheAnnees,GrapheMois,GrapheSecteurs,
+            TableauAnneesScolaires,GrapheAnneesScolaires)
 
 
 def preparer_pages(MODELES, rubriques):
     """Append a dedicated attendance rubric, without altering old pages."""
     if any(row.get('code') == 'assiduite' for row in rubriques):
         return rubriques
-    (T,A,M,R,S,G,H,P)=construire_classes(MODELES)
+    (T,A,M,R,S,G,H,P,AS,GS)=construire_classes(MODELES)
     rubriques.append({
         'nom': 'Frequentation', 'code':'assiduite', 'image':None,
         'ctrl_notebook':None,'visible':True,
@@ -238,10 +291,13 @@ def preparer_pages(MODELES, rubriques):
              'ctrl_html':None, 'visible':True,'objets':[M(),H()]},
             {'nom':'Repartition et sites', 'code':'assiduite_sites', 'image':None,
              'ctrl_html':None, 'visible':True,'objets':[R(),P(),S()]},
+            {'nom':'Annees scolaires', 'code':'assiduite_scolaires', 'image':None,
+             'ctrl_html':None, 'visible':True,'objets':[AS(),GS()]},
         ]})
     return rubriques
 
 
 from Utils import UTILS_Stats_modeles as MODELES
 (TextePrecautions,TableauAnnees,TableauMois,TableauRepartition,TableauSites,
- GrapheAnnees,GrapheMois,GrapheSecteurs)=construire_classes(MODELES)
+ GrapheAnnees,GrapheMois,GrapheSecteurs,
+ TableauAnneesScolaires,GrapheAnneesScolaires)=construire_classes(MODELES)

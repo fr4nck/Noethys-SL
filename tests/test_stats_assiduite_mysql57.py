@@ -98,7 +98,8 @@ class AssiduiteMySQL57(unittest.TestCase):
     def test_02_exact_parity_2024_2026(self):
         ref,_=self.get(self.source)
         current,sql=self.get()
-        for key in ('global','annees','mois','sites','sites_annees','activites'):
+        for key in ('global','annees','annees_scolaires','mois','sites',
+                    'sites_annees','sites_annees_scolaires','activites'):
             self.assertEqual(current[key],ref[key],key)
         self.assertEqual(len(sql),1)
 
@@ -127,6 +128,27 @@ class AssiduiteMySQL57(unittest.TestCase):
         source,_=self.get(self.source)
         actual,_=self.get()
         self.assertEqual(source['annees']['2025'],actual['annees']['2025'])
+        self.assertEqual(source['annees_scolaires']['2024-2025'],
+                         actual['annees_scolaires']['2024-2025'])
+
+    def test_07_school_year_boundaries_and_site_parity(self):
+        source,_=self.get(self.source)
+        actual,_=self.get()
+        self.assertEqual(list(actual['annees_scolaires']),
+            ['2023-2024','2024-2025','2025-2026','2026-2027'])
+        self.assertEqual(actual['sites_annees_scolaires'],
+                         source['sites_annees_scolaires'])
+        self.assertEqual(actual['annees_scolaires']['2026-2027']
+                         ['journees_pointees'],0)
+
+    def test_08_annual_coverage_is_not_inferred_from_pointed_days(self):
+        source,_=self.get(self.source)
+        actual,_=self.get()
+        self.assertEqual(source['annees_scolaires'],actual['annees_scolaires'])
+        self.assertFalse(actual['annees_scolaires']['2023-2024']
+                         ['comparable_annee_entiere'])
+        self.assertTrue(actual['annees_scolaires']['2025-2026']
+                        ['annee_scolaire_complete_dans_periode'])
 
 
 if __name__=='__main__':

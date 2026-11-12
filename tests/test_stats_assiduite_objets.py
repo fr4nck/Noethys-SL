@@ -54,9 +54,10 @@ class StatObjectsTests(unittest.TestCase):
     def test_01_canonical_objects_in_real_categories(self):
         objects=(self.mod.TextePrecautions,self.mod.TableauAnnees,self.mod.TableauMois,
                  self.mod.TableauRepartition,self.mod.TableauSites,
-                 self.mod.GrapheAnnees,self.mod.GrapheMois,self.mod.GrapheSecteurs)
-        self.assertEqual(len(objects),8)
-        self.assertEqual([x().categorie for x in objects],['texte']+['tableau']*4+['graphe']*3)
+                 self.mod.GrapheAnnees,self.mod.GrapheMois,self.mod.GrapheSecteurs,
+                  self.mod.TableauAnneesScolaires,self.mod.GrapheAnneesScolaires)
+        self.assertEqual(len(objects),10)
+        self.assertEqual([x().categorie for x in objects],['texte']+['tableau']*4+['graphe']*3+['tableau','graphe'])
     def test_02_annual_table_and_partial_year(self):
         tab=self.mod.TableauAnnees().MAJ(DB=self.db,dictParametres=self.params)
         self.assertEqual(len(tab.lignes),3)
@@ -102,7 +103,7 @@ class StatObjectsTests(unittest.TestCase):
         self.mod.preparer_pages(SimpleNamespace(Texte=Texte,Tableau=Tableau,Graphe=Graphe),start)
         self.mod.preparer_pages(SimpleNamespace(Texte=Texte,Tableau=Tableau,Graphe=Graphe),start)
         self.assertEqual(len(start),2)
-        self.assertEqual(len(start[1]['pages']),3)
+        self.assertEqual(len(start[1]['pages']),4)
     def test_10_warning_omits_false_cancellation_number(self):
         obj=self.mod.TextePrecautions().MAJ(DB=self.db,dictParametres=self.params)
         self.assertIn('Annulations',obj.GetObjetHTML())
@@ -113,6 +114,23 @@ class StatObjectsTests(unittest.TestCase):
     def test_12_source_prepared_without_network_access(self):
         for s in self.db.sql:
             self.assertTrue(s.startswith('SELECT '))
+
+    def test_13_school_year_table_records_coverage(self):
+        table=self.mod.TableauAnneesScolaires().MAJ(
+            DB=self.db, dictParametres=self.params)
+        self.assertEqual([r[0] for r in table.lignes],
+                         ['2023-2024','2024-2025','2025-2026','2026-2027'])
+        self.assertEqual(table.lignes[0][-1],'Partielle')
+        self.assertEqual(table.lignes[-1][-1],'Partielle')
+        self.assertEqual(len(self.db.sql),1)
+
+    def test_14_school_year_graph_preserves_zero_year(self):
+        fig=plt.figure()
+        self.mod.GrapheAnneesScolaires().MAJ(
+            figure=fig,DB=self.db,dictParametres=self.params)
+        self.assertEqual(len(fig.axes),1)
+        self.assertEqual(len(fig.axes[0].patches),16)
+        self.assertEqual(len(self.db.sql),1)
 
 
 if __name__=='__main__':

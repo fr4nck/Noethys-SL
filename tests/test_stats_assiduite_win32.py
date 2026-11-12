@@ -55,7 +55,7 @@ class AssiduiteWxWindows(unittest.TestCase):
         self.assertIn('individus',rubriques)
         self.assertIn('familles',rubriques)
         self.assertIn('assiduite',rubriques)
-        self.assertEqual(len(rubriques['assiduite']['pages']),3)
+        self.assertEqual(len(rubriques['assiduite']['pages']),4)
         self.assertIsInstance(self.dlg.bouton_export_assiduite,self.wx.Button)
 
     def test_real_stats_html_page_and_print_markup(self):
@@ -74,6 +74,23 @@ class AssiduiteWxWindows(unittest.TestCase):
         self.assertIn('memory:image-',html)
         self.assertIn('memory:image-',printing)
         self.assertGreater(len(printing),200)
+
+
+    def test_native_school_year_page_and_print_markup(self):
+        self.dlg.baseHTML.SetParametres(self.parameters)
+        with mock.patch.object(self.MODELES.GestionDB,'DB',return_value=self.db):
+            self.dlg.baseHTML.MAJ(page='assiduite_scolaires')
+            html=self.dlg.baseHTML.GetHTML(page='assiduite_scolaires')
+            rubric=next(x for x in self.dlg.listeObjets if x['code']=='assiduite')
+            page=next(x for x in rubric['pages'] if x['code']=='assiduite_scolaires')
+            selected=['assiduite',page['code']]+[o.code for o in page['objets']]
+            printed=self.dlg.baseHTML.GetHTML(
+                mode='impression', rubrique='assiduite',
+                page=page['code'], selectionsCodes=selected)
+        self.assertIn('2025-2026',html)
+        self.assertIn('2026-2027',html)
+        self.assertIn('memory:image-',html)
+        self.assertIn('memory:image-',printed)
 
     def test_legacy_stats_pages_not_removed(self):
         original={r['code']:r for r in self.dlg.listeObjets}

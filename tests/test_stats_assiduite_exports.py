@@ -67,8 +67,8 @@ class ExportsTests(unittest.TestCase):
             xml=ET.fromstring(book.read('xl/workbook.xml'))
             n='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
             tabs=[x.attrib['name'] for x in xml.findall('.//{%s}sheet'%n)]
-            self.assertEqual(tabs,['Bilan','Annees','Mois','Activites','Sites','Sites par an'])
-            self.assertGreaterEqual(sum('/chart' in p and p.endswith('.xml') for p in paths),4)
+            self.assertEqual(tabs,['Bilan','Annees','Annees scolaires','Mois','Activites','Sites','Sites par an','Sites scolaires'])
+            self.assertGreaterEqual(sum('/chart' in p and p.endswith('.xml') for p in paths),6)
             self.assertFalse(any(p.endswith('vbaProject.bin') for p in paths))
 
     def test_zip_has_summary_and_per_site(self):

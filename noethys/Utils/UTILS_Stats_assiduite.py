@@ -165,8 +165,11 @@ class Lecteur:
             raise PerimetreIncomplet('Presence without an unambiguous approved physical site')
         return matches[0]
 
-    def lire(self, date_debut, date_fin):
+    def lire(self, date_debut, date_fin, date_reference=None):
         a, b = _iso(date_debut), _iso(date_fin)
+        # The selected window can include future dates. A year whose end
+        # has not happened cannot be called a completed observational year.
+        observation_cutoff = _iso(date_reference or date.today())
         if b < a:
             raise ValueError('End date before start')
         acts = tuple(sorted(self.conf.activites))
@@ -177,10 +180,12 @@ class Lecteur:
                "AND c.IDactivite IN %s ORDER BY c.date,c.IDconso" % (a, b, sqlids))
         global_count = _Compteur()
         by_year = defaultdict(_Compteur)
+        by_school_year = defaultdict(_Compteur)
         by_month = defaultdict(_Compteur)
         by_activity = defaultdict(_Compteur)
         by_site = defaultdict(_Compteur)
         by_site_year = defaultdict(_Compteur)
+        by_site_school_year = defaultdict(_Compteur)
         excluded_units = 0
         unknown_states = Counter()
         for record in self._read(sql):
@@ -201,14 +206,23 @@ class Lecteur:
             row = {'child': child, 'date': day}
             year = day[:4]
             month = day[:7]
-            group_counters = (global_count, by_year[year], by_month[month],
+            # French school/operating year: 1 September -> 31 August.
+            start_school = int(day[:4]) - (int(day[5:7]) < 9)
+            school_key = '%04d-%04d' % (start_school, start_school + 1)
+            group_counters = (global_count, by_year[year],
+                              by_school_year[school_key], by_month[month],
                               by_activity[str(activity)])
             if self.conf.regles_sites:
                 site = self._site(activity, unit, group)
-                group_counters += (by_site[site], by_site_year[(site, year)])
+                group_counters += (by_site[site], by_site_year[(site, year)],
+                                   by_site_school_year[(site, school_key)])
             for cnt in group_counters:
                 cnt.add(row, actual)
         years = range(int(a[:4]), int(b[:4]) + 1)
+        first_school = int(a[:4]) - (int(a[5:7]) < 9)
+        last_school = int(b[:4]) - (int(b[5:7]) < 9)
+        school_years = range(first_school, last_school + 1)
+        school_labels = ['%04d-%04d' % (y, y + 1) for y in school_years]
         # Explicitly include empty months: a missing observation is not a missing month.
         monthly_keys = []
         yy, mm = int(a[:4]), int(a[5:7])
@@ -225,12 +239,16 @@ class Lecteur:
             'sites_qualifies': bool(self.conf.regles_sites),
             'global': global_count.result(),
             'annees': {str(year): by_year[str(year)].result() for year in years},
+            'annees_scolaires': {key: by_school_year[key].result() for key in school_labels},
             'mois': {key: by_month[key].result() for key in monthly_keys},
             'activites': {str(v): by_activity[str(v)].result() for v in acts},
             'sites': dict(sorted((name, cnt.result()) for name, cnt in by_site.items())),
             'sites_annees': {name: {str(year): by_site_year[(name, str(year))].result()
                                    for year in years}
                              for name in sorted(by_site)},
+            'sites_annees_scolaires': {
+                name: {key: by_site_school_year[(name, key)].result()
+                       for key in school_labels} for name in sorted(by_site)},
             'unites_exclues': excluded_units,
             'etats_non_reconnus': dict(sorted(unknown_states.items())),
             'annulations': {
@@ -244,13 +262,27 @@ class Lecteur:
                 'Mixed child-days cannot be assigned to a single presence/absence state',
                 'Unpointed reservations do not imply absence or cancellation',
                 'Cancellation totals are unavailable without structured event history',
-                'Partial years are not directly comparable to complete calendar years',
+                'Partial or ongoing years must not be compared as full years',
+                'School years start on 1 September and end on 31 August',
+                'Year coverage denotes the selected window; it cannot prove old data retention',
             ],
             'requetes_sql': len(self.requetes),
         }
         # Even if there are no attendance rows, the requested years are present.
         for year in years:
             k = str(year)
-            result['annees'][k]['annee_complete_dans_periode'] = (
+            y = result['annees'][k]
+            y['annee_complete_dans_periode'] = (
                 (a <= k + '-01-01') and (b >= k + '-12-31'))
+            y['annee_terminee'] = k + '-12-31' <= observation_cutoff
+            y['comparable_annee_entiere'] = (
+                y['annee_complete_dans_periode'] and y['annee_terminee'])
+        for school_start, key in zip(school_years, school_labels):
+            first = '%04d-09-01' % school_start
+            last = '%04d-08-31' % (school_start + 1)
+            row = result['annees_scolaires'][key]
+            row['annee_scolaire_complete_dans_periode'] = a <= first and b >= last
+            row['annee_scolaire_terminee'] = last <= observation_cutoff
+            row['comparable_annee_entiere'] = (
+                row['annee_scolaire_complete_dans_periode'] and row['annee_scolaire_terminee'])
         return result

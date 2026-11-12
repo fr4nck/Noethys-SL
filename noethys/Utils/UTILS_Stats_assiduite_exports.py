@@ -11,7 +11,7 @@ HEADER = ('Perimetre', 'Periode', 'Jours presents', 'Absences justifiees',
           'Absences injustifiees', 'Jours mixtes', 'Jours pointes',
           'Reservations non pointees (lignes)', 'Attentes (lignes)',
           'Refus (lignes)', 'Taux absence (%) hors mixtes',
-          'Part injustifiee (%)', 'Annulations')
+          'Part injustifiee (%)', 'Annulations', 'Couverture')
 
 
 def _safe(value):
@@ -24,8 +24,14 @@ def _check(data):
         raise ValueError('Incomplete aggregate attendance report')
     if data.get('annulations', {}).get('nombre') is not None:
         raise ValueError('Cancellation evidence is not yet sufficient')
-    for scope in [data['global'], *data['annees'].values(), *data['mois'].values(),
-                  *data['activites'].values(), *data['sites'].values()]:
+    if 'annees_scolaires' not in data or 'sites_annees_scolaires' not in data:
+        raise ValueError('Missing school year aggregates')
+    for scope in [data['global'], *data['annees'].values(),
+                  *data['annees_scolaires'].values(), *data['mois'].values(),
+                  *data['activites'].values(), *data['sites'].values(),
+                  *(v for scopes in data['sites_annees'].values() for v in scopes.values()),
+                  *(v for scopes in data['sites_annees_scolaires'].values()
+                    for v in scopes.values())]:
         days = scope['journees_enfants']
         rows = scope['lignes']
         if (any(not isinstance(v, int) or v < 0 for v in (*days.values(), *rows.values()))
@@ -38,15 +44,26 @@ def _check(data):
 def _row(name, period, value):
     d = value['journees_enfants']
     l = value['lignes']
+    if 'annee_scolaire_complete_dans_periode' in value:
+        coverage = ('Partielle' if not value['annee_scolaire_complete_dans_periode']
+                    else ('Complete' if value['annee_scolaire_terminee'] else 'En cours'))
+    elif 'annee_complete_dans_periode' in value:
+        coverage = ('Partielle' if not value['annee_complete_dans_periode']
+                    else ('Complete' if value['annee_terminee'] else 'En cours'))
+    else:
+        coverage = ''
     return (_safe(name), period, d['present'], d['absentj'], d['absenti'], d['mixte'],
             value['journees_pointees'], l['reservation'], l['attente'], l['refus'],
-            value['taux_absence_pct'], value['part_injustifiee_pct'], 'Non reconstructibles')
+            value['taux_absence_pct'], value['part_injustifiee_pct'],
+            'Non reconstructibles', coverage)
 
 
 def lignes(data):
     _check(data)
     result = [_row('Synthese generale', ' au '.join(data['periode']), data['global'])]
     result.extend(_row('Annee', year, value) for year, value in data['annees'].items())
+    result.extend(_row('Annee scolaire', year, value)
+                  for year, value in data['annees_scolaires'].items())
     result.extend(_row('Mois', month, value) for month, value in data['mois'].items())
     result.extend(_row('Activite ' + code, ' au '.join(data['periode']), value)
                   for code, value in data['activites'].items())
@@ -54,6 +71,9 @@ def lignes(data):
                   for site, value in data['sites'].items())
     for site, annual in data['sites_annees'].items():
         result.extend(_row('Site ' + site, year, value) for year, value in annual.items())
+    for site, annual in data['sites_annees_scolaires'].items():
+        result.extend(_row('Site ' + site + ' (scolaire)', year, value)
+                      for year, value in annual.items())
     return result
 
 
@@ -75,6 +95,8 @@ def export_xlsx(data, filename):
     categories = [
         ('Bilan', [('Synthese generale', ' au '.join(data['periode']), data['global'])]),
         ('Annees', [('Annee', key, value) for key, value in data['annees'].items()]),
+        ('Annees scolaires', [('Annee scolaire', key, value)
+                             for key, value in data['annees_scolaires'].items()]),
         ('Mois', [('Mois', key, value) for key, value in data['mois'].items()]),
         ('Activites', [('Activite ' + key, ' au '.join(data['periode']), value)
                        for key, value in data['activites'].items()]),
@@ -83,6 +105,9 @@ def export_xlsx(data, filename):
         ('Sites par an', [ ('Site ' + site, year, value)
                            for site, annual in data['sites_annees'].items()
                            for year, value in annual.items()]),
+        ('Sites scolaires', [('Site ' + site, year, value)
+                             for site, annual in data['sites_annees_scolaires'].items()
+                             for year, value in annual.items()]),
     ]
     with xlsxwriter.Workbook(str(filename), {'strings_to_formulas':False,
                                               'strings_to_urls':False}) as wb:
@@ -91,7 +116,7 @@ def export_xlsx(data, filename):
             ws = wb.add_worksheet(name)
             ws.set_column(0, 0, 23)
             ws.set_column(1, 1, 30)
-            ws.set_column(2, 12, 22)
+            ws.set_column(2, 13, 22)
             for column, title in enumerate(HEADER):
                 ws.write_string(0, column, title, head)
             for index, (scope, period, values) in enumerate(scopes, 1):
@@ -105,7 +130,7 @@ def export_xlsx(data, filename):
             ws.freeze_panes(1,2)
             if scopes:
                 ws.autofilter(0,0,len(scopes),len(HEADER)-1)
-            if name in ('Annees', 'Mois') and scopes:
+            if name in ('Annees', 'Annees scolaires', 'Mois') and scopes:
                 chart=wb.add_chart({'type':'column','subtype':'stacked'})
                 for col in (2,3,4,5):
                     chart.add_series({'name':[name,0,col],
@@ -148,5 +173,7 @@ def export_zip_csv(data, filename):
             part.writerow(_row('Site ' + site, ' au '.join(data['periode']), values))
             for year, value in data['sites_annees'][site].items():
                 part.writerow(_row('Site ' + site,year,value))
+            for school_year, value in data['sites_annees_scolaires'][site].items():
+                part.writerow(_row('Site ' + site + ' (scolaire)',school_year,value))
             pack.writestr(filename,('\ufeff'+stream.getvalue()).encode('utf-8'))
     return 1 + len(data['sites'])
