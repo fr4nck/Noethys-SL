@@ -1,3 +1,14 @@
+Version Noethys SL 0.1.0 RC11 (12/11/2026) :
+
+- Commandes Océane : contrôle bloquant des écarts entre les quantités sans porc/végétariennes validées et leur ventilation en portions M/P sur le bordereau Excel.
+- Questionnaires et repas : maintien des quatre choix individuels, dont « Repas apporté par la famille », sans réservation de repas supplémentaire ; décompte fournisseur séparé de la présence midi.
+- Contrôles des régimes : validation automatisée sur MySQL 5.7.44 jetable et SQLite, y compris doublons multisites, horaires du midi, défaut Standard et idempotence du questionnaire.
+- Facturation et adhésions : maintien des contrôles de cotisations, des décisions individuelles et des protections contre les erreurs SQL de la branche wx.
+- Sauvegardes : maintien des contrôles de destination, de surveillance des exports MySQL et de préservation des anciennes archives en cas d'échec.
+- Connecthys et fenêtres wx : conservation des correctifs de reprise, de dialogue et de réactivité intégrés depuis RC10.55.
+- Panier familial : l'exclusion de la commande fournisseur n'active aucune exonération automatique sur les factures ; le raccordement financier 2C-3 reste désactivé et soumis à qualification tarifaire.
+- Version interne Noethys 1.3.4.4 inchangée ; aucune migration SQL.
+
 Version Noethys SL 0.1.0 RC10.56 (09/11/2026) :
 
 - Factures par Email : option facultative de rendu PDF en processus Windows séparé, désactivée par défaut ; échec du rendu = transfert bloqué, retour manuel possible au rendu classique (sous réserve de qualification de la RC).
