@@ -7,6 +7,8 @@ on:
     paths:
       - 'tests/test_stats_assiduite_mysql57.py'
       - 'noethys/Utils/UTILS_Stats_assiduite.py'
+      - 'noethys/Utils/UTILS_Stats_assiduite_perimetre.py'
+      - 'tests/test_stats_assiduite_perimetre.py'
       - '.github/workflows/noethys-sl-assiduite-mysql57.yml'
   workflow_dispatch:
 

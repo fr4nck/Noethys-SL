@@ -7,6 +7,8 @@ import re
 import unittest
 from secrets import token_hex
 from tests.test_stats_assiduite_synthetic import fixture,conf,DB,MOD
+from tests.test_stats_assiduite_perimetre import approved, populate_metadata
+from Utils import UTILS_Stats_assiduite_perimetre as SITE_PREFLIGHT
 
 GUARD = re.compile(r'^zz_assiduite_[0-9a-f]{16}$')
 
@@ -38,6 +40,7 @@ class AssiduiteMySQL57(unittest.TestCase):
                 cur.execute('CREATE DATABASE `%s` CHARACTER SET utf8mb4' % cls.schema)
             cls.db.select_db(cls.schema)
             cls.source=fixture()
+            populate_metadata(cls.source)
             with cls.db.cursor() as cur:
                 cur.execute('''CREATE TABLE consommations (
                     IDconso INT PRIMARY KEY,
@@ -51,6 +54,16 @@ class AssiduiteMySQL57(unittest.TestCase):
                 records=[tuple(row) for row in cls.source.execute(
                     'SELECT IDconso,date,IDindividu,IDactivite,IDunite,IDgroupe,etat FROM consommations')]
                 cur.executemany('INSERT INTO consommations VALUES (%s,%s,%s,%s,%s,%s,%s)',records)
+                cur.execute('CREATE TABLE activites (IDactivite INT PRIMARY KEY, nom VARCHAR(200)) ENGINE=InnoDB')
+                cur.execute('CREATE TABLE unites (IDunite INT PRIMARY KEY, IDactivite INT, nom VARCHAR(200), repas INT) ENGINE=InnoDB')
+                cur.execute('CREATE TABLE groupes (IDgroupe INT PRIMARY KEY, IDactivite INT, nom VARCHAR(200)) ENGINE=InnoDB')
+                for table, fields in (('activites','IDactivite,nom'),
+                                      ('unites','IDunite,IDactivite,nom,repas'),
+                                      ('groupes','IDgroupe,IDactivite,nom')):
+                    records=[tuple(row) for row in cls.source.execute(
+                        'SELECT '+fields+' FROM '+table+' ORDER BY 1')]
+                    fmt=','.join(['%s']*len(records[0]))
+                    cur.executemany('INSERT INTO '+table+' VALUES ('+fmt+')',records)
             cls.db.commit()
         except BaseException:
             cls.tearDownClass()
@@ -149,6 +162,54 @@ class AssiduiteMySQL57(unittest.TestCase):
                          ['comparable_annee_entiere'])
         self.assertTrue(actual['annees_scolaires']['2025-2026']
                         ['annee_scolaire_complete_dans_periode'])
+
+
+    def test_09_site_preflight_parity_sqlite_mysql(self):
+        class Bridge:
+            def __init__(self, cn):
+                self.cn=cn
+                self.sql=[]
+                self.rows=[]
+            def ExecuterReq(self, query):
+                if not query.startswith('SELECT '):
+                    raise AssertionError('Read-only SELECT required')
+                self.sql.append(query)
+                with self.cn.cursor() as cur:
+                    cur.execute(query)
+                    self.rows=cur.fetchall()
+                return True
+            def ResultatReq(self):
+                return self.rows
+
+        a=SITE_PREFLIGHT.precontroler(DB(self.source),approved(),
+                '2024-01-01','2026-12-31')
+        bridge=Bridge(self.db)
+        b=SITE_PREFLIGHT.precontroler(bridge,approved(),
+                '2024-01-01','2026-12-31')
+        self.assertEqual(a,b)
+        self.assertEqual(a['requetes_sql'],4)
+        self.assertEqual(a['lignes_total'],20)
+        self.assertEqual(a['verdicts']['UNITE_EXCLUE_A_VERIFIER'],1)
+        self.assertFalse(b['homologue'])
+        self.assertTrue(all(q.startswith('SELECT ') for q in bridge.sql))
+
+    def test_10_site_preflight_never_infers_unapproved_mapping(self):
+        cfg=MOD.Configuration((10,),{10:(1,2)},())
+        class Bridge:
+            def __init__(self,cn):
+                self.cn=cn
+            def ExecuterReq(self,query):
+                with self.cn.cursor() as cur:
+                    cur.execute(query)
+                    self.rows=cur.fetchall()
+                return True
+            def ResultatReq(self):
+                return self.rows
+        r=SITE_PREFLIGHT.precontroler(Bridge(self.db),cfg,
+                '2024-01-01','2026-12-31')
+        self.assertEqual(r['sites_candidats'],{})
+        self.assertFalse(r['homologue'])
+        self.assertFalse(r['candidat_a_approbation_humaine'])
 
 
 if __name__=='__main__':
