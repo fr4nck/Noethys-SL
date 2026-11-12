@@ -101,6 +101,31 @@ class CellulesBordereau(unittest.TestCase):
         self.assertEqual(c["J9"], 29)
         self.assertFalse(p["repartition_alimentaire_a_completer"])
 
+    def test_variantes_bordereau_identiques_aux_regimes_valides(self):
+        # Une somme M/P differente du controle de la commande doit bloquer.
+        # Le restaurateur ne doit jamais recevoir un faux sous-total.
+        entree = commande(regimes={
+            "standard": 28, "sans_porc": 4, "vegetarien": 5,
+            "non_renseignes": 0,
+        })
+        variantes = {
+            "sans_porc": {"M": 1, "P": 3},
+            "sans_viande": {"M": 0, "P": 0},
+            "vegetarien": {"M": 1, "P": 4},
+            "sans_allergene": {"M": 0, "P": 0},
+        }
+        correct = O.PreparerMercredi(entree, 1, variantes=variantes)
+        self.assertEqual(correct["cellules"]["J17"], 3)
+        self.assertEqual(correct["cellules"]["J19"], 4)
+        sans_porc_incorrect = dict(variantes,
+                                  sans_porc={"M": 1, "P": 2})
+        with self.assertRaises(ValueError):
+            O.PreparerMercredi(entree, 1, variantes=sans_porc_incorrect)
+        vegetarien_incorrect = dict(variantes,
+                                   vegetarien={"M": 1, "P": 3})
+        with self.assertRaises(ValueError):
+            O.PreparerMercredi(entree, 1, variantes=vegetarien_incorrect)
+
     def test_dossier_allergene_doit_etre_accepte(self):
         entree = commande()
         variantes = {"sans_allergene": {"M": 1, "P": 0}}
