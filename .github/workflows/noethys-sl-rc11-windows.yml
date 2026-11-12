@@ -29,7 +29,7 @@ permissions:
 # un push de code ne doit jamais interrompre cette operation sensible.
 concurrency:
   group: noethys-sl-rc11-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
