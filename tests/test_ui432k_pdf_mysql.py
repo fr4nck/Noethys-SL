@@ -36,8 +36,11 @@ class FacturePDFMySQLFictif(unittest.TestCase):
             return
         if not cls.base.startswith(PREFIXE):
             raise AssertionError("Nettoyage MySQL hors prefixe de recette refuse")
-        admin = GestionDB.DB(nomFichier=cls.racine, suffixe=None)
+        admin = GestionDB.DB(nomFichier=cls.racine, suffixe=None, pooling=False)
         try:
+            # Un SELECT ou worker en echec peut laisser une connexion ouverte.
+            # Le nettoyage de la fixture ne doit jamais attendre 7 minutes.
+            admin.cursor.execute("SET SESSION lock_wait_timeout=5;")
             admin.cursor.execute("DROP DATABASE `%s`;" % cls.base)
         finally:
             admin.Close()
@@ -76,17 +79,17 @@ class FacturePDFMySQLFictif(unittest.TestCase):
         cls.sqlite, cls.modele = _creer_base_facture_avec_prestation_sans_activite()
         cls.addClassCleanup(cls.sqlite.fermer)
         print("UI432K_MYSQL_PHASE sqlite_pret", flush=True)
-        # La fixture historique SQLite tolérait l'absence de cette table
-        # vide ; le curseur MySQL refuse fetchall() après la requête échouée.
-        # Compléter UNIQUEMENT le schéma de recette, jamais le moteur global.
+        # Reproduire les tables lues par la vraie chaine de facturation :
+        # SQLite peut masquer une lecture SQL echouee, mais MySQL ne peut
+        # pas fournir un fetchall() apres l'absence de table. Le test doit
+        # exercer un schema reeel coherent, sans affaiblir la validation.
         with sqlite3.connect(cls.sqlite.chemin) as controle:
-            existe = controle.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' "
-                "AND name='questionnaire_reponses'").fetchone()
-        if not existe:
-            cls.sqlite.db.CreationTable(
-                "questionnaire_reponses", Tables.DB_DATA)
-            cls.sqlite.db.Commit()
+            presentes = set(row[0] for row in controle.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"))
+        for table in ("questionnaire_reponses", "inscriptions"):
+            if table not in presentes:
+                cls.sqlite.db.CreationTable(table, Tables.DB_DATA)
+        cls.sqlite.db.Commit()
 
         mysql = GestionDB.DB(
             nomFichier=cls.source, suffixe=None, modeCreation=True, pooling=False)
