@@ -1,0 +1,192 @@
+name: Noethys SL - publier la prerelease RC11 verifiee
+
+# Publication explicite demandee par la direction le 12/11/2026.
+# Ne republie jamais une release existante, ne modifie aucune base Noethys.
+# La release reste une PREVERSION de recette ; pas un feu vert production.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-rc11-publish.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-sl-prerelease-rc11-unique
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verifier les preuves et publier RC11 en prerelease
+    if: >-
+      github.ref == 'refs/heads/wx' &&
+      github.event.before == '91e7e4adc389b00935526fc195622a3c0f6cc1d8' &&
+      contains(github.event.head_commit.message, '[publish rc11]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_SHA: '91e7e4adc389b00935526fc195622a3c0f6cc1d8'
+      TAG: 'noethys-sl-0.1.0-rc.11'
+      BUILD_RUN: '43247607284'
+      CI_RUN: '43247607299'
+      PDF_RUN: '43247607709'
+      MYSQL_REGIMES_RUN: '43243320452'
+
+    steps:
+      - name: Lire exactement le code source qualifie
+        uses: actions/checkout@v7
+        with:
+          ref: '91e7e4adc389b00935526fc195622a3c0f6cc1d8'
+          persist-credentials: false
+
+      - name: Barriere SHA, CI, artefact et absence de publication anterieure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'fr4nck/Noethys-SL'
+          test "$GITHUB_REF" = 'refs/heads/wx'
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(sed -n '1p' noethys/Versions.txt)" = 'Version Noethys SL 0.1.0 RC11 (12/11/2026) :'
+          grep -q '^PRODUCT_VERSION = "0.1.0-rc.11"$' noethys/Identite.py
+          grep -q '^PRODUCT_VERSION_DISPLAY = u"0.1.0 RC11"$' noethys/Identite.py
+          test -s docs/releases/noethys-sl-0.1.0-rc.11.md
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --silent >/dev/null 2>&1; then
+            echo "::error::Le tag RC11 existe deja : publication refusee"
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::La release RC11 existe deja : publication refusee"
+            exit 1
+          fi
+
+          for run in "$BUILD_RUN" "$CI_RUN" "$PDF_RUN"; do
+            result=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" \
+              --jq '[.head_sha, .head_branch, .status, .conclusion] | join("|")')
+            test "$result" = "$SOURCE_SHA|wx|completed|success" || {
+              echo "::error::Run $run non qualifie : $result"
+              exit 1
+            }
+            echo "QUALIFICATION_OK run=$run sha=$SOURCE_SHA"
+          done
+
+          mysql_result=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MYSQL_REGIMES_RUN" \
+            --jq '[.head_sha, .head_branch, .status, .conclusion] | join("|")')
+          test "$mysql_result" = "4fae7abec808a496ac38be487f2fa4a317cb5ebf|wx|completed|success" || {
+            echo "::error::Recette MySQL regimes precedente non qualifiee"
+            exit 1
+          }
+
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/artifacts" \
+            --jq '[.artifacts[] | select(.name == "Noethys-SL-0.1.0-rc.11-Windows-candidat" and .expired == false)] | length')
+          test "$count" = '1' || {
+            echo "::error::Artefact unique RC11 absent, expire ou ambigu"
+            exit 1
+          }
+
+      - name: Telecharger les livrables du build exact et verifier SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name 'Noethys-SL-0.1.0-rc.11-Windows-candidat' \
+            --dir release-files
+          cd release-files
+          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" = 3
+          test -s Noethys-SL-0.1.0-rc.11-Setup.exe
+          test -s Noethys-SL-0.1.0-rc.11-Windows-portable.zip
+          test -s SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          echo '6d234a9551f6ebe031b99a4620f035fe80f385f0343832d5cb9d8de1641ac49d  Noethys-SL-0.1.0-rc.11-Setup.exe' | sha256sum --check -
+          echo '9f568e483cdb89bba187bce67273939fb94e87197ffe9a5d04ff2dcdc231a3d1  Noethys-SL-0.1.0-rc.11-Windows-portable.zip' | sha256sum --check -
+          cd ..
+          python3 - <<'PY'
+          import os
+          import zipfile
+          zpath='release-files/Noethys-SL-0.1.0-rc.11-Windows-portable.zip'
+          with zipfile.ZipFile(zpath) as z:
+              assert z.testzip() is None, 'Archive portable corrompue'
+              names=set(z.namelist())
+              assert 'Noethys.exe' in names
+              assert 'Portable/README.txt' in names
+              assert 'mysql-client/bin/mysqldump.exe' in names
+              info=z.read('BUILD-INFO.txt').decode('utf-8-sig')
+              assert 'Version publique: 0.1.0-rc.11' in info
+              assert 'Branche: wx' in info
+              assert 'Commit: ' + os.environ['SOURCE_SHA'] in info
+          print('PREUVES_LIVRABLES=PASS')
+          PY
+
+      - name: Composer les notes publiques avec limites de recette
+        shell: bash
+        run: |
+          cat > RELEASE-NOTES-RC11.md <<'EOF'
+          # Noethys SL 0.1.0 RC11 — préversion Windows (wxPython)
+
+          **Prérelease publique de recette, non stable. Ne pas déployer sur les bases ou profils PMSL de production sans recette terrain et sauvegarde vérifiée.**
+
+          ## Correctifs inclus
+          - Contrôle du bordereau Océane : la ventilation M/P des repas sans porc et végétariens doit correspondre exactement aux sous-totaux validés ; les variantes sans viande et sans allergène ne sont jamais déduites automatiquement.
+          - Questionnaire individuel avec quatre types de repas, dont le repas apporté par la famille, exclu des commandes fournisseur mais conservé dans la présence méridienne.
+          - Corrections cumulatives de cotisations, facturation, sauvegardes MySQL, interfaces Windows, Connecthys et AFAS depuis RC10.55.
+          - Moteur PDF isolé facultatif ; aucune activation automatique.
+
+          ## Livrables Windows
+          - `Noethys-SL-0.1.0-rc.11-Setup.exe` : installation classique.
+          - `Noethys-SL-0.1.0-rc.11-Windows-portable.zip` : recette avec profil distinct, uniquement sur données fictives.
+          - `SHA256SUMS.txt` : intégrité des deux livrables.
+
+          ## Qualification technique
+          - [Construction Windows RC11](https://github.com/fr4nck/Noethys-SL/actions/runs/43247607284) : SUCCESS, compilation, installation isolée, PDF, sauvegarde et restauration sur MySQL 5.7.44 jetable, gros BLOB DATA + DOCUMENTS, deux démarrages portables.
+          - [CI rapide Windows](https://github.com/fr4nck/Noethys-SL/actions/runs/43247607299) : SUCCESS.
+          - [PDF MySQL 5.7.44](https://github.com/fr4nck/Noethys-SL/actions/runs/43247607709) : SUCCESS, rendu historique et processus isolé comparés.
+          - [Régimes et panier MySQL/SQLite](https://github.com/fr4nck/Noethys-SL/actions/runs/43243320452) : 14/14 tests.
+          - Source exacte : `91e7e4adc389b00935526fc195622a3c0f6cc1d8` (`wx`). Version interne Noethys `1.3.4.4` inchangée. Aucune migration SQL.
+
+          ## Limites connues avant tout usage réel
+          - La sauvegarde `DATA + DOCUMENTS` sur le réseau PMSL et sa restauration indépendante n'ont pas encore été certifiées sur le terrain (#437).
+          - Les scénarios Windows de maximisation/focus avec Connecthys/Mailer et la reprise opérateur de cas réels doivent encore être éprouvés sur une base de recette (#432, #435).
+          - L'exonération **automatique** de facturation des paniers familiaux n'est **pas activée ni qualifiée** : aucune promesse de tarif repas à 0 € dans les factures (#433).
+          - Les tests automatiques ne remplacent pas les contrôles métier de facturation et de données existantes (#426, #447). Ne pas utiliser cette préversion pour émettre de vraies factures ou envoyer de vraies commandes sans validation.
+
+          [Barrières de sortie RC11](https://github.com/fr4nck/Noethys-SL/issues/447).
+          EOF
+
+      - name: Creer la release en brouillon et verifier les fichiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            release-files/Noethys-SL-0.1.0-rc.11-Setup.exe \
+            release-files/Noethys-SL-0.1.0-rc.11-Windows-portable.zip \
+            release-files/SHA256SUMS.txt \
+            --target "$SOURCE_SHA" --repo "$GITHUB_REPOSITORY" \
+            --title 'Noethys SL 0.1.0 RC11' \
+            --notes-file RELEASE-NOTES-RC11.md --draft --prerelease
+
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')" = "$SOURCE_SHA"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,assets \
+            --jq '.tagName, .isDraft, .isPrerelease, ([.assets[].name] | sort | join(","))'
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,assets \
+            --jq '.tagName == "noethys-sl-0.1.0-rc.11" and .isDraft == true and (.assets | length) == 3' \
+            | grep -qx true
+
+      - name: Rendre publique uniquement comme PRERELEASE
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,assets,url \
+            --jq '.isDraft == false and .isPrerelease == true and (.assets | length) == 3' \
+            | grep -qx true
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
+          echo 'PRE_RELEASE_RC11_PUBLIEE=YES'
