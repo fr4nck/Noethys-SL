@@ -157,7 +157,7 @@ class ExcelOceaneTests(unittest.TestCase):
     def test_export_refuse_ecart_avec_repartition_validee(self):
         entree = _cas("Bais")
         entree["regimes"] = {
-            "standard": 29, "sans_porc": 3, "vegetarien": 5,
+            "standard": 30, "sans_porc": 3, "vegetarien": 4,
             "non_renseignes": 0,
         }
         E.ExporterBordereau(self.modele, self.output, [entree])
@@ -166,7 +166,7 @@ class ExcelOceaneTests(unittest.TestCase):
 
         entree = _cas("Bais")
         entree["regimes"] = {
-            "standard": 28, "sans_porc": 4, "vegetarien": 5,
+            "standard": 29, "sans_porc": 4, "vegetarien": 4,
             "non_renseignes": 0,
         }
         with self.assertRaisesRegex(ValueError, "sans_porc"):
