@@ -486,7 +486,8 @@ class Dialog(wx.Dialog):
         # Le modèle fournisseur est spécifique aux mercredis midi.
         lignes = [
             {"date": e["date"], "site": e["site"],
-             "service": e["service"], "totaux": e["totaux"]}
+             "service": e["service"], "totaux": e["totaux"],
+             "regimes": e.get("regimes") or {}}
             for e in snapshot
             if e["date"].weekday() == 2
             and str(e["service"]).strip().lower() == "midi"
