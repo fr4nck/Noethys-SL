@@ -154,6 +154,25 @@ class ExcelOceaneTests(unittest.TestCase):
         self.assertIn("90 g",d["Bais"]["J21"])
         self.assertIn("110 g",d["Bais"]["J21"])
 
+    def test_export_refuse_ecart_avec_repartition_validee(self):
+        entree = _cas("Bais")
+        entree["regimes"] = {
+            "standard": 29, "sans_porc": 3, "vegetarien": 5,
+            "non_renseignes": 0,
+        }
+        E.ExporterBordereau(self.modele, self.output, [entree])
+        self.assertTrue(self.output.exists())
+        self.output.unlink()
+
+        entree = _cas("Bais")
+        entree["regimes"] = {
+            "standard": 28, "sans_porc": 4, "vegetarien": 5,
+            "non_renseignes": 0,
+        }
+        with self.assertRaisesRegex(ValueError, "sans_porc"):
+            E.ExporterBordereau(self.modele, self.output, [entree])
+        self.assertFalse(self.output.exists())
+
     def test_refuse_plus_de_deux_semaines_et_site_double(self):
         with self.assertRaises(ValueError):
             E.ExporterBordereau(self.modele,self.output,[
