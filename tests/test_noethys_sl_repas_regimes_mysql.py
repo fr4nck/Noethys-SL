@@ -24,23 +24,43 @@ from _fixtures_noethys_db import RedirectionGestionDB  # noqa: E402
 import GestionDB  # noqa: E402
 from Data import DATA_Tables as Tables  # noqa: E402
 from Utils import UTILS_Repas_source  # noqa: E402
+from Utils import UTILS_Repas_questionnaire  # noqa: E402
 
 PREFIXE_MYSQL = "zz_test_repas_"
 JOUR = date(2026, 11, 4)
 CHOIX = {"standard": 11, "sans_porc": 12, "vegetarien": 13}
+CHOIX_QUATRE = {"standard": 21, "sans_porc": 22, "vegetarien": 23, "sans_repas_pmsl": 24}
+SERVICES_OPTIN = {(1, 10): ("Site A", "midi"), (1, 20): ("Site A", "soir")}
 SERVICES = {(1, 10): ("Site A", "midi"), (1, 20): ("Site A", "soir"), (2, 30): ("Site B", "midi")}
 TABLES = ("questionnaire_categories", "questionnaire_questions", "questionnaire_choix",
-          "questionnaire_reponses", "individus", "consommations")
+          "questionnaire_reponses", "individus", "consommations", "unites")
 
 
 def Peupler(db):
     for table in TABLES:
         db.CreationTable(table, Tables.DB_DATA)
-    db.ReqInsert("questionnaire_categories", [("IDcategorie", 1), ("ordre", 1), ("type", "individu")])
+    db.ReqInsert("questionnaire_categories", [("IDcategorie", 1), ("ordre", 1),
+                                            ("type", "individu"), ("visible", 1),
+                                            ("label", u"Alimentation")])
     db.ReqInsert("questionnaire_questions", [("IDquestion", 5), ("IDcategorie", 1), ("ordre", 1),
-                                             ("label", u"Régime"), ("controle", "liste_deroulante")])
+                                             ("label", u"Régime"), ("controle", "liste_deroulante"),
+                                             ("visible", 1)])
     for IDchoix, label in ((11, u"Standard"), (12, u"Sans porc"), (13, u"Végétarien")):
-        db.ReqInsert("questionnaire_choix", [("IDchoix", IDchoix), ("IDquestion", 5), ("ordre", IDchoix), ("label", label)])
+        db.ReqInsert("questionnaire_choix", [("IDchoix", IDchoix), ("IDquestion", 5),
+                                              ("ordre", IDchoix), ("label", label), ("visible", 1)])
+    db.ReqInsert("questionnaire_questions", [("IDquestion", 6), ("IDcategorie", 1),
+                                             ("ordre", 2), ("label", u"Type de repas"),
+                                             ("controle", "liste_deroulante"), ("visible", 1)])
+    for IDchoix, label in ((21, u"Standard"), (22, u"Sans porc"),
+                           (23, u"Végétarien"),
+                           (24, u"Repas apporté par la famille (sans repas PMSL)")):
+        db.ReqInsert("questionnaire_choix", [("IDchoix", IDchoix), ("IDquestion", 6),
+                                              ("ordre", IDchoix), ("label", label), ("visible", 1)])
+    for ident, debut, fin in ((10, "08:30", "17:30"),
+                              (20, "17:30", "18:30"),
+                              (30, "08:30", "17:30")):
+        db.ReqInsert("unites", [("IDunite", ident), ("heure_debut", debut),
+                                 ("heure_fin", fin)])
     IDconso = 0
     # Site A midi : 50 enfants (40 standard, 7 sans porc, 3 vegetariens),
     # doublons d'etat et une annulation (absenti) qui ne compte pas.
@@ -54,6 +74,11 @@ def Peupler(db):
             reponse = "11" if i <= 40 else ("12" if i <= 47 else "13")
             db.ReqInsert("questionnaire_reponses", [("IDquestion", 5), ("IDindividu", i), ("reponse", reponse),
                                                     ("type", "individu"), ("IDdonnee", i)])
+        if i <= 49:
+            quatre = "21" if i <= 39 else ("22" if i <= 46 else ("23" if i <= 48 else "24"))
+            db.ReqInsert("questionnaire_reponses", [("IDquestion", 6), ("IDindividu", i),
+                                                     ("reponse", quatre), ("type", "individu"),
+                                                     ("IDdonnee", i)])
     lignes = [(i, 1, 10, "reservation") for i in range(1, 51)]
     lignes += [(1, 1, 10, "present"), (51, 1, 10, "absenti"), (52, 1, 10, "reservation"), (55, 1, 10, "present")]
     lignes += [(1, 1, 20, "present"), (41, 1, 20, "reservation")]
@@ -67,6 +92,13 @@ def Peupler(db):
 def Charger(nom):
     with RedirectionGestionDB(nom):
         return UTILS_Repas_source.ChargerRepartitionRegimes(5, CHOIX, SERVICES, JOUR, JOUR)
+
+
+def ChargerQuatreChoix(nom, services=SERVICES_OPTIN, repas_pmsl_prevu=True):
+    with RedirectionGestionDB(nom):
+        return UTILS_Repas_source.ChargerRepartitionRegimes(
+            6, CHOIX_QUATRE, services, JOUR, JOUR,
+            plage_midi=("12:00", "13:00"), repas_pmsl_prevu=repas_pmsl_prevu)
 
 
 class _Scenario(object):
@@ -83,11 +115,45 @@ class _Scenario(object):
 
     def test_parametrage_et_listes(self):
         with RedirectionGestionDB(self.nom):
-            self.assertEqual(UTILS_Repas_source.ListerQuestionsRegime(), [(5, u"Régime")])
+            self.assertEqual(UTILS_Repas_source.ListerQuestionsRegime(),
+                             [(5, u"Régime"), (6, u"Type de repas")])
             self.assertEqual([c for c, _l in UTILS_Repas_source.ListerChoixQuestion(5)], [11, 12, 13])
             self.assertEqual(UTILS_Repas_source.VerifierParametrageRegimes(5, CHOIX), (5, CHOIX))
             with self.assertRaises(ValueError):
                 UTILS_Repas_source.VerifierParametrageRegimes(5, dict(CHOIX, vegetarien=99))
+            self.assertEqual(UTILS_Repas_source.VerifierParametrageRegimes(
+                6, CHOIX_QUATRE), (6, CHOIX_QUATRE))
+
+    def test_quatre_choix_preparateur_idempotent(self):
+        with RedirectionGestionDB(self.nom):
+            db = GestionDB.DB()
+            try:
+                diagnostic = UTILS_Repas_questionnaire.ExaminerQuestionnaire(db)
+                self.assertEqual(diagnostic["etat"], "pret")
+                self.assertEqual(diagnostic["choix"], CHOIX_QUATRE)
+                self.assertEqual(UTILS_Repas_questionnaire.PreparerQuestionnaire(db), diagnostic)
+                self.assertEqual(UTILS_Repas_questionnaire.PreparerQuestionnaire(db), diagnostic)
+            finally:
+                db.Close()
+
+    def test_panier_quatre_choix_plage_midi_et_defaut(self):
+        r = ChargerQuatreChoix(self.nom)
+        self.assertEqual(set(r), {(JOUR, "Site A", "midi")})
+        ligne = r[(JOUR, "Site A", "midi")]
+        self.assertEqual(
+            (ligne["standard"], ligne["sans_porc"], ligne["vegetarien"],
+             ligne["non_renseignes"], ligne["repas_apportes"], ligne["total_repas"],
+             ligne["enfants_presents_midi_classes"], ligne["adultes_avec_conso"]),
+            (41, 7, 2, 0, 1, 50, 51, 1))
+        self.assertEqual(ligne["repas_apportes_six_plus"], 1)
+
+    def test_quatre_choix_blocage_multisite(self):
+        with self.assertRaisesRegex(ValueError, "Presence midi sur plusieurs sites"):
+            ChargerQuatreChoix(self.nom, services=dict(SERVICES))
+
+    def test_quatre_choix_sans_offre_refuse_repas_fournisseur(self):
+        with self.assertRaises(ValueError):
+            ChargerQuatreChoix(self.nom, repas_pmsl_prevu=False)
 
 
 class SQLiteRegimesTests(_Scenario, unittest.TestCase):
@@ -144,6 +210,10 @@ class MySQLRegimesTests(_Scenario, unittest.TestCase):
 
     def test_resultats_identiques_a_sqlite(self):
         self.assertEqual(Charger(self.nom), Charger(self.nom_sqlite))
+
+    def test_quatre_choix_identiques_a_sqlite(self):
+        self.assertEqual(ChargerQuatreChoix(self.nom),
+                         ChargerQuatreChoix(self.nom_sqlite))
 
 
 if __name__ == "__main__":
