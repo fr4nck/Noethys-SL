@@ -37,16 +37,21 @@ jobs:
       EXPECTED_SETUP_SHA256: 6d234a9551f6ebe031b99a4620f035fe80f385f0343832d5cb9d8de1641ac49d
       EXPECTED_PORTABLE_SHA256: 9f568e483cdb89bba187bce67273939fb94e87197ffe9a5d04ff2dcdc231a3d1
     steps:
-      - name: Verifier que la pre-release n'existe pas
+      - name: Refuser une publication existante, autoriser le brouillon exact
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "STOP : une release existe deja pour $TAG" >&2
-            exit 1
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' > "$RUNNER_TEMP/existing-draft.txt" 2>/dev/null; then
+            test "$(cat "$RUNNER_TEMP/existing-draft.txt")" = "true" || {
+              echo "STOP : RC11 est deja publiee, ne pas repeter" >&2
+              exit 1
+            }
+            echo "Brouillon RC11 existant : reprise apres verification"
+          else
+            echo "Aucun brouillon existant : nouvelle publication"
           fi
           if git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "STOP : le tag existe deja" >&2
+            echo "STOP : le tag existe deja avant publication" >&2
             exit 1
           fi
 
@@ -112,19 +117,23 @@ jobs:
           **RC10.55 reste disponible.** Cette préversion est proposée pour validation, pas comme mise à jour automatique des postes.
           NOTES
 
-      - name: Creer le brouillon avec les trois fichiers
+      - name: Creer le brouillon si absent (sinon reprendre le brouillon valide)
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$TAG" \
-            "release-files/$SETUP" \
-            "release-files/$PORTABLE" \
-            "release-files/SHA256SUMS.txt" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$SOURCE_SHA" \
-            --title "Noethys SL 0.1.0 RC11" \
-            --notes-file "$RUNNER_TEMP/notes-rc11.md" \
-            --draft --prerelease --latest=false
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Brouillon existant conserve : pas de nouveau televersement"
+          else
+            gh release create "$TAG" \
+              "release-files/$SETUP" \
+              "release-files/$PORTABLE" \
+              "release-files/SHA256SUMS.txt" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --title "Noethys SL 0.1.0 RC11" \
+              --notes-file "$RUNNER_TEMP/notes-rc11.md" \
+              --draft --prerelease --latest=false
+          fi
 
       - name: Verifier le brouillon et rendre la pre-release publique
         shell: bash
@@ -136,10 +145,15 @@ jobs:
             '.isDraft == true and .tagName == $tag and
              ([.assets[].name] | sort) == ([$setup,$portable,"SHA256SUMS.txt"] | sort) and
              ([.assets[].size] | all(. > 0))' "$RUNNER_TEMP/draft-rc11.json"
-          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
-          test "$tag_sha" = "$SOURCE_SHA"
+          # GitHub ne cree le ref git du tag qu'a la publication d'un
+          # brouillon. Avant cela, verifier target_commitish via l'API release.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            | jq -e --arg tag "$TAG" --arg sha "$SOURCE_SHA" \
+                '[.[] | select(.tag_name == $tag and .draft == true and .target_commitish == $sha)] | length == 1'
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --prerelease --latest=false
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$tag_sha" = "$SOURCE_SHA"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets \
             | jq -e '.isDraft == false and .isPrerelease == true and (.assets | length) == 3'
           echo "PRE_RELEASE_PUBLIEE=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
