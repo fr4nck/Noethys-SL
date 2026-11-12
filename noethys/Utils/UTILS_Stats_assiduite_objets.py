@@ -80,11 +80,12 @@ def construire_classes(MODELES):
             for year,value in data['annees'].items():
                 j=value['journees_enfants']
                 pct=value['taux_absence_pct']
+                coverage = ('Partielle' if not value['annee_complete_dans_periode']
+                            else ('Complete' if value.get('annee_terminee') else 'En cours'))
                 self.lignes.append((year,j['present'],j['absentj'],j['absenti'],j['mixte'],
                                     value['lignes']['reservation'],
                                     'n.d.' if pct is None else '%.2f %%' % pct,
-                                    ('Partielle' if not value['annee_complete_dans_periode'] else
-                                     ('Complete' if value.get('annee_terminee') else 'En cours')))
+                                    coverage))
             return self
 
     class TableauMois(MODELES.Tableau):
