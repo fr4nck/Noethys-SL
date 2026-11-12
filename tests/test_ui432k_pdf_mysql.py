@@ -27,6 +27,17 @@ from _fixtures_noethys_db import RedirectionGestionDB  # noqa: E402
 PREFIXE = "zz_test_ui432k_"
 
 
+def NombrePagesPDF(document):
+    """Comptage des objets /Page, sans compter le conteneur /Pages."""
+    return len(re.findall(rb"/Type\s*/Page\b", document))
+
+
+class DetectionPagesPDF(unittest.TestCase):
+    def test_pages_distinctes_de_l_arbre_pages(self):
+        exemple = b"<< /Type /Page >> << /Type /Pages >> << /Type\n/Page >>"
+        self.assertEqual(NombrePagesPDF(exemple), 2)
+
+
 @unittest.skipUnless(_garde_reseau.ParametresMySQLDeTest(),
                      "Serveur MySQL 5.7 local fictif non declare")
 class FacturePDFMySQLFictif(unittest.TestCase):
@@ -157,9 +168,8 @@ class FacturePDFMySQLFictif(unittest.TestCase):
             for document in (historique, enfant):
                 self.assertTrue(document.startswith(b"%PDF-"))
                 self.assertIn(b"%%EOF", document[-2048:])
-            pages = lambda pdf: len(re.findall(rb"/Type\\s*/Page\\b", pdf))
-            self.assertGreater(pages(historique), 0)
-            self.assertEqual(pages(historique), pages(enfant))
+            self.assertGreater(NombrePagesPDF(historique), 0)
+            self.assertEqual(NombrePagesPDF(historique), NombrePagesPDF(enfant))
             self.assertLess(abs(len(historique) - len(enfant)),
                             max(2000, int(len(historique) * 0.10)))
             self.assertEqual(sorted(os.listdir(rep)),
