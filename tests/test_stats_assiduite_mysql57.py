@@ -194,7 +194,7 @@ class AssiduiteMySQL57(unittest.TestCase):
         self.assertTrue(all(q.startswith('SELECT ') for q in bridge.sql))
 
     def test_10_site_preflight_never_infers_unapproved_mapping(self):
-        cfg=MOD.Configuration((10,),{10:(1,2)},())
+        cfg=SITE_PREFLIGHT.Configuration((10,),{10:(1,2)},())
         class Bridge:
             def __init__(self,cn):
                 self.cn=cn
