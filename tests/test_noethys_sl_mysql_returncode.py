@@ -79,11 +79,16 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             journal = []
             errors = []
 
-            def importer(programme, login, fichier, base, **kwargs):
-                journal.append((programme, login, fichier, base))
-                self.assertTrue(Path(fichier).is_file(), "Le SQL doit etre fourni sur stdin")
-                return {"code_retour": 19, "erreur": "mysql a echoue (code 19)",
-                        "diagnostic": ""}
+            class ProcessusFictif:
+                returncode = 23
+                def wait(self, timeout=None):
+                    return self.returncode
+                def poll(self):
+                    return self.returncode
+
+            def popen(arguments, **kwargs):
+                journal.append(arguments)
+                return ProcessusFictif()
 
             class Message(_Dialog):
                 def __init__(self, parent, message, *args, **kwargs):
@@ -144,15 +149,11 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             journal = []
             messages = []
 
-            class ProcessusFictif:
-                returncode = 19
-
-                def communicate(self):
-                    return b"", None
-
-            def popen(arguments, **kwargs):
-                journal.append(arguments)
-                return ProcessusFictif()
+            def importer(programme, login, fichier, base, **kwargs):
+                journal.append((programme, login, fichier, base))
+                self.assertTrue(Path(fichier).is_file(), "Le SQL doit etre transmis au client")
+                return {"code_retour": 19, "erreur": "mysql a echoue (code 19)",
+                        "diagnostic": ""}
 
             class Message(_Dialog):
                 def __init__(self, parent, message, *args, **kwargs):
