@@ -1,3 +1,13 @@
+Version Noethys SL 0.1.0 RC11.1 (16/11/2026) :
+
+- Facturation : émission d'un lot en transaction unique, rattachement des prestations contrôlé, numéros attribués sous verrou et rollback en cas d'échec ; ne pas mélanger anciennes et nouvelles versions entre postes.
+- Restauration MySQL : import direct sans shell, fin d'attente bornée, arrêt du client bloqué et diagnostics masqués ; vérification du code retour et des objets restaurés conservée.
+- Documents MySQL : limite client de paquet adaptée aux documents binaires volumineux ; sauvegarde/restauration DATA et DOCUMENTS qualifiée sur serveur MySQL 5.7.44 fictif.
+- Interface : libellés historiques préservés, avertissement de risque de restauration partielle après une erreur MySQL et progression entretenue pendant l'import.
+- CAF/AFAS : aucun résultat réel n'est validé automatiquement ; contrôle des données PMSL et rapprochement des heures restent nécessaires.
+- Repas familial : l'exclusion de la commande fournisseur ne déclenche toujours pas d'exonération automatique dans les factures (2C-3 non qualifié).
+- Version interne Noethys 1.3.4.4 inchangée ; aucune migration SQL, ni modification automatique des données existantes.
+
 Version Noethys SL 0.1.0 RC11 (12/11/2026) :
 
 - Commandes Océane : contrôle bloquant des écarts entre les quantités sans porc/végétariennes validées et leur ventilation en portions M/P sur le bordereau Excel.
