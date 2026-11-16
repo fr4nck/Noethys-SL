@@ -249,6 +249,10 @@ jobs:
           tests.test_connecthys_ui3c1_reconciliation
           tests.test_connecthys_priorites_435
           tests.test_connecthys_concurrence_actions
+          tests.test_alsh_communes_c1
+          tests.test_alsh_communes_c2
+          tests.test_alsh_communes_c3_session
+          tests.test_quotients_validite_dialog
           tests.test_connecthys_situation
           tests.test_connecthys_reservations_progress
           tests.test_noethys_sl_portail_repas

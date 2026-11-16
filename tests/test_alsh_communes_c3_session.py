@@ -9,8 +9,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT/'noethys'/'Utils'))
-import UTILS_ALSH_C3_Session as c3
+sys.path.insert(0, str(ROOT/'noethys'))
+from Utils import UTILS_ALSH_C3_Session as c3
 import test_alsh_communes_c2 as fixtures
 
 ADMIN = {'IDutilisateur':42, 'actif':1, 'profil':'administrateur', 'droits':None}

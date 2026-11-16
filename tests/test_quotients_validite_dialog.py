@@ -16,6 +16,10 @@ from Dlg import DLG_Saisie_quotient
 
 class DialogTests(unittest.TestCase):
     def setUp(self):
+        # D'autres classes de la suite exhaustive detruisent leur wx.App.
+        # Reprendre une application vivante pour chaque vrai dialogue.
+        global APP
+        APP = wx.GetApp() or wx.App(False)
         self.base = BaseTest()
         self.addCleanup(self.base.fermer)
         for table in ['quotients', 'types_quotients']:

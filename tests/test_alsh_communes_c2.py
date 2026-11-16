@@ -10,9 +10,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 import sys
-sys.path.insert(0,str(ROOT/'noethys'/'Utils'))
-import UTILS_ALSH_Commune as c1
-import UTILS_ALSH_AdresseAuto as c2
+sys.path.insert(0,str(ROOT/'noethys'))
+from Utils import UTILS_ALSH_Commune as c1
+from Utils import UTILS_ALSH_AdresseAuto as c2
 
 TARIFFS = [dict(code_insee='00001', IDactivite=101, IDgroupe=201,
                 date_debut='2025-01-01',date_fin='2027-01-01',
