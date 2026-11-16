@@ -538,7 +538,7 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                         # Import MySQL direct : aucun shell, aucune commande contenant
                         # le contenu SQL ou le mot de passe, avec fin bornee.
                         programme = os.path.join(repMySQL, "bin",
-                             "mysql.exe" if sys.platform.startswith("win") else "mysql")
+                             "mysql.exe" if os.name == "nt" else "mysql")
                         resultatImport = UTILS_MySQL_restore.ImporterSQL(
                             programme=programme,
                             login=nomFichierLoginTemp,
@@ -550,12 +550,13 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                         )
                         if resultatImport["erreur"] is not None:
                             dlgprogress.Destroy()
+                            detailErreur = (resultatImport["erreur"] +
+                                            u"\n\nAttention : la base de destination peut "
+                                            u"avoir été partiellement modifiée par MySQL. "
+                                            u"Ne relancez pas sur cette base sans contrôle.")
                             dlgErreur = wx.MessageDialog(
                                 None,
-                                _(u"Une erreur a été détectée dans la procédure de restauration !\\n\\n"
-                                  u"Erreur : %s\\n\\nLa base de destination peut être partiellement "
-                                  u"modifiée par MySQL. Ne réessayez pas sur cette base sans contrôle "
-                                  u"et sauvegarde préalable.") % resultatImport["erreur"],
+                                _(u"Une erreur a été détectée dans la procédure de restauration !\n\nErreur : %s") % detailErreur,
                                 _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                             dlgErreur.ShowModal()
                             dlgErreur.Destroy()
