@@ -18,13 +18,13 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 35
     env:
-      SOURCE_SHA: '64d9ef2e01af1d41336052b25d4887f15bd5fc0c'
+      SOURCE_SHA: '9be3e82a7f04db4e9d28a4ecf65fd2db53bdd998'
       PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: '64d9ef2e01af1d41336052b25d4887f15bd5fc0c'
+          ref: '9be3e82a7f04db4e9d28a4ecf65fd2db53bdd998'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
