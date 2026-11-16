@@ -26,14 +26,21 @@ _MUTEX = threading.Lock()
 
 @contextlib.contextmanager
 def ExecutionExclusive(IDaction):
-    """Une seule execution simultanee ; aucune quarantaine apres interruption."""
+    """Exclure aussi deux actions distinctes de la meme famille.
+
+    Le verrou couvre lecture de grille, calcul, sauvegarde et finalisation,
+    y compris le dialogue manuel. Refus temporaire sans marqueur persistant.
+    MySQL : deux verrous nommes sur une connexion dediee ; SQLite : garde
+    locale au processus (pas de garantie entre processus SQLite distincts).
+    """
     cle = _cle(IDaction)
     with _MUTEX:
         if cle in _ACTIFS:
             raise ReconciliationRequise("Traitement de cette demande deja en cours.")
         _ACTIFS.add(cle)
     DB = None
-    verrou = None
+    verrous = []
+    cle_famille = None
     try:
         DB = GestionDB.DB()
         if getattr(DB, "echec", 0):
@@ -45,14 +52,40 @@ def ExecutionExclusive(IDaction):
             reponse = DB.cursor.fetchall()
             if not reponse or reponse[0][0] != 1:
                 raise ReconciliationRequise("Demande deja traitee par un autre poste.")
-            verrou = nom
+            verrous.append(nom)
             DB.connexion.commit()
+        # Lire l'identite durable plutot qu'une valeur de track potentiellement
+        # ancienne. Une famille inconnue n'est jamais un perimetre libre.
+        try:
+            _executer(DB, "SELECT IDfamille FROM portail_actions WHERE IDaction=?", (int(IDaction),))
+            familles = list(DB.cursor.fetchall())
+        except Exception as erreur:
+            raise ReconciliationRequise("Lecture de la famille impossible ; reessayer apres verification.") from erreur
+        if (len(familles) != 1 or not isinstance(familles[0][0], int)
+                or familles[0][0] <= 0):
+            raise ReconciliationRequise("Famille de la demande inaccessible ou indeterminee.")
+        famille = familles[0][0]
+        cle_famille_candidate = ("famille", str(DB.nomFichier), famille)
+        with _MUTEX:
+            if cle_famille_candidate in _ACTIFS:
+                raise ReconciliationRequise("Une autre demande de cette famille est en cours. Reessayer apres sa fin.")
+            _ACTIFS.add(cle_famille_candidate)
+            cle_famille = cle_famille_candidate
+        if getattr(DB, "isNetwork", False):
+            nom = ("CONCAT('noethys_resa_fam_', LEFT(MD5(DATABASE()), 12), '_%d')"
+                   % famille)
+            _executer(DB, "SELECT GET_LOCK(%s, 0)" % nom)
+            reponse = DB.cursor.fetchall()
+            if not reponse or reponse[0][0] != 1:
+                raise ReconciliationRequise("Une autre demande de cette famille est traitee sur un autre poste. Reessayer apres sa fin.")
+            verrous.append(nom)
+            DB.connexion.commit()  # ne conserver aucun snapshot de lecture
         yield
     finally:
         try:
             if DB is not None:
                 try:
-                    if verrou is not None:
+                    for verrou in reversed(verrous):
                         try:
                             _executer(DB, "SELECT RELEASE_LOCK(%s)" % verrou)
                             DB.cursor.fetchall()
@@ -63,6 +96,8 @@ def ExecutionExclusive(IDaction):
         finally:
             with _MUTEX:
                 _ACTIFS.discard(cle)
+                if cle_famille is not None:
+                    _ACTIFS.discard(cle_famille)
 
 
 def _executer(DB, sql, valeurs=()):

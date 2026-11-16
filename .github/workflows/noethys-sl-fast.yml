@@ -248,6 +248,7 @@ jobs:
           tests.test_connecthys_ui3c_sauvegarde
           tests.test_connecthys_ui3c1_reconciliation
           tests.test_connecthys_priorites_435
+          tests.test_connecthys_concurrence_actions
           tests.test_connecthys_situation
           tests.test_connecthys_reservations_progress
           tests.test_noethys_sl_portail_repas
