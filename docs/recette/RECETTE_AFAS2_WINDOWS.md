@@ -1,6 +1,6 @@
 # Recette AFAS V2 — visuelle Windows et rapprochement chiffré
 
-Module : Consommations → **Déclarations AFAS** (candidat source `wx`, non publié et non déployé). Données **fictives** uniquement pour la recette visuelle ; le rapprochement chiffré se fait sur un **extrait pseudonymisé** produit localement par la structure, jamais transmis.
+Module : Consommations → **Déclarations AFAS** (sources intégrées à la **préversion RC11 publiée le 12/11/2026**, sans déploiement PMSL qualifié). La recette visuelle se fait sur des données **fictives** ; le rapprochement chiffré utilise exclusivement un **extrait pseudonymisé produit localement**, jamais transmis. Pour travailler sans serveur PMSL, suivre également [AFAS 2026 hors serveur](../afas/AFAS_2026_SANS_SERVEUR.md).
 
 ## 1. Recette visuelle Windows sur fichier fictif
 
