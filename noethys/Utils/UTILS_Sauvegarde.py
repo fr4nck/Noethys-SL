@@ -30,6 +30,7 @@ from Utils import UTILS_Envoi_email
 from Utils import UTILS_Customize
 from Utils import UTILS_SQL_Integrite
 from Utils import UTILS_MySQL_backup
+from Utils import UTILS_MySQL_restore
 
 LISTE_CATEGORIES = [
     (_(u"Données de base"), "DATA"),
@@ -534,22 +535,28 @@ def Restauration(parent=None, fichier="", listeFichiersLocaux=[], listeFichiersR
                         # Importation du fichier SQL dans MySQL
                         dlgprogress.Update(numEtape, _(u"Restauration du fichier %s...") % fichier);numEtape += 1
 
-                        args = u""""%sbin/mysql" --defaults-extra-file="%s" %s < "%s" """ % (repMySQL, nomFichierLoginTemp, fichier, fichierRestore)
-                        print(("Chemin mysql =", args))
-                        if six.PY2:
-                            args = args.encode("utf8")
-                        proc = subprocess.Popen(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-                        out, temp = proc.communicate()
-
-                        # Une sortie vide ne prouve pas que la restauration a reussi.
-                        if proc.returncode != 0:
-                            if isinstance(out, bytes):
-                                out = out.decode("utf8", "replace")
-                            if not out:
-                                out = u"mysql a echoue avec le code %s, sans diagnostic." % proc.returncode
-                            print(("subprocess de restauration mysql :", out))
+                        # Import MySQL direct : aucun shell, aucune commande contenant
+                        # le contenu SQL ou le mot de passe, avec fin bornee.
+                        programme = os.path.join(repMySQL, "bin",
+                             "mysql.exe" if sys.platform.startswith("win") else "mysql")
+                        resultatImport = UTILS_MySQL_restore.ImporterSQL(
+                            programme=programme,
+                            login=nomFichierLoginTemp,
+                            fichier=fichierRestore,
+                            base=fichier,
+                            progression=lambda: dlgprogress.Update(
+                                numEtape - 1, _(u"Restauration du fichier %s...") % fichier),
+                            secrets=(dictConnexion.get("password"), dictConnexion.get("user")),
+                        )
+                        if resultatImport["erreur"] is not None:
                             dlgprogress.Destroy()
-                            dlgErreur = wx.MessageDialog(None, _(u"Une erreur a été détectée dans la procédure de restauration !\n\nErreur : %s") % out, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
+                            dlgErreur = wx.MessageDialog(
+                                None,
+                                _(u"Une erreur a été détectée dans la procédure de restauration !\\n\\n"
+                                  u"Erreur : %s\\n\\nLa base de destination peut être partiellement "
+                                  u"modifiée par MySQL. Ne réessayez pas sur cette base sans contrôle "
+                                  u"et sauvegarde préalable.") % resultatImport["erreur"],
+                                _(u"Erreur"), wx.OK | wx.ICON_ERROR)
                             dlgErreur.ShowModal()
                             dlgErreur.Destroy()
                             fichierZip.close()
