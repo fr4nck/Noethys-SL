@@ -20,6 +20,7 @@ from Ol import OL_Factures_generation_selection
 from Utils import UTILS_Identification
 from Utils import UTILS_Texte
 from Utils import UTILS_Parametres
+from Utils import UTILS_Factures_lot
 from Ctrl import CTRL_Saisie_euros
 
 import GestionDB
@@ -217,32 +218,11 @@ class Panel(wx.Panel):
         # ProgressBar
         dlgProgress = wx.ProgressDialog(_(u"Génération des factures"), _(u"Initialisation..."), maximum=len(listeComptes), parent=None, style=wx.PD_SMOOTH | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
         
-        # Sélection du prochain numéro de facture
+        # Le prochain numero est calcule sous verrou, dans la transaction.
         numero = self.parent.dictParametres["prochain_numero"]
         IDprefixe = self.parent.dictParametres["IDprefixe"]
-        
-        if numero == None :
-            # Recherche du prochain numéro de facture si mode AUTO
-            if IDprefixe == None :
-                conditions = "WHERE IDprefixe IS NULL"
-            else :
-                conditions = "WHERE IDprefixe=%d" % IDprefixe
-            DB = GestionDB.DB()
-            req = """SELECT MAX(numero)
-            FROM factures
-            %s;""" % conditions
-            DB.ExecuterReq(req)
-            listeDonnees = DB.ResultatReq()  
-            DB.Close() 
-            if listeDonnees[0][0] == None :
-                numero = 1
-            else:
-                numero = listeDonnees[0][0] + 1
-            
-        # Sauvegarde
-        DB = GestionDB.DB()
-        try :
-            
+        lot = []
+        try:
             index = 0
             for nomTitulaires, IDcompte_payeur in listeComptes :
                 dictCompte = self.ctrl_factures.dictComptes[IDcompte_payeur]
@@ -292,24 +272,30 @@ class Panel(wx.Panel):
                     ("mention2", self.parent.dictParametres["mention2"]),
                     ("mention3", self.parent.dictParametres["mention3"]),
                     ]
-                IDfacture = DB.ReqInsert("factures", listeDonnees)
-                                    
-                # Attribution des IDfacture à chaque prestation
-                for IDindividu, IDprestation in listePrestations :
-                    if dictCompte["individus"][IDindividu]["select"] == True :
-                        listeDonnees = [ ("IDfacture", IDfacture ), ]
-                        DB.ReqMAJ("prestations", listeDonnees, "IDprestation", IDprestation)
-                
-                listeFacturesGenerees.append(IDfacture) 
-                numero += 1
+                # Preparation uniquement ; aucune ecriture sans transaction.
+                prestations = [
+                    IDprestation for IDindividu, IDprestation in listePrestations
+                    if dictCompte["individus"][IDindividu]["select"] == True
+                ]
+                lot.append({
+                    "IDcompte_payeur": IDcompte_payeur,
+                    "champs": listeDonnees,
+                    "prestations": prestations,
+                })
                 index += 1
 
-            DB.Close() 
+            # Connexion physique dediee : le verrou MySQL n'est jamais
+            # conserve dans un pool reutilisable en cas d'incident.
+            DB = GestionDB.DB(pooling=False)
+            try:
+                listeFacturesGenerees = UTILS_Factures_lot.EnregistrerLot(
+                    DB, lot, prefixe=IDprefixe, premier_numero=numero)
+            finally:
+                DB.Close()
             self.EcritStatusbar(u"")
             dlgProgress.Destroy()
 
         except Exception as err:
-            DB.Close()
             dlgProgress.Destroy()
             traceback.print_exc(file=sys.stdout)
             dlg = wx.MessageDialog(self, _(u"Désolé, le problème suivant a été rencontré : \n\n%s") % err, _(u"Erreur"), wx.OK | wx.ICON_ERROR)
