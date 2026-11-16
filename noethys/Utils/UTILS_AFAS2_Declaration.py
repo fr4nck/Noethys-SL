@@ -47,7 +47,9 @@ TAILLE_MAX_HISTORIQUE = 28000  # profils_parametres.parametre : VARCHAR(30000)
 
 
 class DeclarationImpossible(ValueError):
-    pass
+    def __init__(self, message, anomalies_n1=None):
+        super().__init__(message)
+        self.anomalies_n1 = list(anomalies_n1 or [])
 
 
 def Periodes(annee, phase):
@@ -221,7 +223,8 @@ def Executer(preset, referentiel, annee, phase, methode=METHODE_N1, valeurs_manu
             historique_n1 = CalculerPeriode(preset, referentiel, couples, source, debut_n1, fin_n1, date_reference)
             if historique_n1["bloquant"]:
                 raise DeclarationImpossible("L'historique N-1 comporte des anomalies bloquantes : "
-                                            "les corriger ou saisir le prévisionnel manuellement")
+                                            "les corriger ou saisir le prévisionnel manuellement",
+                                            anomalies_n1=historique_n1["anomalies"])
             if historique_n1["jours_ouverts"] == 0:
                 raise DeclarationImpossible("Aucun jour d'ouverture sur la même période de N-1 : saisir le prévisionnel")
             prevision = {}
