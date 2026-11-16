@@ -403,15 +403,45 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies)
         self.assertEqual(self.etat_sql()[0], "validation")
         self.assertFalse(Marqueurs.EnAttente(7))
-    def test_fin_de_reconciliation_deja_validee_ne_sauve_pas_grille(self):
+    def test_demande_validee_correction_manuelle_sans_rejouer_portail(self):
+        self.preparer()
+        self.ui.Traitement()
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        nombre_sauvegardes = self.ui.ctrl_grille.saves
+        nombre_saisies = self.ui.ctrl_grille.saisies
+        self.base.inserer("parametres", ["categorie", "nom", "parametre"],
+                          [(Marqueurs.CATEGORIE, "action_7", "a" * 32)])
+        from Dlg import DLG_Portail_reservations
+        dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
+        dlg.ShowModal.return_value = Module.wx.ID_OK
+        dlg.GetReponse.return_value = ""
+        with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg) as constructeur:
+            self.assertTrue(self.ui.Traitement(mode="manuel"))
+        self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes + 1)
+        self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies,
+                         "Une correction manuelle ne rejoue jamais les choix du portail")
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
+        self.assertFalse(Marqueurs.EnAttente(7))
+        constructeur.assert_called_once()
+        dlg.Destroy.assert_called_once()
+
+    def test_demande_validee_correction_annulee_ne_sauve_rien(self):
         self.preparer()
         self.ui.Traitement()
         nombre_sauvegardes = self.ui.ctrl_grille.saves
-        self.base.inserer("parametres", ["categorie", "nom", "parametre"],
-                          [(Marqueurs.CATEGORIE, "action_7", "a" * 32)])
-        self.assertFalse(self.ui.Traitement(mode="manuel"))
+        nombre_saisies = self.ui.ctrl_grille.saisies
+        from Dlg import DLG_Portail_reservations
+        dlg = mock.Mock(ctrl_grille=self.ui.ctrl_grille)
+        dlg.ShowModal.return_value = Module.wx.ID_CANCEL
+        dlg.GetReponse.return_value = ""
+        with mock.patch.object(DLG_Portail_reservations, "Dialog", return_value=dlg):
+            self.assertFalse(self.ui.Traitement(mode="manuel"))
         self.assertEqual(self.ui.ctrl_grille.saves, nombre_sauvegardes)
-        self.assertFalse(Marqueurs.EnAttente(7))
+        self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies)
+        self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
+        self.assertEqual(self.etat_sql()[0], "validation")
     def test_mode_manuel_annulation_et_refus_save(self):
         self.preparer()
         from Dlg import DLG_Portail_reservations
