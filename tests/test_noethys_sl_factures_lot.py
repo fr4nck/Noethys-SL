@@ -94,4 +94,75 @@ class Tests(unittest.TestCase):
             self.assertEqual(d.cursor.execute('SELECT COUNT(DISTINCT numero),COUNT(*) FROM factures').fetchone(),(2,2))
             d.connexion.close()
 
+
+class InterfaceFacturesTests(unittest.TestCase):
+    """Teste la methode reelle via AST, sans importer wx ni contacter PMSL."""
+
+    def _emission(self, base, bloquer=False):
+        import ast
+        import datetime
+        import traceback
+        import types
+        db0=DB(base);setup(db0)
+        for nom, sqltype in (
+            ('date_edition','TEXT'),('date_echeance','TEXT'),('activites','TEXT'),
+            ('individus','TEXT'),('IDutilisateur','INTEGER'),('date_debut','TEXT'),
+            ('date_fin','TEXT'),('regle','REAL'),('solde','REAL'),('IDlot','INTEGER'),
+            ('prestations','TEXT'),('IDregie','INTEGER'),('mention1','TEXT'),
+            ('mention2','TEXT'),('mention3','TEXT')):
+            db0.cursor.execute('ALTER TABLE factures ADD COLUMN '+nom+' '+sqltype)
+        if bloquer:
+            db0.cursor.execute("CREATE TRIGGER stop_fact BEFORE UPDATE ON prestations "
+                               "WHEN NEW.IDprestation=11 BEGIN SELECT RAISE(ABORT, 'simulation'); END")
+        db0.connexion.commit();db0.connexion.close()
+
+        source = Path(__file__).resolve().parents[1] / 'noethys/Dlg/DLG_Factures_generation_selection.py'
+        arbre=ast.parse(source.read_text(encoding='utf8'))
+        classe=next(x for x in arbre.body if isinstance(x,ast.ClassDef) and x.name=='Panel')
+        methode=next(x for x in classe.body if isinstance(x,ast.FunctionDef) and x.name=='SauvegardeFactures')
+        fonction=compile(ast.fix_missing_locations(ast.Module(body=[methode],type_ignores=[])),str(source),'exec')
+
+        class Dialog:
+            def __init__(self,*args,**kwargs):pass
+            def Update(self,*args,**kwargs):pass
+            def Destroy(self):pass
+            def ShowModal(self):return 0
+        wx=types.SimpleNamespace(ProgressDialog=Dialog,MessageDialog=Dialog,
+             PD_SMOOTH=0,PD_AUTO_HIDE=0,PD_APP_MODAL=0,OK=0,ICON_ERROR=0)
+        g={'wx':wx,'_':lambda s:s,'UTILS_Identification':types.SimpleNamespace(GetIDutilisateur=lambda:12),
+           'UTILS_Factures_lot':M,'GestionDB':types.SimpleNamespace(DB=lambda pooling=False: DB(base)),
+           'traceback':traceback,'sys':sys}
+        exec(fonction,g)
+        date=datetime.date(2026,11,1)
+        compte={'listePrestations':[(101,11)],'total':15.0,'ventilation':0.0,
+                'date_edition':date,'date_echeance':date,'liste_activites':[],
+                'individus':{101:{'select':True}},'date_debut':date,'date_fin':date}
+        param={'prochain_numero':None,'IDprefixe':None,'IDlot':None,
+               'prestations':['consommation'],'IDregie':None,
+               'mention1':None,'mention2':None,'mention3':None}
+        liste=types.SimpleNamespace(GetTracksCoches=lambda:[
+            types.SimpleNamespace(nomSansCivilite='Fictif',IDcompte_payeur=1)],dictComptes={1:compte})
+        page=types.SimpleNamespace(ctrl_factures=liste,parent=types.SimpleNamespace(dictParametres=param),
+              EcritStatusbar=lambda *a:None)
+        return g['SauvegardeFactures'](page)
+
+    def test_interface_sauvegarde_une_facture_et_lie_prestation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            nom=str(Path(tmp)/'fact.sqlite')
+            ids=self._emission(nom)
+            self.assertEqual(len(ids),1)
+            db=DB(nom)
+            self.assertEqual(db.cursor.execute('SELECT COUNT(*) FROM factures').fetchone(),(1,))
+            self.assertEqual(db.cursor.execute('SELECT IDfacture FROM prestations WHERE IDprestation=11').fetchone(),(ids[0],))
+            db.connexion.close()
+
+    def test_interface_echec_prestation_aucune_facture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            nom=str(Path(tmp)/'fact.sqlite')
+            self.assertFalse(self._emission(nom,bloquer=True))
+            db=DB(nom)
+            self.assertEqual(db.cursor.execute('SELECT COUNT(*) FROM factures').fetchone(),(0,))
+            self.assertEqual(db.cursor.execute('SELECT IDfacture FROM prestations WHERE IDprestation=11').fetchone(),(None,))
+            db.connexion.close()
+
 if __name__ == '__main__':unittest.main()
