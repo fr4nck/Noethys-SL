@@ -15,6 +15,9 @@ class DB:
         self.connexion=sqlite3.connect(nom, timeout=5, isolation_level='DEFERRED')
         self.cursor=self.connexion.cursor()
 
+    def Close(self):
+        self.connexion.close()
+
 
 def setup(db):
     db.cursor.executescript('''
