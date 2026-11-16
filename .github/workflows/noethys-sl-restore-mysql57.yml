@@ -1,0 +1,79 @@
+name: Noethys SL - restauration DATA DOCUMENTS MySQL 5.7 fictif
+
+# Qualification automatique sur les seuls fichiers de restauration.
+# Aucun acces aux bases ou profils PMSL, aucun artefact de release.
+on:
+  push:
+    branches: [main, wx]
+    paths:
+      - 'noethys/Utils/UTILS_MySQL_restore.py'
+      - 'noethys/Utils/UTILS_Sauvegarde.py'
+      - 'tests/test_noethys_sl_mysql_restore_watchdog.py'
+      - 'tests/test_noethys_sl_backup_mysql437_real.py'
+      - '.github/workflows/noethys-sl-restore-mysql57.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noethys-restore-mysql57-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  restauration:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Contrats du client mysql sans shell ni reseau
+        shell: pwsh
+        run: python -m unittest -v tests.test_noethys_sl_mysql_restore_watchdog
+
+      - name: Archive officielle MySQL 5.7.44 controlee SHA-256
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip' -OutFile $zip
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne 'aed661fe8120254a1dc30f5a4d5de346681922f4847cf025e2d4084eca78e70e') {
+            throw "Archive MySQL officielle : empreinte inattendue $hash"
+          }
+
+      - name: Sauvegarde et restauration MySQL 5.7 locales DATA DOCUMENTS BLOB
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = Join-Path $env:RUNNER_TEMP 'noethys-restore437'
+          New-Item -ItemType Directory -Force -Path $base | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP 'mysql-5.7.44-winx64.zip'
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); [z.extract(m, sys.argv[2]) for m in z.namelist() if m.startswith('mysql-5.7.44-winx64/share/') or m in ['mysql-5.7.44-winx64/bin/mysqld.exe','mysql-5.7.44-winx64/bin/mysql.exe','mysql-5.7.44-winx64/bin/mysqldump.exe'] or (m.startswith('mysql-5.7.44-winx64/bin/') and m.lower().endswith('.dll'))]" $zip $base
+          if ($LASTEXITCODE -ne 0) { throw 'Extraction MySQL en echec' }
+          $root = Join-Path $base 'mysql-5.7.44-winx64'
+          $data = Join-Path $base 'mysql-data'
+          & "$root/bin/mysqld.exe" --no-defaults --initialize-insecure "--basedir=$root" "--datadir=$data"
+          if ($LASTEXITCODE -ne 0) { throw 'Initialisation MySQL jetable en echec' }
+          $serveur = Start-Process -WindowStyle Hidden -FilePath "$root/bin/mysqld.exe" -PassThru -ArgumentList @(
+            '--no-defaults', "--basedir=$root", "--datadir=$data", '--port=3407',
+            '--bind-address=127.0.0.1', '--character-set-server=utf8', '--max-allowed-packet=1G')
+          try {
+            $env:NOETHYS_TEST_MYSQL437_RUNTIME = $base
+            $pret = $false
+            for ($i=0; $i -lt 40; $i++) {
+              & "$root/bin/mysql.exe" --no-defaults --host=127.0.0.1 --port=3407 --user=root -e 'SELECT 1;' 2>$null | Out-Null
+              if ($LASTEXITCODE -eq 0) { $pret = $true; break }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $pret) { throw 'Serveur MySQL de recette non disponible sur 127.0.0.1:3407' }
+            python -m unittest -v tests.test_noethys_sl_backup_mysql437_real
+            if ($LASTEXITCODE -ne 0) { throw 'Restauration DATA DOCUMENTS non qualifiee' }
+          }
+          finally {
+            Stop-Process -Id $serveur.Id -Force -ErrorAction SilentlyContinue
+          }
