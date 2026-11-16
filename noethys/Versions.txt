@@ -4,6 +4,8 @@ Version Noethys SL 0.1.0 RC11.1 (16/11/2026) :
 - Restauration MySQL : import direct sans shell, fin d'attente bornée, arrêt du client bloqué et diagnostics masqués ; vérification du code retour et des objets restaurés conservée.
 - Documents MySQL : limite client de paquet adaptée aux documents binaires volumineux ; sauvegarde/restauration DATA et DOCUMENTS qualifiée sur serveur MySQL 5.7.44 fictif.
 - Interface : libellés historiques préservés, avertissement de risque de restauration partielle après une erreur MySQL et progression entretenue pendant l'import.
+- Connecthys : correction manuelle après validation sans rejouer les réservations ; la direction habilitée peut confirmer explicitement hors capacité informatique en conservant les protections métier.
+- Connecthys MySQL : exclusion temporaire des traitements simultanés de demandes distinctes d’une même famille ; reprise possible après la fin du premier traitement, sans blocage durable.
 - CAF/AFAS : aucun résultat réel n'est validé automatiquement ; contrôle des données PMSL et rapprochement des heures restent nécessaires.
 - Repas familial : l'exclusion de la commande fournisseur ne déclenche toujours pas d'exonération automatique dans les factures (2C-3 non qualifié).
 - Version interne Noethys 1.3.4.4 inchangée ; aucune migration SQL, ni modification automatique des données existantes.
