@@ -267,6 +267,10 @@ def preparer_confirmation_attentes(reservations, unites, grille, IDactivite):
     annulation n'est creee ici. Capacite saturee != protection de facturation.
     Retourne des (case, conso, IDunite, date) sans modifier la grille.
     """
+    # Reutiliser le meme arbitrage Journee / demi-journees que le traitement
+    # normal, mais sans soumettre la decision humaine aux capacites.
+    reservations, _ = planifier_sur_grille(
+        reservations, unites, grille, IDactivite, forcer_capacite=True)
     confirmations = []
     visites = set()
     for demande in reservations:
