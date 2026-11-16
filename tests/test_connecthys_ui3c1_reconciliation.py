@@ -442,6 +442,49 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.ui.ctrl_grille.saisies, nombre_saisies)
         self.assertEqual(self.quantites_sql(), [(101, 1), (102, 1)])
         self.assertEqual(self.etat_sql()[0], "validation")
+    def test_bouton_manuel_force_capacite_uniquement_avant_validation(self):
+        from Dlg import DLG_Portail_reservations
+        appliquer = mock.Mock(return_value="Une reservation fictive")
+        faux = NS(track=NS(etat="attente"),
+                  parent=NS(Appliquer_reservations=appliquer),
+                  ctrl_grille=mock.Mock(), ctrl_log=mock.Mock(), reponse=None)
+        DLG_Portail_reservations.Dialog.OnBoutonTraiter(faux, None)
+        appliquer.assert_called_once_with(
+            ctrl_grille=faux.ctrl_grille, log_jumeau=faux.ctrl_log,
+            forcer_capacite=True)
+        self.assertEqual(faux.reponse, "Une reservation fictive")
+        appliquer.reset_mock()
+        faux.track.etat = "validation"
+        DLG_Portail_reservations.Dialog.OnBoutonTraiter(faux, None)
+        appliquer.assert_not_called()
+
+    def test_saisie_reelle_capacite_complete_auto_refuse_manuel_permet(self):
+        import Dlg.DLG_Badgeage_grille as badgeage
+        clic = mock.Mock()
+        modifier = mock.Mock()
+        case = NS(ouvert=True, liste_evenements=[],
+                  HasPlaceDisponible=lambda *a: False,
+                  VerifieCompatibilitesUnites=lambda: None,
+                  IsCaseDisponible=lambda *a: True,
+                  OnClick=clic, ModifieEtat=modifier)
+        faux = NS(GetCase=lambda IDunite, date: case,
+                  usage="portail",
+                  grille=NS(dictUnites={101: dict(type="Unitaire",
+                                                heure_debut=None,
+                                                heure_fin=None)}))
+        auto = badgeage.CTRL.SaisieConso(
+            faux, IDunite=101, date=DAY, mode="reservation")
+        self.assertIsInstance(auto, str)
+        self.assertIn("place", auto.lower())
+        clic.assert_not_called()
+        manuel = badgeage.CTRL.SaisieConso(
+            faux, IDunite=101, date=DAY, mode="reservation",
+            forcer_capacite=True)
+        self.assertIs(manuel, True)
+        clic.assert_called_once()
+        self.assertIs(clic.call_args.kwargs["forcer_capacite"], True)
+        modifier.assert_called_once()
+
     def test_mode_manuel_annulation_et_refus_save(self):
         self.preparer()
         from Dlg import DLG_Portail_reservations
