@@ -26,6 +26,14 @@ def integrite():
     return module
 
 
+def importeur():
+    chemin = Path(__file__).resolve().parents[1] / "noethys/Utils/UTILS_MySQL_restore.py"
+    spec = importlib.util.spec_from_file_location("import_mysql437", chemin)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 @unittest.skipUnless(os.environ.get("NOETHYS_TEST_MYSQL437_RUNTIME"), "recette MySQL 437 volontaire")
 class BackupMySQL437ReelTests(unittest.TestCase):
     def test_blob_binaire_depasse_24_mio_et_archive_restaurable(self):
@@ -83,8 +91,14 @@ class BackupMySQL437ReelTests(unittest.TestCase):
                 # Retirer les sources du serveur jetable prouve une restauration,
                 # et non une relecture accidentelle de tables restées en place.
                 sql("DROP DATABASE noe437_synth_data; DROP DATABASE noe437_synth_documents;")
+                # Le parcours UI cree sa base avant d'invoquer mysql.
+                sql("CREATE DATABASE noe437_synth_data; CREATE DATABASE noe437_synth_documents;")
+                client = importeur()
                 for base in bases:
-                    sql(fichier=rep / (base + ".sql"))
+                    resultat = client.ImporterSQL(binary / "mysql.exe", login,
+                                                 rep / (base + ".sql"), base)
+                    self.assertIsNone(resultat["erreur"], resultat)
+                    self.assertEqual(resultat["code_retour"], 0)
                 obtenu = sql("SELECT COUNT(*), MAX(OCTET_LENGTH(document)), MIN(SHA2(document,256)) "
                              "FROM noe437_synth_documents.documents;")
                 self.assertEqual(obtenu, attendu)
