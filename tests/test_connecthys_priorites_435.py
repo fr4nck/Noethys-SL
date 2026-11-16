@@ -185,5 +185,42 @@ class QuantityDecisionTests(unittest.TestCase):
             decision_quantite(self.case(etat='reservation'), 10, 'attente')
 
 
+
+class DirectionCapaciteTests(unittest.TestCase):
+    """L'autorite humaine peut reserver meme avec zero place informatique."""
+
+    class Case:
+        etat = None
+        def GetListeConso(self):
+            return []
+
+    class Grille:
+        def GetCase(self, IDunite, date):
+            return DirectionCapaciteTests.Case()
+        def IsOuvert(self, IDunite, date):
+            return True
+        def HasPlacesDisponibles(self, IDunite, date):
+            return False
+
+    def unites(self):
+        return {
+            numero: dict(valeurs, IDactivite=50,
+                         unites_principales=[100 + numero],
+                         unites_secondaires=[])
+            for numero, valeurs in UNITS.items()
+        }
+
+    def test_derogation_capacite_priorise_la_journee_meme_a_zero_place(self):
+        resultat, decisions = planifier_sur_grille(
+            demands([1, 2, 3]), self.unites(), self.Grille(), 50,
+            forcer_capacite=True)
+        self.assertEqual([item['IDunite'] for item in resultat], [1])
+        self.assertIn('journee_prioritaire', [motif for motif, _ in decisions])
+
+    def test_sans_derogation_les_regles_automatiques_restant_actives(self):
+        with self.assertRaises(ArbitrageManuelRequis):
+            planifier_sur_grille(demands([1, 2, 3]), self.unites(), self.Grille(), 50)
+
+
 if __name__ == "__main__":
     unittest.main()

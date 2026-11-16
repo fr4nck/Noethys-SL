@@ -12,6 +12,15 @@ Travailler directement sur la branche existante pertinente, en commits traçable
 **Transition en cours :** GitHub affiche encore `master` comme branche par défaut. `main` est la cible, mais le changement de branche par défaut ne sera fait qu'après vérification de l'intégrité du code, des références, des workflows et des travaux non intégrés. Ne pas écraser `master` et ne pas le supprimer prématurément.
 
 
+## Principe prioritaire et permanent : decision humaine sur les reservations (16/11/2026)
+
+**Le logiciel assiste, l'operateur habilite decide.** Une demande Connecthys doit pouvoir etre acceptee, refusee ou corrigee manuellement par un utilisateur autorise, y compris avec zero place libre ou capacite parametree depassee. Les controles de remplissage sont des avertissements, jamais des verrous de la decision humaine.
+
+- Le traitement automatique peut placer des reservations en attente suivant les capacites. Le traitement manuel explicite doit permettre de les confirmer hors capacite avec signalement et historique.
+- Une demande deja traitee reste corrigeable via la grille sans rejouer son action portail, sans doublonner ses consommations et sans annuler l'integrite durable de sa validation.
+- Les protections independantes de la capacite (droits, inscriptions, pointage, facturation verrouillee, anti-doublons, fermeture reelle, obligations reglementaires de l'accueil) demeurent. Le forcage informatique ne constitue pas une autorisation de depasser une limite legale.
+- La non-regression de ce pouvoir manuel est un critere bloquant de toute prochaine RC et doit etre couverte par des tests. **Ne plus rediscuter ce principe deja tranche par la direction.**
+
 ## Invariant obligatoire — non-régression entre `main`, `wx` et `qt` (10/10/2026)
 
 **Aucune modification ni synchronisation de branche ne doit perdre ou réintroduire un correctif, une fonctionnalité ou une protection déjà qualifiés sur une autre branche.**

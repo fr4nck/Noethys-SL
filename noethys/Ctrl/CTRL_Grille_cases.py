@@ -1211,7 +1211,7 @@ class CaseStandard(Case):
     def GetListeConso(self):
         return [self.conso,]
                         
-    def OnClick(self, TouchesRaccourciActives=True, saisieHeureDebut=None, saisieHeureFin=None, saisieQuantite=None, modeSilencieux=False, ForcerSuppr=False, etiquettes=None, badgeage_debut=None, badgeage_fin=None):
+    def OnClick(self, TouchesRaccourciActives=True, saisieHeureDebut=None, saisieHeureFin=None, saisieQuantite=None, modeSilencieux=False, ForcerSuppr=False, etiquettes=None, badgeage_debut=None, badgeage_fin=None, forcer_capacite=False):
         """ Lors d'un clic sur la case """
         if UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel("consommations_conso", "modifier", IDactivite=self.IDactivite) == False : return
         action = None
@@ -1534,7 +1534,7 @@ class CaseStandard(Case):
                 
                 # Vérifie qu'il y a de la place
                 if mode == "reservation":
-                    if self.grid.blocageSiComplet == True and self.HasPlaceDisponible() == False :
+                    if self.grid.blocageSiComplet == True and self.HasPlaceDisponible() == False and not forcer_capacite:
                         if modeSilencieux == True :
                             return False
                         dlg = wx.MessageDialog(None, _(u"Il n'y a plus de places disponibles.\n\nSouhaitez-vous quand méme saisir une consommation ?"), _(u"Complet !"), wx.YES_NO|wx.NO_DEFAULT|wx.CANCEL|wx.ICON_EXCLAMATION)
@@ -2106,7 +2106,7 @@ class CaseMultihoraires(Case):
             self.grid.Autogeneration(ligne=self.ligne, IDactivite=self.IDactivite, IDunite=self.IDunite)
         dlg.Destroy()
     
-    def SaisieBarre(self, heure_debut=None, heure_fin=None, modeSilencieux=False, TouchesRaccourciActives=True, etiquettes=None, badgeage_debut=None, badgeage_fin=None):
+    def SaisieBarre(self, heure_debut=None, heure_fin=None, modeSilencieux=False, TouchesRaccourciActives=True, etiquettes=None, badgeage_debut=None, badgeage_fin=None, forcer_capacite=False):
         """ création d'une barre + conso """        
         # Vérifie d'abord qu'il n'y a aucune incompatibilités entre unités
         incompatibilite = self.VerifieCompatibilitesUnites()
@@ -2128,7 +2128,7 @@ class CaseMultihoraires(Case):
             return
         
         # Vérifie qu'il y a de la place
-        if self.grid.blocageSiComplet == True and self.HasPlaceDisponible(heure_debut, heure_fin) == False :
+        if self.grid.blocageSiComplet == True and self.HasPlaceDisponible(heure_debut, heure_fin) == False and not forcer_capacite:
             if modeSilencieux == True : 
                 return False
             dlg = wx.MessageDialog(None, _(u"Il n'y a plus de places disponibles sur cette tranche horaire.\n\nSouhaitez-vous quand méme saisir une consommation ?"), _(u"Complet !"), wx.YES_NO|wx.NO_DEFAULT|wx.CANCEL|wx.ICON_EXCLAMATION)
@@ -2663,7 +2663,7 @@ class CaseEvenement(Case):
             else :
                 self.Supprimer_evenement(evenement)
 
-    def Ajouter_evenement(self, evenement=None, modeSilencieux=False, TouchesRaccourciActives=True, etiquettes=None):
+    def Ajouter_evenement(self, evenement=None, modeSilencieux=False, TouchesRaccourciActives=True, etiquettes=None, forcer_capacite=False):
         """ création d'une conso """
         mode = self.grid.GetGrandParent().panel_grille.GetMode()
 
@@ -2681,7 +2681,7 @@ class CaseEvenement(Case):
 
         # Vérifie qu'il y a de la place
         if mode == "reservation":
-            if self.grid.blocageSiComplet == True and self.HasPlaceDisponible(evenement) == False:
+            if self.grid.blocageSiComplet == True and self.HasPlaceDisponible(evenement) == False and not forcer_capacite:
                 if modeSilencieux == True:
                     return False
                 dlg = wx.MessageDialog(None, _(u"Il n'y a plus de places disponibles sur cet évènement.\n\nSouhaitez-vous quand méme saisir une consommation ?"), _(u"Complet !"), wx.YES_NO | wx.NO_DEFAULT | wx.CANCEL | wx.ICON_EXCLAMATION)

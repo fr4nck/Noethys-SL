@@ -812,7 +812,9 @@ class Dialog(wx.Dialog):
         else :
             self.bouton_automatique.Enable(False)
         ##self.bouton_automatique.Enable(not self.radio_validation.GetValue())
-        self.bouton_manuel.Enable(not self.radio_validation.GetValue())
+        self.bouton_manuel.Enable(
+            not self.radio_validation.GetValue() or
+            getattr(self.track, "categorie", None) == "reservations")
 
         if self.radio_validation.GetValue() == True :
             self.panel_bandeau.SetBackgroundColour(wx.Colour(220, 255, 220))
@@ -1507,6 +1509,17 @@ class Dialog(wx.Dialog):
                     UTILS_Portail_reconciliation.NettoyerSiValidee(self.track.IDaction)
                 except Exception:
                     pass  # Nettoyage facultatif ; validation durable conservee.
+                if mode == "manuel":
+                    # Demande deja traitee : seule la grille est modifiable.
+                    # Ne jamais rejouer les actions du portail ni Commencer().
+                    with UTILS_Diagnostic_ui.mesurer(self, "reservations.correction_manuelle"):
+                        traitement = Traitement(parent=self, track=self.track, mode="manuel")
+                        resultat = traitement.Traiter()
+                    if resultat and resultat.get("etat") is True:
+                        self.track.EcritLog(_(u"Correction manuelle de la grille pour une demande déjà traitée."))
+                        self.ctrl_solde.MAJ(IDfamille=self.track.IDfamille)
+                        self.MAJ_informations()
+                        return True
             return False
 
         jeton = None
@@ -2316,7 +2329,7 @@ class Traitement():
         """ Sauvegarde de la grille des conso """
         return ctrl_grille.Sauvegarde()
 
-    def Appliquer_reservations(self, ctrl_grille=None, log_jumeau=None):
+    def Appliquer_reservations(self, ctrl_grille=None, log_jumeau=None, forcer_capacite=False):
         """ Appliquer la saisie ou suppression des réservations """
         # Récupération des paramètres
         IDactivite = int(self.dict_parametres["IDactivite"])
@@ -2355,7 +2368,8 @@ class Traitement():
             # Prévol strictement en lecture : aucune modification de grille
             # avant la détection des doublons et conflits entre actions.
             listeReservations, decisions_priorites = regles_reservations.planifier_sur_grille(
-                listeReservations, unites_reservations, ctrl_grille, IDactivite)
+                listeReservations, unites_reservations, ctrl_grille, IDactivite,
+                forcer_capacite=forcer_capacite)
             listeReservations, choix_redondants = regles_reservations.prepare(
                 listeReservations, unites_reservations)
             choix_redondants.extend(
@@ -2477,7 +2491,12 @@ class Traitement():
                                 for c in case_existante.GetListeConso()
                             )
                             if not appartenant:
-                                hasPlaces = False
+                                if forcer_capacite:
+                                    trace = _(u"Dérogation manuelle à la capacité Connecthys (unité %d, %s).") % (IDunite, UTILS_Dates.DateDDEnFr(date))
+                                    self.EcritLog(_(u"[AVERTISSEMENT] %s") % trace, log_jumeau)
+                                    ctrl_grille.grille.listeHistorique.append((self.track.IDindividu, date, IDunite, trace))
+                                else:
+                                    hasPlaces = False
 
                 repas_lie = regles_reservations.linked_meal(reservation, listeReservations) or (
                     reservation['role_portail'] == 'repas' and regles_reservations.context(reservation) in repas_deja_lies)
@@ -2494,6 +2513,9 @@ class Traitement():
                 else :
                     mode = "attente"
                     mode_label = _(u"attente")
+
+                # Le forcage est exclusif au traitement manuel explicite.
+                options_capacite = {"forcer_capacite": True} if forcer_capacite else {}
 
                 # Saisie les conso
                 for IDunite in liste_unites_conso :
@@ -2522,15 +2544,16 @@ class Traitement():
                                     else:
                                         resultat = ctrl_grille.SaisieConso(
                                             IDunite=IDunite, date=date, mode=mode,
-                                            etat=etat_cible, quantite=1)
+                                            etat=etat_cible, quantite=1,
+                                            **options_capacite)
                                 except regles_reservations.ArbitrageManuelRequis as erreur:
                                     resultat = str(erreur)
                             elif repas_lie:
                                 # L'état explicite évite de reconfirmer un repas déjà saisi
                                 # quand SaisieConso modifie une consommation existante.
-                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode, etat=mode)
+                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode, etat=mode, **options_capacite)
                             else:
-                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode)
+                                resultat = ctrl_grille.SaisieConso(IDunite=IDunite, date=date, mode=mode, **options_capacite)
                         else :
                             texte = _(u"Saisie de l'unité ID%d du %s en mode %s") % (IDunite, UTILS_Dates.DateDDEnFr(date), mode_label)
                             resultat = _(u"L'unité ID%d est inconnue. Vérifiez le paramétrage des unités de réservation." % IDunite)

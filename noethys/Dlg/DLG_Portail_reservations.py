@@ -57,6 +57,8 @@ class Dialog(wx.Dialog):
 
         # Bandeau
         intro = _(u"Vous pouvez gérer ici la demande de façon manuelle. Vous pouvez appliquer la demande ou ajuster directement la grille des consommations existantes. Cliquez sur OK pour confirmer votre traitement manuel.")
+        if getattr(track, "etat", None) in ("validation", "valide"):
+            intro = _(u"Demande déjà traitée : modifiez la grille directement, même si l'accueil est complet. La demande ne sera pas réappliquée. Cliquez sur OK pour enregistrer la correction.")
         titre = _(u"Traitement manuel des réservations")
         self.SetTitle(titre)
         self.ctrl_bandeau = CTRL_Bandeau.Bandeau(self, titre=titre, texte=intro, hauteurHtml=30, nomImage="Images/32x32/Calendrier_modifier.png")
@@ -87,6 +89,8 @@ class Dialog(wx.Dialog):
         self.ctrl_log.SetMinSize((100, 80))
         self.bouton_traiter = CTRL_Bouton_image.CTRL(self, texte=_(u"Appliquer la demande"), cheminImage="Images/32x32/Fleche_bas.png")
         self.bouton_reinit = CTRL_Bouton_image.CTRL(self, texte=_(u"Annuler les modifications"), cheminImage="Images/32x32/Actualiser.png")
+        if getattr(self.track, "etat", None) in ("validation", "valide"):
+            self.bouton_traiter.Enable(False)  # Pas de rejeu d'une demande finalisée.
 
         # Boutons
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
@@ -231,7 +235,11 @@ class Dialog(wx.Dialog):
         menuPop.Destroy()
 
     def OnBoutonTraiter(self, event):
-        self.reponse = self.parent.Appliquer_reservations(ctrl_grille=self.ctrl_grille, log_jumeau=self.ctrl_log)
+        if getattr(self.track, "etat", None) in ("validation", "valide"):
+            return  # La correction est manuelle, jamais un rejeu Connecthys.
+        self.reponse = self.parent.Appliquer_reservations(
+            ctrl_grille=self.ctrl_grille, log_jumeau=self.ctrl_log,
+            forcer_capacite=True)
 
     def OnBoutonReinit(self, event):
         self.parent.Init_grille(ctrl_grille=self.ctrl_grille)

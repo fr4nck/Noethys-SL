@@ -199,7 +199,7 @@ class CTRL(wx.Panel):
             return _(u"Cette case est inexistante.")
         return case.ouvert
 
-    def SaisieConso(self, IDunite=None, mode="reservation", etat="reservation", heure_debut="defaut", heure_fin="defaut", date=None, quantite=None, badgeage_debut=None, badgeage_fin=None, conso=None):
+    def SaisieConso(self, IDunite=None, mode="reservation", etat="reservation", heure_debut="defaut", heure_fin="defaut", date=None, quantite=None, badgeage_debut=None, badgeage_fin=None, conso=None, forcer_capacite=False):
         """ Crée ou modifie une conso pour l'unité indiquée """
         case = self.GetCase(IDunite, date)
         if case == None :
@@ -229,7 +229,7 @@ class CTRL(wx.Panel):
         hasPlaces = True
         if case.HasPlaceDisponible(*conditions) == False :
             hasPlaces = False
-            if mode == "reservation" and self.usage != "nomadhys":
+            if mode == "reservation" and self.usage != "nomadhys" and not forcer_capacite:
                 return _(u"Il n'y a plus de place le %s.") % UTILS_Dates.DateDDEnFr(date)
 
         # Vérifie la compatibilité avec les autres unités
@@ -250,15 +250,15 @@ class CTRL(wx.Panel):
             if quantite != None :
                 quantiteTmp = quantite
             if typeUnite == "Multihoraires" :
-                barre = case.SaisieBarre(UTILS_Dates.HeureStrEnTime(heure_debut), UTILS_Dates.HeureStrEnTime(heure_fin), badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin)
+                barre = case.SaisieBarre(UTILS_Dates.HeureStrEnTime(heure_debut), UTILS_Dates.HeureStrEnTime(heure_fin), badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin, forcer_capacite=forcer_capacite)
                 if mode == "reservation" :
                     case.ModifieEtat(barre.conso, etat)
             elif typeUnite == "Evenement" :
-                case.Ajouter_evenement(evenement=evenement)
+                case.Ajouter_evenement(evenement=evenement, forcer_capacite=forcer_capacite)
                 if mode == "reservation" :
                     case.ModifieEtat(evenement.conso, etat)
             else :
-                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, saisieQuantite=quantiteTmp, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin)
+                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, saisieQuantite=quantiteTmp, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin, forcer_capacite=forcer_capacite)
                 if mode == "reservation" :
                     case.ModifieEtat(None, etat)
 
@@ -268,7 +268,7 @@ class CTRL(wx.Panel):
             
             # Type Horaire
             if typeUnite == "Horaire" :
-                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin)
+                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin, forcer_capacite=forcer_capacite)
                 case.ModifieEtat(None, etat)
             else :
                 if heure_debut != None : case.heure_debut = heure_debut
@@ -283,7 +283,7 @@ class CTRL(wx.Panel):
                     if quantiteTmp == None :
                         quantiteTmp = 1
                     quantiteTmp += 1
-                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, saisieQuantite=quantiteTmp, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin)
+                case.OnClick(saisieHeureDebut=heure_debut, saisieHeureFin=heure_fin, saisieQuantite=quantiteTmp, modeSilencieux=True, badgeage_debut=badgeage_debut, badgeage_fin=badgeage_fin, forcer_capacite=forcer_capacite)
                 case.ModifieEtat(None, etat)
             
             if typeUnite == "Unitaire" :

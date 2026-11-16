@@ -258,7 +258,7 @@ def decision_quantite(case, IDinscription, etat_cible):
         'Quantite déjà en état %s : arbitrage nécessaire.' % etat)
 
 
-def planifier_sur_grille(reservations, unites, grille, IDactivite):
+def planifier_sur_grille(reservations, unites, grille, IDactivite, forcer_capacite=False):
     """Prévol lecture seule des demandes sur la grille de l'enfant.
 
     Aucune écriture : ambiguïtés, ancien pointage, rattachement inconnu
@@ -328,7 +328,7 @@ def planifier_sur_grille(reservations, unites, grille, IDactivite):
                 IDunite=IDunite, date=demande['date'])
             if place is None:
                 return None
-            if not place:
+            if not place and not forcer_capacite:
                 return False
         return True
 
