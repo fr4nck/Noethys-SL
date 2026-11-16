@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   executable-fictif:
+    # Le candidat RC11.1 execute deja cette meme recette sur son Setup.
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[candidate rc111]')
     name: Construire installer et ouvrir Noethys sur profil fictif
     runs-on: windows-latest
     timeout-minutes: 55

@@ -190,7 +190,15 @@ def valider_saisie(auto=True):
     stop=time.monotonic()+55
     while time.monotonic()<stop:
         noms=liste_fenetres(proc.pid)
-        if "[Recette]" in main.window_text():
+        # Le titre change avant la fin des controles d'ouverture : une
+        # modale Anomalies peut encore desactiver le menu de la fenetre.
+        # Dans cette fixture uniquement, refuser le correcteur (aucune
+        # correction des donnees), puis attendre un vrai menu disponible.
+        for titre, cls, handle, fenetre in noms:
+            if titre == "Anomalies":
+                capture(fenetre, "00_anomalies_fictives.png")
+                cliquer(fenetre, "Non")
+        if "[Recette]" in main.window_text() and main.is_enabled():
             fichier_ouvert=True
             break
         for titre,cls,handle,fenetre in noms:
