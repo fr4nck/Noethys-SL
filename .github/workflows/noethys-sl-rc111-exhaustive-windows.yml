@@ -1,0 +1,48 @@
+name: Noethys SL RC11.1 - suite exhaustive Windows source figee
+
+# Qualification uniquement, sans packaging, publication ni base reelle.
+# Le checkout reste epingle au candidat meme si wx recoit de la documentation.
+on:
+  push:
+    branches: [wx]
+    paths:
+      - '.github/workflows/noethys-sl-rc111-exhaustive-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exhaustive:
+    name: Suite exhaustive Windows du candidat RC11.1
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      SOURCE_SHA: '26ae56341e4182d573dafa53175131ba75bcb316'
+      PYTHONPATH: ${{ github.workspace }}\noethys;${{ github.workspace }}\tests;${{ github.workspace }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: '26ae56341e4182d573dafa53175131ba75bcb316'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Verifier la source et installer les dependances
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne $env:SOURCE_SHA) { throw 'SHA source incorrect' }
+          Get-Content requirements.txt |
+            Where-Object { $_.Trim() -ne 'pyttsx' } |
+            Set-Content requirements-noethys-sl-ci.txt -Encoding UTF8
+          python -m pip install -r requirements-noethys-sl-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Dependances source manquantes' }
+          python -m pip install pyttsx3 wxPython==4.2.5
+          if ($LASTEXITCODE -ne 0) { throw 'Dependances wx manquantes' }
+          Write-Host "SOURCE_SHA=$env:SOURCE_SHA"
+      - name: Suite exhaustive avec profils et bases de test
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Suite exhaustive RC11.1 en echec' }
