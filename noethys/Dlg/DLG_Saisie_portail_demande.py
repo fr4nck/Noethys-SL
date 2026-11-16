@@ -34,7 +34,6 @@ from Utils import UTILS_Parametres
 from Utils import UTILS_Portail_reservations as regles_reservations
 from Utils import UTILS_Portail_reconciliation
 from Utils import UTILS_Portail_situation
-from Utils import UTILS_Utilisateurs
 SYMBOLE = UTILS_Config.GetParametre("monnaie_symbole", u"€")
 
 
@@ -415,8 +414,6 @@ class Dialog(wx.Dialog):
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_automatique = CTRL_Bouton_image.CTRL(self, texte=_(u"Automatique"), cheminImage="Images/32x32/Magique.png")
         self.bouton_manuel = CTRL_Bouton_image.CTRL(self, texte=_(u"Manuel"), cheminImage="Images/32x32/Edition.png")
-        self.bouton_valider_complet = CTRL_Bouton_image.CTRL(self, texte=_(u"Valider même complet"), cheminImage="Images/32x32/Valider.png")
-        self.bouton_valider_complet.SetToolTip(wx.ToolTip(_(u"Valider directement les réservations demandées, même sans place libre, sans ouvrir la grille. Action réservée aux utilisateurs habilités.")))
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
         # La demande, la situation familiale et les options de traitement
@@ -427,7 +424,6 @@ class Dialog(wx.Dialog):
         controles_fixes = {
             self.panel_bandeau, self.ctrl_grille, self.bouton_aide,
             self.bouton_automatique, self.bouton_manuel,
-            self.bouton_valider_complet,
             self.bouton_fermer, self.scroll_contenu,
         }
         for controle in tuple(self.GetChildren()):
@@ -450,7 +446,6 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAutomatique, self.bouton_automatique)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonManuel, self.bouton_manuel)
-        self.Bind(wx.EVT_BUTTON, self.OnBoutonValiderComplet, self.bouton_valider_complet)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -727,12 +722,11 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(self.ctrl_grille, 1, wx.ALL | wx.EXPAND, 10)
 
         # Commandes
-        grid_sizer_commandes = wx.FlexGridSizer(rows=1, cols=6, vgap=10, hgap=10)
+        grid_sizer_commandes = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_commandes.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_commandes.Add((20, 20), 0, wx.EXPAND, 0)
         grid_sizer_commandes.Add(self.bouton_automatique, 0, 0, 0)
         grid_sizer_commandes.Add(self.bouton_manuel, 0, 0, 0)
-        grid_sizer_commandes.Add(self.bouton_valider_complet, 0, 0, 0)
         grid_sizer_commandes.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_commandes.AddGrowableCol(1)
         grid_sizer_base.Add(grid_sizer_commandes, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
@@ -821,9 +815,6 @@ class Dialog(wx.Dialog):
         self.bouton_manuel.Enable(
             not self.radio_validation.GetValue() or
             getattr(self.track, "categorie", None) == "reservations")
-        reservation = getattr(self.track, "categorie", None) == "reservations"
-        self.bouton_valider_complet.Show(reservation)
-        self.bouton_valider_complet.Enable(reservation)
 
         if self.radio_validation.GetValue() == True :
             self.panel_bandeau.SetBackgroundColour(wx.Colour(220, 255, 220))
@@ -1491,16 +1482,6 @@ class Dialog(wx.Dialog):
     def OnBoutonManuel(self, event):
         self.Traitement(mode="manuel")
 
-    def OnBoutonValiderComplet(self, event):
-        """Validation explicite dans Connecthys, sans navigation vers la grille."""
-        if getattr(self.track, "categorie", None) != "reservations":
-            return False
-        resultat = self.Traitement(mode="validation_forcee")
-        if resultat is not False and getattr(self.track, "etat", None) in ("validation", "valide"):
-            self.label_action.SetLabel(_(u"Réservations confirmées directement"))
-            self.panel_bandeau.Layout()
-        return resultat
-
     def AfficherProgressionReservations(self, reponse="", etape=None):
         """Rend immédiatement visible l'étape courante sans réentrer dans la boucle wx."""
         texte = reponse or ""
@@ -1518,19 +1499,6 @@ class Dialog(wx.Dialog):
 
     @_RefuserTraitementReentrant
     def Traitement(self, mode="automatique"):
-        if mode == "validation_forcee":
-            # Forcer la capacite ne dispense pas des droits de modification.
-            if getattr(self.track, "categorie", None) != "reservations":
-                return False
-            try:
-                params = Traitement(parent=self, track=self.track, mode=mode)
-                IDactivite = int(params.dict_parametres["IDactivite"])
-            except (KeyError, TypeError, ValueError):
-                return False
-            if not UTILS_Utilisateurs.VerificationDroitsUtilisateurActuel(
-                    "consommations_conso", "modifier", IDactivite=IDactivite):
-                self.track.EcritLog(_(u"[REFUS] Droits insuffisants pour valider des réservations hors capacité."))
-                return False
         if getattr(self, "_finalisation_en_attente", None) is not None:
             # Ne pas reexecuter la sauvegarde des consommations deja tentee.
             with UTILS_Diagnostic_ui.mesurer(self, "demande.enregistrement"):
@@ -1541,17 +1509,6 @@ class Dialog(wx.Dialog):
                     UTILS_Portail_reconciliation.NettoyerSiValidee(self.track.IDaction)
                 except Exception:
                     pass  # Nettoyage facultatif ; validation durable conservee.
-                if mode == "validation_forcee":
-                    # Demande deja traitee : confirmer les attentes existantes,
-                    # sans rejouer les choix Connecthys ni toucher aux annulations.
-                    with UTILS_Diagnostic_ui.mesurer(self, "reservations.validation_directe"):
-                        traitement = Traitement(parent=self, track=self.track, mode=mode)
-                        resultat = traitement.ConfirmerAttentesValidees()
-                    if resultat and resultat.get("etat") is True:
-                        self.ctrl_solde.MAJ(IDfamille=self.track.IDfamille)
-                        self.MAJ_informations()
-                        return True
-                    return False
                 if mode == "manuel":
                     # Demande deja traitee : seule la grille est modifiable.
                     # Ne jamais rejouer les actions du portail ni Commencer().
@@ -2136,60 +2093,6 @@ class Traitement():
                 self.EcritLog(_(u"Inscription de %s annulée.") % prenom)
                 return False
 
-    def ConfirmerAttentesValidees(self):
-        """Confirme dans Connecthys les attentes d'une demande deja traitee.
-
-        Pas de rejeu des reservations, suppressions ni creations : seuls les
-        etats 'attente' du bon enfant, de la bonne inscription et de la meme
-        demande passent a 'reservation'. Prevol complet avant toute mutation.
-        """
-        ctrl_grille = self.parent.ctrl_grille
-        IDactivite = int(self.dict_parametres["IDactivite"])
-        self.Init_grille(ctrl_grille=ctrl_grille)
-        DB = GestionDB.DB()
-        try:
-            req = ("""SELECT date, IDinscription, IDunite, etat
-                      FROM portail_reservations WHERE IDaction=%d
-                      ORDER BY date, IDunite;""" % self.track.IDaction)
-            if DB.ExecuterReq(req) is False:
-                self.EcritLog(_(u"[ERREUR] Lecture des réservations impossible."))
-                return {"etat": False}
-            donnees = DB.ResultatReq()
-        finally:
-            DB.Close()
-        reservations = [
-            {"date": UTILS_Dates.DateEngEnDateDD(date),
-             "IDinscription": inscription, "IDunite": unite, "etat": etat}
-            for date, inscription, unite, etat in donnees
-        ]
-        try:
-            confirmations = regles_reservations.preparer_confirmation_attentes(
-                reservations, self.parent.dictUnites, ctrl_grille, IDactivite)
-        except ValueError as erreur:
-            self.EcritLog(_(u"[ERREUR] %s") % erreur)
-            return {"etat": False}
-        if not confirmations:
-            self.EcritLog(_(u"Aucune réservation en attente à confirmer pour cette demande."))
-            return {"etat": False}
-        try:
-            for case, conso, IDunite, date in confirmations:
-                if not ctrl_grille.HasPlacesDisponibles(IDunite=IDunite, date=date):
-                    texte = _(u"Validation directe hors capacité Connecthys (unité %d, %s).") % (
-                        IDunite, UTILS_Dates.DateDDEnFr(date))
-                    self.EcritLog(_(u"[AVERTISSEMENT] %s") % texte)
-                    ctrl_grille.grille.listeHistorique.append(
-                        (self.track.IDindividu, date, IDunite, texte))
-                if case.ModifieEtat(conso, "reservation") is False:
-                    raise RuntimeError(_(u"Modification refusée par la gestion des consommations."))
-            if self.Save_grille(ctrl_grille) is False:
-                raise RuntimeError(_(u"Enregistrement de la grille refusé."))
-        except Exception as erreur:
-            self.EcritLog(_(u"[ERREUR] Confirmation directe non achevée : %s") % erreur)
-            return {"etat": False}
-        reponse = _(u"%d réservation(s) en attente confirmée(s) directement.") % len(confirmations)
-        self.EcritLog(reponse)
-        return {"etat": True, "reponse": reponse}
-
     def Traitement_reservations(self):
         if self.mode == "manuel" :
             from Dlg import DLG_Portail_reservations
@@ -2212,14 +2115,12 @@ class Traitement():
                 self.EcritLog(_(u"Traitement annulé par l'utilisateur"))
                 return {"etat" : False, "annule_avant_sauvegarde": True}
 
-        if self.mode in ("automatique", "validation_forcee") :
+        if self.mode == "automatique" :
             ctrl_grille = self.parent.ctrl_grille
             with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.initialisation_grille"):
                 self.Init_grille(ctrl_grille=ctrl_grille)
             with UTILS_Diagnostic_ui.mesurer(self.parent, "reservations.calcul"):
-                reponse = self.Appliquer_reservations(
-                    ctrl_grille=ctrl_grille,
-                    forcer_capacite=self.mode == "validation_forcee")
+                reponse = self.Appliquer_reservations(ctrl_grille=ctrl_grille)
             if reponse in (None, ""):
                 # Erreur de calcul : modifications possiblement partielles en
                 # memoire. Ne jamais sauvegarder cette grille incomplete.
@@ -2599,8 +2500,7 @@ class Traitement():
 
                 repas_lie = regles_reservations.linked_meal(reservation, listeReservations) or (
                     reservation['role_portail'] == 'repas' and regles_reservations.context(reservation) in repas_deja_lies)
-                if (repas_lie and not forcer_capacite and
-                        'attente' in regles_reservations.current_period_states(unites_reservations, ctrl_grille, reservation, IDactivite)):
+                if repas_lie and 'attente' in regles_reservations.current_period_states(unites_reservations, ctrl_grille, reservation, IDactivite):
                     hasPlaces = False
                 if repas_lie and regles_reservations.context(reservation) in accueils_en_attente:
                     hasPlaces = False

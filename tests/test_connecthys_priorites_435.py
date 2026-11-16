@@ -2,8 +2,7 @@
 """#435 : priorités entre réservations successives, sans DB réelle."""
 import unittest
 from Utils.UTILS_Portail_reservations import (planifier_priorites, planifier_sur_grille,
-                                               ArbitrageManuelRequis, decision_quantite,
-                                               preparer_confirmation_attentes)
+                                               ArbitrageManuelRequis, decision_quantite)
 
 UNITS = {1: {'role_portail': 'journee'}, 2: {'role_portail': 'matin'},
          3: {'role_portail': 'apres_midi'}, 4: {'role_portail': 'repas'}}
@@ -221,77 +220,6 @@ class DirectionCapaciteTests(unittest.TestCase):
     def test_sans_derogation_les_regles_automatiques_restant_actives(self):
         with self.assertRaises(ArbitrageManuelRequis):
             planifier_sur_grille(demands([1, 2, 3]), self.unites(), self.Grille(), 50)
-
-
-
-class ValidationDirecteConnecthysTests(unittest.TestCase):
-    """Validation en un clic : ne jamais imposer un detour par la grille."""
-
-    def construire(self, etat='attente', inscription=10, facture=None,
-                   verrouillage=0, quantite=1, ouvert=True, type_unite='Unitaire'):
-        from types import SimpleNamespace as NS
-        conso = NS(etat=etat, IDinscription=inscription,
-                   IDfacture=facture, verrouillage=verrouillage)
-        case = NS(
-            etat=etat, IDfacture=None, verrouillage=0, quantite=quantite,
-            GetListeConso=lambda: [conso])
-        grille = NS(grille=NS(dictUnites={101: {'type': type_unite}}),
-                    GetCase=lambda IDunite, date: case,
-                    IsOuvert=lambda **kw: ouvert,
-                    HasPlacesDisponibles=lambda **kw: False)
-        unites = {1: {'role_portail': 'normal', 'nom': 'Accueil',
-                      'IDactivite': 50, 'unites_principales': [101],
-                      'unites_secondaires': []}}
-        demande = {'IDreservation': 1, 'IDunite': 1,
-                   'IDinscription': 10, 'date': '2026-11-04', 'etat': 1}
-        return conso, case, grille, unites, demande
-
-    def tester(self, **options):
-        conso, case, grille, unites, demande = self.construire(**options)
-        resultat = preparer_confirmation_attentes(
-            [demande], unites, grille, 50)
-        return conso, case, resultat
-
-    def test_zero_place_reste_confirmable_sans_ouvrir_la_grille(self):
-        conso, case, resultat = self.tester()
-        self.assertEqual(len(resultat), 1)
-        self.assertIs(resultat[0][0], case)
-        self.assertIs(resultat[0][1], conso)
-        self.assertEqual(conso.etat, 'attente')  # prevol strictement lecture seule
-
-    def test_reservation_deja_confirmee_pas_de_rejeu(self):
-        _, _, resultat = self.tester(etat='reservation')
-        self.assertEqual(resultat, [])
-
-    def test_pointage_ne_devient_pas_confirmation(self):
-        _, _, resultat = self.tester(etat='present')
-        self.assertEqual(resultat, [])
-
-    def test_autre_inscription_ne_peut_etre_modifiee(self):
-        with self.assertRaises(ArbitrageManuelRequis):
-            self.tester(inscription=11)
-
-    def test_facturation_et_verrouillage_restent_proteges(self):
-        for options in ({'facture': 40}, {'verrouillage': 1}):
-            with self.subTest(**options):
-                with self.assertRaises(ArbitrageManuelRequis):
-                    self.tester(**options)
-
-    def test_une_unite_fermee_ne_peut_pas_etre_forcee(self):
-        with self.assertRaises(ArbitrageManuelRequis):
-            self.tester(ouvert=False)
-
-    def test_quantite_deux_ne_peut_pas_etre_ecrasee(self):
-        with self.assertRaises(ArbitrageManuelRequis):
-            self.tester(type_unite='Quantite', quantite=2)
-
-    def test_une_demande_repetee_ne_confirme_quune_fois(self):
-        conso, case, grille, unites, demande = self.construire()
-        seconde = dict(demande, IDreservation=2)
-        resultat = preparer_confirmation_attentes(
-            [demande, seconde], unites, grille, 50)
-        self.assertEqual(len(resultat), 1)
-
 
 
 if __name__ == "__main__":
