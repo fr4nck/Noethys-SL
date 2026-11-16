@@ -4,6 +4,15 @@ name: Noethys SL - AFAS V2 MySQL fictif
 # Serveur MySQL 5.7.44 local et jetable (archive officielle, empreinte épinglée),
 # base fictive zz_test_afas2_* créée puis supprimée par les tests.
 on:
+  push:
+    branches: [wx]
+    paths:
+      - 'noethys/Utils/UTILS_AFAS2_*.py'
+      - 'noethys/Dlg/DLG_AFAS2_Declarations.py'
+      - 'tests/afas2_base_fictive.py'
+      - 'tests/recette_afas2.py'
+      - 'tests/test_afas2_*.py'
+      - '.github/workflows/noethys-sl-afas2-mysql.yml'
   workflow_dispatch:
 permissions:
   contents: read
