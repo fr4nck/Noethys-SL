@@ -73,7 +73,8 @@ class RestoreRunnerTests(unittest.TestCase):
         self.assertEqual(retour['code_retour'], 0)
         self.assertEqual(len(appels), 1)
         self.assertEqual(appels[0][0], [str(self.base / 'mysql client'),
-             '--defaults-extra-file=' + str(self.login), 'zz_test_base'])
+             '--defaults-extra-file=' + str(self.login),
+             '--max-allowed-packet=1G', 'zz_test_base'])
 
     def test_echec_sans_stdout_est_bloquant_et_diagnostic_masque(self):
         retour, _ = self.lancer(FauxProcessus(code=19),
