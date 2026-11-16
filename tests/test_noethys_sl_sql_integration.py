@@ -67,28 +67,21 @@ class _FauxMySQL:
         self.suppressions_marqueur = 0
         self.connexions_ouvertes = 0
 
-    # --- client mysql (subprocess.Popen) ---
-    def popen(self, commande, **kwargs):
-        chemin = re.search(r'<\s*"([^"]+)"', commande).group(1)
-        sql = Path(chemin).read_text(encoding="utf-8", errors="ignore")
+    # --- import direct simule via le helper pur, jamais de shell ---
+    def importer(self, programme, login, fichier, base, **kwargs):
+        sql = Path(fichier).read_text(encoding="utf-8", errors="ignore")
         self.imports.append(sql)
         marqueur = re.search(r"-- NOETHYS-RESTORE-END-V1 ([0-9a-f]{32})", sql)
         tables = set(t.lower() for t in re.findall(r"CREATE TABLE `?([A-Za-z0-9_]+)`?", sql))
-        tables = set(t for t in tables if not t.startswith("__noethys_restore_"))
+        self.tables = set(t for t in tables if not t.startswith("__noethys_restore_"))
         if self.mode == "objet_manquant":
-            tables = set(sorted(tables)[1:])
-        self.tables = tables
+            self.tables = set(sorted(self.tables)[1:])
         if marqueur and self.mode != "marqueur_non_execute" and self.code_retour == 0:
             self.marqueur = marqueur.group(1)
-        etat = self
-
-        class Processus:
-            returncode = etat.code_retour
-
-            def communicate(self):
-                return b"", None
-
-        return Processus()
+        return {"code_retour": self.code_retour,
+                "erreur": ("client mysql a echoue (code %s)" % self.code_retour)
+                          if self.code_retour else None,
+                "diagnostic": ""}
 
     # --- GestionDB.DB ---
     def db(self, suffixe=None, nomFichier="", modeCreation=False):
@@ -138,10 +131,10 @@ class RestaurationManifesteTests(unittest.TestCase):
             PD_SMOOTH=0, PD_AUTO_HIDE=0, PD_APP_MODAL=0,
         )
 
-        def popen(*args, **kwargs):
+        def importer(*args, **kwargs):
             if processus_interdit:
                 raise AssertionError("mysql execute avant verification SQL")
-            return faux.popen(*args, **kwargs)
+            return faux.importer(*args, **kwargs)
 
         def db(*args, **kwargs):
             if base_interdite and kwargs.get("modeCreation"):
@@ -154,7 +147,7 @@ class RestaurationManifesteTests(unittest.TestCase):
             "zipfile": zipfile, "os": os, "shutil": shutil,
             "wx": wx, "_": lambda texte: texte,
             "six": types.SimpleNamespace(PY2=False),
-            "subprocess": types.SimpleNamespace(Popen=popen, PIPE=-1, STDOUT=-2),
+            "UTILS_MySQL_restore": types.SimpleNamespace(ImporterSQL=importer),
             "GestionDB": types.SimpleNamespace(DB=db),
             "UTILS_SQL_Integrite": _charger_manifeste(),
             "UTILS_Fichiers": types.SimpleNamespace(
