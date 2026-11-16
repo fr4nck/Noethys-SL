@@ -10,12 +10,16 @@ import datetime
 import os
 import unittest
 from unittest import mock
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from tests.test_noethys_sl_adhesions_concurrence import ConcurrenceMySQLTests
 from tests._fixtures_noethys_db import RedirectionGestionDB
 import GestionDB
 from Utils import UTILS_Adhesions as A
 from Utils import UTILS_Adhesions_echeances as E
+from Utils import UTILS_Factures_lot as L
+from Data import DATA_Tables as Tables
 
 D = datetime.date
 
@@ -101,6 +105,77 @@ class FacturationCotisationsMySQLTests(unittest.TestCase):
         self.assertEqual(compteur[1], {"pooling": False})
         self.assertEqual(premier.fermetures, 1)
         self.assertEqual(self._compter("SELECT COUNT(*) FROM cotisations;"), 0)
+
+
+    def _lot_mysql_preparer(self):
+        db = GestionDB.DB(nomFichier=self._nom(self.base), suffixe=None, pooling=False)
+        try:
+            self.assertEqual(db.echec, 0, getattr(db, "erreur", ""))
+            db.CreationTable("factures", dicoDB=Tables.DB_DATA)
+            for ident in (501, 502):
+                db.cursor.execute(
+                    "INSERT INTO prestations "
+                    "(IDprestation, IDcompte_payeur, categorie, montant) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (ident, 11, "consommation", 5.0))
+            db.Commit()
+        finally:
+            db.Close()
+
+    @staticmethod
+    def _facture_lot_mysql(prestations):
+        return {"IDcompte_payeur": 11,
+                "champs": [("IDprefixe", None), ("numero", None),
+                           ("IDcompte_payeur", 11), ("total", 5.0)],
+                "prestations": prestations}
+
+    def test_emission_mysql_rollback_si_prestation_manquante(self):
+        self._lot_mysql_preparer()
+        db = GestionDB.DB(nomFichier=self._nom(self.base), suffixe=None, pooling=False)
+        try:
+            with self.assertRaises(L.EmissionFacturesImpossible):
+                L.EnregistrerLot(db, [self._facture_lot_mysql([501, 999])])
+        finally:
+            db.Close()
+        self.assertEqual(self._compter("SELECT COUNT(*) FROM factures;"), 0)
+        self.assertEqual(self._compter(
+            "SELECT COUNT(*) FROM prestations WHERE IDfacture IS NOT NULL;"), 0)
+
+    def test_deux_connexions_mysql_numeros_uniques(self):
+        self._lot_mysql_preparer()
+        barriere = Barrier(2)
+        identite = self._nom(self.base)
+
+        def emettre(ident):
+            db = GestionDB.DB(nomFichier=identite, suffixe=None, pooling=False)
+            try:
+                if db.echec:
+                    raise RuntimeError("Connexion de recette indisponible")
+                barriere.wait(timeout=10)
+                ids = L.EnregistrerLot(db, [self._facture_lot_mysql([ident])])
+                return ids[0]
+            finally:
+                db.Close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a = pool.submit(emettre, 501)
+            b = pool.submit(emettre, 502)
+            self.assertNotEqual(a.result(timeout=30), b.result(timeout=30))
+        self.assertEqual(self._compter("SELECT COUNT(DISTINCT numero) FROM factures;"), 2)
+        self.assertEqual(self._compter("SELECT COUNT(*) FROM factures;"), 2)
+        self.assertEqual(self._compter(
+            "SELECT COUNT(*) FROM prestations WHERE IDfacture IS NOT NULL;"), 2)
+
+    def test_moteur_mysql_refuse_table_non_transactionnelle(self):
+        self._lot_mysql_preparer()
+        db = GestionDB.DB(nomFichier=self._nom(self.base), suffixe=None, pooling=False)
+        try:
+            db.cursor.execute("ALTER TABLE factures ENGINE=MyISAM;")
+            with self.assertRaisesRegex(L.EmissionFacturesImpossible, "InnoDB"):
+                L.EnregistrerLot(db, [self._facture_lot_mysql([501])])
+        finally:
+            db.Close()
+        self.assertEqual(self._compter("SELECT COUNT(*) FROM factures;"), 0)
 
 
 if __name__ == "__main__":
