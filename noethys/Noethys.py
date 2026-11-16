@@ -4664,6 +4664,10 @@ class Redirect(object):
             self.filename.write(text)
             self.filename.flush()
 
+    def flush(self):
+        if not self.filename.closed:
+            self.filename.flush()
+
 
 
 def main():
