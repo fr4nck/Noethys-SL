@@ -58,7 +58,8 @@ def ImporterSQL(programme, login, fichier, base, progression=None,
             raise ValueError("Nom de base SQL non pris en charge")
         if duree_max <= 0 or intervalle <= 0:
             raise ValueError("Delai d'import SQL non valide")
-        args = [os.fspath(programme), "--defaults-extra-file=%s" % os.fspath(login), str(base)]
+        args = [os.fspath(programme), "--defaults-extra-file=%s" % os.fspath(login),
+                "--max-allowed-packet=1G", str(base)]
         creation = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
         with open(fichier, "rb") as source, tempfile.TemporaryFile(mode="w+b") as erreurs:
             proc = subprocess.Popen(args, shell=False, stdin=source,
