@@ -258,6 +258,67 @@ def decision_quantite(case, IDinscription, etat_cible):
         'Quantite déjà en état %s : arbitrage nécessaire.' % etat)
 
 
+def preparer_confirmation_attentes(reservations, unites, grille, IDactivite):
+    """Prevol sans ecriture pour confirmer des attentes d'une demande deja traitee.
+
+    Seules les consommations existantes en etat 'attente' et rattachees a
+    l'inscription de cette demande sont candidates. Les confirmations deja
+    presentes ne sont pas rejouees ; aucune nouvelle consommation ni aucune
+    annulation n'est creee ici. Capacite saturee != protection de facturation.
+    Retourne des (case, conso, IDunite, date) sans modifier la grille.
+    """
+    confirmations = []
+    visites = set()
+    for demande in reservations:
+        if demande['etat'] != 1:
+            continue
+        unite = unites.get(demande['IDunite'])
+        if not unite or unite.get('IDactivite') != IDactivite:
+            raise ArbitrageManuelRequis(
+                'Unite Connecthys inconnue ou rattachee a une autre activite.')
+        physiques = (list(unite.get('unites_principales', ())) +
+                     list(unite.get('unites_secondaires', ())))
+        if not physiques:
+            raise ArbitrageManuelRequis('Reservation sans unite physique.')
+        for IDunite in physiques:
+            date = demande['date']
+            cle = (date, demande['IDinscription'], IDunite)
+            if cle in visites:
+                continue
+            visites.add(cle)
+            case = grille.GetCase(IDunite, date)
+            if case is None:
+                raise ArbitrageManuelRequis(
+                    'Case de reservation inexistante : correction manuelle necessaire.')
+            consos = [c for c in case.GetListeConso()
+                      if c is not None and getattr(c, 'etat', None) is not None]
+            attentes = [c for c in consos if c.etat == 'attente']
+            if not attentes:
+                continue  # Ne jamais rejouer une reservation deja confirmee.
+            if len(consos) != 1 or len(attentes) != 1:
+                raise ArbitrageManuelRequis(
+                    'Plusieurs consommations sur la case : correction manuelle necessaire.')
+            conso = attentes[0]
+            if getattr(conso, 'IDinscription', None) != demande['IDinscription']:
+                raise ArbitrageManuelRequis(
+                    'Attente liee a une autre inscription : modification interdite.')
+            if not grille.IsOuvert(IDunite=IDunite, date=date):
+                raise ArbitrageManuelRequis(
+                    'Unite fermee : confirmation directe interdite.')
+            if (getattr(case, 'IDfacture', None) is not None or
+                    getattr(case, 'verrouillage', 0) or
+                    getattr(conso, 'IDfacture', None) is not None or
+                    getattr(conso, 'verrouillage', 0)):
+                raise ArbitrageManuelRequis(
+                    'Consommation facturee ou verrouillee : correction manuelle necessaire.')
+            type_unite = getattr(grille.grille, 'dictUnites', {}).get(IDunite, {}).get('type')
+            if type_unite == 'Quantite' and getattr(case, 'quantite', None) != 1:
+                raise ArbitrageManuelRequis(
+                    'Quantite differente de 1 : correction manuelle necessaire.')
+            confirmations.append((case, conso, IDunite, date))
+    return confirmations
+
+
 def planifier_sur_grille(reservations, unites, grille, IDactivite, forcer_capacite=False):
     """Prévol lecture seule des demandes sur la grille de l'enfant.
 
