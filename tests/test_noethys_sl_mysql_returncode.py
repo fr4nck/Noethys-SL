@@ -79,18 +79,11 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             journal = []
             errors = []
 
-            class ProcessusFictif:
-                returncode = 23
-
-                def wait(self, timeout=None):
-                    return self.returncode
-
-                def poll(self):
-                    return self.returncode
-
-            def popen(arguments, **kwargs):
-                journal.append(arguments)
-                return ProcessusFictif()
+            def importer(programme, login, fichier, base, **kwargs):
+                journal.append((programme, login, fichier, base))
+                self.assertTrue(Path(fichier).is_file(), "Le SQL doit etre fourni sur stdin")
+                return {"code_retour": 19, "erreur": "mysql a echoue (code 19)",
+                        "diagnostic": ""}
 
             class Message(_Dialog):
                 def __init__(self, parent, message, *args, **kwargs):
@@ -178,7 +171,7 @@ class BackupMySQLReturncodeTests(unittest.TestCase):
             dep = {
                 "wx": wx, "_": lambda s: s, "os": os,
                 "shutil": shutil, "zipfile": zipfile,
-                "subprocess": types.SimpleNamespace(Popen=popen, PIPE=-1, STDOUT=-2),
+                "UTILS_MySQL_restore": types.SimpleNamespace(ImporterSQL=importer),
                 "six": types.SimpleNamespace(PY2=False, PY3=True),
                 "UTILS_Fichiers": types.SimpleNamespace(
                     GetRepTemp=lambda fichier: str(rep / fichier)
