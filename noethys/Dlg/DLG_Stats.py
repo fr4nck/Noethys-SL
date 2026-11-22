@@ -147,11 +147,15 @@ class MyHtml(html.HtmlWindow):
 
 
 class Dialog(wx.Dialog):
-    def __init__(self, parent):
+    def __init__(self, parent, q442_configuration=None, q442_sites=None):
         wx.Dialog.__init__(self, parent, -1, name="DLG_Stats", style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX)
         self.parent = parent
         self.couleurFond = wx.SystemSettings.GetColour(30)
 
+        # Q442 est inactif par defaut. Seul un appelant ayant qualifie
+        # explicitement sites, unites, groupes et tarifs peut l'activer.
+        self._q442_configuration = q442_configuration
+        self._q442_sites = q442_sites
         self.dictParametres = {}
 
 ####Liste d'objets ici
@@ -233,6 +237,11 @@ class Dialog(wx.Dialog):
 
             ]
 
+        if self._q442_configuration is not None:
+            from Utils import UTILS_Stats_qf_objets as Q442
+            Q442.preparer_pages(MODELES, self.listeObjets,
+                               configuration=self._q442_configuration,
+                               mode="presents")
 
         # Bandeau
         intro = _(u"Vous pouvez ici consulter des statistiques complètes sur les activités et la période de votre choix. Ces informations sont présentées sous forme de rubrique, de pages et d'items que vous pouvez choisir d'afficher ou non. Vous pouvez ensuite imprimer ces informations sous forme de rapport hierarchisé. Cliquez sur les graphes pour accéder aux outils spécifiques.")
@@ -266,6 +275,8 @@ class Dialog(wx.Dialog):
         self.bouton_imprimer = CTRL_Bouton_image.CTRL(self, texte=_(u"Imprimer"), cheminImage="Images/32x32/Imprimante.png")
         
         # Boutons
+        self.bouton_export_q442 = (wx.Button(self, -1, _(u"Exporter QF (Excel / CSV)"))
+                                 if self._q442_configuration is not None else None)
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
@@ -278,12 +289,17 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonImprimer, self.bouton_imprimer)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
+        if self.bouton_export_q442 is not None:
+            self.Bind(wx.EVT_BUTTON, self.OnBoutonExporterQ442, self.bouton_export_q442)
                 
 
     def __set_properties(self):
         self.ctrl_impression.SetMinSize((250, -1))
         self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
         self.bouton_imprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour imprimer")))
+        if self.bouton_export_q442 is not None:
+            self.bouton_export_q442.SetToolTip(wx.ToolTip(
+                _(u"Statistiques agregees sans noms : Excel ou ZIP de CSV par site")))
         self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer")))
         self.SetMinSize((950, 700))
 
@@ -338,9 +354,11 @@ class Dialog(wx.Dialog):
         grid_sizer_base.Add(grid_sizer_contenu, 1, wx.LEFT|wx.RIGHT|wx.EXPAND, 10)
         
         # Boutons
-        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
+        grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=5, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
+        if self.bouton_export_q442 is not None:
+            grid_sizer_boutons.Add(self.bouton_export_q442, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_boutons.AddGrowableCol(1)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
@@ -435,6 +453,85 @@ class Dialog(wx.Dialog):
         preview_window.SetSize(frame.GetSize())
         preview_window.Show(True)
 
+
+    def _AfficherErreurQ442(self, message):
+        dlg = wx.MessageDialog(self, message, _(u"Statistiques QF"),
+                               wx.OK | wx.ICON_EXCLAMATION)
+        try:
+            dlg.ShowModal()
+        finally:
+            dlg.Destroy()
+
+    def OnBoutonExporterQ442(self, event):
+        """Exporter des agregats QF et tarifs sans recalculer la facturation.
+
+        Aucune base n'est modifiee. Le mapping doit venir d'un appelant
+        explicitement qualifie ; les modes Inscrits sont exclus.
+        """
+        if getattr(self, '_q442_configuration', None) is None:
+            return
+        from Utils import UTILS_Stats_qf_objets as Q442
+        if not Q442.est_disponible(self.dictParametres):
+            self._AfficherErreurQ442(_(u"QF disponible uniquement en mode Presents "
+                                      u"avec les activites du perimetre valide."))
+            return
+
+        dlg = wx.FileDialog(
+            self, _(u"Exporter les statistiques QF agregees"),
+            defaultFile="statistiques_qf.xlsx",
+            wildcard="Classeur Excel (*.xlsx)|*.xlsx|Archive CSV par site (*.zip)|*.zip",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        try:
+            if dlg.ShowModal() != wx.ID_OK:
+                return
+            destination = dlg.GetPath()
+            extension = ".xlsx" if dlg.GetFilterIndex() == 0 else ".zip"
+        finally:
+            dlg.Destroy()
+        if not destination:
+            return
+
+        from pathlib import Path
+        import os
+        import tempfile
+        from GestionDB import DB
+        cible = Path(destination)
+        if cible.suffix.lower() != extension:
+            cible = cible.with_suffix(extension)
+        # L'ajustement d'extension peut contourner le prompt natif :
+        # confirmer explicitement tout remplacement du chemin final.
+        if cible.exists():
+            confirmation = wx.MessageDialog(
+                self, _(u"Remplacer le fichier deja present ?"),
+                _(u"Confirmation"), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING)
+            try:
+                if confirmation.ShowModal() != wx.ID_YES:
+                    return
+            finally:
+                confirmation.Destroy()
+
+        temporaire = None
+        try:
+            connexion = DB()
+            try:
+                donnees = Q442.obtenir_resultat(connexion, self.dictParametres)
+            finally:
+                connexion.Close()
+
+            descripteur, temporaire = tempfile.mkstemp(
+                prefix=".q442-", suffix=extension, dir=str(cible.parent))
+            os.close(descripteur)
+            if extension == ".xlsx":
+                Q442.export_xlsx_aggreges(donnees, temporaire)
+            else:
+                Q442.export_csv_lot_aggreges(donnees, temporaire)
+            os.replace(temporaire, str(cible))
+            temporaire = None
+        except Exception as erreur:
+            self._AfficherErreurQ442(_(u"Export QF non effectue : ") + str(erreur))
+        finally:
+            if temporaire is not None and os.path.exists(temporaire):
+                os.unlink(temporaire)
 
     def OnBoutonFermer(self, event): 
         self.EndModal(wx.ID_CANCEL)
@@ -664,6 +761,12 @@ class Dialog(wx.Dialog):
         dlg.SetParametres(self.dictParametres)
         if dlg.ShowModal() == wx.ID_OK:
             self.dictParametres = dlg.GetDictParametres()
+            if getattr(self, '_q442_configuration', None) is not None:
+                # Le dialogue de parametres historique ignore ces options.
+                # Les reinjecter sans les enregistrer dans les preferences.
+                self.dictParametres["q442_configuration"] = self._q442_configuration
+                self.dictParametres["q442_sites"] = self._q442_sites
+                self.dictParametres["q442_vue"] = "global"
             dlg.Destroy()
         else:
             dlg.Destroy()
