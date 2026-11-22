@@ -415,7 +415,17 @@ class Dialog(wx.Dialog):
         try:
             self.rapport = self.Calculer()
         except (ValueError, Calcul.ContexteInvalide) as erreur:
-            self.label_statut.SetLabel("Calcul impossible.")
+            anomalies_n1 = getattr(erreur, "anomalies_n1", None)
+            if anomalies_n1:
+                for anomalie in anomalies_n1:
+                    index = self.ctrl_anomalies.InsertItem(self.ctrl_anomalies.GetItemCount(), str(anomalie.get("date", "")))
+                    for colonne, champ in enumerate(("individu", "IDconso", "site", "unite", "nature", "consequence"), 1):
+                        valeur = anomalie.get(champ)
+                        self.ctrl_anomalies.SetItem(index, colonne, str(valeur if valeur is not None else ""))
+                    self.ctrl_anomalies.SetItem(index, 7, "oui" if anomalie.get("bloquante") else "non")
+                self.label_statut.SetLabel("Calcul N-1 impossible : %d anomalie(s) historiques ci-dessous." % len(anomalies_n1))
+            else:
+                self.label_statut.SetLabel("Calcul impossible.")
             self.Erreur(erreur)
             return None
         self.AfficherRapport(self.rapport)

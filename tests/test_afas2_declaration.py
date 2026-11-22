@@ -176,8 +176,11 @@ class PhasesTests(unittest.TestCase):
     def test_prevision_n1_bloquee_par_anomalies(self):
         source = source_peri([D(2025, 10, 6)], ouvertures_supp=[D(2026, 10, 5)])
         source.consos[0]["etat"] = "xyz"
-        with self.assertRaisesRegex(DECL.DeclarationImpossible, "anomalies bloquantes"):
+        with self.assertRaisesRegex(DECL.DeclarationImpossible, "anomalies bloquantes") as capture:
             executer(preset(), 2026, AFAS.PHASE_ACTUALISATION_SEPTEMBRE, source)
+        self.assertTrue(capture.exception.anomalies_n1)
+        self.assertTrue(any(a["bloquante"] for a in capture.exception.anomalies_n1))
+        self.assertTrue(any("xyz" in a["nature"] for a in capture.exception.anomalies_n1))
 
     def test_prevision_manuelle_controlee(self):
         valeurs = {"heures_realisees": "10,5", "heures_facturees": 0, "heures_realisees_aeeh": 1, "heures_facturees_aeeh": 0}
