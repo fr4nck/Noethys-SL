@@ -40,6 +40,7 @@ from Dlg import DLG_Stats_parametres
 from Utils import UTILS_Stats_modeles as MODELES
 from Utils import UTILS_Stats_individus as INDIVIDUS
 from Utils import UTILS_Stats_familles as FAMILLES
+from Utils import UTILS_Stats_assiduite_objets as ASSIDUITE
 
 
 
@@ -234,6 +235,9 @@ class Dialog(wx.Dialog):
             ]
 
 
+        # Attendance is a distinct rubric; no historical page is replaced.
+        ASSIDUITE.preparer_pages(MODELES, self.listeObjets)
+
         # Bandeau
         intro = _(u"Vous pouvez ici consulter des statistiques complètes sur les activités et la période de votre choix. Ces informations sont présentées sous forme de rubrique, de pages et d'items que vous pouvez choisir d'afficher ou non. Vous pouvez ensuite imprimer ces informations sous forme de rapport hierarchisé. Cliquez sur les graphes pour accéder aux outils spécifiques.")
         titre = _(u"Statistiques")
@@ -266,6 +270,7 @@ class Dialog(wx.Dialog):
         self.bouton_imprimer = CTRL_Bouton_image.CTRL(self, texte=_(u"Imprimer"), cheminImage="Images/32x32/Imprimante.png")
         
         # Boutons
+        self.bouton_export_assiduite = wx.Button(self, -1, _(u"Exporter la frequentation"))
         self.bouton_aide = CTRL_Bouton_image.CTRL(self, texte=_(u"Aide"), cheminImage="Images/32x32/Aide.png")
         self.bouton_fermer = CTRL_Bouton_image.CTRL(self, texte=_(u"Fermer"), cheminImage="Images/32x32/Fermer.png")
 
@@ -278,6 +283,7 @@ class Dialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnBoutonAide, self.bouton_aide)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonImprimer, self.bouton_imprimer)
         self.Bind(wx.EVT_BUTTON, self.OnBoutonFermer, self.bouton_fermer)
+        self.Bind(wx.EVT_BUTTON, self.OnBoutonExporterAssiduite, self.bouton_export_assiduite)
                 
 
     def __set_properties(self):
@@ -285,6 +291,7 @@ class Dialog(wx.Dialog):
         self.bouton_aide.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour obtenir de l'aide")))
         self.bouton_imprimer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour imprimer")))
         self.bouton_fermer.SetToolTip(wx.ToolTip(_(u"Cliquez ici pour fermer")))
+        self.bouton_export_assiduite.SetToolTip(wx.ToolTip(_(u"Exports anonymes : CSV, Excel ou ZIP par site")))
         self.SetMinSize((950, 700))
 
     def __do_layout(self):
@@ -341,6 +348,7 @@ class Dialog(wx.Dialog):
         grid_sizer_boutons = wx.FlexGridSizer(rows=1, cols=4, vgap=10, hgap=10)
         grid_sizer_boutons.Add(self.bouton_aide, 0, 0, 0)
         grid_sizer_boutons.Add((20, 20), 0, wx.EXPAND, 0)
+        grid_sizer_boutons.Add(self.bouton_export_assiduite, 0, 0, 0)
         grid_sizer_boutons.Add(self.bouton_fermer, 0, 0, 0)
         grid_sizer_boutons.AddGrowableCol(1)
         grid_sizer_base.Add(grid_sizer_boutons, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.EXPAND, 10)
@@ -351,6 +359,81 @@ class Dialog(wx.Dialog):
         grid_sizer_base.AddGrowableCol(0)
         self.Layout()
         self.CenterOnScreen() 
+
+    def OnBoutonExporterAssiduite(self, event):
+        """Save aggregate data atomically; never query a production identity."""
+        if not ASSIDUITE.est_disponible(self.dictParametres):
+            dlg = wx.MessageDialog(
+                self, _(u"Choisissez une periode et des activites en mode Presents."),
+                _(u"Statistiques de frequentation"), wx.OK | wx.ICON_EXCLAMATION)
+            try:
+                dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+            return
+        choix = wx.FileDialog(
+            self, _(u"Exporter la frequentation (donnees anonymes)"),
+            defaultFile="frequentation.csv",
+            wildcard="CSV agrege (*.csv)|*.csv|Classeur Excel (*.xlsx)|*.xlsx|Archive CSV par site (*.zip)|*.zip",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        try:
+            if choix.ShowModal() != wx.ID_OK:
+                return
+            chemin = choix.GetPath()
+            extension = (".csv", ".xlsx", ".zip")[choix.GetFilterIndex()]
+        finally:
+            choix.Destroy()
+        if not chemin:
+            return
+        from pathlib import Path
+        import os
+        import tempfile
+        from GestionDB import DB
+        from Utils import UTILS_Stats_assiduite_exports as EXPORTS
+
+        destination = Path(chemin)
+        if destination.suffix.lower() != extension:
+            destination = destination.with_suffix(extension)
+        # Modifying the suffix can bypass FileDialog's native overwrite prompt.
+        if destination.exists():
+            confirmer = wx.MessageDialog(
+                self, _(u"Remplacer le fichier de statistiques existant ?"),
+                _(u"Confirmation"), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING)
+            try:
+                if confirmer.ShowModal() != wx.ID_YES:
+                    return
+            finally:
+                confirmer.Destroy()
+
+        temporaire = None
+        try:
+            connexion = DB()
+            try:
+                donnees = ASSIDUITE.obtenir_resultat(connexion, self.dictParametres)
+            finally:
+                connexion.Close()
+            descripteur, temporaire = tempfile.mkstemp(
+                prefix=".assiduite-", suffix=extension, dir=str(destination.parent))
+            os.close(descripteur)
+            if extension == ".xlsx":
+                EXPORTS.export_xlsx(donnees, temporaire)
+            elif extension == ".zip":
+                EXPORTS.export_zip_csv(donnees, temporaire)
+            else:
+                EXPORTS.export_csv(donnees, temporaire)
+            os.replace(temporaire, str(destination))
+            temporaire = None
+        except Exception as erreur:
+            dlg = wx.MessageDialog(
+                self, _(u"Export non effectue : ") + str(erreur),
+                _(u"Statistiques de frequentation"), wx.OK | wx.ICON_ERROR)
+            try:
+                dlg.ShowModal()
+            finally:
+                dlg.Destroy()
+        finally:
+            if temporaire is not None and os.path.exists(temporaire):
+                os.unlink(temporaire)
 
     def OnBoutonAide(self, event):
         from Utils import UTILS_Aide
@@ -447,6 +530,7 @@ class Dialog(wx.Dialog):
         self.dictImages = {
             "individus" : {"img" : wx.Bitmap(Chemins.GetStaticPath('Images/16x16/Personnes.png'), wx.BITMAP_TYPE_PNG), "index" : None},
             "familles" : {"img" : wx.Bitmap(Chemins.GetStaticPath('Images/16x16/Famille.png'), wx.BITMAP_TYPE_PNG), "index" : None},
+            "assiduite" : {"img" : wx.Bitmap(Chemins.GetStaticPath('Images/16x16/Personnes.png'), wx.BITMAP_TYPE_PNG), "index" : None},
             }
         
         il = wx.ImageList(16, 16)
